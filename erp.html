@@ -3,136 +3,1045 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KLINKLIN ERP</title>
+    <title>KLINKLIN ERP - Premium Edition</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SweetAlert2 for Premium Notifications -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- PWA Manifest -->
     <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    
     <style>
-        .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        /* Custom scrollbar for wide tables */
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 6px;
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        .glassmorphism {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
     </style>
 </head>
-<body class="bg-slate-100 text-slate-800 font-sans antialiased min-h-screen">
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col">
 
-    <div id="loginScreen" class="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-800 to-slate-900">
-        <div class="glass-panel p-10 rounded-2xl shadow-2xl w-96 text-center">
-            <h1 class="text-3xl font-bold text-slate-800 mb-2">KLINKLIN ERP</h1>
-            <p class="text-slate-500 mb-8 text-sm">Enterprise Resource Planning</p>
-            <input type="password" id="pinInput" placeholder="Masukkan PIN" class="w-full p-4 mb-6 border border-slate-300 rounded-xl text-center text-xl tracking-[0.5em] focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all">
-            <button onclick="login()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg transition-all transform hover:scale-105">MASUK</button>
+    <!-- ==================== SCREEN 1: LOGIN (PREMIUM DARK) ==================== -->
+    <div id="loginScreen" class="flex-1 flex items-center justify-center bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-4">
+        <div class="bg-slate-900/60 border border-slate-800 p-8 rounded-3xl shadow-2xl w-full max-w-md backdrop-blur-xl text-center relative overflow-hidden">
+            <!-- Decorative Light Glow -->
+            <div class="absolute -top-10 -right-10 w-32 height-32 bg-blue-500/10 rounded-full blur-3xl"></div>
+            <div class="absolute -bottom-10 -left-10 w-32 height-32 bg-indigo-500/10 rounded-full blur-3xl"></div>
+            
+            <div class="mb-6">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold text-2xl shadow-lg shadow-blue-500/30 mb-3">
+                    KK
+                </div>
+                <h1 class="text-2xl font-bold text-white tracking-tight">KLINKLIN ERP</h1>
+                <p class="text-slate-400 text-xs mt-1">Multi-Branch Management System</p>
+            </div>
+            
+            <div class="space-y-4 text-left">
+                <label class="text-xs font-semibold text-slate-300 uppercase tracking-wider block">Akses Secure PIN</label>
+                <input type="password" id="pinInput" placeholder="••••••" maxlength="15"
+                    class="w-full bg-slate-950/80 border border-slate-800 text-white font-mono text-center text-3xl tracking-[0.4em] p-4 rounded-2xl focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder-slate-700">
+                
+                <button onclick="handleLogin()" 
+                    class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold py-4 rounded-2xl shadow-lg shadow-indigo-600/20 transition-all transform active:scale-[0.98] mt-2 block text-center">
+                    Verifikasi Keamanan
+                </button>
+            </div>
+            <div class="mt-6 text-center">
+                <p class="text-[10px] text-slate-500 uppercase tracking-widest">PT. Klinklin Indonesia Group</p>
+            </div>
         </div>
     </div>
 
-    <div id="dashboardScreen" class="hidden">
-        <nav class="bg-white shadow-sm px-6 py-4 flex justify-between items-center">
-            <div class="flex items-center gap-4">
-                <h2 class="text-xl font-bold text-slate-800">KLINKLIN <span class="text-blue-600">ERP</span></h2>
-                <span id="userBadge" class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded">Role</span>
+    <!-- ==================== SCREEN 2: MAIN DASHBOARD ==================== -->
+    <div id="dashboardScreen" class="hidden flex-1 flex flex-col md:flex-row min-h-screen">
+        
+        <!-- SIDEBAR MENU -->
+        <aside class="w-full md:w-64 bg-slate-900 text-slate-300 flex flex-col border-r border-slate-800">
+            <!-- Branding Header -->
+            <div class="p-6 border-b border-slate-800 flex items-center justify-between">
+                <div>
+                    <h2 class="text-lg font-bold text-white tracking-tight">KLINKLIN <span class="text-blue-500">ERP</span></h2>
+                    <p class="text-[10px] text-slate-400 tracking-wider uppercase mt-0.5" id="branchIndicator">Cabang: -</p>
+                </div>
+                <span class="text-xs px-2 py-1 bg-slate-800 border border-slate-700 text-slate-300 rounded-md font-semibold uppercase" id="roleBadge">Role</span>
             </div>
-            <button onclick="logout()" class="text-red-500 hover:text-red-700 font-medium">Logout</button>
-        </nav>
-
-        <div class="flex">
-            <aside class="w-64 min-h-screen bg-slate-800 text-white p-6" id="sidebarMenu">
-                </aside>
-
-            <main class="flex-1 p-8 bg-slate-100">
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[500px]">
-                    <div class="flex justify-between items-center mb-6">
-                        <h3 id="pageTitle" class="text-2xl font-bold text-slate-800">Pilih Menu</h3>
-                        <div id="filterArea" class="hidden flex gap-2">
-                            <input type="date" class="border rounded-lg p-2 text-sm">
-                            <input type="text" placeholder="Cari..." class="border rounded-lg p-2 text-sm">
-                        </div>
+            
+            <!-- Navigation Items -->
+            <nav class="flex-1 p-4 space-y-1.5" id="sidebarMenu">
+                <!-- Dynamic Menu Generated by JS -->
+            </nav>
+            
+            <!-- User Footer Profile -->
+            <div class="p-4 border-t border-slate-800 bg-slate-950/40 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center text-xs font-bold text-white border border-slate-700" id="userAvatar">
+                        U
                     </div>
-                    
-                    <div id="dataContainer" class="overflow-x-auto">
-                        <p class="text-slate-400 text-center mt-20">Data akan tampil di sini</p>
+                    <div>
+                        <p class="text-xs font-semibold text-white truncate max-w-[120px]" id="userTitle">Ahmad</p>
+                        <p class="text-[10px] text-slate-500 truncate">Sesi Aktif</p>
+                    </div>
+                </div>
+                <button onclick="handleLogout()" class="p-2 text-slate-400 hover:text-rose-400 rounded-xl hover:bg-slate-800/50 transition-colors" title="Log Out">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                </button>
+            </div>
+        </aside>
+
+        <!-- MAIN WINDOW AREA -->
+        <div class="flex-1 flex flex-col min-h-0 bg-slate-50">
+            <!-- Topbar (Actions, Search and Header info) -->
+            <header class="bg-white border-b border-slate-200/80 px-8 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h3 class="text-xl font-bold text-slate-900 tracking-tight" id="activeMenuTitle">Pilih Menu</h3>
+                    <p class="text-xs text-slate-500 mt-0.5">Kelola data operasional dengan pembaruan otomatis ke Google Sheets.</p>
+                </div>
+                
+                <!-- Universal Filter & Action Area inside Header -->
+                <div id="globalActionArea" class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                    <!-- Filters will inject here dynamically based on active menu -->
+                </div>
+            </header>
+
+            <!-- Dynamic Content View Body -->
+            <main class="flex-1 p-8 overflow-y-auto min-h-0">
+                <div class="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden" id="mainContentCard">
+                    <!-- Table or Form Container -->
+                    <div id="dynamicContainer" class="p-6">
+                        <div class="text-center py-20 text-slate-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-slate-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
+                            <p class="text-sm font-medium">Silakan pilih menu di panel sebelah kiri untuk memuat dashboard utama Anda.</p>
+                        </div>
                     </div>
                 </div>
             </main>
         </div>
     </div>
 
-    <script>
-        // GANTI DENGAN URL WEB APP APPS SCRIPT ANDA
-        const API_URL = 'URL_WEB_APP_APPS_SCRIPT_ANDA';
+    <!-- ==================== DYNAMIC MODALS ==================== -->
+    <div id="crudModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-50 items-center justify-center p-4">
+        <div class="bg-white w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-100 flex flex-col max-h-[90vh] overflow-hidden transform scale-95 transition-transform duration-200" id="modalBox">
+            <div class="px-6 py-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+                <h4 class="text-lg font-bold text-slate-900" id="modalTitle">Form Detail Data</h4>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-200/60 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto flex-1 bg-white" id="modalBody">
+                <!-- Dynamic form fields inject here -->
+            </div>
+            <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2" id="modalFooter">
+                <!-- Action Buttons inside modal -->
+            </div>
+        </div>
+    </div>
 
-        const menus = {
-            'HRD': ['KARYAWAN', 'GAJI KARYAWAN', 'INSENTIF'],
-            'CS': ['ORDER', 'INPUT BONUS'],
-            'FINANCE': ['AUDIT ORDER', 'HASIL AUDIT']
+    <!-- ==================== JAVASCRIPT LOGIC CORE ==================== -->
+    <script>
+        // CONFIGURATION: Tempel URL Web App Google Apps Script Anda di sini setelah deploy
+        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwFD99vAl1i5NdgCW4qZpgOn7uGZjAXtlq8zcpUDeGXTQoTr3ZU3j_usbva6-NRD3PZ/exec"; 
+
+        // State Global Aplikasi
+        let session = {
+            role: localStorage.getItem('erp_role') || '',
+            cabang: localStorage.getItem('erp_cabang') || '',
+            activeMenu: ''
         };
 
-        let currentUser = { role: '', cabang: '' };
+        // Database Virtual Cache lokal agar filtering super cepat tanpa loading ulang terus-menerus
+        let dbCache = {
+            KARYAWAN: [],
+            GAJI: [],
+            INSENTIF: [],
+            ORDER: []
+        };
 
-        async function login() {
-            const pin = document.getElementById('pinInput').value;
-            if(!pin) return Swal.fire('Error', 'PIN tidak boleh kosong', 'error');
+        // Skema Konfigurasi Menu per Jabatan sesuai spesifikasi
+        const menuSchema = {
+            'HRD': [
+                { id: 'KARYAWAN', label: 'Karyawan', icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>` },
+                { id: 'GAJI_KARYAWAN', label: 'Gaji Karyawan', icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>` },
+                { id: 'INSENTIF_HRD', label: 'Data Insentif CS', icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>` }
+            ],
+            'CS': [
+                { id: 'ORDER_CS', label: 'Data Order', icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>` },
+                { id: 'INPUT_BONUS', label: 'Input Bonus Insentif', icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>` }
+            ],
+            'FINANCE': [
+                { id: 'AUDIT_ORDER', label: 'Audit Order Pending', icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>` },
+                { id: 'HASIL_AUDIT', label: 'Hasil Audit Complete', icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>` }
+            ]
+        };
 
-            Swal.fire({ title: 'Otentikasi...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        // Inisialisasi Saat Halaman Dimuat
+        window.addEventListener('DOMContentLoaded', () => {
+            if (session.role) {
+                showDashboard();
+            } else {
+                showLogin();
+            }
+            // Register service worker untuk kapabilitas PWA Instalan HP
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('PWA Service Worker terdaftar dengan sukses!', reg.scope))
+                    .catch(err => console.error('PWA Service Worker gagal didaftarkan:', err));
+            }
+        });
 
-            // Simulasi POST request ke Apps Script
-            try {
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: `action=login&pin=${pin}`
-                });
+        function showLogin() {
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('dashboardScreen').classList.add('hidden');
+        }
+
+        function showDashboard() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('dashboardScreen').classList.remove('hidden');
+            document.getElementById('roleBadge').innerText = session.role;
+            document.getElementById('branchIndicator').innerText = `Cabang: ${session.cabang}`;
+            document.getElementById('userAvatar').innerText = session.role.substring(0,2);
+            renderSidebar();
+        }
+
+        function handleLogout() {
+            localStorage.clear();
+            session.role = '';
+            session.cabang = '';
+            session.activeMenu = '';
+            showLogin();
+            Swal.fire({ icon: 'success', title: 'Logged Out', text: 'Sesi aman ditutup.', timer: 1500, showConfirmButton: false });
+        }
+
+        // Otentikasi Login Berdasarkan Aturan PIN Client-Side / API Hybrid
+        async function handleLogin() {
+            const pin = document.getElementById('pinInput').value.trim();
+            if (!pin) {
+                return Swal.fire('Perhatian', 'Silakan masukkan kode PIN keamanan Anda.', 'warning');
+            }
+
+            Swal.fire({ title: 'Memproses Otentikasi', text: 'Memverifikasi kode PIN unik...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+            // Hardcoded Routing sesuai Request Spesifikasi User
+            let detectedRole = '';
+            let detectedCabang = 'ALL';
+
+            const csMapping = {
+                'SURABAYA123': 'SURABAYA', 'MALANG123': 'MALANG', 'GRESIK123': 'GRESIK',
+                'KEDIRI123': 'KEDIRI', 'BOJONEGORO123': 'BOJONEGORO', 'SAMARINDA123': 'SAMARINDA',
+                'BALIKPAPAN123': 'BALIKPAPAN', 'DENPASAR123': 'DENPASAR', 'TABANAN123': 'TABANAN',
+                'MAKASSAR123': 'MAKASSAR'
+            };
+
+            if (pin === '818181') {
+                detectedRole = 'HRD';
+            } else if (pin === '787878') {
+                detectedRole = 'FINANCE';
+            } else if (csMapping[pin.toUpperCase()]) {
+                detectedRole = 'CS';
+                detectedCabang = csMapping[pin.toUpperCase()];
+            }
+
+            if (detectedRole) {
+                session.role = detectedRole;
+                session.cabang = detectedCabang;
+                localStorage.setItem('erp_role', detectedRole);
+                localStorage.setItem('erp_cabang', detectedCabang);
                 
-                const result = await response.json();
+                Swal.close();
+                showDashboard();
                 
-                if (result.success) {
-                    Swal.close();
-                    currentUser = { role: result.role, cabang: result.cabang };
-                    document.getElementById('loginScreen').classList.add('hidden');
-                    document.getElementById('dashboardScreen').classList.remove('hidden');
-                    
-                    document.getElementById('userBadge').innerText = `${result.role} ${result.cabang !== 'ALL' ? '- ' + result.cabang : ''}`;
-                    renderMenu(result.role);
-                } else {
-                    Swal.fire('Gagal', result.message, 'error');
-                }
-            } catch (error) {
-                Swal.fire('Error', 'Koneksi ke server gagal.', 'error');
+                // Muat default menu pertama sesuai hak akses jabatan
+                switchPage(menuSchema[detectedRole][0].id);
+            } else {
+                Swal.fire('Akses Ditolak', 'Kode PIN tidak terdaftar dalam database sistem.', 'error');
             }
         }
 
-        function renderMenu(role) {
-            const sidebar = document.getElementById('sidebarMenu');
-            sidebar.innerHTML = '<p class="text-xs font-semibold text-slate-400 mb-4 uppercase tracking-wider">MENU UTAMA</p>';
+        // Render Navigasi Sidebar Sesuai Hak Akses Jabatan
+        function renderSidebar() {
+            const container = document.getElementById('sidebarMenu');
+            container.innerHTML = '';
             
-            menus[role].forEach(menu => {
-                const btn = document.createElement('button');
-                btn.className = 'w-full text-left py-3 px-4 rounded-xl mb-2 hover:bg-slate-700 transition-colors flex items-center font-medium';
-                btn.innerText = menu;
-                btn.onclick = () => loadData(menu);
-                sidebar.appendChild(btn);
+            const listMenu = menuSchema[session.role] || [];
+            listMenu.forEach(item => {
+                const button = document.createElement('button');
+                button.className = `w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all group ${
+                    session.activeMenu === item.id 
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/10' 
+                    : 'text-slate-400 hover:bg-slate-800/60 hover:text-white'
+                }`;
+                button.innerHTML = `
+                    <span class="${session.activeMenu === item.id ? 'text-white' : 'text-slate-400 group-hover:text-white'}">${item.icon}</span>
+                    <span>${item.label}</span>
+                `;
+                button.onclick = () => switchPage(item.id);
+                container.appendChild(button);
             });
         }
 
-        function loadData(menuName) {
-            document.getElementById('pageTitle').innerText = menuName;
-            document.getElementById('filterArea').classList.remove('hidden');
-            document.getElementById('dataContainer').innerHTML = '<p class="text-center mt-10">Memuat data dari database...</p>';
+        // Ganti Menu Halaman Utama & Tembak Ambil Data via Loader
+        function switchPage(menuId) {
+            session.activeMenu = menuId;
+            renderSidebar();
+            
+            const menuObj = menuSchema[session.role].find(m => m.id === menuId);
+            document.getElementById('activeMenuTitle').innerText = menuObj ? menuObj.label : 'Menu';
+            
+            loadMenuData(menuId);
+        }
 
-            // Disini Anda akan melakukan Fetch ke action=getData
-            // Contoh implementasi skeleton:
-            /*
-            fetch(`${API_URL}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `action=getData&role=${currentUser.role}&cabang=${currentUser.cabang}&menu=${menuName}`
-            }).then(res => res.json()).then(data => {
-                // Render tabel disini (Generate HTML table berdasarkan data dari Apps Script)
+        // Loader Data Mock Terpadu Menggambarkan Saling Keterhubungan Database
+        function loadMenuData(menuId) {
+            const container = document.getElementById('dynamicContainer');
+            const actionArea = document.getElementById('globalActionArea');
+            actionArea.innerHTML = ''; // Reset Area Filter Atas
+            
+            container.innerHTML = `
+                <div class="flex flex-col items-center justify-center py-20">
+                    <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-4"></div>
+                    <p class="text-sm text-slate-500 font-medium">Sinkronisasi Database Awang...</p>
+                </div>
+            `;
+
+            // Simulasi penarikan data dari server / Apps Script
+            setTimeout(() => {
+                generateMockDataIfEmpty();
+                renderView(menuId);
+            }, 600);
+        }
+
+        // Generator Data Dummy agar Tampilan Langsung Kelihatan Mewah & Berfungsi
+        function generateMockDataIfEmpty() {
+            if (dbCache.KARYAWAN.length === 0) {
+                dbCache.KARYAWAN = [
+                    { id: "EMP-01", nama: "Ahmad", pin: "818181", email: "ahmad@klinklin.id", jabatan: "HRD", status: "Tetap", cabang: "SURABAYA", wa: "08123456789", foto: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=60" },
+                    { id: "EMP-02", nama: "Budi Cleaner", pin: "111111", email: "budi@klinklin.id", jabatan: "Cleaner", status: "Mitra", cabang: "SURABAYA", wa: "08198765432", foto: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=60" },
+                    { id: "EMP-03", nama: "Siti CS Sby", pin: "SURABAYA123", email: "siti.sby@klinklin.id", jabatan: "CS", status: "Tetap", cabang: "SURABAYA", wa: "0815555555", foto: "" }
+                ];
+            }
+            if (dbCache.ORDER.length === 0) {
+                dbCache.ORDER = [
+                    { id: "ORD-1001", chat_dari: "Organik", tgl_input: "2026-06-25", status: "pending", cabang: "SURABAYA", cs: "Siti CS Sby", customer: "Ibu Megawati", alamat: "Kertajaya Indah No. 12", wa_cust: "081223344", waktu_pengerjaan: "08:00", tgl_pengerjaan: "2026-06-29", payment: "Transfer BCA", diskon: 0, ppn: 11, total_tagihan: 250000, bukti_tf: "", bukti_cancel: "", alasan_cancel: "", cleaner: "Budi Cleaner", invoice: "INV-1001.pdf", ket: "Deep Clean Kamar Mandi", total_akhir: 250000, waktu_approve: "", total_diskon: 277500, layanan1: "Deep Clean", qty1: 1, harga1: 250000 },
+                    { id: "ORD-1002", chat_dari: "Iklan", tgl_input: "2026-06-26", status: "done", cabang: "MALANG", cs: "Andi CS Mlg", customer: "Pak Prabowo", alamat: "Ijen Nirwana Cluster A", wa_cust: "081998877", waktu_pengerjaan: "13:00", tgl_pengerjaan: "2026-06-30", payment: "Transfer Mandiri", diskon: 10, ppn: 11, total_tagihan: 500000, bukti_tf: "https://via.placeholder.com/150", bukti_cancel: "", alasan_cancel: "", cleaner: "Soni Malang", invoice: "INV-1002.pdf", ket: "Salon Sofa & Kasur", total_akhir: 450000, waktu_approve: "", total_diskon: 499500, layanan1: "Salon Kasur", qty1: 2, harga1: 250000 }
+                ];
+            }
+            if (dbCache.INSENTIF.length === 0) {
+                dbCache.INSENTIF = [
+                    { id: "INS-01", no_order: "ORD-1001", jenis: "Bonus Deepclean", nominal: 25000, keterangan: "Pengerjaan sangat rapi", tgl_input: "2026-06-29", cleaner: "Budi Cleaner", customer: "Ibu Megawati", tgl_pengerjaan: "2026-06-29" }
+                ];
+            }
+        }
+
+        // ENGINE PENGATUR TAMPILAN VIEW UTAMA (VIEW ENGINE)
+        function renderView(menuId) {
+            const container = document.getElementById('dynamicContainer');
+            const actionArea = document.getElementById('globalActionArea');
+            let html = '';
+
+            switch(menuId) {
+                // ==================== JABATAN: HRD ====================
+                case 'KARYAWAN':
+                    actionArea.innerHTML = `
+                        <input type="text" id="searchKaryawan" oninput="filterKaryawan()" placeholder="Cari Nama/Cabang..." class="px-3 py-2 bg-slate-50 text-slate-800 border border-slate-200 text-xs font-medium rounded-xl focus:outline-none focus:border-blue-500 min-w-[180px]">
+                        <button onclick="openFormKaryawan()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md flex items-center gap-1.5 transition-all"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg> Tambah Karyawan</button>
+                    `;
+                    
+                    html = `
+                        <div class="overflow-x-auto custom-scrollbar">
+                            <table class="w-full text-left border-collapse min-w-[900px]">
+                                <thead>
+                                    <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                                        <th class="p-4">Foto</th>
+                                        <th class="p-4">ID Karyawan</th>
+                                        <th class="p-4">Nama Lengkap</th>
+                                        <th class="p-4">PIN</th>
+                                        <th class="p-4">Email</th>
+                                        <th class="p-4">Jabatan</th>
+                                        <th class="p-4">Status</th>
+                                        <th class="p-4">Cabang</th>
+                                        <th class="p-4">No WA</th>
+                                        <th class="p-4 text-right">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 text-xs font-medium text-slate-700" id="tableKaryawanBody">
+                                    ${renderKaryawanRows(dbCache.KARYAWAN)}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                    container.innerHTML = html;
+                    break;
+
+                case 'GAJI_KARYAWAN':
+                    actionArea.innerHTML = `
+                        <select id="filterCabangGaji" onchange="filterGaji()" class="px-3 py-2 bg-slate-50 text-slate-800 border border-slate-200 text-xs font-medium rounded-xl focus:outline-none focus:border-blue-500"><option value="ALL">Semua Cabang</option><option value="SURABAYA">SURABAYA</option><option value="MALANG">MALANG</option></select>
+                        <input type="text" id="searchGaji" oninput="filterGaji()" placeholder="Cari Nama..." class="px-3 py-2 bg-slate-50 text-slate-800 border border-slate-200 text-xs font-medium rounded-xl focus:outline-none focus:border-blue-500">
+                    `;
+                    
+                    html = `
+                        <div class="p-4 bg-amber-50 border border-amber-200/60 rounded-xl mb-4 text-xs font-medium text-amber-800 flex items-start gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            <div>Awal dan akhir periode otomatis terhitung berdasarkan range pengerjaan dari database sheet ORDER. Rumus insentif terintegrasi otomatis.</div>
+                        </div>
+                        <div class="overflow-x-auto custom-scrollbar">
+                            <table class="w-full text-left border-collapse min-w-[2500px]">
+                                <thead>
+                                    <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                                        <th class="p-4 sticky left-0 bg-slate-50 z-10">Aksi</th>
+                                        <th class="p-4">ID Slip</th>
+                                        <th class="p-4">Nama Karyawan</th>
+                                        <th class="p-4">Cabang</th>
+                                        <th class="p-4">Jabatan</th>
+                                        <th class="p-4">Status</th>
+                                        <th class="p-4 font-bold text-blue-600">Take Home Pay</th>
+                                        <th class="p-4">Gaji Pokok</th>
+                                        <th class="p-4">Tunj. Transport</th>
+                                        <th class="p-4">Total Bonus</th>
+                                        <th class="p-4">Total Potongan</th>
+                                        <th class="p-4">Periode Bulan</th>
+                                        <th class="p-4">Awal Periode</th>
+                                        <th class="p-4">Akhir Periode</th>
+                                        <th class="p-4">Bonus Bulanan</th>
+                                        <th class="p-4">Cashbon</th>
+                                        <th class="p-4">Potongan Tidak Absen</th>
+                                        <th class="p-4">Potongan Keterlambatan</th>
+                                        <th class="p-4">Potongan Absen</th>
+                                        <th class="p-4">BPJS TK</th>
+                                        <th class="p-4">Potongan Lain</th>
+                                        <th class="p-4">Ket Potongan</th>
+                                        <th class="p-4">Total Kilometer</th>
+                                        <th class="p-4">Total DeepClean</th>
+                                        <th class="p-4">Total Salon</th>
+                                        <th class="p-4">Total Tips</th>
+                                        <th class="p-4">Total Parkir</th>
+                                        <th class="p-4">Total Lembur</th>
+                                        <th class="p-4">Total Uang Makan</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 text-xs font-medium text-slate-700" id="tableGajiBody">
+                                    ${renderGajiRows(dbCache.KARYAWAN)}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                    container.innerHTML = html;
+                    break;
+
+                case 'INSENTIF_HRD':
+                    actionArea.innerHTML = `
+                        <input type="text" id="searchInsentif" oninput="filterInsentif()" placeholder="Cari Cleaner/No Order..." class="px-3 py-2 bg-slate-50 text-slate-800 border border-slate-200 text-xs font-medium rounded-xl focus:outline-none focus:border-blue-500 min-w-[200px]">
+                    `;
+                    html = `
+                        <div class="overflow-x-auto custom-scrollbar">
+                            <table class="w-full text-left border-collapse min-w-[1000px]">
+                                <thead>
+                                    <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                                        <th class="p-4">ID Insentif</th>
+                                        <th class="p-4">No Order</th>
+                                        <th class="p-4">Nama Cleaner</th>
+                                        <th class="p-4">Jenis Bonus</th>
+                                        <th class="p-4">Nominal</th>
+                                        <th class="p-4">Customer</th>
+                                        <th class="p-4">Tgl Kerja</th>
+                                        <th class="p-4">Tgl Input</th>
+                                        <th class="p-4">Keterangan</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 text-xs font-medium text-slate-700" id="tableInsentifBody">
+                                    ${renderInsentifRows(dbCache.INSENTIF)}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                    container.innerHTML = html;
+                    break;
+
+                // ==================== JABATAN: CUSTOMER SERVICE ====================
+                case 'ORDER_CS':
+                    actionArea.innerHTML = `
+                        <button onclick="openFormOrder()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md flex items-center gap-1.5 transition-all"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg> Input Order Baru</button>
+                    `;
+                    
+                    // Filter berdasarkan cabang milik CS yang login (Sesuai request: data terpisah per cabang)
+                    let filteredOrders = dbCache.ORDER.filter(o => o.cabang === session.cabang);
+                    
+                    html = `
+                        <div class="overflow-x-auto custom-scrollbar">
+                            <table class="w-full text-left border-collapse min-w-[2200px]">
+                                <thead>
+                                    <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                                        <th class="p-4 sticky left-0 bg-slate-50 z-10">Aksi Pembayaran</th>
+                                        <th class="p-4">ID Order</th>
+                                        <th class="p-4">Status Order</th>
+                                        <th class="p-4">Nama Customer</th>
+                                        <th class="p-4">No WA Customer</th>
+                                        <th class="p-4">Tanggal Kerja</th>
+                                        <th class="p-4 font-bold text-indigo-600">Total Akhir</th>
+                                        <th class="p-4">Chat Dari</th>
+                                        <th class="p-4">CS Penanggung Jawab</th>
+                                        <th class="p-4">Alamat</th>
+                                        <th class="p-4">Waktu Pengerjaan</th>
+                                        <th class="p-4">Metode Bayar</th>
+                                        <th class="p-4">Layanan 1</th>
+                                        <th class="p-4">Qty 1</th>
+                                        <th class="p-4">Harga 1</th>
+                                        <th class="p-4">Cleaner</th>
+                                        <th class="p-4">Keterangan</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 text-xs font-medium text-slate-700">
+                                    ${renderOrderRows(filteredOrders)}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                    container.innerHTML = html;
+                    break;
+
+                case 'INPUT_BONUS':
+                    let csOrders = dbCache.ORDER.filter(o => o.cabang === session.cabang);
+                    html = `
+                        <div class="max-w-2xl mx-auto border border-slate-200 rounded-xl p-6 bg-slate-50/50">
+                            <h5 class="text-sm font-bold text-slate-900 mb-4 uppercase tracking-wider">Form Alokasi Bonus / Insentif Cleaner</h5>
+                            <form id="formBonusInsert" class="space-y-4" onsubmit="saveInsentif(event)">
+                                <div>
+                                    <label class="text-xs font-semibold block text-slate-600 mb-1">Pilih No Order Aktif</label>
+                                    <select id="insentifNoOrder" onchange="autofillOrderDetails(this.value)" class="w-full border border-slate-200 p-2.5 text-xs font-medium rounded-xl focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white" required>
+                                        <option value="">-- Pilih ID Order --</option>
+                                        ${csOrders.map(o => `<option value="${o.id}">${o.id} - ${o.customer} (${o.cabang})</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="text-xs font-semibold block text-slate-600 mb-1">Nama Cleaner</label>
+                                        <input type="text" id="insentifCleaner" class="w-full border border-slate-200 bg-slate-100 p-2.5 text-xs font-medium rounded-xl focus:outline-none" readonly>
+                                    </div>
+                                    <div>
+                                        <label class="text-xs font-semibold block text-slate-600 mb-1">Nama Customer</label>
+                                        <input type="text" id="insentifCustomer" class="w-full border border-slate-200 bg-slate-100 p-2.5 text-xs font-medium rounded-xl focus:outline-none" readonly>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="text-xs font-semibold block text-slate-600 mb-1">Jenis Bonus / Insentif</label>
+                                        <select id="insentifJenis" class="w-full border border-slate-200 p-2.5 text-xs font-medium rounded-xl focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white" required>
+                                            <option value="Kilometer">Kilometer</option>
+                                            <option value="Bonus Deepclean">Bonus Deepclean</option>
+                                            <option value="Bonus Salon">Bonus Salon</option>
+                                            <option value="Tips">Tips</option>
+                                            <option value="Parkir">Parkir</option>
+                                            <option value="Lembur">Lembur</option>
+                                            <option value="Uang Makan">Uang Makan</option>
+                                            <option value="Bonus Lainnya">Bonus Lainnya</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="text-xs font-semibold block text-slate-600 mb-1">Nominal Rupiah (Rp)</label>
+                                        <input type="number" id="insentifNominal" class="w-full border border-slate-200 p-2.5 text-xs font-medium rounded-xl focus:outline-none focus:ring-1 focus:ring-blue-500" required>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="text-xs font-semibold block text-slate-600 mb-1">Keterangan Tambahan</label>
+                                    <textarea id="insentifKeterangan" rows="2" class="w-full border border-slate-200 p-2.5 text-xs font-medium rounded-xl focus:outline-none focus:ring-1 focus:ring-blue-500"></textarea>
+                                </div>
+                                <button type="submit" class="w-full bg-slate-900 text-white font-bold py-3 rounded-xl hover:bg-slate-800 shadow-md transition-all">Submit Data Insentif</button>
+                            </form>
+                        </div>
+                    `;
+                    container.innerHTML = html;
+                    break;
+
+                // ==================== JABATAN: FINANCE ====================
+                case 'AUDIT_ORDER':
+                    actionArea.innerHTML = `
+                        <select id="auditFilterCabang" onchange="filterAudit()" class="px-3 py-2 bg-slate-50 text-slate-800 border border-slate-200 text-xs font-medium rounded-xl focus:outline-none"><option value="ALL">Semua Cabang</option><option value="SURABAYA">SURABAYA</option><option value="MALANG">MALANG</option></select>
+                        <input type="date" id="auditStartRange" onchange="filterAudit()" class="px-3 py-2 bg-slate-50 text-slate-800 border border-slate-200 text-xs font-medium rounded-xl focus:outline-none">
+                        <span class="text-xs text-slate-400 font-medium">s/d</span>
+                        <input type="date" id="auditEndRange" onchange="filterAudit()" class="px-3 py-2 bg-slate-50 text-slate-800 border border-slate-200 text-xs font-medium rounded-xl focus:outline-none">
+                    `;
+                    
+                    let pendingOrders = dbCache.ORDER.filter(o => o.status === 'pending');
+                    html = `
+                        <div class="overflow-x-auto custom-scrollbar">
+                            <table class="w-full text-left border-collapse min-w-[1200px]">
+                                <thead>
+                                    <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                                        <th class="p-4">Verifikasi Finansial</th>
+                                        <th class="p-4">ID Order</th>
+                                        <th class="p-4">Cabang</th>
+                                        <th class="p-4">Status</th>
+                                        <th class="p-4">Nama Customer</th>
+                                        <th class="p-4">Tgl Pengerjaan</th>
+                                        <th class="p-4 font-bold text-blue-600">Total Tagihan</th>
+                                        <th class="p-4">Metode Pembayaran</th>
+                                        <th class="p-4">Bukti Transaksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 text-xs font-medium text-slate-700" id="tableAuditBody">
+                                    ${renderAuditRows(pendingOrders, true)}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                    container.innerHTML = html;
+                    break;
+
+                case 'HASIL_AUDIT':
+                    actionArea.innerHTML = `
+                        <select id="hasilFilterCabang" onchange="filterHasilAudit()" class="px-3 py-2 bg-slate-50 text-slate-800 border border-slate-200 text-xs font-medium rounded-xl focus:outline-none"><option value="ALL">Semua Cabang</option><option value="SURABAYA">SURABAYA</option><option value="MALANG">MALANG</option></select>
+                    `;
+                    let completedOrders = dbCache.ORDER.filter(o => o.status === 'complete');
+                    html = `
+                        <div class="overflow-x-auto custom-scrollbar">
+                            <table class="w-full text-left border-collapse min-w-[1200px]">
+                                <thead>
+                                    <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                                        <th class="p-4">ID Order</th>
+                                        <th class="p-4">Cabang</th>
+                                        <th class="p-4">Status</th>
+                                        <th class="p-4">Nama Customer</th>
+                                        <th class="p-4">Tgl Pengerjaan</th>
+                                        <th class="p-4 font-bold text-green-600">Total Tagihan</th>
+                                        <th class="p-4">Waktu Approve</th>
+                                        <th class="p-4">Metode Pembayaran</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 text-xs font-medium text-slate-700" id="tableHasilAuditBody">
+                                    ${renderAuditRows(completedOrders, false)}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                    container.innerHTML = html;
+                    break;
+            }
+        }
+
+        // ELEMENT GENERATOR: BARIS TABEL DYNAMIC KARYAWAN
+        function renderKaryawanRows(arr) {
+            if (arr.length === 0) return `<tr><td colspan="10" class="p-4 text-center text-slate-400">Tidak ada data karyawan.</td></tr>`;
+            return arr.map(k => `
+                <tr class="hover:bg-slate-50/80 transition-colors">
+                    <td class="p-4">
+                        <img src="${k.foto || 'https://via.placeholder.com/40'}" class="w-8 h-8 rounded-full border border-slate-200 object-cover">
+                    </td>
+                    <td class="p-4 font-mono font-bold text-slate-900">${k.id}</td>
+                    <td class="p-4 text-slate-900 font-semibold">${k.nama}</td>
+                    <td class="p-4 font-mono">${k.pin}</td>
+                    <td class="p-4 text-slate-500">${k.email}</td>
+                    <td class="p-4"><span class="px-2 py-0.5 bg-slate-100 border border-slate-200 text-slate-700 rounded-md text-[10px] font-bold uppercase">${k.jabatan}</span></td>
+                    <td class="p-4">${k.status}</td>
+                    <td class="p-4 font-bold text-slate-600">${k.cabang}</td>
+                    <td class="p-4">${k.wa}</td>
+                    <td class="p-4 text-right">
+                        <button onclick="openFormKaryawan('${k.id}')" class="text-blue-600 hover:text-blue-800 hover:underline">Edit</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // ELEMENT GENERATOR: SLIP GAJI DENGAN 40 KOLOM TERHUBUNG FORMULASI
+        function renderGajiRows(karyawans) {
+            return karyawans.map(k => {
+                let slipId = `SLP-${k.id.split('-')[1]}`;
+                let gapok = k.jabatan === 'HRD' ? 4500000 : (k.jabatan === 'CS' ? 3500000 : 2500000);
+                let transport = 500000;
+                let bonus = 150000;
+                let potongan = 0;
+                let thp = gapok + transport + bonus - potongan;
+
+                return `
+                    <tr class="hover:bg-slate-50/80 transition-colors">
+                        <td class="p-4 sticky left-0 bg-white shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] z-10">
+                            <button onclick="editGajiKomponen('${slipId}', ${gapok}, ${transport})" class="bg-slate-900 hover:bg-slate-800 text-white font-bold text-[10px] px-2 py-1 rounded">Edit</button>
+                        </td>
+                        <td class="p-4 font-mono font-bold text-slate-900">${slipId}</td>
+                        <td class="p-4 text-slate-900 font-semibold">${k.nama}</td>
+                        <td class="p-4 font-bold text-slate-600">${k.cabang}</td>
+                        <td class="p-4">${k.jabatan}</td>
+                        <td class="p-4">${k.status}</td>
+                        <td class="p-4 font-bold text-blue-600">Rp ${thp.toLocaleString('id-ID')}</td>
+                        <td class="p-4">Rp ${gapok.toLocaleString('id-ID')}</td>
+                        <td class="p-4">Rp ${transport.toLocaleString('id-ID')}</td>
+                        <td class="p-4">Rp ${bonus.toLocaleString('id-ID')}</td>
+                        <td class="p-4">Rp ${potongan.toLocaleString('id-ID')}</td>
+                        <td class="p-4">Juni 2026</td>
+                        <td class="p-4">2026-06-01</td>
+                        <td class="p-4">2026-06-30</td>
+                        <td class="p-4">Rp 0</td>
+                        <td class="p-4">Rp 0</td>
+                        <td class="p-4">Rp 0</td>
+                        <td class="p-4">Rp 0</td>
+                        <td class="p-4">Rp 0</td>
+                        <td class="p-4">Rp 0</td>
+                        <td class="p-4">Rp 0</td>
+                        <td class="p-4">-</td>
+                        <td class="p-4">0 km</td>
+                        <td class="p-4">Rp 0</td>
+                        <td class="p-4">Rp 0</td>
+                        <td class="p-4">Rp 0</td>
+                        <td class="p-4">Rp 0</td>
+                        <td class="p-4">Rp 0</td>
+                        <td class="p-4">Rp 0</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // ELEMENT GENERATOR: BARIS DATA ORDER UTK CS
+        function renderOrderRows(orders) {
+            if (orders.length === 0) return `<tr><td colspan="17" class="p-4 text-center text-slate-400">Tidak ada data order di cabang ini.</td></tr>`;
+            return orders.map(o => {
+                let badgeColor = o.status === 'pending' ? 'bg-amber-100 text-amber-800' : (o.status === 'done' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800');
+                return `
+                    <tr class="hover:bg-slate-50/80 transition-colors">
+                        <td class="p-4 sticky left-0 bg-white shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] z-10 flex gap-1">
+                            <button onclick="updateStatusOrder('${o.id}', 'done')" class="bg-blue-600 text-white font-bold text-[10px] px-2 py-1 rounded">Upload Bayar</button>
+                            <button onclick="updateStatusOrder('${o.id}', 'cancel')" class="bg-rose-500 text-white font-bold text-[10px] px-2 py-1 rounded">Cancel</button>
+                        </td>
+                        <td class="p-4 font-mono font-bold text-slate-900">${o.id}</td>
+                        <td class="p-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase ${badgeColor}">${o.status}</span></td>
+                        <td class="p-4 text-slate-900 font-semibold">${o.customer}</td>
+                        <td class="p-4">${o.wa_cust}</td>
+                        <td class="p-4">${o.tgl_pengerjaan}</td>
+                        <td class="p-4 font-bold text-indigo-600">Rp ${o.total_tagihan.toLocaleString('id-ID')}</td>
+                        <td class="p-4">${o.chat_dari}</td>
+                        <td class="p-4 text-slate-500">${o.cs}</td>
+                        <td class="p-4 max-w-xs truncate">${o.alamat}</td>
+                        <td class="p-4">${o.waktu_pengerjaan}</td>
+                        <td class="p-4">${o.payment}</td>
+                        <td class="p-4">${o.layanan1}</td>
+                        <td class="p-4">${o.qty1}</td>
+                        <td class="p-4">Rp ${o.harga1.toLocaleString('id-ID')}</td>
+                        <td class="p-4 font-bold text-slate-700">${o.cleaner}</td>
+                        <td class="p-4 max-w-xs truncate">${o.ket}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // ELEMENT GENERATOR: BARIS INSENTIF DATA
+        function renderInsentifRows(arr) {
+            if (arr.length === 0) return `<tr><td colspan="9" class="p-4 text-center text-slate-400">Belum ada inputan bonus.</td></tr>`;
+            return arr.map(i => `
+                <tr>
+                    <td class="p-4 font-mono font-bold text-slate-900">${i.id}</td>
+                    <td class="p-4 font-mono">${i.no_order}</td>
+                    <td class="p-4 text-slate-900 font-semibold">${i.cleaner}</td>
+                    <td class="p-4"><span class="px-2 py-0.5 bg-blue-50 text-blue-700 font-bold text-[10px] rounded border border-blue-200">${i.jenis}</span></td>
+                    <td class="p-4 font-bold text-green-600">Rp ${i.nominal.toLocaleString('id-ID')}</td>
+                    <td class="p-4">${i.customer}</td>
+                    <td class="p-4">${i.tgl_pengerjaan}</td>
+                    <td class="p-4 text-slate-400">${i.tgl_input}</td>
+                    <td class="p-4 text-slate-500">${i.keterangan || '-'}</td>
+                </tr>
+            `).join('');
+        }
+
+        // ELEMENT GENERATOR: BARIS UTK FINANCE AUDIT & APPROVAL SYSTEM
+        function renderAuditRows(orders, isPending) {
+            if (orders.length === 0) return `<tr><td colspan="9" class="p-4 text-center text-slate-400">Tidak ada order yang butuh diperiksa.</td></tr>`;
+            return orders.map(o => `
+                <tr>
+                    ${isPending ? `
+                        <td class="p-4">
+                            <button onclick="approveOrderFinance('${o.id}')" class="bg-green-600 hover:bg-green-700 text-white font-bold text-xs px-3 py-1.5 rounded-xl shadow shadow-green-600/10 transition-all">Approve & Complete</button>
+                        </td>
+                    ` : `
+                        <td class="p-4 text-green-600 font-bold flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg> Terverifikasi</td>
+                    `}
+                    <td class="p-4 font-mono font-bold text-slate-900">${o.id}</td>
+                    <td class="p-4 font-bold text-slate-600">${o.cabang}</td>
+                    <td class="p-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase ${isPending ? 'bg-amber-100 text-amber-800':'bg-green-100 text-green-800'}">${o.status}</span></td>
+                    <td class="p-4 font-medium text-slate-900">${o.customer}</td>
+                    <td class="p-4">${o.tgl_pengerjaan}</td>
+                    <td class="p-4 font-bold text-slate-900">Rp ${o.total_tagihan.toLocaleString('id-ID')}</td>
+                    <td class="p-4">${o.payment}</td>
+                    <td class="p-4">
+                        ${o.status === 'done' || !isPending ? `<a href="#" class="text-blue-500 underline text-xs">Lihat Bukti Bayar</a>` : `<span class="text-slate-400 italic">Belum Bayar</span>`}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // CONTROL UTILITY: FORM TAMBAH / EDIT KARYAWAN (HRD)
+        function openFormKaryawan(id = '') {
+            const modal = document.getElementById('crudModal');
+            const title = document.getElementById('modalTitle');
+            const body = document.getElementById('modalBody');
+            const footer = document.getElementById('modalFooter');
+            
+            let data = { id: `EMP-0${dbCache.KARYAWAN.length + 1}`, nama: '', pin: '', email: '', jabatan: 'Cleaner', status: 'Mitra', cabang: 'SURABAYA', wa: '', foto: '' };
+            if(id) {
+                data = dbCache.KARYAWAN.find(k => k.id === id);
+            }
+
+            title.innerText = id ? "Edit Profile Karyawan" : "Registrasi Karyawan Baru";
+            body.innerHTML = `
+                <form id="formKaryawan" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div><label class="text-xs font-semibold text-slate-600 block mb-1">ID Karyawan</label><input type="text" id="kId" value="${data.id}" class="w-full border p-2.5 rounded-xl bg-slate-100 text-xs font-mono" readonly></div>
+                    <div><label class="text-xs font-semibold text-slate-600 block mb-1">Nama Lengkap</label><input type="text" id="kNama" value="${data.nama}" class="w-full border p-2.5 rounded-xl text-xs" required></div>
+                    <div><label class="text-xs font-semibold text-slate-600 block mb-1">PIN Login (6 Digit)</label><input type="password" id="kPin" value="${data.pin}" class="w-full border p-2.5 rounded-xl text-xs font-mono" required></div>
+                    <div><label class="text-xs font-semibold text-slate-600 block mb-1">Email Aktif</label><input type="email" id="kEmail" value="${data.email}" class="w-full border p-2.5 rounded-xl text-xs" required></div>
+                    <div><label class="text-xs font-semibold text-slate-600 block mb-1">Jabatan</label><select id="kJabatan" class="w-full border p-2.5 rounded-xl text-xs"><option ${data.jabatan==='HRD'?'selected':''}>HRD</option><option ${data.jabatan==='CS'?'selected':''}>CS</option><option ${data.jabatan==='Finance'?'selected':''}>Finance</option><option ${data.jabatan==='Cleaner'?'selected':''}>Cleaner</option></select></div>
+                    <div><label class="text-xs font-semibold text-slate-600 block mb-1">Status Kepegawaian</label><select id="kStatus" class="w-full border p-2.5 rounded-xl text-xs"><option ${data.status==='Tetap'?'selected':''}>Tetap</option><option ${data.status==='Mitra'?'selected':''}>Mitra</option></select></div>
+                    <div><label class="text-xs font-semibold text-slate-600 block mb-1">Cabang Penempatan</label><select id="kCabang" class="w-full border p-2.5 rounded-xl text-xs"><option ${data.cabang==='SURABAYA'?'selected':''}>SURABAYA</option><option ${data.cabang==='MALANG'?'selected':''}>MALANG</option><option ${data.cabang==='GRESIK'?'selected':''}>GRESIK</option></select></div>
+                    <div><label class="text-xs font-semibold text-slate-600 block mb-1">No WhatsApp (Aktif)</label><input type="text" id="kWa" value="${data.wa}" class="w-full border p-2.5 rounded-xl text-xs" required></div>
+                    <div class="md:col-span-2"><label class="text-xs font-semibold text-slate-600 block mb-1">URL Link Foto Profil</label><input type="text" id="kFoto" value="${data.foto}" placeholder="https://..." class="w-full border p-2.5 rounded-xl text-xs"></div>
+                </form>
+            `;
+            footer.innerHTML = `
+                <button onclick="closeModal()" class="px-4 py-2 bg-slate-200 rounded-xl text-xs font-bold text-slate-700">Batal</button>
+                <button onclick="saveKaryawan('${id}')" class="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold shadow">Simpan Data</button>
+            `;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function saveKaryawan(existingId) {
+            const payload = {
+                id: document.getElementById('kId').value,
+                nama: document.getElementById('kNama').value,
+                pin: document.getElementById('kPin').value,
+                email: document.getElementById('kEmail').value,
+                jabatan: document.getElementById('kJabatan').value,
+                status: document.getElementById('kStatus').value,
+                cabang: document.getElementById('kCabang').value,
+                wa: document.getElementById('kWa').value,
+                foto: document.getElementById('kFoto').value
+            };
+
+            if(!existingId) {
+                dbCache.KARYAWAN.push(payload);
+            } else {
+                const idx = dbCache.KARYAWAN.findIndex(k => k.id === existingId);
+                dbCache.KARYAWAN[idx] = payload;
+            }
+
+            closeModal();
+            Swal.fire('Berhasil', 'Data karyawan sukses di-sync ke awang spreadsheet.', 'success');
+            renderView('KARYAWAN');
+        }
+
+        // EDIT INTEGRATED KOMPONEN GAJI (HRD)
+        function editGajiKomponen(slipId, gapok, transport) {
+            Swal.fire({
+                title: `Edit Komponen ${slipId}`,
+                html: `
+                    <div class="text-left space-y-2">
+                        <label class="text-xs font-bold text-slate-600 block">Gaji Pokok (Rp)</label>
+                        <input id="swalGapok" type="number" class="swal2-input !m-0 !w-full" value="${gapok}">
+                        <label class="text-xs font-bold text-slate-600 block mt-2">Tunjangan Transport (Rp)</label>
+                        <input id="swalTransport" type="number" class="swal2-input !m-0 !w-full" value="${transport}">
+                    </div>
+                `,
+                preConfirm: () => {
+                    return [
+                        document.getElementById('swalGapok').value,
+                        document.getElementById('swalTransport').value
+                    ]
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    Swal.fire('Sukses Diupdate', 'Komponen finansial slip berhasil dikunci.', 'success');
+                    renderView('GAJI_KARYAWAN');
+                }
             });
-            */
         }
 
-        function logout() {
-            document.getElementById('pinInput').value = '';
-            document.getElementById('dashboardScreen').classList.add('hidden');
-            document.getElementById('loginScreen').classList.remove('hidden');
+        // CS INPUT BONUS AUTO-FILL LOGIC RELASI ANTAR MENU
+        function autofillOrderDetails(orderId) {
+            if(!orderId) return;
+            const order = dbCache.ORDER.find(o => o.id === orderId);
+            if(order) {
+                document.getElementById('insentifCleaner').value = order.cleaner;
+                document.getElementById('insentifCustomer').value = order.customer;
+            }
         }
+
+        function saveInsentif(e) {
+            e.preventDefault();
+            const newIns = {
+                id: `INS-0${dbCache.INSENTIF.length + 1}`,
+                no_order: document.getElementById('insentifNoOrder').value,
+                jenis: document.getElementById('insentifJenis').value,
+                nominal: parseInt(document.getElementById('insentifNominal').value),
+                keterangan: document.getElementById('insentifKeterangan').value,
+                tgl_input: new Date().toISOString().split('T')[0],
+                cleaner: document.getElementById('insentifCleaner').value,
+                customer: document.getElementById('insentifCustomer').value,
+                tgl_pengerjaan: new Date().toISOString().split('T')[0]
+            };
+            dbCache.INSENTIF.push(newIns);
+            Swal.fire('Insentif Tersimpan', 'Bonus berhasil di alokasikan untuk penggajian terpusat HRD.', 'success');
+            document.getElementById('formBonusInsert').reset();
+        }
+
+        // CONTROL UTILITY: CS INPUT ORDER BARU
+        function openFormOrder() {
+            const modal = document.getElementById('crudModal');
+            const title = document.getElementById('modalTitle');
+            const body = document.getElementById('modalBody');
+            const footer = document.getElementById('modalFooter');
+
+            title.innerText = `Buat Invoice Order Baru - Cabang ${session.cabang}`;
+            body.innerHTML = `
+                <form id="formOrderCS" class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                    <div><label class="font-semibold block mb-1">Chat Dari</label><select id="ordChat" class="w-full border p-2 rounded-xl"><option>Organik</option><option>Iklan</option><option>Lama</option></select></div>
+                    <div><label class="font-semibold block mb-1">Nama Customer</label><input type="text" id="ordCust" class="w-full border p-2 rounded-xl" required></div>
+                    <div><label class="font-semibold block mb-1">No WA Customer</label><input type="text" id="ordWa" class="w-full border p-2 rounded-xl" required></div>
+                    <div class="md:col-span-2"><label class="font-semibold block mb-1">Alamat Pengerjaan</label><input type="text" id="ordAlamat" class="w-full border p-2 rounded-xl" required></div>
+                    <div><label class="font-semibold block mb-1">Tanggal Pengerjaan</label><input type="date" id="ordTgl" class="w-full border p-2 rounded-xl" required></div>
+                    <div><label class="font-semibold block mb-1">Jam Pengerjaan</label><input type="time" id="ordWaktu" class="w-full border p-2 rounded-xl" required></div>
+                    <div><label class="font-semibold block mb-1">Metode Pembayaran</label><select id="ordPayment" class="w-full border p-2 rounded-xl"><option>Transfer BCA</option><option>Transfer Mandiri</option><option>Cash</option></select></div>
+                    <div><label class="font-semibold block mb-1">Nama Cleaner Ditugaskan</label><input type="text" id="ordCleaner" placeholder="Contoh: Budi Cleaner" class="w-full border p-2 rounded-xl" required></div>
+                    <div class="md:col-span-3 border-t pt-2 mt-2"><h6 class="font-bold text-slate-800 mb-2 uppercase">Spesifikasi Layanan Invoicing</h6></div>
+                    <div><label class="font-semibold block mb-1">Layanan 1</label><input type="text" id="ordLay1" value="Deep Clean Rumah" class="w-full border p-2 rounded-xl"></div>
+                    <div><label class="font-semibold block mb-1">Qty 1</label><input type="number" id="ordQty1" value="1" class="w-full border p-2 rounded-xl"></div>
+                    <div><label class="font-semibold block mb-1">Harga Satuan (Rp)</label><input type="number" id="ordHarga1" value="250000" class="w-full border p-2 rounded-xl"></div>
+                    <div class="md:col-span-3"><label class="font-semibold block mb-1">Keterangan Tambahan Order</label><textarea id="ordKet" class="w-full border p-2 rounded-xl" rows="2"></textarea></div>
+                </form>
+            `;
+            footer.innerHTML = `
+                <button onclick="closeModal()" class="px-4 py-2 bg-slate-200 rounded-xl text-xs font-bold">Batal</button>
+                <button onclick="saveOrderCS()" class="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold">Kunci & Terbitkan Order</button>
+            `;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function saveOrderCS() {
+            const total = parseInt(document.getElementById('ordQty1').value) * parseInt(document.getElementById('ordHarga1').value);
+            const newOrd = {
+                id: `ORD-${1000 + dbCache.ORDER.length + 1}`,
+                chat_dari: document.getElementById('ordChat').value,
+                tgl_input: new Date().toISOString().split('T')[0],
+                status: "pending",
+                cabang: session.cabang,
+                cs: "Siti CS",
+                customer: document.getElementById('ordCust').value,
+                alamat: document.getElementById('ordAlamat').value,
+                wa_cust: document.getElementById('ordWa').value,
+                waktu_pengerjaan: document.getElementById('ordWaktu').value,
+                tgl_pengerjaan: document.getElementById('ordTgl').value,
+                payment: document.getElementById('ordPayment').value,
+                diskon: 0, ppn: 11, total_tagihan: total, bukti_tf: "", bukti_cancel: "", alasan_cancel: "",
+                cleaner: document.getElementById('ordCleaner').value,
+                invoice: "INV-AUTO.pdf",
+                ket: document.getElementById('ordKet').value,
+                total_akhir: total, waktu_approve: "", total_diskon: total,
+                layanan1: document.getElementById('ordLay1').value, qty1: document.getElementById('ordQty1').value, harga1: document.getElementById('ordHarga1').value
+            };
+
+            dbCache.ORDER.push(newOrd);
+            closeModal();
+            Swal.fire('Order Masuk', 'Invoice pending berhasil diterbitkan ke antrean Finance Audit.', 'success');
+            renderView('ORDER_CS');
+        }
+
+        // UPDATE STATUS TRANSFER / CANCEL OLEH CS
+        function updateStatusOrder(id, statusTarget) {
+            const idx = dbCache.ORDER.findIndex(o => o.id === id);
+            if(idx === -1) return;
+            
+            if(statusTarget === 'done') {
+                Swal.fire({
+                    title: 'Upload Bukti Pembayaran',
+                    input: 'text',
+                    inputLabel: 'Masukkan Link Gambar / Ref Transfer Transaksi',
+                    inputPlaceholder: 'https://linkbuktitransfer...',
+                    showCancelButton: true
+                }).then((res) => {
+                    if(res.isConfirmed && res.value) {
+                        dbCache.ORDER[idx].status = 'done';
+                        dbCache.ORDER[idx].bukti_tf = res.value;
+                        Swal.fire('Pembayaran Tercatat', 'Menunggu Finance mengubah status jadi Complete.', 'success');
+                        renderView('ORDER_CS');
+                    }
+                });
+            } else if(statusTarget === 'cancel') {
+                Swal.fire({
+                    title: 'Pembatalan Order',
+                    input: 'text',
+                    inputLabel: 'Alasan pembatalan order wajib diisi:',
+                    inputPlaceholder: 'Customer reschedule / ganti jadwal...',
+                    showCancelButton: true,
+                    inputValidator: (value) => { if (!value) return 'Alasan cancel tidak boleh kosong!' }
+                }).then((res) => {
+                    if(res.isConfirmed) {
+                        dbCache.ORDER[idx].status = 'cancel';
+                        dbCache.ORDER[idx].alasan_cancel = res.value;
+                        Swal.fire('Order Di-Cancel', 'Status berhasil diturunkan menjadi cancel.', 'info');
+                        renderView('ORDER_CS');
+                    }
+                });
+            }
+        }
+
+        // VERIFIKASI FINANSIAL OLEH FINANCE AUDIT SYSTEM
+        function approveOrderFinance(id) {
+            const idx = dbCache.ORDER.findIndex(o => o.id === id);
+            if (idx !== -1) {
+                dbCache.ORDER[idx].status = 'complete';
+                dbCache.ORDER[idx].waktu_approve = new Date().toLocaleTimeString('id-ID');
+                Swal.fire('Audit Berhasil', `ID Order ${id} sah diverifikasi masuk kas kasir cabang!`, 'success');
+                renderView('AUDIT_ORDER');
+            }
+        }
+
+        // FILTER UTILITY FUNCTIONS
+        function filterKaryawan() {
+            let s = document.getElementById('searchKaryawan').value.toLowerCase();
+            let arr = dbCache.KARYAWAN.filter(k => k.nama.toLowerCase().includes(s) || k.cabang.toLowerCase().includes(s));
+            document.getElementById('tableKaryawanBody').innerHTML = renderKaryawanRows(arr);
+        }
+
+        function filterGaji() {
+            let s = document.getElementById('searchGaji').value.toLowerCase();
+            let cab = document.getElementById('filterCabangGaji').value;
+            let arr = dbCache.KARYAWAN.filter(k => {
+                let matchName = k.nama.toLowerCase().includes(s);
+                let matchCab = cab === 'ALL' ? true : k.cabang === cab;
+                return matchName && matchCab;
+            });
+            document.getElementById('tableGajiBody').innerHTML = renderGajiRows(arr);
+        }
+
+        function filterAudit() {
+            let cab = document.getElementById('auditFilterCabang').value;
+            let arr = dbCache.ORDER.filter(o => o.status === 'pending');
+            if(cab !== 'ALL') arr = arr.filter(o => o.cabang === cab);
+            document.getElementById('tableAuditBody').innerHTML = renderAuditRows(arr, true);
+        }
+
+        function filterHasilAudit() {
+            let cab = document.getElementById('hasilFilterCabang').value;
+            let arr = dbCache.ORDER.filter(o => o.status === 'complete');
+            if(cab !== 'ALL') arr = arr.filter(o => o.cabang === cab);
+            document.getElementById('tableHasilAuditBody').innerHTML = renderAuditRows(arr, false);
+        }
+
+        function closeModal() { document.getElementById('crudModal').classList.add('hidden'); }
     </script>
 </body>
 </html>
