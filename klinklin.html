@@ -1,411 +1,272 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-  <meta charset="UTF-8">
-  <title>ERP Klinklin</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            premiumBlue: '#003366',
-            premiumDark: '#121212',
-            premiumAccent: '#0055A4'
-          }
-        }
-      }
-    }
-  </script>
-  <style>
-    body { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    .hidden { display: none !important; }
-    .nav-item { cursor: pointer; transition: 0.3s; }
-    .nav-item:hover { background-color: #0055A4; color: white; }
-    .glass-panel { background: white; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-radius: 8px; border-top: 4px solid #003366; }
-    img:-moz-loading { visibility: hidden; }
-  </style>
-</head>
-<body class="text-gray-800">
+<script>
+    // MASUKKAN URL WEB APP ANDA DI SINI
+    const API_URL = 'https://script.google.com/macros/s/AKfycbx1QVFaJIzjTHSt4yUcsljSslMpYlTBb-eYP0Kz-xf9U0Pkat7kuj-83Cag3D_xCg7L/exec';
 
-  <!-- ================= LOGIN SCREEN ================= -->
-  <div id="loginScreen" class="min-h-screen flex items-center justify-center bg-premiumDark">
-    <div class="bg-white p-8 rounded-lg shadow-2xl w-96 text-center">
-      <img src="https://www.klinklin.co.id/wp-content/uploads/2023/11/Logo-164-x-45-1-120x32.png" alt="Klinklin" class="mx-auto mb-6 h-10 object-contain">
-      <h2 class="text-2xl font-bold text-premiumBlue mb-2">Portal ERP</h2>
-      <p class="text-sm text-gray-500 mb-6">Silakan masuk menggunakan akun Anda</p>
-      
-      <div id="loginForm">
-        <input type="email" id="email" placeholder="Email" class="w-full mb-4 p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-premiumBlue">
-        <input type="password" id="password" placeholder="Password" class="w-full mb-4 p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-premiumBlue">
-        <button onclick="doLogin(this)" class="w-full bg-premiumBlue text-white p-3 rounded font-bold hover:bg-premiumAccent transition">MASUK</button>
-      </div>
-      
-      <p id="loginMessage" class="mt-4 text-red-600 text-sm font-semibold"></p>
-    </div>
-  </div>
-
-  <!-- ================= MAIN DASHBOARD ================= -->
-  <div id="mainDashboard" class="hidden flex h-screen bg-gray-100">
-    
-    <!-- Sidebar -->
-    <div class="w-64 bg-premiumDark text-white flex flex-col shadow-lg z-10">
-      <div class="p-6 text-center border-b border-gray-700 bg-premiumBlue flex items-center justify-center h-20">
-        <img src="https://www.klinklin.co.id/wp-content/uploads/2023/11/Logo-164-x-45-1-120x32.png" alt="Klinklin" class="h-8 brightness-0 invert object-contain">
-      </div>
-      
-      <div class="p-4 border-b border-gray-700">
-        <p id="greetText" class="text-xs text-gray-400"></p>
-        <p id="userName" class="font-bold text-base text-white truncate"></p>
-        <p id="userRole" class="text-xs font-semibold bg-premiumAccent px-2 py-1 rounded inline-block mt-2 truncate max-w-full"></p>
-      </div>
-
-      <nav class="flex-1 p-4 overflow-y-auto" id="menuContainer">
-      </nav>
-      
-      <div class="p-4 border-t border-gray-700">
-        <button onclick="logout()" class="w-full bg-red-600 hover:bg-red-700 p-2 rounded text-sm font-bold transition">KELUAR</button>
-      </div>
-    </div>
-
-    <!-- Content Area -->
-    <div class="flex-1 flex flex-col overflow-hidden">
-      <!-- Header -->
-      <header class="bg-white p-5 shadow flex justify-between items-center border-b">
-        <h2 id="pageTitle" class="text-2xl font-bold text-premiumBlue">Beranda</h2>
-      </header>
-      
-      <!-- Main Content -->
-      <main class="flex-1 overflow-x-hidden overflow-y-auto p-6" id="contentArea">
-      </main>
-    </div>
-  </div>
-
-  <!-- ================= SCRIPTS ================= -->
-  <script>
+    // Konfigurasi Global
+    const SETTING_PREMI_BPJS = 35000;
     let currentUser = null;
 
+    // Utilitas Format Rupiah
+    const formatRp = (angka) => 'Rp ' + parseFloat(angka).toLocaleString('id-ID');
+
+    // FUNGSI KOMUNIKASI API (PENGGANTI google.script.run)
+    async function apiCall(action, payload = {}) {
+      try {
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // Menggunakan text/plain mencegah error CORS preflight
+          body: JSON.stringify({ action: action, ...payload })
+        });
+        return await response.json();
+      } catch (error) {
+        console.error("API Error:", error);
+        alert("Terjadi kesalahan jaringan atau server.");
+        return null;
+      }
+    }
+
     function getGreeting() {
-      const hour = new Date().getHours();
-      if (hour < 11) return 'Selamat Pagi,';
-      if (hour < 15) return 'Selamat Siang,';
-      if (hour < 18) return 'Selamat Sore,';
-      return 'Selamat Malam,';
+      const h = new Date().getHours();
+      if(h < 11) return 'Selamat Pagi';
+      if(h < 15) return 'Selamat Siang';
+      if(h < 18) return 'Selamat Sore';
+      return 'Selamat Malam';
     }
 
-    // ================= LOGIN LOGIC =================
-    function doLogin(btn) {
-      btn.innerText = "Memproses...";
-      btn.disabled = true;
-      const email = document.getElementById('email').value.trim();
-      const pass = document.getElementById('password').value.trim();
-      const msgLabel = document.getElementById('loginMessage');
-      msgLabel.innerText = "";
-
-      if(!email || !pass) {
-        msgLabel.innerText = "Email dan Password harus diisi!";
-        btn.innerText = "MASUK";
-        btn.disabled = false;
+    async function doLogin() {
+      const em = document.getElementById('loginEmail').value;
+      const pw = document.getElementById('loginPassword').value;
+      const msg = document.getElementById('loginMsg');
+      const btn = document.getElementById('btnLogin');
+      
+      if(!em || !pw) {
+        msg.innerText = "Isi email dan password.";
+        msg.classList.remove('hidden');
         return;
       }
-
-      google.script.run
-        .withSuccessHandler(function(res) {
-          btn.innerText = "MASUK";
-          btn.disabled = false;
-          if (res.success) {
-            initDashboard(res.user);
-          } else {
-            msgLabel.innerText = res.message;
-          }
-        })
-        .withFailureHandler(function(error) {
-          btn.innerText = "MASUK";
-          btn.disabled = false;
-          msgLabel.innerText = "System Error: Hubungkan internet atau periksa ID Sheet. (" + error.message + ")";
-        })
-        .prosesLogin(email, pass);
+      
+      btn.innerText = "Loading...";
+      
+      // Memanggil API via Fetch
+      const res = await apiCall('login', { email: em, password: pw });
+      
+      if(res && res.success) {
+        currentUser = res.user;
+        document.getElementById('loginScreen').classList.add('hidden');
+        document.getElementById('dashboardScreen').classList.remove('hidden');
+        
+        document.getElementById('greetingText').innerText = `${getGreeting()}, ${currentUser.nama} (${currentUser.jabatan})`;
+        
+        if(currentUser.role === 'HRD') {
+          document.getElementById('menuHRD').classList.remove('hidden');
+          document.getElementById('menuFinance').classList.add('hidden');
+          showPage('pagePenggajian');
+          initHRD();
+        } else {
+          document.getElementById('menuFinance').classList.remove('hidden');
+          document.getElementById('menuHRD').classList.add('hidden');
+          showPage('pageAuditOrder');
+          loadOrders('Done');
+        }
+      } else if (res) {
+        msg.innerText = res.message;
+        msg.classList.remove('hidden');
+        btn.innerText = "LOGIN";
+      }
     }
 
-    function logout() { 
-      if(confirm("Anda yakin ingin keluar?")) window.location.reload(); 
+    function logout() { location.reload(); }
+
+    function showPage(pageId) {
+      document.querySelectorAll('.page-content').forEach(el => el.classList.add('hidden'));
+      document.getElementById(pageId).classList.remove('hidden');
     }
 
-    // ================= DASHBOARD UI =================
-    function initDashboard(user) {
-      currentUser = user;
-      document.getElementById('loginScreen').classList.add('hidden');
-      document.getElementById('mainDashboard').classList.remove('hidden');
-      
-      document.getElementById('greetText').innerText = getGreeting();
-      document.getElementById('userName').innerText = user.nama;
-      document.getElementById('userRole').innerText = user.jabatan;
+    function showLoader() { document.getElementById('loader').classList.remove('hidden'); }
+    function hideLoader() { document.getElementById('loader').classList.add('hidden'); }
 
-      buildMenu(user.jabatan);
-      loadPage('beranda');
+    // HRD LOGIC
+    async function initHRD() {
+      const res = await apiCall('getFilterData');
+      if(res) {
+        let opt = '<option value="">-- Pilih Cabang --</option>';
+        res.cabang.forEach(c => opt += `<option value="${c}">${c}</option>`);
+        document.getElementById('selCabang').innerHTML = opt;
+      }
     }
 
-    function buildMenu(role) {
-      const container = document.getElementById('menuContainer');
-      let html = '';
-      const upperRole = role.toUpperCase();
-      
-      html += `<div class="nav-item p-3 rounded mb-1 flex items-center" onclick="loadPage('beranda')"><span class="mr-2">🏠</span> Beranda</div>`;
+    async function loadCleaners() {
+      const cbg = document.getElementById('selCabang').value;
+      if(!cbg) return;
+      showLoader();
+      const res = await apiCall('getCleanersByCabang', { cabang: cbg });
+      if(res) {
+        let opt = '<option value="">-- Pilih Cleaner --</option>';
+        res.forEach(n => opt += `<option value="${n}">${n}</option>`);
+        document.getElementById('selCleaner').innerHTML = opt;
+      }
+      hideLoader();
+    }
 
-      if(upperRole.includes('HRD')) {
-        html += `<div class="text-xs text-gray-400 mb-2 mt-4 uppercase font-bold tracking-wider">Modul HRD</div>`;
-        html += `<div class="nav-item p-3 rounded mb-1 flex items-center" onclick="loadPage('penggajian')"><span class="mr-2">💳</span> Penggajian</div>`;
-        html += `<div class="nav-item p-3 rounded mb-1 flex items-center" onclick="loadPage('karyawan')"><span class="mr-2">👥</span> Data Karyawan</div>`;
-        html += `<div class="nav-item p-3 rounded mb-1 flex items-center" onclick="loadPage('bonus')"><span class="mr-2">💰</span> Bonus Cleaner</div>`;
-        html += `<div class="nav-item p-3 rounded mb-1 flex items-center" onclick="loadPage('pengaturan')"><span class="mr-2">⚙️</span> Pengaturan Gaji</div>`;
-      } 
+    async function tarikDataInsentif() {
+      const cabang = document.getElementById('selCabang').value;
+      const nama = document.getElementById('selCleaner').value;
+      const t1 = document.getElementById('tglAwal').value;
+      const t2 = document.getElementById('tglAkhir').value;
       
-      if (upperRole.includes('FINANCE') || upperRole.includes('FINANSIAL')) {
-        html += `<div class="text-xs text-gray-400 mb-2 mt-4 uppercase font-bold tracking-wider">Modul Finance</div>`;
-        html += `<div class="nav-item p-3 rounded mb-1 flex items-center" onclick="loadPage('audit')"><span class="mr-2">📝</span> Audit Order</div>`;
-        html += `<div class="nav-item p-3 rounded mb-1 flex items-center" onclick="loadPage('hasilAudit')"><span class="mr-2">📊</span> Hasil Audit</div>`;
-        html += `<div class="nav-item p-3 rounded mb-1 flex items-center" onclick="loadPage('arsipGaji')"><span class="mr-2">📁</span> Arsip Penggajian</div>`;
-        html += `<div class="nav-item p-3 rounded mb-1 flex items-center" onclick="loadPage('bonus')"><span class="mr-2">💰</span> Bonus Cleaner</div>`;
+      if(!cabang || !nama || !t1 || !t2) return;
+
+      const d = new Date(t2);
+      const bulan = d.toLocaleString('id-ID', { month: 'long', year: 'numeric' });
+      document.getElementById('infoPeriode').innerText = `Periode Bulan: ${bulan}`;
+
+      showLoader();
+      const res = await apiCall('kalkulasiGaji', { cabang, nama, tglAwal: t1, tglAkhir: t2 });
+      if(res) {
+        document.getElementById('valGajiPokok').value = res.master.gajiPokok;
+        document.getElementById('valTjTrans').value = res.master.tjTransport;
+        document.getElementById('valBonusBln').value = res.master.bonusBulanan;
+        
+        document.getElementById('valSalon').value = res.insentif.bonusSalon;
+        document.getElementById('valDeepclean').value = res.insentif.bonusDeepclean;
+        document.getElementById('valLembur').value = res.insentif.lembur;
+        document.getElementById('valUangMakan').value = res.insentif.uangMakan;
+        kalkulasiTotal();
+      }
+      hideLoader();
+    }
+
+    function kalkulasiTotal() {
+      let totalMasuk = 0;
+      document.querySelectorAll('.calc-income').forEach(el => totalMasuk += (parseFloat(el.value) || 0));
+      document.getElementById('totPemasukan').innerText = formatRp(totalMasuk);
+
+      const chkBPJS = document.getElementById('chkBPJS').checked;
+      document.getElementById('valBPJSPot').value = chkBPJS ? SETTING_PREMI_BPJS : 0;
+
+      let totalPotongan = 0;
+      document.querySelectorAll('.calc-pot').forEach(el => totalPotongan += (parseFloat(el.value) || 0));
+      document.getElementById('totPotongan').innerText = formatRp(totalPotongan);
+
+      const thp = totalMasuk - totalPotongan;
+      document.getElementById('thpFinal').innerText = formatRp(thp);
+    }
+
+    // SLIP GAJI (Tetap Sama dengan Kode Sebelumnya)
+    function generateSlipGaji() {
+      document.getElementById('slipCabang').innerText = "KLINKLIN " + document.getElementById('selCabang').value;
+      
+      const t2 = document.getElementById('tglAkhir').value;
+      const bln = new Date(t2).toLocaleString('en-US', { month: 'long', year: 'numeric' });
+      document.getElementById('slipPeriode').innerText = bln;
+      
+      const nama = document.getElementById('selCleaner').value;
+      document.getElementById('slipNama').innerText = nama;
+      document.getElementById('slipTtdPenerima').innerText = nama;
+      document.getElementById('slipTtdHRD').innerText = currentUser.nama;
+
+      let htmlMasuk = '';
+      const inMap = [
+        ['Gaji', 'valGajiPokok'], ['Bonus Bulanan', 'valBonusBln'], ['Bonus Review', 'valReview'],
+        ['Bonus Tanggal Merah', 'valTglMerah'], ['Bonus Salon', 'valSalon'], ['Bonus Deepclean', 'valDeepclean'],
+        ['Tunjangan Transport', 'valTjTrans'], ['Tunjangan Kos', 'valKos'], ['Tunjangan Kerja', 'valKerja'],
+        ['Lembur', 'valLembur'], ['Uang Makan', 'valUangMakan']
+      ];
+      
+      inMap.forEach(i => {
+        let val = document.getElementById(i[1]).value;
+        if(val && parseFloat(val) > 0 || i[0] === 'Gaji' || i[0] === 'Bonus Bulanan') {
+           htmlMasuk += `<tr><td>${i[0]}</td><td>${formatRp(val)}</td></tr>`;
+        }
+      });
+      
+      if(!document.getElementById('chkBPJS').checked){
+         htmlMasuk += `<tr><td>Premi BPJS Kelas 3</td><td>Rp0</td></tr>`;
       }
 
-      container.innerHTML = html;
+      document.getElementById('slipBodyPemasukan').innerHTML = htmlMasuk;
+      document.getElementById('slipGajiDiterima').innerText = document.getElementById('totPemasukan').innerText;
+
+      let htmlPot = '';
+      const outMap = [
+        ['Cashbon', 'potCashbon'], ['Pot. Tidak Absen Pulang', 'potAbsenP'],
+        ['Pot. Keterlambatan', 'potTelat'], ['Pot. Absen', 'potAbsen'],
+        ['BPJS Ketenagakerjaan', 'potBPJSTK'], ['Potongan Lain', 'potLain']
+      ];
+      
+      outMap.forEach(o => {
+        let val = document.getElementById(o[1]).value;
+        if(val && parseFloat(val) > 0) {
+           let lbl = o[0] === 'Potongan Lain' ? document.getElementById('ketPotLain').value || 'Potongan Lain' : o[0];
+           htmlPot += `<tr><td>${lbl}</td><td>${formatRp(val)}</td></tr>`;
+        } else {
+           htmlPot += `<tr><td>${o[0]}</td><td></td></tr>`;
+        }
+      });
+
+      document.getElementById('slipBodyPotongan').innerHTML = htmlPot;
+      document.getElementById('slipTotPotongan').innerText = document.getElementById('totPotongan').innerText;
+      document.getElementById('slipTHP').innerText = document.getElementById('thpFinal').innerText;
+      document.getElementById('slipSaldoJHT').innerText = formatRp(document.getElementById('saldoJHT').value || 0);
+      
+      document.getElementById('dashboardScreen').classList.add('no-print');
+      document.getElementById('slipGajiPrintArea').classList.remove('hidden');
+      window.print();
+      
+      setTimeout(() => {
+        document.getElementById('dashboardScreen').classList.remove('no-print');
+        document.getElementById('slipGajiPrintArea').classList.add('hidden');
+      }, 500);
     }
 
-    function loadPage(page) {
-      const area = document.getElementById('contentArea');
-      const title = document.getElementById('pageTitle');
-      area.innerHTML = '<div class="flex justify-center items-center h-64"><div class="text-gray-500 font-semibold animate-pulse">Memuat modul...</div></div>';
+    async function simpanSlipGaji() {
+      // Fitur Simpan Gaji (Contoh Payload)
+      const payload = {
+        periodeStr: document.getElementById('slipPeriode').innerText,
+        cabang: document.getElementById('selCabang').value,
+        nama: document.getElementById('selCleaner').value,
+        takeHomePay: document.getElementById('thpFinal').innerText
+      };
+      
+      showLoader();
+      const res = await apiCall('simpanPenggajian', { dataForm: payload });
+      hideLoader();
+      if(res && res.success) alert("Data berhasil disimpan ke Spreadsheet!");
+    }
 
-      setTimeout(() => { 
-        if (page === 'beranda') {
-          title.innerText = "Beranda";
-          area.innerHTML = `
-            <div class="glass-panel p-8 bg-gradient-to-br from-white to-gray-50 border-t-4 border-premiumBlue">
-              <h3 class="text-3xl font-bold text-premiumBlue mb-3">Sistem Terintegrasi Klinklin</h3>
-              <p class="text-gray-600 text-lg mb-6">Selamat bekerja, ${currentUser.nama}. Anda masuk sebagai <span class="font-bold">${currentUser.jabatan}</span>.</p>
-              
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="bg-blue-50 p-4 rounded border border-blue-100">
-                  <h4 class="font-bold text-blue-800">Panduan Ringkas</h4>
-                  <ul class="list-disc ml-5 mt-2 text-sm text-gray-700">
-                    <li>Gunakan menu di sebelah kiri untuk navigasi.</li>
-                    <li>Pastikan koneksi internet stabil saat input data.</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
+    // FINANCE LOGIC
+    async function loadOrders(status) {
+      showLoader();
+      const res = await apiCall('getOrders', { status: status });
+      if(res) {
+        let html = '';
+        res.forEach(o => {
+          html += `
+            <tr class="hover:bg-gray-100">
+              <td class="p-3 font-medium text-premBlue">${o.idOrder}</td>
+              <td class="p-3">${new Date(o.tanggal).toLocaleDateString('id-ID')}</td>
+              <td class="p-3">${o.cabang}</td>
+              <td class="p-3">${o.customer}<br><span class="text-xs text-gray-500">${o.alamat}</span></td>
+              <td class="p-3 font-bold">${formatRp(o.tagihan)}</td>
+              <td class="p-3 text-center">
+                <button onclick="approve('${o.rowId}')" class="bg-green-600 text-white px-2 py-1 rounded text-xs hover:bg-green-700 shadow"><i class="fas fa-check"></i> Approve</button>
+                <a href="${o.bukti}" target="_blank" class="bg-gray-500 text-white px-2 py-1 rounded text-xs hover:bg-gray-600 shadow ml-1"><i class="fas fa-image"></i> Bukti</a>
+              </td>
+            </tr>
           `;
-        } 
-        else if (page === 'penggajian') {
-          title.innerText = "Input Penggajian";
-          renderPenggajianForm(area);
-        }
-        else {
-          title.innerText = page.toUpperCase().replace(/([A-Z])/g, ' $1').trim();
-          area.innerHTML = `
-            <div class="glass-panel p-8 text-center text-gray-600">
-              <span class="text-4xl mb-4 block">🛠️</span>
-              <h3 class="text-xl font-bold text-gray-800 mb-2">Modul Sedang Dalam Pengembangan</h3>
-              <p>Halaman <b>${title.innerText}</b> siap dihubungkan dengan struktur kolom Spreadsheet Anda.</p>
-            </div>`;
-        }
-      }, 300);
-    }
-
-    // ================= PENGGAJIAN MODULE =================
-    function renderPenggajianForm(container) {
-      container.innerHTML = `
-        <div class="glass-panel p-6 max-w-5xl mx-auto">
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 pb-6 border-b">
-            <div>
-              <label class="block text-sm font-bold text-gray-700 mb-2">Pilih Cabang</label>
-              <select id="pg_cabang" onchange="loadCleaners(this.value)" class="w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-premiumBlue bg-white">
-                <option value="">-- Memuat Cabang... --</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-sm font-bold text-gray-700 mb-2">Nama Cleaner</label>
-              <select id="pg_nama" class="w-full p-3 border border-gray-300 rounded bg-gray-50 focus:ring-2 focus:ring-premiumBlue" disabled>
-                <option value="">Pilih Cabang Terlebih Dahulu</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-sm font-bold text-gray-700 mb-2">Awal Periode Pengerjaan</label>
-              <input type="date" id="pg_awal" class="w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-premiumBlue">
-            </div>
-            <div>
-              <label class="block text-sm font-bold text-gray-700 mb-2">Akhir Periode Pengerjaan</label>
-              <input type="date" id="pg_akhir" onchange="calcPeriode()" class="w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-premiumBlue">
-            </div>
-            <div class="md:col-span-2">
-              <label class="block text-sm font-bold text-gray-700 mb-2">Periode Bulan (Terisi Otomatis)</label>
-              <input type="text" id="pg_bulan" class="w-full p-3 border border-gray-300 rounded bg-gray-100 text-gray-700 font-semibold" readonly>
-            </div>
-          </div>
-
-          <!-- Bagian Penerimaan -->
-          <div class="mb-8">
-            <h4 class="font-bold text-lg text-green-700 mb-4 border-b-2 border-green-500 pb-2 flex items-center">
-               <span class="mr-2">💵</span> PENERIMAAN
-            </h4>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-               <div><label class="text-xs font-semibold text-gray-600">Gaji Pokok (Auto)</label><input type="number" id="t_gapok" class="w-full p-2 mt-1 border rounded bg-gray-100 font-mono" readonly value="0"></div>
-               <div><label class="text-xs font-semibold text-gray-600">Tunj. Transport (Auto)</label><input type="number" id="t_trans" class="w-full p-2 mt-1 border rounded bg-gray-100 font-mono" readonly value="0"></div>
-               <div><label class="text-xs font-semibold text-gray-600">Bonus Salon (Auto)</label><input type="number" id="t_salon" class="w-full p-2 mt-1 border rounded bg-gray-100 font-mono" readonly value="0"></div>
-               <div><label class="text-xs font-semibold text-gray-600">Bonus Deepclean (Auto)</label><input type="number" id="t_deep" class="w-full p-2 mt-1 border rounded bg-gray-100 font-mono" readonly value="0"></div>
-               <div><label class="text-xs font-semibold text-gray-600">Lembur (Auto)</label><input type="number" id="t_lembur" class="w-full p-2 mt-1 border rounded bg-gray-100 font-mono" readonly value="0"></div>
-               <div><label class="text-xs font-semibold text-gray-600">Uang Makan (Auto)</label><input type="number" id="t_makan" class="w-full p-2 mt-1 border rounded bg-gray-100 font-mono" readonly value="0"></div>
-               
-               <div><label class="text-xs font-bold text-blue-700">Bonus Review (Manual)</label><input type="number" id="m_review" class="w-full p-2 mt-1 border border-blue-300 rounded focus:ring-1 focus:ring-blue-500 font-mono" value="0" oninput="kalkulasiGaji()"></div>
-               <div><label class="text-xs font-bold text-blue-700">Bonus Tgl Merah (Manual)</label><input type="number" id="m_tglmerah" class="w-full p-2 mt-1 border border-blue-300 rounded focus:ring-1 focus:ring-blue-500 font-mono" value="0" oninput="kalkulasiGaji()"></div>
-               <div><label class="text-xs font-bold text-blue-700">Tunjangan Kos (Manual)</label><input type="number" id="m_kos" class="w-full p-2 mt-1 border border-blue-300 rounded focus:ring-1 focus:ring-blue-500 font-mono" value="0" oninput="kalkulasiGaji()"></div>
-               <div><label class="text-xs font-bold text-blue-700">Tunjangan Kerja (Manual)</label><input type="number" id="m_kerja" class="w-full p-2 mt-1 border border-blue-300 rounded focus:ring-1 focus:ring-blue-500 font-mono" value="0" oninput="kalkulasiGaji()"></div>
-               
-               <div class="sm:col-span-2 lg:col-span-4 mt-4 bg-blue-50 p-3 rounded border border-blue-100">
-                  <label class="flex items-center cursor-pointer">
-                    <input type="checkbox" id="c_bpjs" onchange="kalkulasiGaji()" class="form-checkbox h-5 w-5 text-premiumBlue cursor-pointer">
-                    <span class="ml-3 text-sm font-bold text-gray-800">Tambahkan Premi BPJS Kesehatan</span>
-                  </label>
-               </div>
-            </div>
-          </div>
-
-          <!-- Bagian Potongan -->
-          <div class="mb-8">
-            <h4 class="font-bold text-lg text-red-700 mb-4 border-b-2 border-red-500 pb-2 flex items-center">
-               <span class="mr-2">📉</span> POTONGAN
-            </h4>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-               <div><label class="text-xs font-semibold text-gray-700">Cashbon</label><input type="number" id="p_cashbon" class="w-full p-2 mt-1 border rounded focus:ring-1 focus:ring-red-500 font-mono" value="0" oninput="kalkulasiGaji()"></div>
-               <div><label class="text-xs font-semibold text-gray-700">Pot. Tidak Absen Pulang</label><input type="number" id="p_abspulang" class="w-full p-2 mt-1 border rounded focus:ring-1 focus:ring-red-500 font-mono" value="0" oninput="kalkulasiGaji()"></div>
-               <div><label class="text-xs font-semibold text-gray-700">Pot. Keterlambatan</label><input type="number" id="p_telat" class="w-full p-2 mt-1 border rounded focus:ring-1 focus:ring-red-500 font-mono" value="0" oninput="kalkulasiGaji()"></div>
-               <div><label class="text-xs font-semibold text-gray-700">Pot. Absen</label><input type="number" id="p_absen" class="w-full p-2 mt-1 border rounded focus:ring-1 focus:ring-red-500 font-mono" value="0" oninput="kalkulasiGaji()"></div>
-               <div><label class="text-xs font-semibold text-gray-700">BPJS Ketenagakerjaan</label><input type="number" id="p_bpjstk" class="w-full p-2 mt-1 border rounded focus:ring-1 focus:ring-red-500 font-mono" value="0" oninput="kalkulasiGaji()"></div>
-               
-               <div class="sm:col-span-2 lg:col-span-3 flex flex-col sm:flex-row gap-2">
-                 <div class="w-full sm:w-2/3"><label class="text-xs font-semibold text-gray-700">Potongan Lainnya (Keterangan)</label><input type="text" id="p_lain_ket" class="w-full p-2 mt-1 border rounded" placeholder="Contoh: Cicilan Seragam"></div>
-                 <div class="w-full sm:w-1/3"><label class="text-xs font-semibold text-gray-700">Nominal Lainnya</label><input type="number" id="p_lain_nom" class="w-full p-2 mt-1 border rounded focus:ring-1 focus:ring-red-500 font-mono" value="0" oninput="kalkulasiGaji()"></div>
-               </div>
-            </div>
-          </div>
-
-          <!-- Ringkasan & Submit -->
-          <div class="bg-premiumDark text-white p-6 rounded-lg shadow-inner mb-6">
-            <div class="flex justify-between items-center mb-3">
-               <span class="text-gray-400 font-semibold">Total Gaji & Bonus (Diterima):</span> 
-               <span id="lbl_penerimaan" class="font-bold text-xl text-green-400 font-mono">Rp 0</span>
-            </div>
-            <div class="flex justify-between items-center mb-4">
-               <span class="text-gray-400 font-semibold">Total Potongan:</span> 
-               <span id="lbl_potongan" class="font-bold text-xl text-red-400 font-mono">Rp 0</span>
-            </div>
-            <div class="flex justify-between items-center text-2xl border-t border-gray-700 pt-4">
-               <span class="font-bold tracking-wider">TAKE HOME PAY:</span> 
-               <span id="lbl_thp" class="font-bold text-yellow-400 font-mono">Rp 0</span>
-            </div>
-          </div>
-          
-          <div class="mb-8">
-             <label class="text-sm font-bold text-gray-700 mb-1 block">Informasi Saldo JHT (Manual)</label>
-             <input type="number" id="m_jht" class="w-full sm:w-1/3 p-3 border border-gray-300 rounded font-mono focus:ring-2 focus:ring-premiumBlue" placeholder="Masukkan Saldo">
-          </div>
-
-          <div class="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
-             <button onclick="simpanPenggajian(this)" class="flex-1 bg-premiumBlue text-white p-4 rounded font-bold hover:bg-premiumAccent transition shadow-md text-lg">💾 SIMPAN DATA GAJI</button>
-             <button onclick="cetakPDF()" class="flex-1 bg-white text-premiumBlue border-2 border-premiumBlue p-4 rounded font-bold hover:bg-blue-50 transition shadow-md text-lg">📄 CETAK SLIP PDF</button>
-          </div>
-        </div>
-      `;
-
-      fetchCabang();
-    }
-
-    function fetchCabang() {
-      const selCabang = document.getElementById('pg_cabang');
-      google.script.run
-        .withSuccessHandler(function(data) {
-          selCabang.innerHTML = '<option value="">-- Pilih Cabang --</option>';
-          data.forEach(cabang => {
-            selCabang.innerHTML += `<option value="${cabang}">${cabang}</option>`;
-          });
-        })
-        .getCabangList();
-    }
-
-    function loadCleaners(cabang) {
-      const selNama = document.getElementById('pg_nama');
-      selNama.innerHTML = '<option>Memuat cleaner...</option>';
-      selNama.disabled = true;
-      selNama.classList.remove('bg-white');
-      selNama.classList.add('bg-gray-50');
-      
-      if(!cabang) {
-        selNama.innerHTML = '<option value="">Pilih Cabang Terlebih Dahulu</option>';
-        return;
+        });
+        document.getElementById('tblAuditOrder').innerHTML = html;
       }
-
-      google.script.run
-        .withSuccessHandler(function(data) {
-          selNama.innerHTML = '<option value="">-- Pilih Cleaner --</option>';
-          data.forEach(nama => {
-            selNama.innerHTML += `<option value="${nama}">${nama}</option>`;
-          });
-          selNama.disabled = false;
-          selNama.classList.remove('bg-gray-50');
-          selNama.classList.add('bg-white');
-        })
-        .getCleanerByCabang(cabang);
+      hideLoader();
     }
 
-    function calcPeriode() {
-      const akhir = document.getElementById('pg_akhir').value;
-      if(akhir) {
-        const date = new Date(akhir);
-        const options = { month: 'long', year: 'numeric' };
-        document.getElementById('pg_bulan').value = "Periode " + date.toLocaleDateString('id-ID', options);
+    async function approve(rowId) {
+      if(!confirm("Approve order ini menjadi Complete?")) return;
+      showLoader();
+      const res = await apiCall('approveOrder', { rowId: rowId });
+      if(res && res.success) {
+        loadOrders('Done'); // Refresh
       }
-    }
-
-    function kalkulasiGaji() {
-      const getValue = id => parseFloat(document.getElementById(id).value) || 0;
-      let premi = document.getElementById('c_bpjs').checked ? 35000 : 0; 
-
-      let penerimaan = getValue('t_gapok') + getValue('t_trans') + getValue('t_salon') + getValue('t_deep') + 
-                       getValue('t_lembur') + getValue('t_makan') + getValue('m_review') + getValue('m_tglmerah') + 
-                       getValue('m_kos') + getValue('m_kerja') + premi;
-      
-      let potongan = getValue('p_cashbon') + getValue('p_abspulang') + getValue('p_telat') + 
-                     getValue('p_absen') + getValue('p_bpjstk') + getValue('p_lain_nom');
-
-      let thp = penerimaan - potongan;
-
-      document.getElementById('lbl_penerimaan').innerText = "Rp " + penerimaan.toLocaleString('id-ID');
-      document.getElementById('lbl_potongan').innerText = "Rp " + potongan.toLocaleString('id-ID');
-      document.getElementById('lbl_thp').innerText = "Rp " + thp.toLocaleString('id-ID');
-    }
-
-    function simpanPenggajian(btn) {
-      if(!document.getElementById('pg_nama').value) {
-        alert("Harap pilih nama cleaner terlebih dahulu!");
-        return;
-      }
-      const originalText = btn.innerText;
-      btn.innerText = "MENYIMPAN...";
-      btn.disabled = true;
-
-      const dummyData = {}; 
-      google.script.run
-        .withSuccessHandler(function(res) {
-          alert(res);
-          btn.innerText = originalText;
-          btn.disabled = false;
-        })
-        .simpanDataPenggajian(dummyData);
-    }
-
-    function cetakPDF() {
-      alert("Fitur Cetak Slip PDF.");
+      hideLoader();
     }
   </script>
-</body>
-</html>
