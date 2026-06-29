@@ -19,136 +19,125 @@
   </script>
   <style>
     body { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    .hidden { display: none; }
+    .hidden { display: none !important; }
     .nav-item { cursor: pointer; transition: 0.3s; }
     .nav-item:hover { background-color: #0055A4; color: white; }
     .glass-panel { background: white; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-radius: 8px; border-top: 4px solid #003366; }
+    img:-moz-loading { visibility: hidden; }
   </style>
 </head>
 <body class="text-gray-800">
 
+  <!-- ================= LOGIN SCREEN ================= -->
   <div id="loginScreen" class="min-h-screen flex items-center justify-center bg-premiumDark">
     <div class="bg-white p-8 rounded-lg shadow-2xl w-96 text-center">
-      <img src="https://www.klinklin.co.id/wp-content/uploads/2023/11/Logo-164-x-45-1-120x32.png" alt="Klinklin" class="mx-auto mb-6 h-10">
+      <img src="https://www.klinklin.co.id/wp-content/uploads/2023/11/Logo-164-x-45-1-120x32.png" alt="Klinklin" class="mx-auto mb-6 h-10 object-contain">
       <h2 class="text-2xl font-bold text-premiumBlue mb-2">Portal ERP</h2>
       <p class="text-sm text-gray-500 mb-6">Silakan masuk menggunakan akun Anda</p>
       
       <div id="loginForm">
-        <input type="email" id="email" placeholder="Email" class="w-full mb-4 p-3 border rounded focus:outline-none focus:ring-2 focus:ring-premiumBlue">
-        <input type="password" id="password" placeholder="Password" class="w-full mb-4 p-3 border rounded focus:outline-none focus:ring-2 focus:ring-premiumBlue">
-        <button onclick="doLogin()" class="w-full bg-premiumBlue text-white p-3 rounded font-bold hover:bg-premiumAccent transition">MASUK</button>
-        <p class="mt-4 text-sm text-blue-600 cursor-pointer hover:underline" onclick="toggleForgotPass()">Lupa Password?</p>
-      </div>
-
-      <div id="changePassForm" class="hidden">
-        <p class="text-red-500 text-sm mb-4">Demi keamanan, wajib ubah password default Anda.</p>
-        <input type="password" id="newPass" placeholder="Password Baru" class="w-full mb-4 p-3 border rounded focus:outline-none focus:ring-2 focus:ring-premiumBlue">
-        <button onclick="doChangePass()" class="w-full bg-green-600 text-white p-3 rounded font-bold hover:bg-green-700 transition">SIMPAN & MASUK</button>
+        <input type="email" id="email" placeholder="Email" class="w-full mb-4 p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-premiumBlue">
+        <input type="password" id="password" placeholder="Password" class="w-full mb-4 p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-premiumBlue">
+        <button onclick="doLogin(this)" class="w-full bg-premiumBlue text-white p-3 rounded font-bold hover:bg-premiumAccent transition">MASUK</button>
       </div>
       
-      <p id="loginMessage" class="mt-4 text-red-500 text-sm font-semibold"></p>
+      <p id="loginMessage" class="mt-4 text-red-600 text-sm font-semibold"></p>
     </div>
   </div>
 
+  <!-- ================= MAIN DASHBOARD ================= -->
   <div id="mainDashboard" class="hidden flex h-screen bg-gray-100">
     
-    <div class="w-64 bg-premiumDark text-white flex flex-col">
-      <div class="p-6 text-center border-b border-gray-700 bg-premiumBlue">
-        <img src="https://www.klinklin.co.id/wp-content/uploads/2023/11/Logo-164-x-45-1-120x32.png" alt="Klinklin" class="mx-auto h-8 brightness-0 invert">
+    <!-- Sidebar -->
+    <div class="w-64 bg-premiumDark text-white flex flex-col shadow-lg z-10">
+      <div class="p-6 text-center border-b border-gray-700 bg-premiumBlue flex items-center justify-center h-20">
+        <img src="https://www.klinklin.co.id/wp-content/uploads/2023/11/Logo-164-x-45-1-120x32.png" alt="Klinklin" class="h-8 brightness-0 invert object-contain">
       </div>
       
       <div class="p-4 border-b border-gray-700">
-        <p id="greetText" class="text-sm text-gray-400"></p>
-        <p id="userName" class="font-bold text-lg text-white"></p>
-        <p id="userRole" class="text-xs font-semibold bg-premiumAccent px-2 py-1 rounded inline-block mt-1"></p>
+        <p id="greetText" class="text-xs text-gray-400"></p>
+        <p id="userName" class="font-bold text-base text-white truncate"></p>
+        <p id="userRole" class="text-xs font-semibold bg-premiumAccent px-2 py-1 rounded inline-block mt-2 truncate max-w-full"></p>
       </div>
 
-      <nav class="flex-1 p-4" id="menuContainer">
-        </nav>
+      <nav class="flex-1 p-4 overflow-y-auto" id="menuContainer">
+      </nav>
       
-      <div class="p-4">
-        <button onclick="logout()" class="w-full bg-red-600 hover:bg-red-700 p-2 rounded text-sm font-bold">KELUAR</button>
+      <div class="p-4 border-t border-gray-700">
+        <button onclick="logout()" class="w-full bg-red-600 hover:bg-red-700 p-2 rounded text-sm font-bold transition">KELUAR</button>
       </div>
     </div>
 
+    <!-- Content Area -->
     <div class="flex-1 flex flex-col overflow-hidden">
-      <header class="bg-white p-4 shadow flex justify-between items-center">
-        <h2 id="pageTitle" class="text-xl font-bold text-premiumBlue">Beranda</h2>
+      <!-- Header -->
+      <header class="bg-white p-5 shadow flex justify-between items-center border-b">
+        <h2 id="pageTitle" class="text-2xl font-bold text-premiumBlue">Beranda</h2>
       </header>
       
+      <!-- Main Content -->
       <main class="flex-1 overflow-x-hidden overflow-y-auto p-6" id="contentArea">
-        </main>
+      </main>
     </div>
   </div>
 
+  <!-- ================= SCRIPTS ================= -->
   <script>
     let currentUser = null;
-    let tempEmail = "";
 
-    // -- Utilities --
     function getGreeting() {
       const hour = new Date().getHours();
-      if (hour < 11) return 'Selamat Pagi';
-      if (hour < 15) return 'Selamat Siang';
-      if (hour < 18) return 'Selamat Sore';
-      return 'Selamat Malam';
+      if (hour < 11) return 'Selamat Pagi,';
+      if (hour < 15) return 'Selamat Siang,';
+      if (hour < 18) return 'Selamat Sore,';
+      return 'Selamat Malam,';
     }
 
-    // -- Login Flow --
-    function doLogin() {
-      const btn = event.target;
+    // ================= LOGIN LOGIC =================
+    function doLogin(btn) {
       btn.innerText = "Memproses...";
-      const email = document.getElementById('email').value;
-      const pass = document.getElementById('password').value;
-      document.getElementById('loginMessage').innerText = "";
+      btn.disabled = true;
+      const email = document.getElementById('email').value.trim();
+      const pass = document.getElementById('password').value.trim();
+      const msgLabel = document.getElementById('loginMessage');
+      msgLabel.innerText = "";
 
-      google.script.run.withSuccessHandler(function(res) {
+      if(!email || !pass) {
+        msgLabel.innerText = "Email dan Password harus diisi!";
         btn.innerText = "MASUK";
-        if (res.success) {
-          if (res.mustChangePass) {
-            tempEmail = email;
-            document.getElementById('loginForm').classList.add('hidden');
-            document.getElementById('changePassForm').classList.remove('hidden');
-          } else {
-            initDashboard(res.user);
-          }
-        } else {
-          document.getElementById('loginMessage').innerText = res.message;
-        }
-      }).prosesLogin(email, pass);
-    }
-
-    function doChangePass() {
-      const newPass = document.getElementById('newPass').value;
-      if(newPass.length < 5) {
-        document.getElementById('loginMessage').innerText = "Password terlalu pendek!";
+        btn.disabled = false;
         return;
       }
-      google.script.run.withSuccessHandler(function(res) {
-        if(res) {
-          alert("Password berhasil diubah. Silakan login kembali.");
-          window.location.reload();
-        }
-      }).gantiPassword(tempEmail, newPass);
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          btn.innerText = "MASUK";
+          btn.disabled = false;
+          if (res.success) {
+            initDashboard(res.user);
+          } else {
+            msgLabel.innerText = res.message;
+          }
+        })
+        .withFailureHandler(function(error) {
+          btn.innerText = "MASUK";
+          btn.disabled = false;
+          msgLabel.innerText = "System Error: Hubungkan internet atau periksa ID Sheet. (" + error.message + ")";
+        })
+        .prosesLogin(email, pass);
     }
 
-    function toggleForgotPass() {
-      const email = document.getElementById('email').value;
-      if(!email) { alert("Masukkan email Anda di kolom email terlebih dahulu."); return; }
-      if(confirm("Kirim instruksi reset password ke " + email + "?")) {
-        google.script.run.withSuccessHandler(res => alert(res ? "Email terkirim!" : "Email tidak ditemukan.")).resetPassword(email);
-      }
+    function logout() { 
+      if(confirm("Anda yakin ingin keluar?")) window.location.reload(); 
     }
 
-    function logout() { window.location.reload(); }
-
-    // -- Dashboard Init --
+    // ================= DASHBOARD UI =================
     function initDashboard(user) {
       currentUser = user;
       document.getElementById('loginScreen').classList.add('hidden');
       document.getElementById('mainDashboard').classList.remove('hidden');
       
-      document.getElementById('greetText').innerText = getGreeting() + ",";
+      document.getElementById('greetText').innerText = getGreeting();
       document.getElementById('userName').innerText = user.nama;
       document.getElementById('userRole').innerText = user.jabatan;
 
@@ -159,134 +148,213 @@
     function buildMenu(role) {
       const container = document.getElementById('menuContainer');
       let html = '';
+      const upperRole = role.toUpperCase();
       
-      if(role.toUpperCase().includes('HRD')) {
-        html += `<div class="text-xs text-gray-400 mb-2 mt-4 uppercase">Modul HRD</div>`;
-        html += `<div class="nav-item p-3 rounded mb-1" onclick="loadPage('penggajian')">💳 Penggajian</div>`;
-        html += `<div class="nav-item p-3 rounded mb-1" onclick="loadPage('karyawan')">👥 Karyawan</div>`;
-        html += `<div class="nav-item p-3 rounded mb-1" onclick="loadPage('bonus')">💰 Bonus Cleaner</div>`;
-        html += `<div class="nav-item p-3 rounded mb-1" onclick="loadPage('pengaturan')">⚙️ Pengaturan</div>`;
+      html += `<div class="nav-item p-3 rounded mb-1 flex items-center" onclick="loadPage('beranda')"><span class="mr-2">🏠</span> Beranda</div>`;
+
+      if(upperRole.includes('HRD')) {
+        html += `<div class="text-xs text-gray-400 mb-2 mt-4 uppercase font-bold tracking-wider">Modul HRD</div>`;
+        html += `<div class="nav-item p-3 rounded mb-1 flex items-center" onclick="loadPage('penggajian')"><span class="mr-2">💳</span> Penggajian</div>`;
+        html += `<div class="nav-item p-3 rounded mb-1 flex items-center" onclick="loadPage('karyawan')"><span class="mr-2">👥</span> Data Karyawan</div>`;
+        html += `<div class="nav-item p-3 rounded mb-1 flex items-center" onclick="loadPage('bonus')"><span class="mr-2">💰</span> Bonus Cleaner</div>`;
+        html += `<div class="nav-item p-3 rounded mb-1 flex items-center" onclick="loadPage('pengaturan')"><span class="mr-2">⚙️</span> Pengaturan Gaji</div>`;
       } 
-      else if (role.toUpperCase().includes('FINANCE') || role.toUpperCase().includes('FINANSIAL')) {
-        html += `<div class="text-xs text-gray-400 mb-2 mt-4 uppercase">Modul Finance</div>`;
-        html += `<div class="nav-item p-3 rounded mb-1" onclick="loadPage('audit')">📝 Audit Order</div>`;
-        html += `<div class="nav-item p-3 rounded mb-1" onclick="loadPage('hasilAudit')">📊 Hasil Audit</div>`;
-        html += `<div class="nav-item p-3 rounded mb-1" onclick="loadPage('penggajianFin')">💳 Arsip Penggajian</div>`;
-        html += `<div class="nav-item p-3 rounded mb-1" onclick="loadPage('bonus')">💰 Bonus Cleaner</div>`;
+      
+      if (upperRole.includes('FINANCE') || upperRole.includes('FINANSIAL')) {
+        html += `<div class="text-xs text-gray-400 mb-2 mt-4 uppercase font-bold tracking-wider">Modul Finance</div>`;
+        html += `<div class="nav-item p-3 rounded mb-1 flex items-center" onclick="loadPage('audit')"><span class="mr-2">📝</span> Audit Order</div>`;
+        html += `<div class="nav-item p-3 rounded mb-1 flex items-center" onclick="loadPage('hasilAudit')"><span class="mr-2">📊</span> Hasil Audit</div>`;
+        html += `<div class="nav-item p-3 rounded mb-1 flex items-center" onclick="loadPage('arsipGaji')"><span class="mr-2">📁</span> Arsip Penggajian</div>`;
+        html += `<div class="nav-item p-3 rounded mb-1 flex items-center" onclick="loadPage('bonus')"><span class="mr-2">💰</span> Bonus Cleaner</div>`;
       }
+
       container.innerHTML = html;
     }
 
-    // -- Router & Views --
     function loadPage(page) {
       const area = document.getElementById('contentArea');
       const title = document.getElementById('pageTitle');
-      area.innerHTML = '<div class="text-center mt-10 text-gray-500">Memuat data...</div>';
+      area.innerHTML = '<div class="flex justify-center items-center h-64"><div class="text-gray-500 font-semibold animate-pulse">Memuat modul...</div></div>';
 
-      if (page === 'beranda') {
-        title.innerText = "Beranda";
-        area.innerHTML = `
-          <div class="glass-panel p-6">
-            <h3 class="text-2xl font-bold text-premiumBlue mb-2">Selamat Datang di Portal ERP Klinklin</h3>
-            <p>Sistem ini terintegrasi langsung dengan Database ERP KLINKLIN dan ERP BONUS CLEANER.</p>
-          </div>
-        `;
-      } 
-      else if (page === 'penggajian') {
-        title.innerText = "Input Penggajian";
-        renderPenggajianForm(area);
-      }
-      else {
-        title.innerText = page.toUpperCase();
-        area.innerHTML = `<div class="glass-panel p-6">Modul <b>${page}</b> sedang dalam tahap integrasi dengan tabel Google Sheets Anda.</div>`;
-      }
+      setTimeout(() => { 
+        if (page === 'beranda') {
+          title.innerText = "Beranda";
+          area.innerHTML = `
+            <div class="glass-panel p-8 bg-gradient-to-br from-white to-gray-50 border-t-4 border-premiumBlue">
+              <h3 class="text-3xl font-bold text-premiumBlue mb-3">Sistem Terintegrasi Klinklin</h3>
+              <p class="text-gray-600 text-lg mb-6">Selamat bekerja, ${currentUser.nama}. Anda masuk sebagai <span class="font-bold">${currentUser.jabatan}</span>.</p>
+              
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-blue-50 p-4 rounded border border-blue-100">
+                  <h4 class="font-bold text-blue-800">Panduan Ringkas</h4>
+                  <ul class="list-disc ml-5 mt-2 text-sm text-gray-700">
+                    <li>Gunakan menu di sebelah kiri untuk navigasi.</li>
+                    <li>Pastikan koneksi internet stabil saat input data.</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          `;
+        } 
+        else if (page === 'penggajian') {
+          title.innerText = "Input Penggajian";
+          renderPenggajianForm(area);
+        }
+        else {
+          title.innerText = page.toUpperCase().replace(/([A-Z])/g, ' $1').trim();
+          area.innerHTML = `
+            <div class="glass-panel p-8 text-center text-gray-600">
+              <span class="text-4xl mb-4 block">🛠️</span>
+              <h3 class="text-xl font-bold text-gray-800 mb-2">Modul Sedang Dalam Pengembangan</h3>
+              <p>Halaman <b>${title.innerText}</b> siap dihubungkan dengan struktur kolom Spreadsheet Anda.</p>
+            </div>`;
+        }
+      }, 300);
     }
 
-    // -- PENGGAJIAN MODULE --
+    // ================= PENGGAJIAN MODULE =================
     function renderPenggajianForm(container) {
-      // Membangun form Penggajian yang super lengkap dengan auto-calculate
       container.innerHTML = `
-        <div class="glass-panel p-6 max-w-4xl mx-auto">
-          <div class="grid grid-cols-2 gap-4 mb-6 pb-4 border-b">
+        <div class="glass-panel p-6 max-w-5xl mx-auto">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 pb-6 border-b">
             <div>
-              <label class="block text-sm font-bold mb-1">Cabang</label>
-              <select id="pg_cabang" onchange="loadCleaners(this.value)" class="w-full p-2 border rounded">
-                <option value="">-- Pilih Cabang --</option>
-                <option value="SURABAYA">SURABAYA</option>
-                <option value="MALANG">MALANG</option>
-                <option value="DENPASAR">DENPASAR</option>
-                </select>
-            </div>
-            <div>
-              <label class="block text-sm font-bold mb-1">Nama Cleaner</label>
-              <select id="pg_nama" class="w-full p-2 border rounded" disabled>
-                <option value="">Pilih Cabang Dulu</option>
+              <label class="block text-sm font-bold text-gray-700 mb-2">Pilih Cabang</label>
+              <select id="pg_cabang" onchange="loadCleaners(this.value)" class="w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-premiumBlue bg-white">
+                <option value="">-- Memuat Cabang... --</option>
               </select>
             </div>
             <div>
-              <label class="block text-sm font-bold mb-1">Awal Periode</label>
-              <input type="date" id="pg_awal" class="w-full p-2 border rounded">
+              <label class="block text-sm font-bold text-gray-700 mb-2">Nama Cleaner</label>
+              <select id="pg_nama" class="w-full p-3 border border-gray-300 rounded bg-gray-50 focus:ring-2 focus:ring-premiumBlue" disabled>
+                <option value="">Pilih Cabang Terlebih Dahulu</option>
+              </select>
             </div>
             <div>
-              <label class="block text-sm font-bold mb-1">Akhir Periode</label>
-              <input type="date" id="pg_akhir" onchange="calcPeriode()" class="w-full p-2 border rounded">
+              <label class="block text-sm font-bold text-gray-700 mb-2">Awal Periode Pengerjaan</label>
+              <input type="date" id="pg_awal" class="w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-premiumBlue">
             </div>
-            <div class="col-span-2">
-              <label class="block text-sm font-bold mb-1">Periode Bulan (Otomatis)</label>
-              <input type="text" id="pg_bulan" class="w-full p-2 border rounded bg-gray-100" readonly>
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-2">Akhir Periode Pengerjaan</label>
+              <input type="date" id="pg_akhir" onchange="calcPeriode()" class="w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-premiumBlue">
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-sm font-bold text-gray-700 mb-2">Periode Bulan (Terisi Otomatis)</label>
+              <input type="text" id="pg_bulan" class="w-full p-3 border border-gray-300 rounded bg-gray-100 text-gray-700 font-semibold" readonly>
             </div>
           </div>
 
-          <h4 class="font-bold text-green-700 mb-3 border-b-2 border-green-500 pb-1">PENERIMAAN</h4>
-          <div class="grid grid-cols-2 gap-3 mb-6" id="penerimaanArea">
-             <div><label class="text-xs">Gaji Pokok</label><input type="number" id="t_gapok" class="w-full p-2 border rounded bg-gray-100" readonly value="0"></div>
-             <div><label class="text-xs">Tunj. Transport</label><input type="number" id="t_trans" class="w-full p-2 border rounded bg-gray-100" readonly value="0"></div>
-             <div><label class="text-xs">Bonus Salon</label><input type="number" id="t_salon" class="w-full p-2 border rounded bg-gray-100" readonly value="0"></div>
-             <div><label class="text-xs">Bonus Deepclean</label><input type="number" id="t_deep" class="w-full p-2 border rounded bg-gray-100" readonly value="0"></div>
-             
-             <div><label class="text-xs text-blue-600 font-bold">Bonus Review (Manual)</label><input type="number" id="m_review" class="w-full p-2 border rounded" value="0" oninput="kalkulasiGaji()"></div>
-             <div><label class="text-xs text-blue-600 font-bold">Bonus Tgl Merah (Manual)</label><input type="number" id="m_tglmerah" class="w-full p-2 border rounded" value="0" oninput="kalkulasiGaji()"></div>
-             <div><label class="text-xs text-blue-600 font-bold">Tunjangan Kos (Manual)</label><input type="number" id="m_kos" class="w-full p-2 border rounded" value="0" oninput="kalkulasiGaji()"></div>
-             <div><label class="text-xs text-blue-600 font-bold">Tunjangan Kerja (Manual)</label><input type="number" id="m_kerja" class="w-full p-2 border rounded" value="0" oninput="kalkulasiGaji()"></div>
-             
-             <div class="col-span-2 mt-2">
-                <label class="flex items-center space-x-2">
-                  <input type="checkbox" id="c_bpjs" onchange="kalkulasiGaji()" class="form-checkbox h-5 w-5 text-premiumBlue">
-                  <span class="text-sm font-bold">Aktifkan Premi BPJS</span>
-                </label>
-             </div>
+          <!-- Bagian Penerimaan -->
+          <div class="mb-8">
+            <h4 class="font-bold text-lg text-green-700 mb-4 border-b-2 border-green-500 pb-2 flex items-center">
+               <span class="mr-2">💵</span> PENERIMAAN
+            </h4>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+               <div><label class="text-xs font-semibold text-gray-600">Gaji Pokok (Auto)</label><input type="number" id="t_gapok" class="w-full p-2 mt-1 border rounded bg-gray-100 font-mono" readonly value="0"></div>
+               <div><label class="text-xs font-semibold text-gray-600">Tunj. Transport (Auto)</label><input type="number" id="t_trans" class="w-full p-2 mt-1 border rounded bg-gray-100 font-mono" readonly value="0"></div>
+               <div><label class="text-xs font-semibold text-gray-600">Bonus Salon (Auto)</label><input type="number" id="t_salon" class="w-full p-2 mt-1 border rounded bg-gray-100 font-mono" readonly value="0"></div>
+               <div><label class="text-xs font-semibold text-gray-600">Bonus Deepclean (Auto)</label><input type="number" id="t_deep" class="w-full p-2 mt-1 border rounded bg-gray-100 font-mono" readonly value="0"></div>
+               <div><label class="text-xs font-semibold text-gray-600">Lembur (Auto)</label><input type="number" id="t_lembur" class="w-full p-2 mt-1 border rounded bg-gray-100 font-mono" readonly value="0"></div>
+               <div><label class="text-xs font-semibold text-gray-600">Uang Makan (Auto)</label><input type="number" id="t_makan" class="w-full p-2 mt-1 border rounded bg-gray-100 font-mono" readonly value="0"></div>
+               
+               <div><label class="text-xs font-bold text-blue-700">Bonus Review (Manual)</label><input type="number" id="m_review" class="w-full p-2 mt-1 border border-blue-300 rounded focus:ring-1 focus:ring-blue-500 font-mono" value="0" oninput="kalkulasiGaji()"></div>
+               <div><label class="text-xs font-bold text-blue-700">Bonus Tgl Merah (Manual)</label><input type="number" id="m_tglmerah" class="w-full p-2 mt-1 border border-blue-300 rounded focus:ring-1 focus:ring-blue-500 font-mono" value="0" oninput="kalkulasiGaji()"></div>
+               <div><label class="text-xs font-bold text-blue-700">Tunjangan Kos (Manual)</label><input type="number" id="m_kos" class="w-full p-2 mt-1 border border-blue-300 rounded focus:ring-1 focus:ring-blue-500 font-mono" value="0" oninput="kalkulasiGaji()"></div>
+               <div><label class="text-xs font-bold text-blue-700">Tunjangan Kerja (Manual)</label><input type="number" id="m_kerja" class="w-full p-2 mt-1 border border-blue-300 rounded focus:ring-1 focus:ring-blue-500 font-mono" value="0" oninput="kalkulasiGaji()"></div>
+               
+               <div class="sm:col-span-2 lg:col-span-4 mt-4 bg-blue-50 p-3 rounded border border-blue-100">
+                  <label class="flex items-center cursor-pointer">
+                    <input type="checkbox" id="c_bpjs" onchange="kalkulasiGaji()" class="form-checkbox h-5 w-5 text-premiumBlue cursor-pointer">
+                    <span class="ml-3 text-sm font-bold text-gray-800">Tambahkan Premi BPJS Kesehatan</span>
+                  </label>
+               </div>
+            </div>
           </div>
 
-          <h4 class="font-bold text-red-700 mb-3 border-b-2 border-red-500 pb-1">POTONGAN</h4>
-          <div class="grid grid-cols-2 gap-3 mb-6">
-             <div><label class="text-xs">Cashbon</label><input type="number" id="p_cashbon" class="w-full p-2 border rounded" value="0" oninput="kalkulasiGaji()"></div>
-             <div><label class="text-xs">Pot. Tidak Absen Pulang</label><input type="number" id="p_abspulang" class="w-full p-2 border rounded" value="0" oninput="kalkulasiGaji()"></div>
-             <div><label class="text-xs">Pot. Keterlambatan</label><input type="number" id="p_telat" class="w-full p-2 border rounded" value="0" oninput="kalkulasiGaji()"></div>
-             <div><label class="text-xs">Pot. Absen</label><input type="number" id="p_absen" class="w-full p-2 border rounded" value="0" oninput="kalkulasiGaji()"></div>
-             <div><label class="text-xs">BPJS Ketenagakerjaan</label><input type="number" id="p_bpjstk" class="w-full p-2 border rounded" value="0" oninput="kalkulasiGaji()"></div>
-             <div class="flex space-x-2">
-               <div class="w-1/2"><label class="text-xs">Lainnya (Ket)</label><input type="text" id="p_lain_ket" class="w-full p-2 border rounded" placeholder="Keterangan"></div>
-               <div class="w-1/2"><label class="text-xs">Nominal</label><input type="number" id="p_lain_nom" class="w-full p-2 border rounded" value="0" oninput="kalkulasiGaji()"></div>
-             </div>
+          <!-- Bagian Potongan -->
+          <div class="mb-8">
+            <h4 class="font-bold text-lg text-red-700 mb-4 border-b-2 border-red-500 pb-2 flex items-center">
+               <span class="mr-2">📉</span> POTONGAN
+            </h4>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+               <div><label class="text-xs font-semibold text-gray-700">Cashbon</label><input type="number" id="p_cashbon" class="w-full p-2 mt-1 border rounded focus:ring-1 focus:ring-red-500 font-mono" value="0" oninput="kalkulasiGaji()"></div>
+               <div><label class="text-xs font-semibold text-gray-700">Pot. Tidak Absen Pulang</label><input type="number" id="p_abspulang" class="w-full p-2 mt-1 border rounded focus:ring-1 focus:ring-red-500 font-mono" value="0" oninput="kalkulasiGaji()"></div>
+               <div><label class="text-xs font-semibold text-gray-700">Pot. Keterlambatan</label><input type="number" id="p_telat" class="w-full p-2 mt-1 border rounded focus:ring-1 focus:ring-red-500 font-mono" value="0" oninput="kalkulasiGaji()"></div>
+               <div><label class="text-xs font-semibold text-gray-700">Pot. Absen</label><input type="number" id="p_absen" class="w-full p-2 mt-1 border rounded focus:ring-1 focus:ring-red-500 font-mono" value="0" oninput="kalkulasiGaji()"></div>
+               <div><label class="text-xs font-semibold text-gray-700">BPJS Ketenagakerjaan</label><input type="number" id="p_bpjstk" class="w-full p-2 mt-1 border rounded focus:ring-1 focus:ring-red-500 font-mono" value="0" oninput="kalkulasiGaji()"></div>
+               
+               <div class="sm:col-span-2 lg:col-span-3 flex flex-col sm:flex-row gap-2">
+                 <div class="w-full sm:w-2/3"><label class="text-xs font-semibold text-gray-700">Potongan Lainnya (Keterangan)</label><input type="text" id="p_lain_ket" class="w-full p-2 mt-1 border rounded" placeholder="Contoh: Cicilan Seragam"></div>
+                 <div class="w-full sm:w-1/3"><label class="text-xs font-semibold text-gray-700">Nominal Lainnya</label><input type="number" id="p_lain_nom" class="w-full p-2 mt-1 border rounded focus:ring-1 focus:ring-red-500 font-mono" value="0" oninput="kalkulasiGaji()"></div>
+               </div>
+            </div>
           </div>
 
-          <div class="bg-gray-800 text-white p-4 rounded-lg shadow-inner mb-4">
-            <div class="flex justify-between mb-2"><span class="text-gray-300">Total Gaji & Bonus (Penerimaan):</span> <span id="lbl_penerimaan" class="font-bold text-green-400">Rp 0</span></div>
-            <div class="flex justify-between mb-2"><span class="text-gray-300">Total Potongan:</span> <span id="lbl_potongan" class="font-bold text-red-400">Rp 0</span></div>
-            <div class="flex justify-between text-xl border-t border-gray-600 pt-2"><span class="font-bold">TAKE HOME PAY:</span> <span id="lbl_thp" class="font-bold text-yellow-400">Rp 0</span></div>
+          <!-- Ringkasan & Submit -->
+          <div class="bg-premiumDark text-white p-6 rounded-lg shadow-inner mb-6">
+            <div class="flex justify-between items-center mb-3">
+               <span class="text-gray-400 font-semibold">Total Gaji & Bonus (Diterima):</span> 
+               <span id="lbl_penerimaan" class="font-bold text-xl text-green-400 font-mono">Rp 0</span>
+            </div>
+            <div class="flex justify-between items-center mb-4">
+               <span class="text-gray-400 font-semibold">Total Potongan:</span> 
+               <span id="lbl_potongan" class="font-bold text-xl text-red-400 font-mono">Rp 0</span>
+            </div>
+            <div class="flex justify-between items-center text-2xl border-t border-gray-700 pt-4">
+               <span class="font-bold tracking-wider">TAKE HOME PAY:</span> 
+               <span id="lbl_thp" class="font-bold text-yellow-400 font-mono">Rp 0</span>
+            </div>
           </div>
           
-          <div class="mb-6">
-             <label class="text-sm font-bold text-gray-700">Saldo JHT (Manual Info)</label>
-             <input type="number" id="m_jht" class="w-1/3 p-2 border rounded block mt-1" value="0">
+          <div class="mb-8">
+             <label class="text-sm font-bold text-gray-700 mb-1 block">Informasi Saldo JHT (Manual)</label>
+             <input type="number" id="m_jht" class="w-full sm:w-1/3 p-3 border border-gray-300 rounded font-mono focus:ring-2 focus:ring-premiumBlue" placeholder="Masukkan Saldo">
           </div>
 
-          <div class="flex space-x-4">
-             <button onclick="simpanPenggajian()" class="bg-premiumBlue text-white px-6 py-2 rounded font-bold hover:bg-premiumAccent">Simpan Data Gaji</button>
-             <button onclick="alert('Generate PDF Slip Gaji...')" class="bg-gray-200 text-gray-800 px-6 py-2 rounded font-bold hover:bg-gray-300 border">Cetak Slip PDF</button>
+          <div class="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
+             <button onclick="simpanPenggajian(this)" class="flex-1 bg-premiumBlue text-white p-4 rounded font-bold hover:bg-premiumAccent transition shadow-md text-lg">💾 SIMPAN DATA GAJI</button>
+             <button onclick="cetakPDF()" class="flex-1 bg-white text-premiumBlue border-2 border-premiumBlue p-4 rounded font-bold hover:bg-blue-50 transition shadow-md text-lg">📄 CETAK SLIP PDF</button>
           </div>
         </div>
       `;
+
+      fetchCabang();
+    }
+
+    function fetchCabang() {
+      const selCabang = document.getElementById('pg_cabang');
+      google.script.run
+        .withSuccessHandler(function(data) {
+          selCabang.innerHTML = '<option value="">-- Pilih Cabang --</option>';
+          data.forEach(cabang => {
+            selCabang.innerHTML += `<option value="${cabang}">${cabang}</option>`;
+          });
+        })
+        .getCabangList();
+    }
+
+    function loadCleaners(cabang) {
+      const selNama = document.getElementById('pg_nama');
+      selNama.innerHTML = '<option>Memuat cleaner...</option>';
+      selNama.disabled = true;
+      selNama.classList.remove('bg-white');
+      selNama.classList.add('bg-gray-50');
+      
+      if(!cabang) {
+        selNama.innerHTML = '<option value="">Pilih Cabang Terlebih Dahulu</option>';
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler(function(data) {
+          selNama.innerHTML = '<option value="">-- Pilih Cleaner --</option>';
+          data.forEach(nama => {
+            selNama.innerHTML += `<option value="${nama}">${nama}</option>`;
+          });
+          selNama.disabled = false;
+          selNama.classList.remove('bg-gray-50');
+          selNama.classList.add('bg-white');
+        })
+        .getCleanerByCabang(cabang);
     }
 
     function calcPeriode() {
@@ -299,13 +367,12 @@
     }
 
     function kalkulasiGaji() {
-      // Logic mengambil semua ID input, menjumlahkan Penerimaan dan Potongan
       const getValue = id => parseFloat(document.getElementById(id).value) || 0;
-      
-      let premi = document.getElementById('c_bpjs').checked ? 35000 : 0; // Asumsi dari setting
+      let premi = document.getElementById('c_bpjs').checked ? 35000 : 0; 
 
       let penerimaan = getValue('t_gapok') + getValue('t_trans') + getValue('t_salon') + getValue('t_deep') + 
-                       getValue('m_review') + getValue('m_tglmerah') + getValue('m_kos') + getValue('m_kerja') + premi;
+                       getValue('t_lembur') + getValue('t_makan') + getValue('m_review') + getValue('m_tglmerah') + 
+                       getValue('m_kos') + getValue('m_kerja') + premi;
       
       let potongan = getValue('p_cashbon') + getValue('p_abspulang') + getValue('p_telat') + 
                      getValue('p_absen') + getValue('p_bpjstk') + getValue('p_lain_nom');
@@ -317,23 +384,27 @@
       document.getElementById('lbl_thp').innerText = "Rp " + thp.toLocaleString('id-ID');
     }
 
-    function loadCleaners(cabang) {
-      const selNama = document.getElementById('pg_nama');
-      selNama.innerHTML = '<option>Memuat...</option>';
-      selNama.disabled = true;
-      
-      google.script.run.withSuccessHandler(function(data) {
-        selNama.innerHTML = '<option value="">-- Pilih Cleaner --</option>';
-        data.forEach(nama => {
-          selNama.innerHTML += `<option value="${nama}">${nama}</option>`;
-        });
-        selNama.disabled = false;
-      }).getCleanerByCabang(cabang);
+    function simpanPenggajian(btn) {
+      if(!document.getElementById('pg_nama').value) {
+        alert("Harap pilih nama cleaner terlebih dahulu!");
+        return;
+      }
+      const originalText = btn.innerText;
+      btn.innerText = "MENYIMPAN...";
+      btn.disabled = true;
+
+      const dummyData = {}; 
+      google.script.run
+        .withSuccessHandler(function(res) {
+          alert(res);
+          btn.innerText = originalText;
+          btn.disabled = false;
+        })
+        .simpanDataPenggajian(dummyData);
     }
-    
-    function simpanPenggajian() {
-      // Kumpulkan data JSON, lalu lempar ke Code.gs via google.script.run.savePenggajian(data)
-      alert("Data akan disimpan ke sheet PENGGAJIAN...");
+
+    function cetakPDF() {
+      alert("Fitur Cetak Slip PDF.");
     }
   </script>
 </body>
