@@ -605,6 +605,26 @@ let filterFrom = null, filterTo = null, compareMode = false;
 let selectedBranch = '';
 let charts = {};
 
+// ── PREFIX → NAMA CABANG (dari No Order, misal SBY-1304-xxx → SURABAYA) ──
+const PREFIX_TO_CABANG = {
+  'SBY':  'SURABAYA',
+  'MLG':  'MALANG',
+  'DPS':  'DENPASAR',
+  'BPN':  'BALIKPAPAN',
+  'MKS':  'MAKASSAR',
+  'TBN':  'TABANAN',
+  'KDR':  'KEDIRI',
+  'GSK':  'GRESIK',
+  'SMD':  'SAMARINDA',
+  'BJN':  'BOJONEGORO',
+};
+
+// Ambil nama cabang dari No Order (misal "SBY-1304-223503" → "SURABAYA")
+function cabangFromNoOrder(noOrder) {
+  const prefix = String(noOrder || '').split('-')[0].trim().toUpperCase();
+  return PREFIX_TO_CABANG[prefix] || prefix || '—';
+}
+
 // ── LOGIN ──
 function doLogin() {
   const u = document.getElementById('inp-user').value.trim();
@@ -753,15 +773,27 @@ function loadDemoData() {
 
   rawInsentif = [];
   const jenisBonus = ['Kilometer','Lembur','Bonus Deepclean','Uang Makan'];
+  // Prefix sesuai PREFIX_TO_CABANG: SBY, MLG, DPS, BPN, MKS, TBN, KDR, GSK, SMD, BJN
+  const prefixes = ['SBY','MLG','DPS','BPN','MKS','TBN','KDR','GSK','SMD','BJN'];
+  const cleanerNames = ['Ahmad Saini','Bagus Prasetyo','Rian Hananto','Ivan Bucinalen','I Made Adi Sukadana','Muhammad Abdul Aziz','Ahmad Dhani','Gerry Prawiro','Rio Dimas','Achmad Yaki'];
   for(let i=0; i<300; i++) {
     const d = new Date(2026,4,Math.ceil(Math.random()*28));
-    const cab = branches[Math.floor(Math.random()*branches.length)];
+    const prefix = prefixes[Math.floor(Math.random()*prefixes.length)];
+    const noOrder = prefix + '-2304-' + Math.floor(Math.random()*900000+100000);
+    // Simulasi: 40% row tidak punya Tanggal Pengerjaan (seperti #N/A di real data)
+    const hasPengerjaan = Math.random() > 0.4;
+    const tanggalPengerjaan = hasPengerjaan ? d.toLocaleDateString('id-ID') : '';
+    const tanggalInput = d.toLocaleDateString('id-ID');
+    // Kadang 2 cleaner dipisah koma
+    const c1 = cleanerNames[Math.floor(Math.random()*cleanerNames.length)];
+    const c2 = Math.random()>0.6 ? ', ' + cleanerNames[Math.floor(Math.random()*cleanerNames.length)] : '';
     rawInsentif.push({
-      'No Order': cab.substring(0,3)+'-2304-'+Math.floor(Math.random()*900000+100000),
+      'No Order': noOrder,
       Jenis: jenisBonus[Math.floor(Math.random()*jenisBonus.length)],
       Nominal: Math.floor(Math.random()*25000+3000),
-      'Tanggal Pengerjaan': d.toLocaleDateString('id-ID').replaceAll('/','/'),
-      'Nama Cleaner': ['Ahmad Saini','Bagus Prasetyo','Rian Hananto','Ivan Bucinalen','I Made Adi Sukadana','Muhammad Abdul Aziz','Ahmad Dhani','Gerry Prawiro','Rio Dimas','Achmad Yaki'][Math.floor(Math.random()*10)],
+      'Tanggal Pengerjaan': tanggalPengerjaan,
+      'Tanggal Input': tanggalInput,
+      'Nama Cleaner': c1 + c2,
     });
   }
 
@@ -844,6 +876,17 @@ function inRange(row, fromStr, toStr) {
 function filterRows(rows) {
   return rows.filter(r => {
     if (selectedBranch && r.Cabang !== selectedBranch) return false;
+    return inRange(r, filterFrom, filterTo);
+  });
+}
+
+// filterRows khusus INSENTIF: cabang diekstrak dari No Order prefix
+function filterInsentif(rows) {
+  return rows.filter(r => {
+    if (selectedBranch) {
+      const cab = cabangFromNoOrder(r['No Order']);
+      if (cab !== selectedBranch) return false;
+    }
     return inRange(r, filterFrom, filterTo);
   });
 }
@@ -1178,18 +1221,23 @@ function renderCapaian() {
 
 // ═══════════════════════════ BONUS ═══════════════════════════
 function renderBonus() {
-  const rows = rawInsentif.filter(r => {
-    if (selectedBranch) {
-      // Extract branch from No Order prefix
-      const prefix = (r['No Order']||'').split('-')[0];
-      const cab = rawCabang.find(c => (c['Kode Sheet']||'').includes(prefix));
-      if (cab && (cab['Nama']||cab['Nama Cabang']) !== selectedBranch) return false;
-    }
-    return inRange(r, filterFrom, filterTo);
-  });
+  // Gunakan filterInsentif agar cabang diekstrak dari prefix No Order
+  // dan tanggal pakai Tanggal Pengerjaan (atau fallback Tanggal Input)
+  const rows = filterInsentif(rawInsentif);
 
   const prevPeriod = getPrevPeriod();
-  const prevRows = compareMode ? rawInsentif.filter(r => inRange(r, prevPeriod.from, prevPeriod.to)) : [];
+  const prevRows = compareMode ? rawInsentif.filter(r => {
+    const d = getRowDate(r);
+    if (!d) return false;
+    const f = prevPeriod.from ? new Date(prevPeriod.from) : null;
+    const t = prevPeriod.to ? new Date(prevPeriod.to) : null;
+    if (f) f.setHours(0,0,0,0);
+    if (t) t.setHours(23,59,59,999);
+    if (f && d < f) return false;
+    if (t && d > t) return false;
+    return true;
+  }) : [];
+
   const totalBonus = rows.reduce((s,r)=>s+(parseFloat(r.Nominal)||0),0);
   const prevBonus = prevRows.reduce((s,r)=>s+(parseFloat(r.Nominal)||0),0);
 
@@ -1209,61 +1257,77 @@ function renderBonus() {
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Cleaner Aktif</div>
-      <div class="kpi-value">${new Set(rows.flatMap(r=>(r['Nama Cleaner']||'').split(',').map(s=>s.trim()))).size}</div>
+      <div class="kpi-value">${new Set(rows.flatMap(r=>(r['Nama Cleaner']||'').split(',').map(s=>s.trim()).filter(Boolean))).size}</div>
     </div>
   `;
 
-  // By jenis
+  // By jenis — total nominal per jenis bonus
   const jenisMap = {};
-  rows.forEach(r => { jenisMap[r.Jenis]=(jenisMap[r.Jenis]||0)+(parseFloat(r.Nominal)||0); });
-  destroyChart('bonus-type');
-  charts['bonus-type'] = new Chart(document.getElementById('chart-bonus-type'), {
-    type: 'doughnut',
-    data: { labels: Object.keys(jenisMap), datasets: [{ data: Object.values(jenisMap), backgroundColor: COLORS }] },
-    options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+  rows.forEach(r => {
+    const j = r.Jenis || 'Lainnya';
+    jenisMap[j] = (jenisMap[j]||0) + (parseFloat(r.Nominal)||0);
   });
+  const jenisEntries = Object.entries(jenisMap).sort((a,b)=>b[1]-a[1]);
 
-  // By branch (derive from No Order prefix)
+  destroyChart('bonus-type');
+  if (jenisEntries.length > 0) {
+    charts['bonus-type'] = new Chart(document.getElementById('chart-bonus-type'), {
+      type: 'doughnut',
+      data: {
+        labels: jenisEntries.map(e=>e[0]),
+        datasets: [{ data: jenisEntries.map(e=>e[1]), backgroundColor: COLORS }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'bottom', labels: { font: { size: 11 } } },
+          tooltip: { callbacks: { label: ctx => ' ' + formatRp(ctx.raw) } }
+        }
+      }
+    });
+  } else {
+    document.getElementById('chart-bonus-type').parentElement.innerHTML =
+      '<div style="color:var(--gray-400);font-size:13px;padding:24px;text-align:center">Tidak ada data</div>';
+  }
+
+  // By branch — ekstrak dari prefix No Order
   const branchMap = {};
   rows.forEach(r => {
-    const prefix = (r['No Order']||'').split('-')[0];
-    let bName = prefix;
-    const cab = rawCabang.find(c => {
-      const code = c['Kode Sheet']||'';
-      return code.split('_')[1] === prefix;
-    });
-    if (cab) bName = cab['Nama']||cab['Nama Cabang']||prefix;
+    const bName = cabangFromNoOrder(r['No Order']);
     branchMap[bName] = (branchMap[bName]||0) + (parseFloat(r.Nominal)||0);
   });
   const sortedB = Object.entries(branchMap).sort((a,b)=>b[1]-a[1]);
-  const maxB = sortedB[0]?.[1]||1;
-  document.getElementById('bonus-branch-list').innerHTML = sortedB.map(([b,v]) =>
-    `<div class="branch-bar">
-      <span class="branch-name">${b}</span>
-      <div class="branch-prog"><div class="branch-prog-fill" style="width:${(v/maxB*100).toFixed(1)}%"></div></div>
-      <span class="branch-amt">${formatRp(v)}</span>
-    </div>`
-  ).join('') || '<div style="color:var(--gray-400);font-size:13px;padding:12px">Tidak ada data</div>';
+  const maxB = sortedB[0]?.[1] || 1;
+  document.getElementById('bonus-branch-list').innerHTML = sortedB.length
+    ? sortedB.map(([b,v]) =>
+        `<div class="branch-bar">
+          <span class="branch-name">${b}</span>
+          <div class="branch-prog"><div class="branch-prog-fill" style="width:${(v/maxB*100).toFixed(1)}%"></div></div>
+          <span class="branch-amt">${formatRp(v)}</span>
+        </div>`
+      ).join('')
+    : '<div style="color:var(--gray-400);font-size:13px;padding:12px">Tidak ada data</div>';
 
-  // Top 10 cleaner
+  // Top 10 cleaner — pisah nama yang dipisah koma, bagi nominal rata
   const cleanerMap = {};
   rows.forEach(r => {
     const cleaners = (r['Nama Cleaner']||'').split(',').map(s=>s.trim()).filter(Boolean);
+    if (cleaners.length === 0) return;
     const share = (parseFloat(r.Nominal)||0) / cleaners.length;
-    cleaners.forEach(c => { cleanerMap[c]=(cleanerMap[c]||0)+share; });
+    cleaners.forEach(c => { cleanerMap[c] = (cleanerMap[c]||0) + share; });
   });
   const topClean = Object.entries(cleanerMap).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  document.getElementById('top-cleaner').innerHTML = `
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px">
-    ${topClean.map(([n,v],i) =>
-      `<div class="rank-item">
-        <div class="rank-num ${i===0?'gold':i===1?'silver':i===2?'bronze':''}">${i+1}</div>
-        <span class="rank-name">${n}</span>
-        <span class="rank-val">${formatRp(v)}</span>
-      </div>`
-    ).join('')}
-    </div>
-  ` || '<div style="color:var(--gray-400);font-size:13px;padding:12px">Tidak ada data</div>';
+  document.getElementById('top-cleaner').innerHTML = topClean.length
+    ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px">
+        ${topClean.map(([n,v],i) =>
+          `<div class="rank-item">
+            <div class="rank-num ${i===0?'gold':i===1?'silver':i===2?'bronze':''}">${i+1}</div>
+            <span class="rank-name">${n}</span>
+            <span class="rank-val">${formatRp(v)}</span>
+          </div>`
+        ).join('')}
+       </div>`
+    : '<div style="color:var(--gray-400);font-size:13px;padding:12px">Tidak ada data</div>';
 }
 
 function getMostCommon(rows, key) {
