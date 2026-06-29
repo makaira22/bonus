@@ -559,9 +559,9 @@
         <label>Status Order</label>
         <select id="hf-status" onchange="applyHistoryFilter()">
           <option value="">Semua Status</option>
-          <option value="DONE">Done</option>
-          <option value="COMPLETE">Complete</option>
-          <option value="CANCEL">Cancel</option>
+          <option value="done">Done</option>
+          <option value="complete">Complete</option>
+          <option value="cancel">Cancel</option>
         </select>
       </div>
       <div class="filter-group">
@@ -770,14 +770,14 @@ function resetFilter() {
 
 // ─── FILTER: HISTORY ─────────────────────────────────────────────────────────
 function applyHistoryFilter() {
-  const status = document.getElementById('hf-status').value.toUpperCase();
+  const status = document.getElementById('hf-status').value.toLowerCase();
   const cabang = document.getElementById('hf-cabang').value.toLowerCase();
   const from   = document.getElementById('hf-from').value;
   const to     = document.getElementById('hf-to').value;
   const search = document.getElementById('hf-search').value.toLowerCase();
 
   filtHistory = allHistory.filter(r => {
-    if (status && (r.status || '').toUpperCase() !== status) return false;
+    if (status && (r.status || '').toLowerCase() !== status) return false;
     if (cabang && (r.cabang || '').toLowerCase() !== cabang) return false;
     if (from   && r.tanggalInput < from) return false;
     if (to     && r.tanggalInput > to)   return false;
@@ -809,10 +809,10 @@ function updateStats() {
 }
 
 function updateHistoryStats() {
-  const done     = filtHistory.filter(r => (r.status||'').toUpperCase()==='DONE').length;
-  const complete = filtHistory.filter(r => (r.status||'').toUpperCase()==='COMPLETE').length;
-  const cancel   = filtHistory.filter(r => (r.status||'').toUpperCase()==='CANCEL').length;
-  const amount   = filtHistory.filter(r=>(r.status||'').toUpperCase()==='COMPLETE').reduce((s,r)=>s+(parseFloat(r.totalAkhir)||0),0);
+  const done     = filtHistory.filter(r => (r.status||'').toLowerCase()==='done').length;
+  const complete = filtHistory.filter(r => (r.status||'').toLowerCase()==='complete').length;
+  const cancel   = filtHistory.filter(r => (r.status||'').toLowerCase()==='cancel').length;
+  const amount   = filtHistory.filter(r=>(r.status||'').toLowerCase()==='complete').reduce((s,r)=>s+(parseFloat(r.totalAkhir)||0),0);
   document.getElementById('hs-done').textContent     = done;
   document.getElementById('hs-complete').textContent = complete;
   document.getElementById('hs-cancel').textContent   = cancel;
@@ -885,11 +885,11 @@ function renderHistoryTable() {
 
   document.getElementById('htbl-subtitle').textContent = `${filtHistory.length} order ditemukan · Halaman ${historyPage}`;
 
-  const statusClass = { DONE:'status-done', COMPLETE:'status-complete', CANCEL:'status-cancel' };
-  const statusIcon  = { DONE:'⏳', COMPLETE:'✅', CANCEL:'❌' };
+  const statusClass = { done:'status-done', complete:'status-complete', cancel:'status-cancel' };
+  const statusIcon  = { done:'⏳', complete:'✅', cancel:'❌' };
 
   tbody.innerHTML = pageData.map(r => {
-    const s = (r.status||'').toUpperCase();
+    const s = (r.status||'').toLowerCase();
     return `
     <tr>
       <td><div class="order-id">${esc(r.idOrder)}</div></td>
@@ -907,7 +907,7 @@ function renderHistoryTable() {
           ${esc(r.metodeBayar||'-')}
         </span>
       </td>
-      <td><span class="amount ${s==='COMPLETE'?'highlight':''}">${s==='COMPLETE'?'Rp ':''}${s==='COMPLETE'?formatRp(r.totalAkhir):'-'}</span></td>
+      <td><span class="amount ${s==='complete'?'highlight':''}">${s==='complete'?'Rp ':''}${s==='complete'?formatRp(r.totalAkhir):'-'}</span></td>
       <td>
         ${r.buktTransfer
           ? `<button class="btn-proof" onclick="openModalHistory(${r.rowIndex})">🖼️ Lihat</button>`
