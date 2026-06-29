@@ -818,56 +818,62 @@
             modal.classList.add('flex');
         }
 
-        function saveKaryawan(existingId) {
-            const payload = {
-                id: document.getElementById('kId').value,
-                nama: document.getElementById('kNama').value,
-                pin: document.getElementById('kPin').value,
-                email: document.getElementById('kEmail').value,
-                jabatan: document.getElementById('kJabatan').value,
-                status: document.getElementById('kStatus').value,
-                cabang: document.getElementById('kCabang').value,
-                wa: document.getElementById('kWa').value,
-                foto: document.getElementById('kFoto').value
-            };
+        async function saveKaryawan(existingId) {
+    // 1. Ambil data dari form inputan HTML
+    const payload = {
+        action: 'saveKaryawan',
+        id: document.getElementById('kId').value,
+        nama: document.getElementById('kNama').value,
+        pin: document.getElementById('kPin').value,
+        email: document.getElementById('kEmail').value,
+        jabatan: document.getElementById('kJabatan').value,
+        status: document.getElementById('kStatus').value,
+        cabang: document.getElementById('kCabang').value,
+        wa: document.getElementById('kWa').value,
+        foto: document.getElementById('kFoto').value
+    };
 
+    // Ubah tombol jadi loading agar user tidak klik 2x
+    Swal.fire({
+        title: 'Menyimpan Data...',
+        text: 'Mengirim data ke Google Sheet',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    try {
+        // 2. Kirim data ke Apps Script (Google Sheet)
+        const response = await fetch(APPS_SCRIPT_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            // Ubah object JS menjadi format URL encoded (key=value&key2=value2)
+            body: new URLSearchParams(payload).toString()
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            // Update cache lokal agar langsung tampil di layar tanpa harus refresh
             if(!existingId) {
                 dbCache.KARYAWAN.push(payload);
             } else {
                 const idx = dbCache.KARYAWAN.findIndex(k => k.id === existingId);
                 dbCache.KARYAWAN[idx] = payload;
             }
-
+            
             closeModal();
-            Swal.fire('Berhasil', 'Data karyawan sukses di-sync ke awang spreadsheet.', 'success');
+            Swal.fire('Berhasil', result.message, 'success');
             renderView('KARYAWAN');
+        } else {
+            Swal.fire('Gagal', result.message, 'error');
         }
-
-        // EDIT INTEGRATED KOMPONEN GAJI (HRD)
-        function editGajiKomponen(slipId, gapok, transport) {
-            Swal.fire({
-                title: `Edit Komponen ${slipId}`,
-                html: `
-                    <div class="text-left space-y-2">
-                        <label class="text-xs font-bold text-slate-600 block">Gaji Pokok (Rp)</label>
-                        <input id="swalGapok" type="number" class="swal2-input !m-0 !w-full" value="${gapok}">
-                        <label class="text-xs font-bold text-slate-600 block mt-2">Tunjangan Transport (Rp)</label>
-                        <input id="swalTransport" type="number" class="swal2-input !m-0 !w-full" value="${transport}">
-                    </div>
-                `,
-                preConfirm: () => {
-                    return [
-                        document.getElementById('swalGapok').value,
-                        document.getElementById('swalTransport').value
-                    ]
-                }
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    Swal.fire('Sukses Diupdate', 'Komponen finansial slip berhasil dikunci.', 'success');
-                    renderView('GAJI_KARYAWAN');
-                }
-            });
-        }
+    } catch (error) {
+        Swal.fire('Error', 'Gagal menghubungi server Google Sheet.', 'error');
+        console.error(error);
+    }
+}
 
         // CS INPUT BONUS AUTO-FILL LOGIC RELASI ANTAR MENU
         function autofillOrderDetails(orderId) {
