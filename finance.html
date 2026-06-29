@@ -1047,8 +1047,23 @@ function _showModal(r, canApprove) {
   ).join('');
 
   const imgWrap = document.getElementById('modal-img-wrap');
-  if (r.buktTransfer) {
-    imgWrap.innerHTML = `<img src="${esc(r.buktTransfer)}" alt="Bukti Transfer" onerror="this.outerHTML='<div class=proof-img-placeholder>⚠️<br/><small>Gambar tidak dapat dimuat</small></div>'" />`;
+  const bt = r.buktTransfer || '';
+  const isUrl  = bt.startsWith('http://') || bt.startsWith('https://') || bt.startsWith('drive.google');
+  const isPath = bt.includes('/') || bt.toLowerCase().includes('.jpg') || bt.toLowerCase().includes('.png') || bt.toLowerCase().includes('.jpeg');
+
+  if (bt && isUrl) {
+    // URL langsung — tampilkan sebagai gambar
+    imgWrap.innerHTML = `<img src="${esc(bt)}" alt="Bukti Transfer"
+      style="max-width:100%;display:block;"
+      onerror="this.parentElement.innerHTML='<div class=proof-img-placeholder>⚠️<br/><small>Gambar tidak dapat dimuat dari URL ini.</small><br/><code style=font-size:10px;word-break:break-all>${esc(bt)}</code></div>'" />`;
+  } else if (bt && isPath) {
+    // Nama file / path — tampilkan sebagai teks dengan instruksi
+    imgWrap.innerHTML = `<div class="proof-img-placeholder" style="padding:28px;text-align:left;">
+      <div style="font-size:28px;text-align:center;margin-bottom:12px;">🗂️</div>
+      <div style="font-size:12px;font-weight:700;color:var(--slate);margin-bottom:6px;">Nama File Bukti Transfer:</div>
+      <div style="font-family:monospace;font-size:11px;background:#F1F5F9;padding:10px;border-radius:6px;word-break:break-all;color:var(--navy);">${esc(bt)}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:10px;">📌 File tersimpan di Google Drive / server. Cari file dengan nama di atas untuk verifikasi.</div>
+    </div>`;
   } else {
     imgWrap.innerHTML = `<div class="proof-img-placeholder">🖼️<br/><small>Bukti transfer tidak tersedia</small></div>`;
   }
@@ -1056,12 +1071,19 @@ function _showModal(r, canApprove) {
   const actions = document.getElementById('modal-actions');
   actions.innerHTML = '';
 
-  if (r.buktTransfer) {
+  if (bt && isUrl) {
     const aLink = document.createElement('a');
-    aLink.href = r.buktTransfer; aLink.target = '_blank';
+    aLink.href = bt; aLink.target = '_blank';
     aLink.className = 'btn btn-outline btn-sm';
     aLink.textContent = '🔗 Buka di Tab Baru';
     actions.appendChild(aLink);
+  } else if (bt) {
+    // Tombol copy nama file
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'btn btn-outline btn-sm';
+    copyBtn.textContent = '📋 Copy Nama File';
+    copyBtn.onclick = () => { navigator.clipboard.writeText(bt); toast('Nama file disalin!', 'success'); };
+    actions.appendChild(copyBtn);
   }
 
   if (canApprove) {
