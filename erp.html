@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KLINKLIN ERP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans antialiased min-h-screen">
+
+    <div id="loginScreen" class="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-800 to-slate-900">
+        <div class="glass-panel p-10 rounded-2xl shadow-2xl w-96 text-center">
+            <h1 class="text-3xl font-bold text-slate-800 mb-2">KLINKLIN ERP</h1>
+            <p class="text-slate-500 mb-8 text-sm">Enterprise Resource Planning</p>
+            <input type="password" id="pinInput" placeholder="Masukkan PIN" class="w-full p-4 mb-6 border border-slate-300 rounded-xl text-center text-xl tracking-[0.5em] focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+            <button onclick="login()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg transition-all transform hover:scale-105">MASUK</button>
+        </div>
+    </div>
+
+    <div id="dashboardScreen" class="hidden">
+        <nav class="bg-white shadow-sm px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <h2 class="text-xl font-bold text-slate-800">KLINKLIN <span class="text-blue-600">ERP</span></h2>
+                <span id="userBadge" class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded">Role</span>
+            </div>
+            <button onclick="logout()" class="text-red-500 hover:text-red-700 font-medium">Logout</button>
+        </nav>
+
+        <div class="flex">
+            <aside class="w-64 min-h-screen bg-slate-800 text-white p-6" id="sidebarMenu">
+                </aside>
+
+            <main class="flex-1 p-8 bg-slate-100">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[500px]">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 id="pageTitle" class="text-2xl font-bold text-slate-800">Pilih Menu</h3>
+                        <div id="filterArea" class="hidden flex gap-2">
+                            <input type="date" class="border rounded-lg p-2 text-sm">
+                            <input type="text" placeholder="Cari..." class="border rounded-lg p-2 text-sm">
+                        </div>
+                    </div>
+                    
+                    <div id="dataContainer" class="overflow-x-auto">
+                        <p class="text-slate-400 text-center mt-20">Data akan tampil di sini</p>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // GANTI DENGAN URL WEB APP APPS SCRIPT ANDA
+        const API_URL = 'URL_WEB_APP_APPS_SCRIPT_ANDA';
+
+        const menus = {
+            'HRD': ['KARYAWAN', 'GAJI KARYAWAN', 'INSENTIF'],
+            'CS': ['ORDER', 'INPUT BONUS'],
+            'FINANCE': ['AUDIT ORDER', 'HASIL AUDIT']
+        };
+
+        let currentUser = { role: '', cabang: '' };
+
+        async function login() {
+            const pin = document.getElementById('pinInput').value;
+            if(!pin) return Swal.fire('Error', 'PIN tidak boleh kosong', 'error');
+
+            Swal.fire({ title: 'Otentikasi...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+            // Simulasi POST request ke Apps Script
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `action=login&pin=${pin}`
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    Swal.close();
+                    currentUser = { role: result.role, cabang: result.cabang };
+                    document.getElementById('loginScreen').classList.add('hidden');
+                    document.getElementById('dashboardScreen').classList.remove('hidden');
+                    
+                    document.getElementById('userBadge').innerText = `${result.role} ${result.cabang !== 'ALL' ? '- ' + result.cabang : ''}`;
+                    renderMenu(result.role);
+                } else {
+                    Swal.fire('Gagal', result.message, 'error');
+                }
+            } catch (error) {
+                Swal.fire('Error', 'Koneksi ke server gagal.', 'error');
+            }
+        }
+
+        function renderMenu(role) {
+            const sidebar = document.getElementById('sidebarMenu');
+            sidebar.innerHTML = '<p class="text-xs font-semibold text-slate-400 mb-4 uppercase tracking-wider">MENU UTAMA</p>';
+            
+            menus[role].forEach(menu => {
+                const btn = document.createElement('button');
+                btn.className = 'w-full text-left py-3 px-4 rounded-xl mb-2 hover:bg-slate-700 transition-colors flex items-center font-medium';
+                btn.innerText = menu;
+                btn.onclick = () => loadData(menu);
+                sidebar.appendChild(btn);
+            });
+        }
+
+        function loadData(menuName) {
+            document.getElementById('pageTitle').innerText = menuName;
+            document.getElementById('filterArea').classList.remove('hidden');
+            document.getElementById('dataContainer').innerHTML = '<p class="text-center mt-10">Memuat data dari database...</p>';
+
+            // Disini Anda akan melakukan Fetch ke action=getData
+            // Contoh implementasi skeleton:
+            /*
+            fetch(`${API_URL}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `action=getData&role=${currentUser.role}&cabang=${currentUser.cabang}&menu=${menuName}`
+            }).then(res => res.json()).then(data => {
+                // Render tabel disini (Generate HTML table berdasarkan data dari Apps Script)
+            });
+            */
+        }
+
+        function logout() {
+            document.getElementById('pinInput').value = '';
+            document.getElementById('dashboardScreen').classList.add('hidden');
+            document.getElementById('loginScreen').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
