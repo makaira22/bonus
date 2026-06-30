@@ -11,6 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
 <style>
 :root{
   --bg:#EEF2F1; --surface:#FFFFFF; --surface-2:#F7FAF9;
@@ -363,6 +364,25 @@ const CHAT_DARI = ['organik','iklan','lama'];
 const METODE = ['BCA','MANDIRI','CASH','QRIS'];
 const JENIS_BONUS = ['Kilometer','Bonus Deepclean','Bonus Salon','Tips','Parkir','Lembur','Uang Makan','Bonus Lainnya'];
 
+const PPN_DEFAULT = 11; // PPn otomatis 11%
+
+/* Info per cabang untuk kop invoice. Surabaya sesuai contoh; cabang lain
+   silakan lengkapi alamat & telepon. Email otomatis pola klinklin.<cabang>. */
+const BRANCH_INFO = {
+  SURABAYA:{ alamat:'Jl. Mojo Kidul No. 23, Mojo, Gubeng, Surabaya, Jawa Timur 62085', phone:'(+62) 89-7747-5656' }
+};
+function branchInfo(cabang){
+  const c = String(cabang||'').toUpperCase();
+  const base = BRANCH_INFO[c] || { alamat:'-', phone:'-' };
+  return { cabang:c, alamat:base.alamat, phone:base.phone,
+           email:'klinklin.'+c.toLowerCase()+'@gmail.com' };
+}
+const INVOICE_BANK = [
+  { bank:'Bank Mandiri', no:'1780022255554', an:'KlinKlin Indonesia Group' },
+  { bank:'Bank BCA',     no:'8640679949',    an:'KlinKlin Indonesia Group' }
+];
+const INVOICE_SIGNER = 'M. Aminuddin Ghufron';
+
 const GAJI_BONUS_FIELDS = ['Bonus Bulanan','Bonus Review','Bonus Tanggal Merah','Bonus Januari',
   'Total Kilometer','Total DeepClean','Total Salon','Total Tips','Total Parkir','Total Lembur',
   'Total Uang Makan','Total Bonus Lainnya'];
@@ -419,12 +439,43 @@ const MENUS = {
   ],
   FINANCE: [
     {key:'auditOrder', label:'Audit Order', icon:'audit'},
-    {key:'hasilAudit', label:'Hasil Audit', icon:'result'}
+    {key:'hasilAudit', label:'Hasil Audit', icon:'result'},
+    {key:'editOrder', label:'Edit Order', icon:'edit'}
   ]
 };
 
 /* ---------- VIEW DEFINITIONS ---------- */
 const f = (k,t,o)=>Object.assign({k,t:t||'text'},o||{});
+
+/* Form order dipakai bersama oleh CS (Order) & Finance (Edit Order). */
+const ORDER_FORM = [
+  {sec:'Order'},
+  f('Chat Dari','select',{opts:CHAT_DARI}), f('Tanggal Input','date'),
+  f('Status Order','text',{ro:true}),
+  f('CS Penanggung Jawab','text',{ro:true}),
+  {sec:'Customer'},
+  f('Nama Customer','text',{req:true}), f('No WA Customer','text'),
+  f('Alamat','textarea',{full:true}),
+  f('Waktu Pengerjaan','text'), f('Tanggal Pengerjaan','date'),
+  f('Nama Cleaner','dynselect',{list:'cleaner'}),
+  {sec:'Layanan & Tagihan'},
+  f('Layanan 1','text'), f('Qty 1','num'), f('Harga 1','num'),
+  f('Layanan 2','text'), f('Qty 2','num'), f('Harga 2','num'),
+  f('Layanan 3','text'), f('Qty 3','num'), f('Harga 3','num'),
+  f('Metode Pembayaran','select',{opts:METODE}),
+  f('Diskon (%)','num'), f('PPn','num',{ro:true}),
+  f('Total Akhir','num',{computed:true}),
+  f('Total Akhir Setelah Diskon','num',{computed:true}),
+  f('Total Tagihan','num',{computed:true}),
+  {sec:'Dokumen & Catatan'},
+  f('Keterangan Order','textarea',{full:true}),
+  f('Update Invoice','text',{full:true}),
+  f('Alasan Cancel','text',{full:true}),
+  f('Bukti Transfer','file',{accept:'image/*'}),
+  f('Bukti Cancel','file',{accept:'image/*'}),
+  f('File Invoice','file',{accept:'image/*,application/pdf'})
+];
+
 const VIEWS = {
   karyawan:{
     sheet:'KARYAWAN', title:'Karyawan', sub:'Data seluruh karyawan & profil',
@@ -487,36 +538,11 @@ const VIEWS = {
     sheet:'ORDER', title:'Order', sub:'Input & kelola order cabang', branchLock:true,
     idField:'ID Order', canAdd:true, canEdit:true, special:'order',
     table:['ID Order','Tanggal Input','Status Order','Nama Customer','Tanggal Pengerjaan','Nama Cleaner','Total Akhir Setelah Diskon'],
-    filters:['Status Order','Chat Dari'],
+    filters:['Status Order'],
+    datePreset:true, dateFilterField:'Tanggal Pengerjaan',
     search:['Nama Customer','ID Order','No WA Customer'],
-    statusBadge:true,
-    form:[
-      {sec:'Order'},
-      f('Chat Dari','select',{opts:CHAT_DARI}), f('Tanggal Input','date'),
-      f('Status Order','select',{opts:STATUS_ORDER, ro:true}),
-      f('CS Penanggung Jawab','text',{ro:true}),
-      {sec:'Customer'},
-      f('Nama Customer','text',{req:true}), f('No WA Customer','text'),
-      f('Alamat','textarea',{full:true}),
-      f('Waktu Pengerjaan','text'), f('Tanggal Pengerjaan','date'),
-      f('Nama Cleaner','dynselect',{list:'cleaner'}),
-      {sec:'Layanan & Tagihan'},
-      f('Layanan 1','text'), f('Qty 1','num'), f('Harga 1','num'),
-      f('Layanan 2','text'), f('Qty 2','num'), f('Harga 2','num'),
-      f('Layanan 3','text'), f('Qty 3','num'), f('Harga 3','num'),
-      f('Metode Pembayaran','select',{opts:METODE}),
-      f('Diskon (%)','num'), f('PPn','num'),
-      f('Total Akhir','num',{computed:true}),
-      f('Total Akhir Setelah Diskon','num',{computed:true}),
-      f('Total Tagihan','num',{computed:true}),
-      {sec:'Dokumen & Catatan'},
-      f('Keterangan Order','textarea',{full:true}),
-      f('Update Invoice','text',{full:true}),
-      f('Alasan Cancel','text',{full:true}),
-      f('Bukti Transfer','file',{accept:'image/*'}),
-      f('Bukti Cancel','file',{accept:'image/*'}),
-      f('File Invoice','file',{accept:'image/*,application/pdf'})
-    ]
+    statusBadge:true, lockAfterProof:true, invoice:true,
+    form: ORDER_FORM
   },
   inputBonus:{
     sheet:'BONUS', title:'Input Bonus', sub:'Bonus cleaner berdasarkan No Order', branchLock:true,
@@ -535,7 +561,7 @@ const VIEWS = {
   auditOrder:{
     sheet:'ORDER', title:'Audit Order', sub:'Order menunggu persetujuan finance',
     idField:'ID Order', statusIn:['pending','done'], statusField:'Status Order',
-    approve:true, statusBadge:true,
+    approve:true, statusBadge:true, invoice:true,
     table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Total Akhir Setelah Diskon','Bukti Transfer'],
     filters:['Cabang'],
     search:['Nama Customer','ID Order'],
@@ -543,11 +569,20 @@ const VIEWS = {
   },
   hasilAudit:{
     sheet:'ORDER', title:'Hasil Audit', sub:'Order yang sudah complete', readOnly:true,
-    idField:'ID Order', statusIn:['complete'], statusField:'Status Order', statusBadge:true,
+    idField:'ID Order', statusIn:['complete'], statusField:'Status Order', statusBadge:true, invoice:true,
     table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Total Akhir Setelah Diskon','Waktu Approve'],
     filters:['Cabang'],
     search:['Nama Customer','ID Order'],
     dateFilterField:'Tanggal Pengerjaan'
+  },
+  editOrder:{
+    sheet:'ORDER', title:'Edit Order', sub:'Edit order apa pun — semua status & cabang',
+    idField:'ID Order', canEdit:true, special:'order', statusBadge:true, invoice:true,
+    table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Nama Cleaner','Total Akhir Setelah Diskon'],
+    filters:['Cabang','Status Order'],
+    datePreset:true, dateFilterField:'Tanggal Pengerjaan',
+    search:['Nama Customer','ID Order','Nama Cleaner'],
+    form: ORDER_FORM
   }
 };
 
@@ -608,6 +643,8 @@ function isMoney(key){
 }
 function initials(name){ return (name||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase(); }
 const norm = s=>String(s==null?'':s).trim().toLowerCase();
+function ymd(d){ const x=new Date(d); const m=String(x.getMonth()+1).padStart(2,'0'); const day=String(x.getDate()).padStart(2,'0'); return x.getFullYear()+'-'+m+'-'+day; }
+function startOfWeek(d){ const x=new Date(d); const off=(x.getDay()+6)%7; x.setDate(x.getDate()-off); return x; }
 
 /* ============================================================
    AUTH
@@ -717,7 +754,18 @@ function buildToolbar(){
         opts.map(o=>'<option>'+o+'</option>').join('')+'</select></div>';
     }
   });
-  if(v.dateFilterField){
+  if(v.datePreset){
+    html += '<div class="fl"><span class="lbl">Tanggal</span>'+
+      '<select id="dpreset">'+
+        '<option value="">Semua</option>'+
+        '<option value="today">Hari ini</option>'+
+        '<option value="yesterday">Kemarin</option>'+
+        '<option value="week">Minggu ini</option>'+
+        '<option value="range">Rentang tanggal…</option>'+
+      '</select>'+
+      '<span id="dprange" class="hide"> <input type="date" id="ds"> <input type="date" id="de"></span>'+
+      '</div>';
+  } else if(v.dateFilterField){
     html += '<div class="fl"><span class="lbl">'+v.dateFilterField+'</span>'+
       '<input type="date" id="ds" title="Dari tanggal"> <input type="date" id="de" title="Sampai tanggal"></div>';
   }
@@ -732,6 +780,17 @@ function buildToolbar(){
   const ds=$('#ds'), de=$('#de');
   if(ds) ds.addEventListener('change', e=>{ state.dateStart=e.target.value; renderTable(); });
   if(de) de.addEventListener('change', e=>{ state.dateEnd=e.target.value; renderTable(); });
+  const dp=$('#dpreset');
+  if(dp) dp.addEventListener('change', e=>{
+    const val=e.target.value, range=$('#dprange'), now=new Date();
+    range.classList.toggle('hide', val!=='range');
+    if(val==='today'){ const t=ymd(now); state.dateStart=t; state.dateEnd=t; }
+    else if(val==='yesterday'){ const y=new Date(now); y.setDate(y.getDate()-1); const t=ymd(y); state.dateStart=t; state.dateEnd=t; }
+    else if(val==='week'){ state.dateStart=ymd(startOfWeek(now)); state.dateEnd=ymd(now); }
+    else if(val==='range'){ state.dateStart=ds?ds.value:''; state.dateEnd=de?de.value:''; }
+    else { state.dateStart=''; state.dateEnd=''; }
+    renderTable();
+  });
 }
 
 async function loadList(){
@@ -774,7 +833,7 @@ function renderTable(){
   const rows = applyClientFilters(state.rows);
   if(!rows.length){ $('#panel').innerHTML=emptyState('Belum ada data'); $('#count').textContent=''; return; }
   const cols=v.table;
-  const showAct = v.canEdit || v.approve;
+  const showAct = v.canEdit || v.approve || v.invoice;
   let html='<div class="tbl-wrap"><table><thead><tr>'+
     cols.map(c=>'<th>'+c+'</th>').join('')+ (showAct?'<th></th>':'') +'</tr></thead><tbody>';
   rows.forEach(r=>{
@@ -785,8 +844,16 @@ function renderTable(){
         if(st==='pending'||st==='done'){
         act += '<button class="btn btn-gold btn-sm" data-approve="'+esc(r['ID Order'])+'">'+svg('check')+'Approve</button>';
       }}
+      if(v.invoice && (norm(r['Status Order'])==='done' || norm(r['Status Order'])==='complete' || r['Bukti Transfer'])){
+        act += '<button class="act-ic" data-invoice="'+esc(r['ID Order'])+'" title="Download Invoice PDF">'+svg('file')+'</button>';
+      }
       if(v.canEdit){
-        act += '<button class="act-ic" data-edit="'+esc(r[v.idField])+'" title="Edit">'+svg('edit')+'</button>';
+        const locked = v.lockAfterProof && (r['Bukti Transfer'] || r['Bukti Cancel']);
+        if(locked){
+          act += '<span class="act-ic" title="Terkunci — sudah ada bukti transfer/cancel" style="opacity:.4;cursor:not-allowed">'+svg('check')+'</span>';
+        }else{
+          act += '<button class="act-ic" data-edit="'+esc(r[v.idField])+'" title="Edit">'+svg('edit')+'</button>';
+        }
       }
       act+='</div>';
       html += '<td>'+act+'</td>';
@@ -798,6 +865,9 @@ function renderTable(){
   $('#count').textContent = rows.length+' data';
   document.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click',()=>{
     const row=state.rows.find(x=>String(x[v.idField])===b.dataset.edit); openForm(row);
+  }));
+  document.querySelectorAll('[data-invoice]').forEach(b=>b.addEventListener('click',()=>{
+    const row=state.rows.find(x=>String(x['ID Order'])===b.dataset.invoice); downloadInvoice(row);
   }));
   document.querySelectorAll('[data-approve]').forEach(b=>b.addEventListener('click',()=>approveOrder(b.dataset.approve)));
 }
@@ -844,6 +914,9 @@ async function openForm(row){
   state.editing = row; state.files={};
   $('#modalTitle').textContent = (row?'Edit ':'Tambah ')+v.title;
 
+  // Finance (tanpa branchLock): muat ulang daftar cleaner sesuai cabang order ini.
+  if(!v.branchLock) state.cache.cleaner = undefined;
+
   // prefetch lists needed for datalists
   await ensureLists(v);
 
@@ -857,13 +930,14 @@ async function openForm(row){
   $('#modalBody').innerHTML=html;
   wireFields(v);
   if(v.special==='gaji') recomputeGaji();
-  if(v.special==='order') recomputeOrder();
+  if(v.special==='order'){ recomputeOrder(); if(row && row['Bukti Transfer']) showInvoiceBtn(); }
   openOverlay();
 }
 function defaults(v){
-  const d={}; const today=new Date().toISOString().slice(0,10);
+  const d={}; const today=ymd(new Date());
   if(v.sheet==='ORDER'){ d['Tanggal Input']=today; d['Status Order']='pending';
-    d['Cabang']=state.session.cabang; d['CS Penanggung Jawab']=state.session.nama; }
+    d['Cabang']=state.session.cabang; d['CS Penanggung Jawab']=state.session.nama;
+    d['PPn']=PPN_DEFAULT; }
   if(v.sheet==='BONUS'){ d['Tanggal Input']=today; }
   if(v.sheet==='GAJI'){ d['Tanggal Cetak']=today; }
   return d;
@@ -912,7 +986,8 @@ async function ensureLists(v){
     state.cache.karyawan = (await api({action:'list', sheet:'KARYAWAN'})).data||[];
   }
   if(needs.has('cleaner') && !state.cache.cleaner){
-    const r = await api({action:'list', sheet:'KARYAWAN', filters:{'Cabang':state.session.cabang}});
+    const cab = state.session.cabang || (state.editing && state.editing['Cabang']) || '';
+    const r = await api({action:'list', sheet:'KARYAWAN', filters: cab?{'Cabang':cab}:{}});
     state.cache.cleaner = (r.data||[]).filter(e=>String(e['Jabatan']).trim().toLowerCase()==='cleaner');
   }
   if(needs.has('order') && !state.cache.order){
@@ -954,7 +1029,7 @@ function wireFields(v){
         if(prev && /image/.test(file.type)){ prev.src=r.url; prev.style.display='block'; }
         // auto status order
         if(v.special==='order'){
-          if(key==='Bukti Transfer') setVal('Status Order','done');
+          if(key==='Bukti Transfer'){ setVal('Status Order','done'); showInvoiceBtn(); }
           if(key==='Bukti Cancel') setVal('Status Order','cancel');
         }
       }catch(err){ fn.textContent='Gagal'; toast(err.message,'err'); }
@@ -983,6 +1058,29 @@ function getEl(k){ return document.querySelector('[data-k="'+CSS.escape(k)+'"]')
 function getVal(k){ const e=getEl(k); return e? e.value : ''; }
 function numVal(k){ return Number(getVal(k)||0); }
 function setVal(k,v){ const e=getEl(k); if(e) e.value=(v==null?'':v); }
+
+/* kumpulkan nilai form order saat ini (untuk invoice) */
+function collectOrderForm(){
+  const v=state.view;
+  const data = state.editing ? Object.assign({}, state.editing) : {};
+  (v.form||[]).forEach(fd=>{
+    if(fd.sec) return;
+    if(fd.t==='file'){ if(state.files[fd.k]) data[fd.k]=state.files[fd.k]; }
+    else data[fd.k]=getVal(fd.k);
+  });
+  data['Cabang'] = v.branchLock ? state.session.cabang : (data['Cabang']||state.session.cabang||'');
+  return data;
+}
+/* tampilkan tombol unduh invoice di dalam form setelah bukti TF terunggah */
+function showInvoiceBtn(){
+  const fnEl=document.querySelector('[data-fn="Bukti Transfer"]');
+  if(!fnEl || fnEl.querySelector('.inv-btn')) return;
+  const b=document.createElement('button');
+  b.type='button'; b.className='btn btn-gold btn-sm inv-btn'; b.style.marginLeft='8px';
+  b.innerHTML=svg('file')+'Invoice PDF';
+  b.addEventListener('click', ()=>downloadInvoice(collectOrderForm()));
+  fnEl.appendChild(b);
+}
 
 /* ---------- special recompute ---------- */
 function recomputeOrder(){
@@ -1040,6 +1138,140 @@ function onPickOrder(){
   setVal('Tanggal Pengerjaan', o['Tanggal Pengerjaan']);
 }
 
+/* ============================================================
+   INVOICE PDF
+   ============================================================ */
+function fmtTgl(s){
+  s=String(s||''); const m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? (m[3]+'/'+m[2]+'/'+m[1]) : (s||'-');
+}
+function buildInvoiceHTML(o){
+  o=o||{};
+  const info=branchInfo(o['Cabang']);
+  let items=[1,2,3].map(i=>({nama:o['Layanan '+i]||'', qty:Number(o['Qty '+i]||0), harga:Number(o['Harga '+i]||0)}))
+                   .filter(it=>it.nama||it.qty||it.harga);
+  if(!items.length) items=[{nama:'',qty:0,harga:0}];
+  let subtotal=0; items.forEach(it=>subtotal+=it.qty*it.harga);
+  if(!subtotal && o['Total Akhir']) subtotal=Number(o['Total Akhir'])||0;
+  const disc=Number(o['Diskon (%)']||0);
+  const diskonNilai=Math.round(subtotal*disc/100);
+  const afterDisc=subtotal-diskonNilai;
+  const ppn=Number((o['PPn']!=null&&o['PPn']!=='')?o['PPn']:PPN_DEFAULT);
+  const ppnNilai=Math.round(afterDisc*ppn/100);
+  let grand=Number(o['Total Akhir Setelah Diskon']||0);
+  if(!grand) grand=afterDisc+ppnNilai;
+
+  const bd='1px solid #333';
+  const cellL='padding:5px 8px;border:'+bd+';font-size:11px;';
+  const lab='padding:5px 8px;border:'+bd+';font-size:11px;font-weight:bold;background:#f3f5f8;white-space:nowrap;';
+  const money=n=>'Rp '+Number(n||0).toLocaleString('id-ID');
+
+  const itemRows=items.map(it=>(
+    '<tr>'+
+      '<td style="'+cellL+'">'+esc(it.nama||'-')+'</td>'+
+      '<td style="'+cellL+'text-align:center">'+(it.qty||'')+'</td>'+
+      '<td style="'+cellL+'text-align:right">'+money(it.qty*it.harga)+'</td>'+
+    '</tr>'
+  )).join('');
+
+  const bankRows=INVOICE_BANK.map(b=>(
+    '<tr><td style="font-size:11px;font-weight:bold;padding:2px 0;width:120px">'+esc(b.bank)+'</td>'+
+    '<td style="font-size:11px;padding:2px 0">: '+esc(b.no)+' &nbsp;a.n. '+esc(b.an)+'</td></tr>'
+  )).join('');
+
+  return ''+
+  '<div style="width:760px;background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif;padding:28px 30px;box-sizing:border-box">'+
+    // header
+    '<table style="width:100%;border-collapse:collapse;margin-bottom:18px"><tr>'+
+      '<td style="vertical-align:middle;width:45%">'+
+        '<div style="font-weight:800;font-size:26px;letter-spacing:-1px">'+
+        '<span style="background:#111;color:#fff;padding:2px 8px;border-radius:5px">K</span>linKlin</div>'+
+      '</td>'+
+      '<td style="vertical-align:middle">'+
+        '<div style="background:#4169d6;color:#fff;font-weight:800;font-size:32px;letter-spacing:1px;text-align:center;padding:10px 0;border-radius:2px">INVOICE</div>'+
+      '</td>'+
+    '</tr></table>'+
+    // company + meta
+    '<table style="width:100%;border-collapse:collapse;margin-bottom:14px"><tr>'+
+      '<td style="vertical-align:top;width:52%;padding-right:18px">'+
+        '<div style="font-size:12px;font-weight:bold;margin-bottom:2px">Klinklin '+esc(info.cabang)+'</div>'+
+        '<div style="font-size:12px;font-weight:bold;margin-bottom:8px">PT KlinKlin Indonesia Group</div>'+
+        '<table style="width:100%;border-collapse:collapse">'+
+          '<tr><td style="'+cellL+'">'+esc(info.alamat)+'</td></tr>'+
+        '</table>'+
+        '<table style="width:100%;border-collapse:collapse;margin-top:8px">'+
+          '<tr><td style="'+lab+'width:70px">Phone</td><td style="'+cellL+'">: '+esc(info.phone)+'</td></tr>'+
+          '<tr><td style="'+lab+'">Email</td><td style="'+cellL+'">: '+esc(info.email)+'</td></tr>'+
+        '</table>'+
+      '</td>'+
+      '<td style="vertical-align:top">'+
+        '<table style="width:100%;border-collapse:collapse">'+
+          '<tr><td style="'+lab+'width:110px">ID Order</td><td style="'+cellL+'">: '+esc(o['ID Order']||'-')+'</td></tr>'+
+          '<tr><td style="'+lab+'">Date</td><td style="'+cellL+'">: '+esc(fmtTgl(o['Tanggal Pengerjaan']||o['Tanggal Input']))+'</td></tr>'+
+          '<tr><td style="'+lab+'">Payment Term</td><td style="'+cellL+'">: '+esc(o['Metode Pembayaran']||'-')+'</td></tr>'+
+          '<tr><td style="'+lab+'">Currency</td><td style="'+cellL+'">: IDR</td></tr>'+
+        '</table>'+
+      '</td>'+
+    '</tr></table>'+
+    // customer
+    '<table style="width:52%;border-collapse:collapse;margin-bottom:16px">'+
+      '<tr><td style="'+lab+'width:70px">Customer</td><td style="'+cellL+'">: '+esc(o['Nama Customer']||'-')+'</td></tr>'+
+      '<tr><td style="'+lab+'">Address</td><td style="'+cellL+'">: '+esc(o['Alamat']||'-')+'</td></tr>'+
+      '<tr><td style="'+lab+'">Phone</td><td style="'+cellL+'">: '+esc(o['No WA Customer']||'-')+'</td></tr>'+
+    '</table>'+
+    // items
+    '<table style="width:100%;border-collapse:collapse;margin-bottom:0">'+
+      '<thead><tr>'+
+        '<th style="'+lab+'text-align:left;width:55%">Description</th>'+
+        '<th style="'+lab+'text-align:center">Qty</th>'+
+        '<th style="'+lab+'text-align:right">Amount</th>'+
+      '</tr></thead><tbody>'+itemRows+'</tbody>'+
+    '</table>'+
+    // totals
+    '<table style="width:100%;border-collapse:collapse;margin-bottom:20px"><tr>'+
+      '<td style="width:55%;border:none"></td>'+
+      '<td style="padding:0;border:none">'+
+        '<table style="width:100%;border-collapse:collapse">'+
+          '<tr><td style="'+lab+'">Subtotal</td><td style="'+cellL+'text-align:right">'+money(subtotal)+'</td></tr>'+
+          '<tr><td style="'+lab+'">Diskon</td><td style="'+cellL+'text-align:right">'+money(diskonNilai)+'</td></tr>'+
+          '<tr><td style="'+lab+'">PPn ('+ppn+'%)</td><td style="'+cellL+'text-align:right">'+money(ppnNilai)+'</td></tr>'+
+          '<tr><td style="'+lab+'font-size:12px">Grand Total</td><td style="'+cellL+'text-align:right;font-weight:bold;font-size:12px">'+money(grand)+'</td></tr>'+
+        '</table>'+
+      '</td>'+
+    '</tr></table>'+
+    // footer
+    '<table style="width:100%;border-collapse:collapse"><tr>'+
+      '<td style="vertical-align:top;width:60%">'+
+        '<div style="font-size:11px;font-weight:bold;margin-bottom:6px">Pembayaran Transfer via</div>'+
+        '<table style="border-collapse:collapse">'+bankRows+'</table>'+
+      '</td>'+
+      '<td style="vertical-align:top;text-align:center">'+
+        '<div style="font-size:11px;margin-bottom:46px">Sincerely,</div>'+
+        '<div style="font-size:12px;font-weight:bold;border-top:1px solid #111;display:inline-block;padding-top:4px">'+esc(INVOICE_SIGNER)+'</div>'+
+      '</td>'+
+    '</tr></table>'+
+  '</div>';
+}
+async function downloadInvoice(o){
+  if(!o){ toast('Data order tidak ditemukan','err'); return; }
+  if(typeof html2pdf==='undefined'){ toast('Modul PDF belum siap, coba lagi','err'); return; }
+  setSync(true,'Membuat invoice…');
+  const holder=document.createElement('div');
+  holder.style.position='fixed'; holder.style.left='-9999px'; holder.style.top='0';
+  holder.innerHTML=buildInvoiceHTML(o);
+  document.body.appendChild(holder);
+  try{
+    await html2pdf().set({
+      margin:[8,8,8,8], filename:'Invoice-'+(o['ID Order']||'KLINKLIN')+'.pdf',
+      image:{type:'jpeg',quality:0.98},
+      html2canvas:{scale:2, useCORS:true, backgroundColor:'#ffffff'},
+      jsPDF:{unit:'mm', format:'a4', orientation:'portrait'}
+    }).from(holder.firstElementChild).save();
+    toast('Invoice diunduh','ok');
+  }catch(e){ toast('Gagal membuat invoice','err'); }
+  finally{ holder.remove(); setSync(false); }
+}
+
 /* ---------- save ---------- */
 async function saveForm(){
   const v=state.view;
@@ -1054,7 +1286,7 @@ async function saveForm(){
     }
   });
   // enforce branch & cs
-  if(v.sheet==='ORDER'){ data['Cabang']=state.session.cabang; }
+  if(v.sheet==='ORDER' && v.branchLock){ data['Cabang']=state.session.cabang; }
   if(v.sheet==='BONUS' && !data['Tanggal Input']) data['Tanggal Input']=new Date().toISOString().slice(0,10);
 
   // validation
