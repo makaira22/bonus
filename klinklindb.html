@@ -361,6 +361,18 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 /* ---------- toolbar v2: search + corong + panel ---------- */
 .toolbar{display:block}
 .tbar-row{display:flex;gap:10px;align-items:center;width:100%}
+.mob-count{display:none}
+.pay-chip{margin-left:8px;background:var(--bg);border:1px solid var(--line-2);color:var(--petrol);
+  font-weight:700;font-size:11px;padding:2px 8px;border-radius:8px}
+@media (max-width:880px){
+  .tbar-row{flex-wrap:wrap}
+  .tbar-row .search{flex:1 1 60%;min-width:150px;order:2}
+  .mob-count{display:inline-flex;order:1}
+  #headCount{display:none}
+  .tbar-row #btnApproveSel{order:3}
+  .tbar-row .fbtn{order:4}
+  .tbar-row #btnSyncManual{order:5}
+}
 .fbtn{position:relative}
 .fbadge{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;
   background:var(--gold-deep);color:#fff;font-size:10px;font-weight:800;display:none;align-items:center;justify-content:center;line-height:1}
@@ -768,7 +780,7 @@ const VIEWS = {
   order:{
     sheet:'ORDER', title:'Order', sub:'Input & kelola order cabang', branchLock:true,
     idField:'ID Order', canAdd:true, canEdit:true, special:'order',
-    table:['ID Order','Tanggal Input','Status Order','Nama Customer','Tanggal Pengerjaan','Nama Cleaner','Total Akhir Setelah Diskon'],
+    table:['ID Order','Tanggal Input','Status Order','Nama Customer','Tanggal Pengerjaan','Metode Pembayaran','Nama Cleaner','Total Akhir Setelah Diskon'],
     filters:['Status Order'],
     datePreset:true, dateFilterField:'Tanggal Pengerjaan',
     search:['Nama Customer','ID Order','No WA Customer'],
@@ -791,26 +803,26 @@ const VIEWS = {
     ]
   },
   auditOrder:{
-    sheet:'ORDER', title:'Audit Order', sub:'Order "done" menunggu persetujuan finance', branchLock:false,
+    sheet:'ORDER', title:'Audit Order', sub:'', branchLock:false,
     idField:'ID Order', statusIn:['done'], statusField:'Status Order',
-    approve:true, multiApprove:true, statusBadge:true, invoice:true, wa:true,
-    table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Total Akhir Setelah Diskon','Bukti Transfer'],
+    approve:true, multiApprove:true, statusBadge:true, invoice:true,
+    table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Metode Pembayaran','Total Akhir Setelah Diskon','Bukti Transfer'],
     filters:['Cabang'],
     search:['Nama Customer','ID Order'],
     datePreset:true, dateFilterField:'Tanggal Pengerjaan'
   },
   hasilAudit:{
     sheet:'ORDER', title:'Hasil Audit', sub:'Order complete & status lainnya (pending / cancel)', readOnly:true,
-    idField:'ID Order', statusIn:['complete','pending','cancel'], statusField:'Status Order', statusBadge:true, invoice:true, wa:true,
-    table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Total Akhir Setelah Diskon','Waktu Approve'],
+    idField:'ID Order', statusIn:['complete','pending','cancel'], statusField:'Status Order', statusBadge:true, invoice:true,
+    table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Metode Pembayaran','Total Akhir Setelah Diskon','Waktu Approve'],
     filters:['Cabang','Status Order'],
     search:['Nama Customer','ID Order'],
     datePreset:true, dateFilterField:'Tanggal Pengerjaan'
   },
   editOrder:{
     sheet:'ORDER', title:'Edit Order', sub:'Edit order apa pun — semua status & cabang',
-    idField:'ID Order', canEdit:true, special:'order', statusBadge:true, invoice:true, wa:true,
-    table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Nama Cleaner','Total Akhir Setelah Diskon'],
+    idField:'ID Order', canEdit:true, special:'order', statusBadge:true, invoice:true,
+    table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Metode Pembayaran','Nama Cleaner','Total Akhir Setelah Diskon'],
     filters:['Cabang','Status Order'],
     datePreset:true, dateFilterField:'Tanggal Pengerjaan',
     search:['Nama Customer','ID Order','Nama Cleaner'],
@@ -975,7 +987,7 @@ function renderShell(){
   $('#content').innerHTML =
     greetingHTML()+
     '<div class="page-head">'+
-      '<div><div class="page-title">'+v.title+'</div><div class="page-sub">'+v.sub+'</div><div class="hairline"></div></div>'+
+      '<div><div class="page-title">'+v.title+'</div>'+(v.sub?'<div class="page-sub">'+v.sub+'</div>':'')+'<div class="hairline"></div></div>'+
       '<span class="count-chip" id="headCount"></span>'+
       '<div class="spacer"></div>'+
       (v.canAdd ? '<button class="btn btn-primary" id="btnAdd">'+svg('plus')+'Tambah</button>' : '')+
@@ -996,10 +1008,11 @@ function greetingHTML(){
 function buildToolbar(){
   const v=state.view;
   let row='<div class="tbar-row">';
+  row += '<span class="count-chip mob-count" id="headCountM"></span>';
   if(v.search){ row += '<div class="search">'+svg('search')+'<input id="q" placeholder="Cari…" /></div>'; }
   else { row += '<div class="spacer"></div>'; }
-  row += '<button class="icon-btn fbtn" id="filterToggle" title="Filter">'+svg('funnel')+'<span class="fbadge" id="fbadge"></span></button>';
   if(v.multiApprove){ row += '<button class="btn btn-gold btn-sm" id="btnApproveSel">'+svg('check')+'Approve terpilih</button>'; }
+  row += '<button class="icon-btn fbtn" id="filterToggle" title="Filter">'+svg('funnel')+'<span class="fbadge" id="fbadge"></span></button>';
   row += '<button class="icon-btn" id="btnSyncManual" title="Sinkronkan data">'+svg('refresh')+'</button>';
   row += '</div>';
 
@@ -1147,8 +1160,10 @@ function renderView(){
 }
 function countNoun(){ return (state.view && state.view.sheet==='ORDER') ? 'order' : 'data'; }
 function setCount(n, noun){
-  const c=$('#headCount'); if(c) c.textContent = n+' '+(noun||'data');
-  const cc=$('#count'); if(cc) cc.textContent = n+' '+(noun||'data');
+  const txt=n+' '+(noun||'data');
+  const c=$('#headCount'); if(c) c.textContent = txt;
+  const cm=$('#headCountM'); if(cm) cm.textContent = txt;
+  const cc=$('#count'); if(cc) cc.textContent = txt;
 }
 function renderTable(){
   const v=state.view;
@@ -1180,7 +1195,8 @@ function renderTable(){
         '<div class="ocard-top"><span class="ocard-name">'+esc(r['Nama Customer']||'-')+'</span>'+
           '<span class="badge b-'+st+'"><span class="d"></span>'+st+'</span></div>'+
         '<div class="ocard-meta">'+svg('result')+'<span>'+esc(fmtTgl(r['Tanggal Pengerjaan']))+
-          ' · '+esc(r['Waktu Pengerjaan']||'-')+'</span></div>'+
+          ' · '+esc(r['Waktu Pengerjaan']||'-')+'</span>'+
+          (r['Metode Pembayaran']?'<span class="pay-chip">'+esc(r['Metode Pembayaran'])+'</span>':'')+'</div>'+
         '<div class="ocard-meta sub"><span>'+esc(rp(r['Total Akhir Setelah Diskon']||r['Total Akhir']||0))+
           (r['Nama Cleaner']?(' · '+esc(r['Nama Cleaner'])):'')+'</span></div>'+
         (showAct?'<div class="ocard-act">'+rowActions(v,r)+'</div>':'')+
