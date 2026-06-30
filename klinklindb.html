@@ -414,6 +414,12 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .dt-l{color:var(--muted);font-weight:600;flex:none;max-width:46%}
 .dt-v{text-align:right;color:var(--ink);font-weight:600;word-break:break-word}
 .dt-sec{font-weight:700;color:var(--petrol);margin:14px 0 2px;font-size:12.5px;text-transform:uppercase;letter-spacing:.04em}
+/* ---------- gaji colored columns ---------- */
+td.c-green, td.c-green .thp{color:#1c7a4a}
+td.c-red{color:#c0392b}
+td.c-orange{color:#c8801a}
+td.c-blue, td.c-blue .thp{color:#1f6f9c}
+td.c-green, td.c-red, td.c-orange, td.c-blue{font-weight:700}
 </style>
 </head>
 <body>
@@ -605,7 +611,7 @@ function waCleanerText(o){
     'Semangat ya kerjanya! Tolong foto before after jangan lupa.';
 }
 
-const GAJI_BONUS_FIELDS = ['Bonus Bulanan','Bonus Review','Bonus Tanggal Merah','Bonus Januari',
+const GAJI_BONUS_FIELDS = ['Bonus Bulanan','Bonus Review','Bonus Tanggal Merah',
   'Total Kilometer','Total DeepClean','Total Salon','Total Tips','Total Parkir','Total Lembur',
   'Total Uang Makan','Total Bonus Lainnya'];
 const GAJI_POTONGAN_FIELDS = ['Cashbon','Potongan Tidak Absen','Potongan Keterlambatan',
@@ -726,38 +732,38 @@ const VIEWS = {
   },
   gaji:{
     sheet:'GAJI', title:'Gaji Karyawan', sub:'Slip gaji — bonus & potongan otomatis',
-    idField:'ID Slip', canAdd:true, canEdit:true, special:'gaji',
-    table:['Nama Karyawan','Cabang','Periode Bulan','Total Bonus','Total Potongan','Take Home Pay'],
-    filters:['Cabang','Periode Bulan'],
+    idField:'ID Slip', canAdd:true, canEdit:true, special:'gaji', slip:true,
+    table:['Periode Bulan','Nama Karyawan','Total Bonus','Total Potongan','Gaji Diterima','Take Home Pay'],
+    colorMap:{'Total Bonus':'c-green','Total Potongan':'c-red','Gaji Diterima':'c-orange','Take Home Pay':'c-blue'},
+    filters:['Cabang'], dynPeriode:true,
     search:['Nama Karyawan','ID Slip'],
     form:[
       {sec:'Identitas Slip'},
-      f('Tanggal Cetak','date'), f('Periode Bulan','month'),
+      f('Tanggal Cetak','date',{ro:true}), f('Periode Bulan','month'),
       f('Awal Periode','date',{ro:true}), f('Akhir Periode','date',{ro:true}),
       f('Cabang','select',{opts:CABANG, req:true}),
       f('ID Karyawan','kselect',{req:true, list:'karyawan'}),
       f('Nama Karyawan','text',{ro:true}),
       f('Jabatan','text',{ro:true}), f('Status','text',{ro:true}),
       {sec:'Pendapatan'},
-      f('Gaji Pokok','num'),
-      f('Bonus Bulanan','num'), f('Bonus Review','num'),
-      f('Bonus Tanggal Merah','num'), f('Bonus Januari','num'),
-      f('Total Kilometer','num'), f('Total DeepClean','num'),
-      f('Total Salon','num'), f('Total Tips','num'),
-      f('Total Parkir','num'), f('Total Lembur','num'),
-      f('Total Uang Makan','num'), f('Total Bonus Lainnya','num'),
-      f('Tunjangan Kos','num'), f('Tunjangan Kerja','num'), f('Premi BPJS','num'),
-      f('Total Bonus','num',{computed:true}),
+      f('Gaji Pokok','money'),
+      f('Bonus Bulanan','money'), f('Bonus Review','money'), f('Bonus Tanggal Merah','money'),
+      f('Total Kilometer','money'), f('Total DeepClean','money'),
+      f('Total Salon','money'), f('Total Tips','money'),
+      f('Total Parkir','money'), f('Total Lembur','money'),
+      f('Total Uang Makan','money'), f('Total Bonus Lainnya','money'),
+      f('Tunjangan Kos','money'), f('Tunjangan Kerja','money'),
+      f('Premi BPJS','check',{label:'Premi BPJS aktif (+Rp 35.000)'}),
+      f('Total Bonus','money',{computed:true}),
       {sec:'Potongan'},
-      f('Cashbon','num'), f('Potongan Tidak Absen','num'),
-      f('Potongan Keterlambatan','num'), f('Potongan Absen','num'),
-      f('BPJS Ketenagakerjaan','num'), f('Potongan Lainnya','num'),
+      f('Cashbon','money'), f('Potongan Tidak Absen','money'),
+      f('Potongan Keterlambatan','money'), f('Potongan Absen','money'),
+      f('BPJS Ketenagakerjaan','money'), f('Potongan Lainnya','money'),
       f('Keterangan Potongan Lainnya','text',{full:true}),
-      f('Total Potongan','num',{computed:true}),
+      f('Total Potongan','money',{computed:true}),
       {sec:'Hasil'},
-      f('Take Home Pay','num',{computed:true}), f('Gaji Diterima','num',{computed:true}),
-      f('Saldo JHT','num'), f('Cetak','text'),
-      f('File PDF','file',{accept:'application/pdf', full:true})
+      f('Take Home Pay','money',{computed:true}), f('Gaji Diterima','money',{computed:true}),
+      f('Saldo JHT','money')
     ]
   },
   insentif:{
@@ -776,10 +782,10 @@ const VIEWS = {
     form:[ f('Nama Layanan','text',{req:true, full:true}) ]
   },
   gajiPokok:{
-    sheet:'GAJI_POKOK', title:'Gaji Pokok', sub:'Setting gaji pokok & tunjangan per cabang/jabatan/status',
+    sheet:'GAJI_POKOK', title:'Gaji Pokok', sub:'Setting gaji pokok, bonus bulanan & premi per cabang/jabatan/status',
     special:'gajiPokok', keyFields:['Cabang','Jabatan','Status'], canAdd:true, canEdit:true,
     sortBy:['Cabang','Jabatan','Status'],
-    table:['Cabang','Jabatan','Status','Gaji Pokok','Tunjangan Transport','Tunjangan Kos','Tunjangan Kerja'],
+    table:['Cabang','Jabatan','Status','Gaji Pokok','Bonus Bulanan','Tunjangan Kos','Tunjangan Kerja','Premi BPJS'],
     filters:['Cabang','Jabatan'],
     search:['Cabang','Jabatan','Status'],
     form:[
@@ -787,9 +793,10 @@ const VIEWS = {
       f('Jabatan','select',{opts:JABATAN, req:true}),
       f('Status','select',{opts:STATUS_KARYAWAN, req:true}),
       f('Gaji Pokok','money'),
-      f('Tunjangan Transport','money'),
+      f('Bonus Bulanan','money'),
       f('Tunjangan Kos','money'),
-      f('Tunjangan Kerja','money')
+      f('Tunjangan Kerja','money'),
+      f('Premi BPJS','money')
     ]
   },
   order:{
@@ -1060,6 +1067,9 @@ function buildToolbar(){
   if(v.dynCleaner){
     pf += '<div class="fl"><span class="lbl">Cleaner</span><select data-filter="Nama Cleaner" id="fCleaner"><option value="">Semua Cleaner</option></select></div>';
   }
+  if(v.dynPeriode){
+    pf += '<div class="fl"><span class="lbl">Periode Bulan</span><select data-filter="Periode Bulan" id="fPeriode"><option value="">Semua Periode</option></select></div>';
+  }
   if(v.datePreset){
     pf += '<div class="fl"><span class="lbl">Tanggal</span>'+
       '<select id="dpreset"><option value="">Semua</option><option value="today">Hari ini</option>'+
@@ -1143,19 +1153,37 @@ function invalidateLists(){ state.listCache={}; }
 
 /* Isi opsi filter "Cleaner" dari data yang sudah dimuat (distinct, sudah dipecah koma). */
 function refreshDynFilters(){
-  const v=state.view; if(!v || !v.dynCleaner) return;
-  const sel=$('#fCleaner'); if(!sel) return;
-  // Untuk CS (Input Bonus): hanya cleaner pada cabang yang login.
-  let base=state.rows;
-  if(v.branchLock && v.sheet==='BONUS' && state.session.cabang){
-    base=base.filter(r=>cabangOfBonus(r)===String(state.session.cabang).toUpperCase());
+  const v=state.view; if(!v) return;
+  if(v.dynCleaner){
+    const sel=$('#fCleaner');
+    if(sel){
+      let base=state.rows;
+      if(v.branchLock && v.sheet==='BONUS' && state.session.cabang){
+        base=base.filter(r=>cabangOfBonus(r)===String(state.session.cabang).toUpperCase());
+      }
+      const set=new Set();
+      base.forEach(r=>String(r['Nama Cleaner']||'').split(',').forEach(n=>{ const t=n.trim(); if(t) set.add(t); }));
+      const names=[...set].sort((a,b)=>a.localeCompare(b,'id'));
+      const cur=state.filters['Nama Cleaner']||'';
+      sel.innerHTML='<option value="">Semua Cleaner</option>'+
+        names.map(n=>'<option'+(n===cur?' selected':'')+'>'+esc(n)+'</option>').join('');
+    }
   }
-  const set=new Set();
-  base.forEach(r=>String(r['Nama Cleaner']||'').split(',').forEach(n=>{ const t=n.trim(); if(t) set.add(t); }));
-  const names=[...set].sort((a,b)=>a.localeCompare(b,'id'));
-  const cur=state.filters['Nama Cleaner']||'';
-  sel.innerHTML='<option value="">Semua Cleaner</option>'+
-    names.map(n=>'<option'+(n===cur?' selected':'')+'>'+esc(n)+'</option>').join('');
+  if(v.dynPeriode){
+    const sel=$('#fPeriode');
+    if(sel){
+      const set=new Set();
+      state.rows.forEach(r=>{ const ym=String(r['Periode Bulan']||'').slice(0,7); if(/^\d{4}-\d{2}$/.test(ym)) set.add(ym); });
+      const list=[...set].sort().reverse();
+      const cur=state.filters['Periode Bulan']||'';
+      sel.innerHTML='<option value="">Semua Periode</option>'+
+        list.map(ym=>'<option value="'+ym+'"'+(ym===cur?' selected':'')+'>'+esc(monthLabel(ym))+'</option>').join('');
+    }
+  }
+}
+function monthLabel(ym){
+  const m=String(ym||'').match(/^(\d{4})-(\d{2})/); if(!m) return ym||'';
+  return BULAN_ID[(+m[2])-1]+' '+m[1];
 }
 
 function applyClientFilters(rows){
@@ -1239,7 +1267,10 @@ function renderTable(){
     const oid=r['ID Order'];
     html+='<tr>';
     if(chk) html+='<td class="chkcol"><input type="checkbox" class="rowchk" data-id="'+esc(oid)+'"></td>';
-    html+=cols.map(c=>'<td'+(isMoney(c)?' class="money"':'')+'>'+cell(v,c,r)+'</td>').join('');
+    html+=cols.map(c=>{
+      const cls=[]; if(isMoney(c)) cls.push('money'); if(v.colorMap&&v.colorMap[c]) cls.push(v.colorMap[c]);
+      return '<td'+(cls.length?' class="'+cls.join(' ')+'"':'')+'>'+cell(v,c,r)+'</td>';
+    }).join('');
     if(showAct) html+='<td><div class="row-act">'+rowActions(v,r)+'</div></td>';
     html+='</tr>';
   });
@@ -1283,6 +1314,11 @@ function rowActions(v,r){
   if(v.invoice && (norm(r['Status Order'])==='done' || norm(r['Status Order'])==='complete' || r['Bukti Transfer'])){
     act += '<button class="act-ic" data-invoice="'+esc(oid)+'" title="Invoice PDF">'+svg('file')+'</button>';
   }
+  if(v.slip){
+    const sid=v.idField?esc(r[v.idField]):('#'+state.rows.indexOf(r));
+    act += '<button class="btn btn-gold btn-sm" data-slip="'+sid+'">'+svg('file')+'Cetak Slip</button>';
+    act += '<button class="act-ic" data-slippdf="'+sid+'" title="Download PDF">'+svg('file')+'</button>';
+  }
   if(v.canEdit){
     const locked=v.lockAfterProof && (r['Bukti Transfer']||r['Bukti Cancel']);
     const eid=v.idField?esc(r[v.idField]):('#'+state.rows.indexOf(r));
@@ -1316,6 +1352,14 @@ function wireRowHandlers(v){
   document.querySelectorAll('.ocard-chk').forEach(c=>c.addEventListener('click',e=>e.stopPropagation()));
   document.querySelectorAll('.ocard[data-detail]').forEach(c=>c.addEventListener('click',()=>{
     const o=state.rows.find(x=>String(x['ID Order'])===c.dataset.detail); if(o) showOrderDetail(o);
+  }));
+  document.querySelectorAll('[data-slip]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation();
+    const key=b.dataset.slip; const row=key.charAt(0)==='#'?state.rows[+key.slice(1)]:state.rows.find(x=>String(x[v.idField])===key);
+    if(row) printSlip(row);
+  }));
+  document.querySelectorAll('[data-slippdf]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation();
+    const key=b.dataset.slippdf; const row=key.charAt(0)==='#'?state.rows[+key.slice(1)]:state.rows.find(x=>String(x[v.idField])===key);
+    if(row) downloadSlip(row);
   }));
   const all=$('#checkAll'); if(all) all.addEventListener('change',()=>document.querySelectorAll('.rowchk').forEach(c=>c.checked=all.checked));
 }
@@ -1549,6 +1593,10 @@ function cell(v,c,r){
   if(/^Tanggal/.test(c)){
     return val!=null && val!=='' ? esc(tglPanjangId(val)) : '<span style="color:var(--faint)">—</span>';
   }
+  if(c==='Periode Bulan'){
+    const ym=String(val||'').slice(0,7);
+    return /^\d{4}-\d{2}$/.test(ym) ? esc(monthLabel(ym)) : (val!=null&&val!==''?esc(val):'<span style="color:var(--faint)">—</span>');
+  }
   if(isMoney(c)) return rp(val);
   return val!=null && val!=='' ? esc(val) : '<span style="color:var(--faint)">—</span>';
 }
@@ -1625,10 +1673,12 @@ function renderField(fd, val){
   const ro = fd.ro || fd.computed ? ' readonly' : '';
   val = val==null?'':val;
   if(fd.t==='check'){
-    const on = Number(String(val).replace(/[^0-9-]/g,''))>0;
+    const numv = Number(String(val).replace(/[^0-9-]/g,''))||0;
+    const on = numv>0;
+    const dc = (fd.k==='Premi BPJS') ? (on?numv:35000) : 11;
     return '<div class="field'+full+'"><label>&nbsp;</label>'+
-      '<label class="chk"><input type="checkbox" data-k="'+esc(fd.k)+'" data-check="11"'+(on?' checked':'')+'> '+
-      esc(fd.label||fd.k)+'</label></div>';
+      '<label class="chk"><input type="checkbox" data-k="'+esc(fd.k)+'" data-check="'+dc+'"'+(on?' checked':'')+'> '+
+      '<span class="chk-label">'+esc(fd.label||fd.k)+'</span></label></div>';
   }
   if(fd.t==='select'){
     let opts=(fd.opts||[]).slice();
@@ -1751,14 +1801,10 @@ function wireFields(v){
     ['Qty 1','Harga 1','Qty 2','Harga 2','Qty 3','Harga 3','Diskon (%)','PPn'].forEach(k=>{
       const el=getEl(k); if(el){ el.addEventListener('input', recomputeOrder); el.addEventListener('change', recomputeOrder); }
     });
-    document.querySelectorAll('[data-money]').forEach(el=>{
-      if(el.readOnly) return;
-      el.addEventListener('input', ()=>{ el.value=fmtRp(el.value); });
-    });
   }
   if(v.special==='gaji'){
     GAJI_BONUS_FIELDS.concat(GAJI_POTONGAN_FIELDS, GAJI_TUNJANGAN_FIELDS, ['Gaji Pokok']).forEach(k=>{
-      const el=getEl(k); if(el) el.addEventListener('input', recomputeGaji);
+      const el=getEl(k); if(el){ el.addEventListener('input', recomputeGaji); el.addEventListener('change', recomputeGaji); }
     });
     const idk=getEl('ID Karyawan'); if(idk) idk.addEventListener('change', onPickKaryawan);
     const per=getEl('Periode Bulan'); if(per) per.addEventListener('change', onPickPeriode);
@@ -1767,6 +1813,11 @@ function wireFields(v){
   if(v.special==='bonus'){
     const no=getEl('No Order'); if(no) no.addEventListener('change', onPickOrder);
   }
+  // format uang langsung (Rp + ribuan) untuk semua input uang
+  document.querySelectorAll('[data-money]').forEach(el=>{
+    if(el.readOnly) return;
+    el.addEventListener('input', ()=>{ el.value=fmtRp(el.value); });
+  });
 }
 
 /* ---------- field helpers ---------- */
@@ -1849,9 +1900,23 @@ async function onPickKaryawan(){
   setVal('Cabang', emp['Cabang']); setVal('Jabatan', emp['Jabatan']); setVal('Status', emp['Status']);
   try{
     const gp=await api({action:'gajiPokok', cabang:emp['Cabang'], jabatan:emp['Jabatan'], status:emp['Status']});
-    if(gp.found){ setVal('Gaji Pokok', gp.gajiPokok); setVal('Tunjangan Kos', gp.tunjanganKos); setVal('Tunjangan Kerja', gp.tunjanganKerja); }
+    if(gp.found){
+      setVal('Gaji Pokok', gp.gajiPokok);
+      setVal('Bonus Bulanan', gp.bonusBulanan);
+      setVal('Tunjangan Kos', gp.tunjanganKos);
+      setVal('Tunjangan Kerja', gp.tunjanganKerja);
+    }
+    setPremiBpjs(gp.premiBpjs || 35000, true);
   }catch(e){}
   await onPickPeriode();
+}
+/* Atur nominal & status checkbox Premi BPJS. */
+function setPremiBpjs(nominal, aktif){
+  const el=getEl('Premi BPJS'); if(!el) return;
+  el.dataset.check = String(Math.round(Number(nominal)||35000));
+  if(aktif!=null) el.checked = !!aktif;
+  const lab=el.parentElement && el.parentElement.querySelector('.chk-label');
+  if(lab) lab.textContent='Premi BPJS aktif (+'+rp(el.dataset.check)+')';
 }
 /* Isi dropdown ID Karyawan berdasar Cabang yang dipilih (pilih cabang dulu, baru karyawan). */
 function populateKselect(){
@@ -2036,6 +2101,118 @@ async function downloadInvoice(o){
     }).from(holder.firstElementChild).save();
     toast('Invoice diunduh','ok');
   }catch(e){ toast('Gagal membuat invoice','err'); }
+  finally{ holder.remove(); setSync(false); }
+}
+
+/* ============================================================
+   SLIP GAJI
+   ============================================================ */
+function buildSlipHTML(g){
+  g=g||{};
+  const info=branchInfo(g['Cabang']);
+  const rp_=n=>'Rp '+Number(moneyDigits(n)||0).toLocaleString('id-ID');
+  const pendapatan=[
+    ['Gaji Pokok', g['Gaji Pokok']],
+    ['Bonus Bulanan', g['Bonus Bulanan']],
+    ['Bonus Review', g['Bonus Review']],
+    ['Bonus Tanggal Merah', g['Bonus Tanggal Merah']],
+    ['Kilometer', g['Total Kilometer']],
+    ['Deep Clean', g['Total DeepClean']],
+    ['Salon', g['Total Salon']],
+    ['Tips', g['Total Tips']],
+    ['Parkir', g['Total Parkir']],
+    ['Lembur', g['Total Lembur']],
+    ['Uang Makan', g['Total Uang Makan']],
+    ['Bonus Lainnya', g['Total Bonus Lainnya']],
+    ['Tunjangan Kos', g['Tunjangan Kos']],
+    ['Tunjangan Kerja', g['Tunjangan Kerja']],
+    ['Premi BPJS', g['Premi BPJS']]
+  ].filter(x=>Number(moneyDigits(x[1]))>0);
+  const potongan=[
+    ['Cashbon', g['Cashbon']],
+    ['Potongan Tidak Absen', g['Potongan Tidak Absen']],
+    ['Potongan Keterlambatan', g['Potongan Keterlambatan']],
+    ['Potongan Absen', g['Potongan Absen']],
+    ['BPJS Ketenagakerjaan', g['BPJS Ketenagakerjaan']],
+    [(g['Keterangan Potongan Lainnya']||'Potongan Lainnya'), g['Potongan Lainnya']]
+  ].filter(x=>Number(moneyDigits(x[1]))>0);
+  const totPend = pendapatan.reduce((s,x)=>s+Number(moneyDigits(x[1])),0);
+  const totPot  = potongan.reduce((s,x)=>s+Number(moneyDigits(x[1])),0);
+  const thp = totPend - totPot;
+  const line=(l,val)=>'<tr><td style="padding:3px 0;font-size:12px">'+esc(l)+'</td>'+
+    '<td style="padding:3px 0;font-size:12px;text-align:right;font-variant-numeric:tabular-nums">'+rp_(val)+'</td></tr>';
+  const idRow=(l,val)=>'<tr><td style="padding:2px 0;font-size:11.5px;color:#555;width:42%">'+esc(l)+'</td>'+
+    '<td style="padding:2px 0;font-size:11.5px;font-weight:bold">: '+esc(val||'-')+'</td></tr>';
+
+  return ''+
+  '<div style="width:720px;background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif;padding:30px 32px;box-sizing:border-box">'+
+    '<table style="width:100%;border-collapse:collapse;border-bottom:3px solid #0E3B3A;padding-bottom:8px"><tr>'+
+      '<td style="vertical-align:middle"><div style="font-weight:800;font-size:22px;letter-spacing:-.5px">'+
+        '<span style="background:#0E3B3A;color:#fff;padding:2px 7px;border-radius:5px">K</span>linKlin '+esc(info.cabang)+'</div>'+
+        '<div style="font-size:11px;color:#555;margin-top:2px">PT KlinKlin Indonesia Group</div></td>'+
+      '<td style="text-align:right;vertical-align:middle"><div style="font-weight:800;font-size:20px;color:#0E3B3A;letter-spacing:1px">SLIP GAJI</div>'+
+        '<div style="font-size:12px;color:#C2A567;font-weight:700">'+esc(monthLabel(String(g['Periode Bulan']||'').slice(0,7))||g['Periode Bulan']||'')+'</div></td>'+
+    '</tr></table>'+
+    '<div style="height:14px"></div>'+
+    '<table style="width:100%;border-collapse:collapse"><tr>'+
+      '<td style="width:50%;vertical-align:top"><table style="width:100%;border-collapse:collapse">'+
+        idRow('Nama', g['Nama Karyawan'])+idRow('ID Karyawan', g['ID Karyawan'])+idRow('Jabatan', g['Jabatan'])+'</table></td>'+
+      '<td style="width:50%;vertical-align:top"><table style="width:100%;border-collapse:collapse">'+
+        idRow('Status', g['Status'])+idRow('Cabang', g['Cabang'])+
+        idRow('Periode', fmtTgl(g['Awal Periode'])+' s/d '+fmtTgl(g['Akhir Periode']))+'</table></td>'+
+    '</tr></table>'+
+    '<div style="height:16px"></div>'+
+    '<table style="width:100%;border-collapse:collapse"><tr>'+
+      '<td style="width:50%;vertical-align:top;padding-right:14px">'+
+        '<div style="background:#0E3B3A;color:#fff;font-weight:700;font-size:12px;padding:6px 10px;border-radius:6px 6px 0 0">PENDAPATAN</div>'+
+        '<table style="width:100%;border-collapse:collapse;border:1px solid #e3e7e6;border-top:none;padding:0 10px">'+
+        '<tbody style="display:table-row-group">'+ (pendapatan.length?pendapatan.map(x=>line(x[0],x[1])).join(''):'<tr><td style="font-size:11px;color:#999;padding:6px 0">—</td></tr>') +'</tbody>'+
+        '<tr><td style="border-top:1.5px solid #0E3B3A;font-weight:bold;font-size:12px;padding-top:5px">Total Pendapatan</td>'+
+        '<td style="border-top:1.5px solid #0E3B3A;text-align:right;font-weight:bold;font-size:12px;padding-top:5px">'+rp_(totPend)+'</td></tr></table></td>'+
+      '<td style="width:50%;vertical-align:top">'+
+        '<div style="background:#9a3535;color:#fff;font-weight:700;font-size:12px;padding:6px 10px;border-radius:6px 6px 0 0">POTONGAN</div>'+
+        '<table style="width:100%;border-collapse:collapse;border:1px solid #e3e7e6;border-top:none">'+
+        (potongan.length?potongan.map(x=>line(x[0],x[1])).join(''):'<tr><td style="font-size:11px;color:#999;padding:6px 0">—</td></tr>')+
+        '<tr><td style="border-top:1.5px solid #9a3535;font-weight:bold;font-size:12px;padding-top:5px">Total Potongan</td>'+
+        '<td style="border-top:1.5px solid #9a3535;text-align:right;font-weight:bold;font-size:12px;padding-top:5px">'+rp_(totPot)+'</td></tr></table></td>'+
+    '</tr></table>'+
+    '<div style="height:16px"></div>'+
+    '<table style="width:100%;border-collapse:collapse;background:#0E3B3A;border-radius:10px"><tr>'+
+      '<td style="padding:14px 18px;color:#fff;font-size:14px;font-weight:700">TAKE HOME PAY</td>'+
+      '<td style="padding:14px 18px;color:#fff;font-size:22px;font-weight:800;text-align:right;font-variant-numeric:tabular-nums">'+rp_(thp)+'</td>'+
+    '</tr></table>'+
+    '<table style="width:100%;border-collapse:collapse;margin-top:34px"><tr>'+
+      '<td style="font-size:11px;color:#777;vertical-align:bottom">Dicetak: '+fmtTgl(g['Tanggal Cetak'])+'</td>'+
+      '<td style="text-align:center;vertical-align:bottom">'+
+        '<div style="font-size:11px;margin-bottom:42px">Hormat kami,</div>'+
+        '<div style="font-size:12px;font-weight:bold;border-top:1px solid #111;display:inline-block;padding-top:4px">KLINKLIN '+esc(info.cabang)+'</div></td>'+
+    '</tr></table>'+
+  '</div>';
+}
+function printSlip(g){
+  const w=window.open('','_blank');
+  if(!w){ toast('Popup diblokir browser','err'); return; }
+  w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Slip '+esc(g['Nama Karyawan']||'')+'</title></head>'+
+    '<body style="margin:0;background:#eef2f1" onload="setTimeout(function(){window.print()},300)">'+
+    '<div style="display:flex;justify-content:center;padding:16px">'+buildSlipHTML(g)+'</div></body></html>');
+  w.document.close();
+}
+async function downloadSlip(g){
+  if(typeof html2pdf==='undefined'){ toast('Modul PDF belum siap, coba lagi','err'); return; }
+  setSync(true,'Membuat slip…');
+  const holder=document.createElement('div');
+  holder.style.position='fixed'; holder.style.left='-9999px'; holder.style.top='0';
+  holder.innerHTML=buildSlipHTML(g);
+  document.body.appendChild(holder);
+  try{
+    const nm=(g['Nama Karyawan']||'Slip').replace(/[^A-Za-z0-9]+/g,'_');
+    await html2pdf().set({
+      margin:[8,8,8,8], filename:'Slip-'+nm+'-'+(String(g['Periode Bulan']||'').slice(0,7))+'.pdf',
+      image:{type:'jpeg',quality:0.98}, html2canvas:{scale:2, useCORS:true, backgroundColor:'#ffffff'},
+      jsPDF:{unit:'mm', format:'a4', orientation:'portrait'}
+    }).from(holder.firstElementChild).save();
+    toast('Slip diunduh','ok');
+  }catch(e){ toast('Gagal membuat slip','err'); }
   finally{ holder.remove(); setSync(false); }
 }
 
