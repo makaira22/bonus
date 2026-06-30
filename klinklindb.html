@@ -386,7 +386,7 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 @media (max-width:880px){ .tbar-row #btnSyncTb{order:5} }
 .btn-danger{background:var(--danger);color:#fff;border:none}
 .ocard-chk{width:20px;height:20px;accent-color:var(--petrol);flex:none;margin-left:2px}
-@media (max-width:880px){ .topbar #btnSettings, .topbar #btnLogout{display:none} }
+.topbar #btnSettings, .topbar #btnLogout{display:none}
 .lnk-more{display:inline-block;margin-left:6px;padding:2px 9px;border-radius:14px;border:1px solid var(--line-2);
   background:var(--surface-2);color:var(--petrol);font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap}
 .lnk-more:hover{border-color:var(--petrol)}
@@ -795,7 +795,8 @@ const VIEWS = {
   order:{
     sheet:'ORDER', title:'Order', sub:'Input & kelola order cabang', branchLock:true,
     idField:'ID Order', canAdd:true, canEdit:true, special:'order', orderSort:true,
-    table:['ID Order','Tanggal Input','Status Order','Nama Customer','Tanggal Pengerjaan','Metode Pembayaran','Nama Cleaner','Total Akhir Setelah Diskon'],
+    table:['ID Order','Tanggal Input','Status Order','Nama Customer','Tanggal Pengerjaan','Waktu Pengerjaan','Metode Pembayaran','Nama Cleaner','Total Akhir Setelah Diskon'],
+    colLabel:{'Metode Pembayaran':'Metode','Total Akhir Setelah Diskon':'Total','Waktu Pengerjaan':'Jam'},
     filters:['Status Order'],
     datePreset:true, dateFilterField:'Tanggal Pengerjaan',
     search:['Nama Customer','ID Order','No WA Customer'],
@@ -1130,8 +1131,13 @@ function invalidateLists(){ state.listCache={}; }
 function refreshDynFilters(){
   const v=state.view; if(!v || !v.dynCleaner) return;
   const sel=$('#fCleaner'); if(!sel) return;
+  // Untuk CS (Input Bonus): hanya cleaner pada cabang yang login.
+  let base=state.rows;
+  if(v.branchLock && v.sheet==='BONUS' && state.session.cabang){
+    base=base.filter(r=>cabangOfBonus(r)===String(state.session.cabang).toUpperCase());
+  }
   const set=new Set();
-  state.rows.forEach(r=>String(r['Nama Cleaner']||'').split(',').forEach(n=>{ const t=n.trim(); if(t) set.add(t); }));
+  base.forEach(r=>String(r['Nama Cleaner']||'').split(',').forEach(n=>{ const t=n.trim(); if(t) set.add(t); }));
   const names=[...set].sort((a,b)=>a.localeCompare(b,'id'));
   const cur=state.filters['Nama Cleaner']||'';
   sel.innerHTML='<option value="">Semua Cleaner</option>'+
@@ -1214,7 +1220,7 @@ function renderTable(){
   const tblClass = (v.sheet==='ORDER') ? 'tbl-wrap desk-only' : 'tbl-wrap';
   let html='<div class="'+tblClass+'"><table><thead><tr>'+
     (chk?'<th class="chkcol"><input type="checkbox" id="checkAll"></th>':'')+
-    cols.map(c=>'<th>'+c+'</th>').join('')+(showAct?'<th></th>':'')+'</tr></thead><tbody>';
+    cols.map(c=>'<th>'+esc(colLabel(v,c))+'</th>').join('')+(showAct?'<th></th>':'')+'</tr></thead><tbody>';
   rows.forEach(r=>{
     const oid=r['ID Order'];
     html+='<tr>';
@@ -1250,6 +1256,7 @@ function renderTable(){
   wireRowHandlers(v);
 }
 const HIDDEN_COLS=['ID Order','No Order','ID Insentif'];
+function colLabel(v,c){ return (v && v.colLabel && v.colLabel[c]) || c; }
 function rowActions(v,r){
   const oid=r['ID Order']; let act='';
   if(v.wa){
@@ -1273,6 +1280,9 @@ function rowActions(v,r){
 function wireRowHandlers(v){
   document.querySelectorAll('[data-cleaners]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation();
     showCleanerPopup(b, b.dataset.cleaners.split('|'));
+  }));
+  document.querySelectorAll('[data-fulltext]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation();
+    showNamePopup(b, b.dataset.fulltitle||'', b.dataset.fulltext||'');
   }));
   document.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation();
     const key=b.dataset.edit;
@@ -1467,6 +1477,18 @@ function showCleanerPopup(anchor, names){
   m.style.top=(r.bottom+window.scrollY+6)+'px'; m.style.left=Math.max(8,left)+'px';
   setTimeout(()=>document.addEventListener('click', closePickMenu, {once:true}), 0);
 }
+/* Popup teks penuh (mis. Nama Customer yang panjang). */
+function showNamePopup(anchor, title, text){
+  closePickMenu();
+  const m=document.createElement('div'); m.className='pickmenu'; m.id='pickmenu';
+  m.innerHTML='<div class="pickmenu-head">'+esc(title||'')+'</div>'+
+    '<div class="pickmenu-item" style="cursor:default;white-space:normal;max-width:240px">'+esc(text)+'</div>';
+  document.body.appendChild(m);
+  const r=anchor.getBoundingClientRect();
+  let left=Math.min(r.left+window.scrollX, window.innerWidth-250);
+  m.style.top=(r.bottom+window.scrollY+6)+'px'; m.style.left=Math.max(8,left)+'px';
+  setTimeout(()=>document.addEventListener('click', closePickMenu, {once:true}), 0);
+}
 
 /* Approve beberapa order sekaligus (hanya yang berstatus done). */
 async function approveSelected(){
@@ -1499,6 +1521,13 @@ function cell(v,c,r){
     if(!names.length) return '<span style="color:var(--faint)">—</span>';
     if(names.length===1) return esc(names[0]);
     return esc(names[0])+'<button class="lnk-more" data-cleaners="'+esc(names.join('|'))+'">+'+(names.length-1)+' lainnya</button>';
+  }
+  if(c==='Nama Customer'){
+    const full=String(val||'').trim();
+    if(!full) return '<span style="color:var(--faint)">—</span>';
+    const words=full.split(/\s+/);
+    if(words.length<=3) return esc(full);
+    return esc(words.slice(0,3).join(' '))+'<button class="lnk-more" data-fulltext="'+esc(full)+'" data-fulltitle="Nama Customer">…</button>';
   }
   if(c==='Tanggal Pengerjaan' || c==='Tanggal Input'){
     return val!=null && val!=='' ? esc(tglHariId(val)) : '<span style="color:var(--faint)">—</span>';
