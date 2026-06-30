@@ -217,6 +217,9 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .field input[readonly],.field.computed input{background:var(--surface-2); color:var(--muted); font-weight:600}
 .field.computed input{color:var(--petrol)}
 .field textarea{resize:vertical;min-height:62px}
+.field label.chk{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:600;color:var(--ink);
+  cursor:pointer;padding:11px 12px;border:1px solid var(--line-2);border-radius:11px;background:var(--surface)}
+.field label.chk input{width:18px;height:18px;accent-color:var(--petrol);cursor:pointer}
 .file-row{display:flex;align-items:center;gap:10px}
 .file-row .prev{width:42px;height:42px;border-radius:10px;object-fit:cover;border:1px solid var(--line);display:none}
 .file-btn{display:inline-flex;align-items:center;gap:7px;padding:10px 13px;border:1px dashed var(--line-2);
@@ -383,6 +386,9 @@ const INVOICE_BANK = [
 ];
 const INVOICE_SIGNER = 'M. Aminuddin Ghufron';
 
+/* Field penampil untuk dropdown dinamis (dynselect). */
+const DYN_FIELD = { cleaner:'Nama Lengkap', layanan:'Nama Layanan' };
+
 const GAJI_BONUS_FIELDS = ['Bonus Bulanan','Bonus Review','Bonus Tanggal Merah','Bonus Januari',
   'Total Kilometer','Total DeepClean','Total Salon','Total Tips','Total Parkir','Total Lembur',
   'Total Uang Makan','Total Bonus Lainnya'];
@@ -431,7 +437,8 @@ const MENUS = {
   HRD: [
     {key:'karyawan', label:'Karyawan', icon:'users'},
     {key:'gaji', label:'Gaji', icon:'salary'},
-    {key:'insentif', label:'Insentif', icon:'gift'}
+    {key:'insentif', label:'Insentif', icon:'gift'},
+    {key:'layanan', label:'Layanan', icon:'inbox'}
   ],
   CS: [
     {key:'order', label:'Order', icon:'order'},
@@ -450,7 +457,7 @@ const f = (k,t,o)=>Object.assign({k,t:t||'text'},o||{});
 /* Form order dipakai bersama oleh CS (Order) & Finance (Edit Order). */
 const ORDER_FORM = [
   {sec:'Order'},
-  f('Chat Dari','select',{opts:CHAT_DARI}), f('Tanggal Input','date'),
+  f('Chat Dari','select',{opts:CHAT_DARI}), f('Tanggal Input','date',{ro:true}),
   f('Status Order','text',{ro:true}),
   f('CS Penanggung Jawab','text',{ro:true}),
   {sec:'Customer'},
@@ -459,14 +466,15 @@ const ORDER_FORM = [
   f('Waktu Pengerjaan','text'), f('Tanggal Pengerjaan','date'),
   f('Nama Cleaner','dynselect',{list:'cleaner'}),
   {sec:'Layanan & Tagihan'},
-  f('Layanan 1','text'), f('Qty 1','num'), f('Harga 1','num'),
-  f('Layanan 2','text'), f('Qty 2','num'), f('Harga 2','num'),
-  f('Layanan 3','text'), f('Qty 3','num'), f('Harga 3','num'),
+  f('Layanan 1','dynselect',{list:'layanan'}), f('Qty 1','text'), f('Harga 1','money'),
+  {btn:'addSvc'},
+  f('Layanan 2','dynselect',{list:'layanan', svc:2}), f('Qty 2','text',{svc:2}), f('Harga 2','money',{svc:2}),
+  f('Layanan 3','dynselect',{list:'layanan', svc:3}), f('Qty 3','text',{svc:3}), f('Harga 3','money',{svc:3}),
   f('Metode Pembayaran','select',{opts:METODE}),
-  f('Diskon (%)','num'), f('PPn','num',{ro:true}),
-  f('Total Akhir','num',{computed:true}),
-  f('Total Akhir Setelah Diskon','num',{computed:true}),
-  f('Total Tagihan','num',{computed:true}),
+  f('Diskon (%)','num'), f('PPn','check',{label:'Kena PPn 11%'}),
+  f('Total Akhir','money',{computed:true}),
+  f('Total Akhir Setelah Diskon','money',{computed:true}),
+  f('Total Tagihan','money',{computed:true}),
   {sec:'Dokumen & Catatan'},
   f('Keterangan Order','textarea',{full:true}),
   f('Update Invoice','text',{full:true}),
@@ -533,6 +541,13 @@ const VIEWS = {
     filters:['Jenis'],
     search:['Nama Cleaner','No Order','Nama Customer'],
     dateFilterField:'Tanggal Pengerjaan'
+  },
+  layanan:{
+    sheet:'LAYANAN', title:'Layanan', sub:'Daftar layanan untuk pilihan order',
+    idField:'ID Layanan', canAdd:true, canEdit:true,
+    table:['ID Layanan','Nama Layanan'],
+    search:['Nama Layanan','ID Layanan'],
+    form:[ f('Nama Layanan','text',{req:true, full:true}) ]
   },
   order:{
     sheet:'ORDER', title:'Order', sub:'Input & kelola order cabang', branchLock:true,
@@ -645,6 +660,11 @@ function initials(name){ return (name||'?').trim().split(/\s+/).slice(0,2).map(w
 const norm = s=>String(s==null?'':s).trim().toLowerCase();
 function ymd(d){ const x=new Date(d); const m=String(x.getMonth()+1).padStart(2,'0'); const day=String(x.getDate()).padStart(2,'0'); return x.getFullYear()+'-'+m+'-'+day; }
 function startOfWeek(d){ const x=new Date(d); const off=(x.getDay()+6)%7; x.setDate(x.getDate()-off); return x; }
+/* Qty boleh angka/huruf — ambil bagian angka untuk hitungan (default 1). */
+function qtyNum(v){ const n=parseFloat(String(v==null?'':v).replace(/[^0-9.,]/g,'').replace(',','.')); return isNaN(n)?1:n; }
+/* Uang: ambil angka murni & format "Rp 1.234.000". */
+function moneyDigits(v){ return String(v==null?'':v).replace(/[^0-9]/g,''); }
+function fmtRp(v){ const d=moneyDigits(v); return d ? ('Rp '+Number(d).toLocaleString('id-ID')) : ''; }
 
 /* ============================================================
    AUTH
@@ -930,7 +950,7 @@ async function openForm(row){
   $('#modalBody').innerHTML=html;
   wireFields(v);
   if(v.special==='gaji') recomputeGaji();
-  if(v.special==='order'){ recomputeOrder(); if(row && row['Bukti Transfer']) showInvoiceBtn(); }
+  if(v.special==='order'){ recomputeOrder(); wireSvcRows(); if(row && row['Bukti Transfer']) showInvoiceBtn(); }
   openOverlay();
 }
 function defaults(v){
@@ -943,12 +963,22 @@ function defaults(v){
   return d;
 }
 function renderField(fd, val){
+  if(fd.btn==='addSvc'){
+    return '<div class="field full"><button type="button" class="btn btn-ghost btn-sm" id="addSvcBtn">'+svg('plus')+'Tambah layanan</button></div>';
+  }
   const id='fld_'+fd.k.replace(/[^a-z0-9]/gi,'_');
   const full = fd.full || fd.t==='textarea' ? ' full':'';
   const comp = fd.computed ? ' computed':'';
+  const svc = fd.svc ? (' svc-row svc-'+fd.svc+' hide') : '';
   let inner='';
   const ro = fd.ro || fd.computed ? ' readonly' : '';
   val = val==null?'':val;
+  if(fd.t==='check'){
+    const on = Number(String(val).replace(/[^0-9-]/g,''))>0;
+    return '<div class="field'+full+'"><label>&nbsp;</label>'+
+      '<label class="chk"><input type="checkbox" data-k="'+esc(fd.k)+'" data-check="11"'+(on?' checked':'')+'> '+
+      esc(fd.label||fd.k)+'</label></div>';
+  }
   if(fd.t==='select'){
     inner = '<select data-k="'+esc(fd.k)+'"'+ro+'>'+
       '<option value=""></option>'+
@@ -967,15 +997,18 @@ function renderField(fd, val){
       '<datalist id="'+id+'_dl" data-dl="'+esc(fd.list)+'"></datalist>';
   } else if(fd.t==='dynselect'){
     const items=(state.cache[fd.list]||[]);
-    let opts=items.map(e=>e['Nama Lengkap']).filter(Boolean);
+    const field=DYN_FIELD[fd.list]||'Nama';
+    let opts=items.map(e=>e[field]).filter(Boolean);
     if(val && opts.indexOf(val)<0) opts=[val].concat(opts);
     inner = '<select data-k="'+esc(fd.k)+'"'+ro+'><option value=""></option>'+
       opts.map(o=>'<option'+(String(o)===String(val)?' selected':'')+'>'+esc(o)+'</option>').join('')+'</select>';
+  } else if(fd.t==='money'){
+    inner = '<input type="text" inputmode="numeric" data-k="'+esc(fd.k)+'" data-money="1"'+ro+' value="'+esc(fmtRp(val))+'">';
   } else {
     let type = fd.t==='num'?'number': fd.t==='date'?'date': fd.t==='month'?'month':'text';
     inner = '<input type="'+type+'" data-k="'+esc(fd.k)+'"'+ro+' value="'+esc(val)+'">';
   }
-  return '<div class="field'+full+comp+'"><label>'+esc(fd.k)+(fd.req?' <span class="req">*</span>':'')+'</label>'+inner+'</div>';
+  return '<div class="field'+full+comp+svc+'"><label>'+esc(fd.k)+(fd.req?' <span class="req">*</span>':'')+'</label>'+inner+'</div>';
 }
 
 /* prefetch datalist sources */
@@ -993,6 +1026,9 @@ async function ensureLists(v){
   if(needs.has('order') && !state.cache.order){
     const r = await api({action:'list', sheet:'ORDER', filters:{'Cabang':state.session.cabang}});
     state.cache.order = r.data||[];
+  }
+  if(needs.has('layanan') && !state.cache.layanan){
+    state.cache.layanan = (await api({action:'list', sheet:'LAYANAN'})).data||[];
   }
 }
 function fillDatalists(){
@@ -1038,7 +1074,11 @@ function wireFields(v){
   // recompute triggers
   if(v.special==='order'){
     ['Qty 1','Harga 1','Qty 2','Harga 2','Qty 3','Harga 3','Diskon (%)','PPn'].forEach(k=>{
-      const el=getEl(k); if(el) el.addEventListener('input', recomputeOrder);
+      const el=getEl(k); if(el){ el.addEventListener('input', recomputeOrder); el.addEventListener('change', recomputeOrder); }
+    });
+    document.querySelectorAll('[data-money]').forEach(el=>{
+      if(el.readOnly) return;
+      el.addEventListener('input', ()=>{ el.value=fmtRp(el.value); });
     });
   }
   if(v.special==='gaji'){
@@ -1055,17 +1095,39 @@ function wireFields(v){
 
 /* ---------- field helpers ---------- */
 function getEl(k){ return document.querySelector('[data-k="'+CSS.escape(k)+'"]'); }
-function getVal(k){ const e=getEl(k); return e? e.value : ''; }
-function numVal(k){ return Number(getVal(k)||0); }
-function setVal(k,v){ const e=getEl(k); if(e) e.value=(v==null?'':v); }
+function getVal(k){ const e=getEl(k); if(!e) return '';
+  if(e.type==='checkbox') return e.checked ? (e.dataset.check||'11') : '0';
+  return e.value;
+}
+function numVal(k){ const e=getEl(k);
+  if(e && e.dataset && e.dataset.money) return Number(moneyDigits(e.value))||0;
+  return Number(String(getVal(k)).replace(/[^0-9.\-]/g,''))||0;
+}
+function setVal(k,v){ const e=getEl(k); if(!e) return;
+  if(e.type==='checkbox'){ e.checked = Number(String(v).replace(/[^0-9-]/g,''))>0; return; }
+  if(e.dataset && e.dataset.money){ e.value = fmtRp(v); return; }
+  e.value=(v==null?'':v);
+}
+function revealSvc(n){ document.querySelectorAll('.svc-'+n).forEach(el=>el.classList.remove('hide')); }
+function wireSvcRows(){
+  const btn=document.getElementById('addSvcBtn'); if(!btn) return;
+  [2,3].forEach(n=>{ if(getVal('Layanan '+n) || numVal('Harga '+n)) revealSvc(n); });
+  btn.addEventListener('click', ()=>{
+    if(document.querySelector('.svc-2.hide')) revealSvc(2);
+    else if(document.querySelector('.svc-3.hide')) revealSvc(3);
+    if(!document.querySelector('.svc-row.hide')) btn.style.display='none';
+  });
+  if(!document.querySelector('.svc-row.hide')) btn.style.display='none';
+}
 
 /* kumpulkan nilai form order saat ini (untuk invoice) */
 function collectOrderForm(){
   const v=state.view;
   const data = state.editing ? Object.assign({}, state.editing) : {};
   (v.form||[]).forEach(fd=>{
-    if(fd.sec) return;
+    if(fd.sec || fd.btn) return;
     if(fd.t==='file'){ if(state.files[fd.k]) data[fd.k]=state.files[fd.k]; }
+    else if(fd.t==='money' || fd.t==='check'){ data[fd.k]=numVal(fd.k); }
     else data[fd.k]=getVal(fd.k);
   });
   data['Cabang'] = v.branchLock ? state.session.cabang : (data['Cabang']||state.session.cabang||'');
@@ -1084,7 +1146,9 @@ function showInvoiceBtn(){
 
 /* ---------- special recompute ---------- */
 function recomputeOrder(){
-  const total = numVal('Qty 1')*numVal('Harga 1') + numVal('Qty 2')*numVal('Harga 2') + numVal('Qty 3')*numVal('Harga 3');
+  const total = qtyNum(getVal('Qty 1'))*numVal('Harga 1')
+              + qtyNum(getVal('Qty 2'))*numVal('Harga 2')
+              + qtyNum(getVal('Qty 3'))*numVal('Harga 3');
   const disc = numVal('Diskon (%)'), ppn = numVal('PPn');
   const afterDisc = total*(1-disc/100);
   const final = Math.round(afterDisc*(1+ppn/100));
@@ -1148,9 +1212,9 @@ function fmtTgl(s){
 function buildInvoiceHTML(o){
   o=o||{};
   const info=branchInfo(o['Cabang']);
-  let items=[1,2,3].map(i=>({nama:o['Layanan '+i]||'', qty:Number(o['Qty '+i]||0), harga:Number(o['Harga '+i]||0)}))
-                   .filter(it=>it.nama||it.qty||it.harga);
-  if(!items.length) items=[{nama:'',qty:0,harga:0}];
+  let items=[1,2,3].map(i=>({nama:o['Layanan '+i]||'', qty:qtyNum(o['Qty '+i]), qtyText:String(o['Qty '+i]||''), harga:Number(o['Harga '+i]||0)}))
+                   .filter(it=>it.nama||it.qtyText||it.harga);
+  if(!items.length) items=[{nama:'',qty:0,qtyText:'',harga:0}];
   let subtotal=0; items.forEach(it=>subtotal+=it.qty*it.harga);
   if(!subtotal && o['Total Akhir']) subtotal=Number(o['Total Akhir'])||0;
   const disc=Number(o['Diskon (%)']||0);
@@ -1169,7 +1233,7 @@ function buildInvoiceHTML(o){
   const itemRows=items.map(it=>(
     '<tr>'+
       '<td style="'+cellL+'">'+esc(it.nama||'-')+'</td>'+
-      '<td style="'+cellL+'text-align:center">'+(it.qty||'')+'</td>'+
+      '<td style="'+cellL+'text-align:center">'+esc(it.qtyText||'')+'</td>'+
       '<td style="'+cellL+'text-align:right">'+money(it.qty*it.harga)+'</td>'+
     '</tr>'
   )).join('');
@@ -1278,9 +1342,11 @@ async function saveForm(){
   const data = state.editing ? Object.assign({}, state.editing) : {};
   // collect field values
   v.form.forEach(fd=>{
-    if(fd.sec) return;
+    if(fd.sec || fd.btn) return;
     if(fd.t==='file'){
       if(state.files[fd.k]) data[fd.k]=state.files[fd.k];
+    }else if(fd.t==='money' || fd.t==='check'){
+      data[fd.k]=numVal(fd.k);
     }else{
       data[fd.k]=getVal(fd.k);
     }
