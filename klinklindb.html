@@ -287,6 +287,46 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 @media (max-width:520px){
   .role-chip .txt{display:none}
 }
+/* ---------- TAMBAHAN: chips, WA, ringkasan bonus, pick menu ---------- */
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{padding:8px 12px;border:1px solid var(--line-2);border-radius:22px;background:var(--surface);
+  font-size:12.5px;font-weight:600;color:var(--muted);transition:.13s;cursor:pointer}
+.chip:hover{border-color:var(--petrol)}
+.chip.on{background:var(--petrol);color:#fff;border-color:var(--petrol)}
+.btn-wa{background:#25D366;color:#fff;box-shadow:0 8px 18px -12px rgba(37,211,102,.8)}
+.btn-wa svg{width:15px;height:15px}
+.chkcol{width:38px;text-align:center}
+.chkcol input{width:17px;height:17px;accent-color:var(--petrol);cursor:pointer}
+.pickmenu{position:absolute;z-index:96;background:var(--surface);border:1px solid var(--line-2);
+  border-radius:13px;box-shadow:var(--shadow-lg);padding:6px;min-width:180px;animation:rise .14s ease}
+.pickmenu-head{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--faint);padding:7px 10px 5px}
+.pickmenu-item{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:10px 11px;
+  border-radius:9px;font-size:13.5px;font-weight:600;color:var(--ink)}
+.pickmenu-item:hover{background:var(--surface-2)}
+.pickmenu-item svg{width:16px;height:16px;color:#25D366;flex:none}
+.bonus-summary{border:1px solid var(--line);border-radius:16px;background:var(--surface);
+  box-shadow:var(--shadow);margin-bottom:16px;overflow:hidden}
+.bs-top{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+  padding:16px 18px;background:var(--surface-2);border-bottom:1px solid var(--line)}
+.bs-name{font-family:var(--display);font-size:18px;font-weight:600;color:var(--petrol)}
+.bs-sub{font-size:12px;color:var(--muted);margin-top:2px}
+.bs-total{display:flex;flex-direction:column;align-items:flex-end}
+.bs-total span{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+.bs-total b{font-family:var(--display);font-size:22px;color:var(--success);font-variant-numeric:tabular-nums}
+.bs-body{padding:10px 18px 16px}
+.bs-jenis{padding:8px 0;border-bottom:1px dashed var(--line)}
+.bs-jenis:last-child{border-bottom:none}
+.bs-jhead{display:flex;justify-content:space-between;align-items:center;font-weight:700;
+  font-size:13px;color:var(--ink);margin-bottom:4px}
+.bs-jhead em{color:var(--faint);font-style:normal;font-weight:600;font-size:12px}
+.bs-jsum{color:var(--petrol);font-variant-numeric:tabular-nums}
+.bs-row{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;color:var(--muted);padding:3px 0 3px 12px}
+.bs-cust{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink);font-weight:600}
+.bs-tgl{flex:none;color:var(--muted)}
+.bs-nom{flex:none;font-weight:600;font-variant-numeric:tabular-nums;min-width:88px;text-align:right}
+.bs-empty{color:var(--faint);font-size:13px;padding:8px 0}
+@media (max-width:520px){ .bs-tgl{display:none} }
 </style>
 </head>
 <body>
@@ -320,6 +360,7 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
     <div class="role-chip">
       <span class="dot"></span><span class="txt" id="roleLabel"></span>
     </div>
+    <button class="icon-btn" id="btnSync" title="Sinkronkan" aria-label="Sinkronkan"></button>
     <button class="icon-btn" id="btnSettings" title="Pengaturan" aria-label="Pengaturan"></button>
     <button class="icon-btn" id="btnLogout" title="Keluar" aria-label="Keluar"></button>
   </div>
@@ -389,6 +430,93 @@ const INVOICE_SIGNER = 'M. Aminuddin Ghufron';
 /* Field penampil untuk dropdown dinamis (dynselect). */
 const DYN_FIELD = { cleaner:'Nama Lengkap', layanan:'Nama Layanan' };
 
+/* Kode cabang (untuk ID Order) — sama dengan di Code.gs. */
+const CABANG_CODE = {
+  'SURABAYA':'SBY','MALANG':'MLG','GRESIK':'GSK','KEDIRI':'KDR','BOJONEGORO':'BJN',
+  'SAMARINDA':'SMD','BALIKPAPAN':'BPP','DENPASAR':'DPS','TABANAN':'TBN','MAKASSAR':'MKS'
+};
+const CODE_CABANG = Object.keys(CABANG_CODE).reduce((m,k)=>{ m[CABANG_CODE[k]]=k; return m; }, {});
+function cabangOfBonus(r){
+  if(r['Cabang']) return String(r['Cabang']).toUpperCase();
+  const code=(String(r['No Order']||'').split('-')[0]||'').toUpperCase();
+  return CODE_CABANG[code]||'';
+}
+
+const HARI_ID=['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+const BULAN_ID=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+function parseDate_(s){ const m=String(s||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m? new Date(+m[1],+m[2]-1,+m[3]) : null; }
+function hariId(s){ const d=parseDate_(s); return d? HARI_ID[d.getDay()] : ''; }
+function tglPanjangId(s){ const d=parseDate_(s); return d? (d.getDate()+' '+BULAN_ID[d.getMonth()]+' '+d.getFullYear()) : String(s||''); }
+function ribu(n){ return Number(n||0).toLocaleString('id-ID'); }
+
+/* Total order dipakai bersama invoice & pesan WA. */
+function orderTotals(o){
+  let subtotal=[1,2,3].reduce((s,i)=>s+qtyNum(o['Qty '+i])*Number(o['Harga '+i]||0),0);
+  if(!subtotal && o['Total Akhir']) subtotal=Number(o['Total Akhir'])||0;
+  const disc=Number(o['Diskon (%)']||0);
+  const diskonNilai=Math.round(subtotal*disc/100);
+  const afterDisc=subtotal-diskonNilai;
+  const ppn=Number((o['PPn']!=null&&o['PPn']!=='')?o['PPn']:0);
+  const ppnNilai=Math.round(afterDisc*ppn/100);
+  let grand=Number(o['Total Akhir Setelah Diskon']||0);
+  if(!grand) grand=afterDisc+ppnNilai;
+  return {subtotal, diskonNilai, ppnNilai, grand};
+}
+function orderItemsText(o){
+  const lines=[];
+  [1,2,3].forEach(i=>{ const nm=o['Layanan '+i]; const q=o['Qty '+i];
+    if(nm||q) lines.push(lines.length+1+'. '+(nm||'-')+(q?(' : '+q):'')); });
+  return lines.length? lines.join('\n') : '-';
+}
+/* Normalisasi nomor ke format wa.me (62...). */
+function waNum(p){ let d=String(p||'').replace(/[^0-9]/g,''); if(!d) return '';
+  if(d[0]==='0') d='62'+d.slice(1); else if(d.slice(0,2)!=='62') d='62'+d; return d; }
+function bankLines(){ return INVOICE_BANK.map(b=>b.bank.replace('Bank ','')+' '+b.no).join('\n'); }
+
+function waCustomerText(o){
+  const cab=String(o['Cabang']||'').toUpperCase();
+  const t=orderTotals(o);
+  return 'Halo Kak '+(o['Nama Customer']||'')+'\n'+
+    'Terimakasih sudah melakukan pemesanan di Klinklin '+cab+', Berikut Rinciannya :\n'+
+    '📄 KLINKLIN '+cab+'\n'+
+    '--------------------------------\n'+
+    'No. Order : '+(o['ID Order']||'')+'\n'+
+    'Nama Customer : '+(o['Nama Customer']||'')+'\n'+
+    'Alamat : '+(o['Alamat']||'')+'\n'+
+    'Rincian Pesanan:\n'+orderItemsText(o)+'\n'+
+    'Hari : '+hariId(o['Tanggal Pengerjaan'])+'\n'+
+    'Waktu : '+(o['Waktu Pengerjaan']||'')+'\n'+
+    'Tanggal : '+tglPanjangId(o['Tanggal Pengerjaan'])+'\n'+
+    '--------------------------------\n'+
+    'Total Awal : '+ribu(t.subtotal)+'\n'+
+    'Diskon : '+ribu(t.diskonNilai)+'\n'+
+    'PPn : '+ribu(t.ppnNilai)+'\n'+
+    'TOTAL BAYAR : Rp'+ribu(t.grand)+'\n'+
+    '--------------------------------\n'+
+    'Transfer hanya ke No. Rekening Berikut:\n'+bankLines()+'\n'+
+    'an. KLINKLIN INDONESIA GROUP\n'+
+    '⚠️ PENTING & HARAP DIBACA :\n'+
+    'Pembayaran Anda dianggap sah jika disertai Invoice Resmi. File PDF invoice akan kami kirimkan setelah Pembayaran LUNAS.\n'+
+    'Jika Anda melakukan pembayaran tanpa menerima Invoice, maka transaksi dianggap TIDAK ADA / ILEGAL';
+}
+function waCleanerText(o){
+  const cab=String(o['Cabang']||'').toUpperCase();
+  const first=String(o['Nama Cleaner']||'').split(',')[0].trim();
+  return 'Halo '+first+', ada tugas baru untukmu! 🧹\n'+
+    '📄 KLINKLIN '+cab+'\n'+
+    '--------------------------------\n'+
+    'No. Order : '+(o['ID Order']||'')+'\n'+
+    'Nama Customer : '+(o['Nama Customer']||'')+'\n'+
+    'Alamat : '+(o['Alamat']||'')+'\n'+
+    'Rincian Pesanan:\n'+orderItemsText(o)+'\n'+
+    'Hari : '+hariId(o['Tanggal Pengerjaan'])+'\n'+
+    'Waktu : '+(o['Waktu Pengerjaan']||'')+'\n'+
+    'Tanggal : '+tglPanjangId(o['Tanggal Pengerjaan'])+'\n'+
+    '--------------------------------\n'+
+    'Keterangan Order:\n'+(o['Keterangan Order']||'-')+'\n'+
+    'Semangat ya kerjanya! Tolong foto before after jangan lupa.';
+}
+
 const GAJI_BONUS_FIELDS = ['Bonus Bulanan','Bonus Review','Bonus Tanggal Merah','Bonus Januari',
   'Total Kilometer','Total DeepClean','Total Salon','Total Tips','Total Parkir','Total Lembur',
   'Total Uang Makan','Total Bonus Lainnya'];
@@ -419,7 +547,9 @@ const IC = {
   file:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
   close:'<path d="M18 6L6 18M6 6l12 12"/>',
   upload:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>',
-  inbox:'<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>'
+  inbox:'<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
+  wa:'<path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.38 8.38 0 0 1-4-1L3 21l2-5.5a8.38 8.38 0 0 1-1-4A8.5 8.5 0 0 1 21 11.5z"/>',
+  refresh:'<path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>'
 };
 function svg(name, cls){
   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '+
@@ -437,6 +567,7 @@ const MENUS = {
   HRD: [
     {key:'karyawan', label:'Karyawan', icon:'users'},
     {key:'gaji', label:'Gaji', icon:'salary'},
+    {key:'gajiPokok', label:'Gaji Pokok', icon:'settings'},
     {key:'insentif', label:'Insentif', icon:'gift'},
     {key:'layanan', label:'Layanan', icon:'inbox'}
   ],
@@ -464,7 +595,7 @@ const ORDER_FORM = [
   f('Nama Customer','text',{req:true}), f('No WA Customer','text'),
   f('Alamat','textarea',{full:true}),
   f('Waktu Pengerjaan','text'), f('Tanggal Pengerjaan','date'),
-  f('Nama Cleaner','dynselect',{list:'cleaner'}),
+  f('Nama Cleaner','multidyn',{list:'cleaner', full:true}),
   {sec:'Layanan & Tagihan'},
   f('Layanan 1','dynselect',{list:'layanan'}), f('Qty 1','text'), f('Harga 1','money'),
   {btn:'addSvc'},
@@ -487,7 +618,7 @@ const ORDER_FORM = [
 const VIEWS = {
   karyawan:{
     sheet:'KARYAWAN', title:'Karyawan', sub:'Data seluruh karyawan & profil',
-    idField:'ID Karyawan', canAdd:true, canEdit:true,
+    idField:'ID Karyawan', canAdd:true, canEdit:true, sortBy:['Cabang','Nama Lengkap'],
     table:['Foto Profil','ID Karyawan','Nama Lengkap','Jabatan','Status','Cabang','No WA'],
     filters:['Cabang','Jabatan','Status'],
     search:['Nama Lengkap','ID Karyawan','No WA'],
@@ -509,9 +640,10 @@ const VIEWS = {
       {sec:'Identitas Slip'},
       f('Tanggal Cetak','date'), f('Periode Bulan','month'),
       f('Awal Periode','date',{ro:true}), f('Akhir Periode','date',{ro:true}),
-      f('ID Karyawan','datalist',{list:'karyawan', req:true}),
+      f('Cabang','select',{opts:CABANG, req:true}),
+      f('ID Karyawan','kselect',{req:true, list:'karyawan'}),
       f('Nama Karyawan','text',{ro:true}),
-      f('Cabang','text',{ro:true}), f('Jabatan','text',{ro:true}), f('Status','text',{ro:true}),
+      f('Jabatan','text',{ro:true}), f('Status','text',{ro:true}),
       {sec:'Pendapatan'},
       f('Gaji Pokok','num'),
       f('Bonus Bulanan','num'), f('Bonus Review','num'),
@@ -538,9 +670,9 @@ const VIEWS = {
     sheet:'BONUS', title:'Insentif', sub:'Semua bonus yang diinput CS', readOnly:true,
     idField:'ID Insentif',
     table:['ID Insentif','No Order','Jenis','Nominal','Nama Cleaner','Nama Customer','Tanggal Pengerjaan','Tanggal Input'],
-    filters:['Jenis'],
+    filters:['Jenis'], dynCleaner:true,
     search:['Nama Cleaner','No Order','Nama Customer'],
-    dateFilterField:'Tanggal Pengerjaan'
+    datePreset:true, dateFilterField:'Tanggal Pengerjaan'
   },
   layanan:{
     sheet:'LAYANAN', title:'Layanan', sub:'Daftar layanan untuk pilihan order',
@@ -549,6 +681,23 @@ const VIEWS = {
     search:['Nama Layanan','ID Layanan'],
     form:[ f('Nama Layanan','text',{req:true, full:true}) ]
   },
+  gajiPokok:{
+    sheet:'GAJI_POKOK', title:'Gaji Pokok', sub:'Setting gaji pokok & tunjangan per cabang/jabatan/status',
+    special:'gajiPokok', keyFields:['Cabang','Jabatan','Status'], canAdd:true, canEdit:true,
+    sortBy:['Cabang','Jabatan','Status'],
+    table:['Cabang','Jabatan','Status','Gaji Pokok','Tunjangan Transport','Tunjangan Kos','Tunjangan Kerja'],
+    filters:['Cabang','Jabatan'],
+    search:['Cabang','Jabatan','Status'],
+    form:[
+      f('Cabang','select',{opts:CABANG, req:true}),
+      f('Jabatan','select',{opts:JABATAN, req:true}),
+      f('Status','select',{opts:STATUS_KARYAWAN, req:true}),
+      f('Gaji Pokok','money'),
+      f('Tunjangan Transport','money'),
+      f('Tunjangan Kos','money'),
+      f('Tunjangan Kerja','money')
+    ]
+  },
   order:{
     sheet:'ORDER', title:'Order', sub:'Input & kelola order cabang', branchLock:true,
     idField:'ID Order', canAdd:true, canEdit:true, special:'order',
@@ -556,14 +705,15 @@ const VIEWS = {
     filters:['Status Order'],
     datePreset:true, dateFilterField:'Tanggal Pengerjaan',
     search:['Nama Customer','ID Order','No WA Customer'],
-    statusBadge:true, lockAfterProof:true, invoice:true,
+    statusBadge:true, lockAfterProof:true, invoice:true, wa:true,
     form: ORDER_FORM
   },
   inputBonus:{
     sheet:'BONUS', title:'Input Bonus', sub:'Bonus cleaner berdasarkan No Order', branchLock:true,
     idField:'ID Insentif', canAdd:true, canEdit:true, special:'bonus',
     table:['ID Insentif','No Order','Jenis','Nominal','Nama Cleaner','Nama Customer','Tanggal Pengerjaan'],
-    filters:['Jenis'],
+    filters:['Jenis'], dynCleaner:true,
+    datePreset:true, dateFilterField:'Tanggal Pengerjaan',
     search:['No Order','Nama Cleaner','Nama Customer'],
     form:[
       f('No Order','datalist',{list:'order', req:true, full:true}),
@@ -574,25 +724,25 @@ const VIEWS = {
     ]
   },
   auditOrder:{
-    sheet:'ORDER', title:'Audit Order', sub:'Order menunggu persetujuan finance',
-    idField:'ID Order', statusIn:['pending','done'], statusField:'Status Order',
-    approve:true, statusBadge:true, invoice:true,
+    sheet:'ORDER', title:'Audit Order', sub:'Order "done" menunggu persetujuan finance', branchLock:false,
+    idField:'ID Order', statusIn:['done'], statusField:'Status Order',
+    approve:true, multiApprove:true, statusBadge:true, invoice:true, wa:true,
     table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Total Akhir Setelah Diskon','Bukti Transfer'],
     filters:['Cabang'],
     search:['Nama Customer','ID Order'],
-    dateFilterField:'Tanggal Pengerjaan'
+    datePreset:true, dateFilterField:'Tanggal Pengerjaan'
   },
   hasilAudit:{
-    sheet:'ORDER', title:'Hasil Audit', sub:'Order yang sudah complete', readOnly:true,
-    idField:'ID Order', statusIn:['complete'], statusField:'Status Order', statusBadge:true, invoice:true,
+    sheet:'ORDER', title:'Hasil Audit', sub:'Order complete & status lainnya (pending / cancel)', readOnly:true,
+    idField:'ID Order', statusIn:['complete','pending','cancel'], statusField:'Status Order', statusBadge:true, invoice:true, wa:true,
     table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Total Akhir Setelah Diskon','Waktu Approve'],
-    filters:['Cabang'],
+    filters:['Cabang','Status Order'],
     search:['Nama Customer','ID Order'],
-    dateFilterField:'Tanggal Pengerjaan'
+    datePreset:true, dateFilterField:'Tanggal Pengerjaan'
   },
   editOrder:{
     sheet:'ORDER', title:'Edit Order', sub:'Edit order apa pun — semua status & cabang',
-    idField:'ID Order', canEdit:true, special:'order', statusBadge:true, invoice:true,
+    idField:'ID Order', canEdit:true, special:'order', statusBadge:true, invoice:true, wa:true,
     table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Nama Cleaner','Total Akhir Setelah Diskon'],
     filters:['Cabang','Status Order'],
     datePreset:true, dateFilterField:'Tanggal Pengerjaan',
@@ -710,6 +860,7 @@ function enterApp(){
   $('#markTop').innerHTML = MARK;
   $('#btnLogout').innerHTML = svg('logout');
   $('#btnSettings').innerHTML = svg('settings');
+  $('#btnSync').innerHTML = svg('refresh');
   const s=state.session;
   $('#roleLabel').textContent = s.role==='CS' ? ('CS · '+s.cabang) : s.role;
   buildNav();
@@ -774,6 +925,10 @@ function buildToolbar(){
         opts.map(o=>'<option>'+o+'</option>').join('')+'</select></div>';
     }
   });
+  if(v.dynCleaner){
+    html += '<div class="fl"><span class="lbl">Cleaner</span>'+
+      '<select data-filter="Nama Cleaner" id="fCleaner"><option value="">Semua Cleaner</option></select></div>';
+  }
   if(v.datePreset){
     html += '<div class="fl"><span class="lbl">Tanggal</span>'+
       '<select id="dpreset">'+
@@ -789,7 +944,13 @@ function buildToolbar(){
     html += '<div class="fl"><span class="lbl">'+v.dateFilterField+'</span>'+
       '<input type="date" id="ds" title="Dari tanggal"> <input type="date" id="de" title="Sampai tanggal"></div>';
   }
+  if(v.multiApprove){
+    html += '<button class="btn btn-gold btn-sm" id="btnApproveSel">'+svg('check')+'Approve terpilih</button>';
+  }
+  html += '<button class="btn btn-ghost btn-sm" id="btnSyncManual" title="Sinkronkan data">'+svg('refresh')+'Sinkronkan</button>';
   $('#toolbar').innerHTML = html;
+  const bSync=$('#btnSyncManual'); if(bSync) bSync.addEventListener('click', ()=>loadList());
+  const bSel=$('#btnApproveSel'); if(bSel) bSel.addEventListener('click', approveSelected);
   if(v.search){
     let t; $('#q').addEventListener('input', e=>{ state.search=e.target.value.toLowerCase();
       clearTimeout(t); t=setTimeout(renderTable,160); });
@@ -819,20 +980,50 @@ async function loadList(){
   try{
     const payload={action:'list', sheet:v.sheet};
     if(v.statusIn){ payload.statusIn=v.statusIn; payload.statusField=v.statusField; }
-    if(v.branchLock){ payload.filters={'Cabang':state.session.cabang}; }
+    // BONUS tidak punya kolom Cabang → jangan filter cabang di server (akan kosong).
+    // Untuk CS, penyaringan cabang dilakukan di klien lewat kode No Order.
+    if(v.branchLock && v.sheet!=='BONUS'){ payload.filters={'Cabang':state.session.cabang}; }
     const r = await api(payload);
     state.rows = r.data || [];
+    if(v.wa && !state.cache.karyawanMap){
+      try{
+        const k=(await api({action:'list', sheet:'KARYAWAN'})).data||[];
+        const map={}; k.forEach(e=>{ if(e['Nama Lengkap']) map[norm(e['Nama Lengkap'])]=e['No WA']; });
+        state.cache.karyawanMap=map;
+      }catch(e){ state.cache.karyawanMap={}; }
+    }
+    refreshDynFilters();
     renderTable();
     syncDone(state.rows.length);
   }catch(err){ setSync(false); toast(err.message,'err'); $('#panel').innerHTML=emptyState('Gagal memuat data'); }
 }
 
+/* Isi opsi filter "Cleaner" dari data yang sudah dimuat (distinct, sudah dipecah koma). */
+function refreshDynFilters(){
+  const v=state.view; if(!v || !v.dynCleaner) return;
+  const sel=$('#fCleaner'); if(!sel) return;
+  const set=new Set();
+  state.rows.forEach(r=>String(r['Nama Cleaner']||'').split(',').forEach(n=>{ const t=n.trim(); if(t) set.add(t); }));
+  const names=[...set].sort((a,b)=>a.localeCompare(b,'id'));
+  const cur=state.filters['Nama Cleaner']||'';
+  sel.innerHTML='<option value="">Semua Cleaner</option>'+
+    names.map(n=>'<option'+(n===cur?' selected':'')+'>'+esc(n)+'</option>').join('');
+}
+
 function applyClientFilters(rows){
   const v=state.view;
   let out = rows.slice();
+  // Penyaringan cabang untuk BONUS (sheet tanpa kolom Cabang) berdasar kode No Order.
+  if(v.branchLock && v.sheet==='BONUS' && state.session.cabang){
+    out = out.filter(r=>cabangOfBonus(r)===String(state.session.cabang).toUpperCase());
+  }
   Object.keys(state.filters).forEach(k=>{
     const val=state.filters[k]; if(!val) return;
-    out = out.filter(r=>norm(r[k])===norm(val));
+    if(k==='Nama Cleaner'){
+      out = out.filter(r=>String(r['Nama Cleaner']||'').split(',').map(s=>norm(s)).indexOf(norm(val))>-1);
+    }else{
+      out = out.filter(r=>norm(r[k])===norm(val));
+    }
   });
   if(v.dateFilterField && (state.dateStart||state.dateEnd)){
     out = out.filter(r=>{
@@ -845,34 +1036,54 @@ function applyClientFilters(rows){
   if(state.search && v.search){
     out = out.filter(r=> v.search.some(k=>String(r[k]||'').toLowerCase().indexOf(state.search)>-1));
   }
+  if(v.sortBy && v.sortBy.length){
+    out.sort((a,b)=>{
+      for(const k of v.sortBy){
+        const x=String(a[k]==null?'':a[k]), y=String(b[k]==null?'':b[k]);
+        const c=x.localeCompare(y,'id',{numeric:true}); if(c) return c;
+      }
+      return 0;
+    });
+  }
   return out;
 }
 
 function renderTable(){
   const v=state.view;
   const rows = applyClientFilters(state.rows);
-  if(!rows.length){ $('#panel').innerHTML=emptyState('Belum ada data'); $('#count').textContent=''; return; }
+  const summary = (v.sheet==='BONUS' && state.filters['Nama Cleaner'])
+    ? bonusSummaryCard(rows, state.filters['Nama Cleaner']) : '';
+  if(!rows.length){ $('#panel').innerHTML = summary + emptyState('Belum ada data'); $('#count').textContent=''; wireSummary(); return; }
   const cols=v.table;
-  const showAct = v.canEdit || v.approve || v.invoice;
+  const showAct = v.canEdit || v.approve || v.invoice || v.wa;
+  const chk = v.multiApprove;
   let html='<div class="tbl-wrap"><table><thead><tr>'+
+    (chk?'<th class="chkcol"><input type="checkbox" id="checkAll"></th>':'')+
     cols.map(c=>'<th>'+c+'</th>').join('')+ (showAct?'<th></th>':'') +'</tr></thead><tbody>';
   rows.forEach(r=>{
-    html += '<tr>'+cols.map(c=>'<td'+(isMoney(c)?' class="money"':'')+'>'+cell(v,c,r)+'</td>').join('');
+    const oid = r['ID Order'];
+    html += '<tr>';
+    if(chk) html += '<td class="chkcol"><input type="checkbox" class="rowchk" data-id="'+esc(oid)+'"></td>';
+    html += cols.map(c=>'<td'+(isMoney(c)?' class="money"':'')+'>'+cell(v,c,r)+'</td>').join('');
     if(showAct){
       let act='<div class="row-act">';
-      if(v.approve){ const st=norm(r['Status Order'])||'pending';
-        if(st==='pending'||st==='done'){
-        act += '<button class="btn btn-gold btn-sm" data-approve="'+esc(r['ID Order'])+'">'+svg('check')+'Approve</button>';
-      }}
+      if(v.wa){
+        act += '<button class="btn btn-wa btn-sm" data-wac="'+esc(oid)+'" title="WhatsApp Customer">'+svg('wa')+'Cust</button>';
+        act += '<button class="btn btn-wa btn-sm" data-wak="'+esc(oid)+'" title="WhatsApp Cleaner">'+svg('wa')+'Cleaner</button>';
+      }
+      if(v.approve && norm(r['Status Order'])==='done'){
+        act += '<button class="btn btn-gold btn-sm" data-approve="'+esc(oid)+'">'+svg('check')+'Approve</button>';
+      }
       if(v.invoice && (norm(r['Status Order'])==='done' || norm(r['Status Order'])==='complete' || r['Bukti Transfer'])){
-        act += '<button class="act-ic" data-invoice="'+esc(r['ID Order'])+'" title="Download Invoice PDF">'+svg('file')+'</button>';
+        act += '<button class="act-ic" data-invoice="'+esc(oid)+'" title="Download Invoice PDF">'+svg('file')+'</button>';
       }
       if(v.canEdit){
         const locked = v.lockAfterProof && (r['Bukti Transfer'] || r['Bukti Cancel']);
+        const eid = v.idField ? esc(r[v.idField]) : ('#'+state.rows.indexOf(r));
         if(locked){
           act += '<span class="act-ic" title="Terkunci — sudah ada bukti transfer/cancel" style="opacity:.4;cursor:not-allowed">'+svg('check')+'</span>';
         }else{
-          act += '<button class="act-ic" data-edit="'+esc(r[v.idField])+'" title="Edit">'+svg('edit')+'</button>';
+          act += '<button class="act-ic" data-edit="'+eid+'" title="Edit">'+svg('edit')+'</button>';
         }
       }
       act+='</div>';
@@ -881,15 +1092,95 @@ function renderTable(){
     html += '</tr>';
   });
   html+='</tbody></table></div>';
-  $('#panel').innerHTML=html;
+  $('#panel').innerHTML = summary + html;
   $('#count').textContent = rows.length+' data';
+  wireSummary();
   document.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click',()=>{
-    const row=state.rows.find(x=>String(x[v.idField])===b.dataset.edit); openForm(row);
+    const key=b.dataset.edit;
+    const row = key.charAt(0)==='#' ? state.rows[+key.slice(1)] : state.rows.find(x=>String(x[v.idField])===key);
+    openForm(row);
   }));
   document.querySelectorAll('[data-invoice]').forEach(b=>b.addEventListener('click',()=>{
     const row=state.rows.find(x=>String(x['ID Order'])===b.dataset.invoice); downloadInvoice(row);
   }));
   document.querySelectorAll('[data-approve]').forEach(b=>b.addEventListener('click',()=>approveOrder(b.dataset.approve)));
+  document.querySelectorAll('[data-wac]').forEach(b=>b.addEventListener('click',()=>{
+    const o=state.rows.find(x=>String(x['ID Order'])===b.dataset.wac); if(o) waCustomer(o);
+  }));
+  document.querySelectorAll('[data-wak]').forEach(b=>b.addEventListener('click',()=>{
+    const o=state.rows.find(x=>String(x['ID Order'])===b.dataset.wak); if(o) waCleaner(o,b);
+  }));
+  const all=$('#checkAll'); if(all) all.addEventListener('change',()=>document.querySelectorAll('.rowchk').forEach(c=>c.checked=all.checked));
+}
+
+/* Kartu ringkasan bonus untuk satu cleaner (total + rincian per jenis: customer & tanggal). */
+function bonusSummaryCard(rows, cleaner){
+  let total=0; const byJenis={};
+  rows.forEach(r=>{
+    const nom=Number(moneyDigits(r['Nominal']))||0; total+=nom;
+    const j=String(r['Jenis']||'Lainnya');
+    (byJenis[j]=byJenis[j]||{sum:0,items:[]});
+    byJenis[j].sum+=nom;
+    byJenis[j].items.push({cust:r['Nama Customer']||'-', tgl:r['Tanggal Pengerjaan']||'', nom:nom});
+  });
+  const jenisKeys=Object.keys(byJenis).sort((a,b)=>a.localeCompare(b,'id'));
+  let blocks=jenisKeys.map(j=>{
+    const g=byJenis[j];
+    const lines=g.items.map(it=>
+      '<div class="bs-row"><span class="bs-cust">'+esc(it.cust)+'</span>'+
+      '<span class="bs-tgl">'+esc(tglPanjangId(it.tgl))+'</span>'+
+      '<span class="bs-nom">'+rp(it.nom)+'</span></div>').join('');
+    return '<div class="bs-jenis"><div class="bs-jhead"><span>'+esc(j)+' <em>('+g.items.length+')</em></span>'+
+      '<span class="bs-jsum">'+rp(g.sum)+'</span></div>'+lines+'</div>';
+  }).join('');
+  return '<div class="bonus-summary">'+
+    '<div class="bs-top"><div><div class="bs-name">'+esc(cleaner)+'</div>'+
+    '<div class="bs-sub">Ringkasan bonus '+rows.length+' transaksi</div></div>'+
+    '<div class="bs-total"><span>Total Bonus</span><b>'+rp(total)+'</b></div></div>'+
+    '<div class="bs-body">'+(blocks||'<div class="bs-empty">Tidak ada bonus.</div>')+'</div></div>';
+}
+function wireSummary(){ /* placeholder untuk interaksi ringkasan bila diperlukan */ }
+
+/* ---------- WHATSAPP ---------- */
+function openWa(num, text, who){
+  const n=waNum(num);
+  if(!n){ toast('Nomor WA '+(who?('"'+who+'" '):'')+'tidak ditemukan','err'); return; }
+  window.open('https://wa.me/'+n+'?text='+encodeURIComponent(text), '_blank');
+}
+function waCustomer(o){ openWa(o['No WA Customer'], waCustomerText(o), o['Nama Customer']); }
+function sendWaCleaner(o, name){
+  const wa=(state.cache.karyawanMap||{})[norm(name)];
+  openWa(wa, waCleanerText(Object.assign({}, o, {'Nama Cleaner':name})), name);
+}
+function waCleaner(o, btn){
+  const names=String(o['Nama Cleaner']||'').split(',').map(s=>s.trim()).filter(Boolean);
+  if(!names.length){ toast('Order belum punya cleaner','err'); return; }
+  if(names.length===1){ sendWaCleaner(o, names[0]); return; }
+  showPickMenu(btn, names.map(n=>({label:n, on:()=>sendWaCleaner(o,n)})));
+}
+function showPickMenu(anchor, items){
+  closePickMenu();
+  const m=document.createElement('div'); m.className='pickmenu'; m.id='pickmenu';
+  m.innerHTML='<div class="pickmenu-head">Kirim WA ke cleaner</div>';
+  items.forEach(it=>{ const b=document.createElement('button'); b.className='pickmenu-item';
+    b.innerHTML=svg('wa')+'<span>'+esc(it.label)+'</span>';
+    b.addEventListener('click', e=>{ e.stopPropagation(); closePickMenu(); it.on(); }); m.appendChild(b); });
+  document.body.appendChild(m);
+  const r=anchor.getBoundingClientRect();
+  let left=r.left+window.scrollX; left=Math.min(left, window.innerWidth-200);
+  m.style.top=(r.bottom+window.scrollY+6)+'px'; m.style.left=Math.max(8,left)+'px';
+  setTimeout(()=>document.addEventListener('click', closePickMenu, {once:true}), 0);
+}
+function closePickMenu(){ const m=document.getElementById('pickmenu'); if(m) m.remove(); }
+
+/* Approve beberapa order sekaligus (hanya yang berstatus done). */
+async function approveSelected(){
+  const ids=[...document.querySelectorAll('.rowchk:checked')].map(c=>c.dataset.id).filter(Boolean);
+  if(!ids.length){ toast('Pilih order dulu','err'); return; }
+  if(!confirm('Approve '+ids.length+' order menjadi complete?')) return;
+  setSync(true);
+  try{ const r=await api({action:'approveMany', ids}); toast((r.approved||0)+' order disetujui','ok'); await loadList(); }
+  catch(err){ setSync(false); toast(err.message,'err'); }
 }
 
 function cell(v,c,r){
@@ -908,6 +1199,9 @@ function cell(v,c,r){
     const s=norm(val)||'pending'; return '<span class="badge b-'+s+'"><span class="d"></span>'+s+'</span>';
   }
   if(c==='Take Home Pay') return '<span class="thp">'+rp(val)+'</span>';
+  if(/^Tanggal/.test(c)){
+    return val!=null && val!=='' ? esc(tglPanjangId(val)) : '<span style="color:var(--faint)">—</span>';
+  }
   if(isMoney(c)) return rp(val);
   return val!=null && val!=='' ? esc(val) : '<span style="color:var(--faint)">—</span>';
 }
@@ -949,7 +1243,7 @@ async function openForm(row){
   html+='</div>';
   $('#modalBody').innerHTML=html;
   wireFields(v);
-  if(v.special==='gaji') recomputeGaji();
+  if(v.special==='gaji'){ populateKselect(); recomputeGaji(); }
   if(v.special==='order'){ recomputeOrder(); wireSvcRows(); if(row && row['Bukti Transfer']) showInvoiceBtn(); }
   openOverlay();
 }
@@ -1002,6 +1296,18 @@ function renderField(fd, val){
     if(val && opts.indexOf(val)<0) opts=[val].concat(opts);
     inner = '<select data-k="'+esc(fd.k)+'"'+ro+'><option value=""></option>'+
       opts.map(o=>'<option'+(String(o)===String(val)?' selected':'')+'>'+esc(o)+'</option>').join('')+'</select>';
+  } else if(fd.t==='multidyn'){
+    const items=(state.cache[fd.list]||[]);
+    const field=DYN_FIELD[fd.list]||'Nama';
+    let opts=items.map(e=>e[field]).filter(Boolean);
+    const chosen=String(val||'').split(',').map(s=>s.trim()).filter(Boolean);
+    chosen.forEach(c=>{ if(opts.indexOf(c)<0) opts.push(c); });
+    const chips=opts.map(o=>'<button type="button" class="chip'+(chosen.indexOf(o)>-1?' on':'')+'" data-chip="'+esc(o)+'">'+esc(o)+'</button>').join('')
+      || '<span class="bs-sub">Belum ada cleaner di cabang ini.</span>';
+    inner = '<input type="hidden" data-k="'+esc(fd.k)+'" data-multi="1" value="'+esc(chosen.join(', '))+'">'+
+      '<div class="chips" data-chips="'+esc(fd.k)+'">'+chips+'</div>';
+  } else if(fd.t==='kselect'){
+    inner = '<select data-k="'+esc(fd.k)+'" data-kselect="1"'+ro+'><option value=""></option></select>';
   } else if(fd.t==='money'){
     inner = '<input type="text" inputmode="numeric" data-k="'+esc(fd.k)+'" data-money="1"'+ro+' value="'+esc(fmtRp(val))+'">';
   } else {
@@ -1044,6 +1350,15 @@ function fillDatalists(){
 /* wire inputs: computed, file uploads, special lookups */
 function wireFields(v){
   fillDatalists();
+  // chips multi-pilih (Nama Cleaner)
+  document.querySelectorAll('.chips').forEach(box=>{
+    const hid=box.parentElement.querySelector('[data-multi]');
+    box.querySelectorAll('[data-chip]').forEach(ch=>ch.addEventListener('click',()=>{
+      ch.classList.toggle('on');
+      const sel=[...box.querySelectorAll('.chip.on')].map(x=>x.dataset.chip);
+      if(hid) hid.value=sel.join(', ');
+    }));
+  });
   // klik pratinjau gambar -> popup
   document.querySelectorAll('[data-prev]').forEach(im=>{
     im.style.cursor='zoom-in';
@@ -1087,6 +1402,7 @@ function wireFields(v){
     });
     const idk=getEl('ID Karyawan'); if(idk) idk.addEventListener('change', onPickKaryawan);
     const per=getEl('Periode Bulan'); if(per) per.addEventListener('change', onPickPeriode);
+    const cab=getEl('Cabang'); if(cab) cab.addEventListener('change', populateKselect);
   }
   if(v.special==='bonus'){
     const no=getEl('No Order'); if(no) no.addEventListener('change', onPickOrder);
@@ -1179,17 +1495,29 @@ async function onPickKaryawan(){
   }catch(e){}
   await onPickPeriode();
 }
+/* Isi dropdown ID Karyawan berdasar Cabang yang dipilih (pilih cabang dulu, baru karyawan). */
+function populateKselect(){
+  const sel=getEl('ID Karyawan'); if(!sel || !sel.dataset.kselect) return;
+  const cab=norm(getVal('Cabang'));
+  const cur=state.editing ? String(state.editing['ID Karyawan']||'') : '';
+  if(!cab){ sel.innerHTML='<option value="">— pilih cabang dulu —</option>'; return; }
+  const list=(state.cache.karyawan||[]).filter(e=>norm(e['Cabang'])===cab);
+  sel.innerHTML='<option value=""></option>'+list.map(e=>
+    '<option value="'+esc(e['ID Karyawan'])+'"'+(String(e['ID Karyawan'])===cur?' selected':'')+'>'+
+    esc(e['ID Karyawan']+' — '+e['Nama Lengkap'])+'</option>').join('');
+}
 async function onPickPeriode(){
   const per=getVal('Periode Bulan'); const nama=getVal('Nama Karyawan');
   if(!per){ recomputeGaji(); return; }
   const [y,m]=per.split('-').map(Number);
-  const start=per+'-01';
-  const end=per+'-'+String(new Date(y,m,0).getDate()).padStart(2,'0');
+  // Periode pengerjaan: 28 bulan sebelumnya s/d 27 bulan terpilih.
+  const start=ymd(new Date(y, m-2, 28));
+  const end=ymd(new Date(y, m-1, 27));
   try{
     const r=await api({action:'bonusSummary', namaCleaner:nama, start, end});
     Object.keys(r.totals||{}).forEach(k=>setVal(k, r.totals[k]));
-    setVal('Awal Periode', r.awal||start);
-    setVal('Akhir Periode', r.akhir||end);
+    setVal('Awal Periode', start);
+    setVal('Akhir Periode', end);
   }catch(e){ setVal('Awal Periode',start); setVal('Akhir Periode',end); }
   recomputeGaji();
 }
@@ -1354,6 +1682,15 @@ async function saveForm(){
   // enforce branch & cs
   if(v.sheet==='ORDER' && v.branchLock){ data['Cabang']=state.session.cabang; }
   if(v.sheet==='BONUS' && !data['Tanggal Input']) data['Tanggal Input']=new Date().toISOString().slice(0,10);
+  // Pastikan bonus selalu membawa Cleaner/Customer/Tanggal dari order (agar tampil & terhitung).
+  if(v.sheet==='BONUS' && data['No Order']){
+    const o=(state.cache.order||[]).find(x=>String(x['ID Order'])===String(data['No Order']));
+    if(o){
+      if(!String(data['Nama Cleaner']||'').trim()) data['Nama Cleaner']=o['Nama Cleaner']||'';
+      if(!String(data['Nama Customer']||'').trim()) data['Nama Customer']=o['Nama Customer']||'';
+      if(!String(data['Tanggal Pengerjaan']||'').trim()) data['Tanggal Pengerjaan']=o['Tanggal Pengerjaan']||'';
+    }
+  }
 
   // validation
   const miss=[];
@@ -1362,7 +1699,10 @@ async function saveForm(){
 
   setSync(true);
   try{
-    if(state.editing){
+    if(v.special==='gajiPokok'){
+      await api({action:'upsert', sheet:v.sheet, keyFields:v.keyFields, data});
+      toast('Gaji pokok tersimpan','ok');
+    }else if(state.editing){
       await api({action:'update', sheet:v.sheet, idField:v.idField, id:state.editing[v.idField], data});
       toast('Perubahan tersimpan','ok');
     }else{
@@ -1371,6 +1711,7 @@ async function saveForm(){
     }
     closeOverlay();
     state.cache[ {ORDER:'order', KARYAWAN:'karyawan'}[v.sheet] ] = undefined; // refresh caches
+    if(v.sheet==='KARYAWAN'){ state.cache.cleaner=undefined; state.cache.karyawanMap=undefined; }
     await loadList();
   }catch(err){ setSync(false); toast(err.message,'err'); }
 }
@@ -1419,6 +1760,7 @@ function openSettingsStandalone(){
    ============================================================ */
 $('#btnLogout').addEventListener('click', logout);
 $('#btnSettings').addEventListener('click', renderSettings);
+$('#btnSync').addEventListener('click', ()=>{ if(state.view) loadList(); else toast('Tidak ada data untuk disinkronkan'); });
 $('#modalClose').addEventListener('click', closeOverlay);
 $('#modalCancel').addEventListener('click', closeOverlay);
 $('#modalSave').addEventListener('click', saveForm);
