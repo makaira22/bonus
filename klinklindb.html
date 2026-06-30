@@ -273,11 +273,12 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
   .page-title{font-size:25px}
   table{min-width:560px}
   .bottom-nav{display:flex; position:fixed; bottom:0; left:0; right:0; z-index:40;
-    background:var(--surface); border-top:1px solid var(--line); padding:8px 8px calc(8px + env(safe-area-inset-bottom));
-    box-shadow:0 -8px 24px -16px rgba(10,43,42,.4)}
-  .bn-item{flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; padding:6px 4px;
-    color:var(--faint); font-size:10.5px; font-weight:600; border-radius:10px}
-  .bn-item svg{width:21px;height:21px}
+    background:var(--surface); border-top:1px solid var(--line); padding:8px 6px calc(8px + env(safe-area-inset-bottom));
+    box-shadow:0 -8px 24px -16px rgba(10,43,42,.4); overflow-x:auto; flex-wrap:nowrap; -webkit-overflow-scrolling:touch}
+  .bn-item{flex:1 0 auto; min-width:58px; display:flex; flex-direction:column; align-items:center; gap:4px; padding:6px 4px;
+    color:var(--faint); font-size:10px; font-weight:600; border-radius:10px}
+  .bn-item span{white-space:nowrap}
+  .bn-item svg{width:20px;height:20px}
   .bn-item.active{color:var(--petrol)}
   .bn-item.active svg{color:var(--petrol)}
   .form-grid{grid-template-columns:1fr}
@@ -385,6 +386,10 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 @media (max-width:880px){ .tbar-row #btnSyncTb{order:5} }
 .btn-danger{background:var(--danger);color:#fff;border:none}
 .ocard-chk{width:20px;height:20px;accent-color:var(--petrol);flex:none;margin-left:2px}
+@media (max-width:880px){ .topbar #btnSettings, .topbar #btnLogout{display:none} }
+.lnk-more{display:inline-block;margin-left:6px;padding:2px 9px;border-radius:14px;border:1px solid var(--line-2);
+  background:var(--surface-2);color:var(--petrol);font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap}
+.lnk-more:hover{border-color:var(--petrol)}
 
 /* ---------- desktop / mobile visibility ---------- */
 @media (max-width:880px){ .desk-only{display:none} }
@@ -529,6 +534,7 @@ const BULAN_ID=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustu
 function parseDate_(s){ const m=String(s||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m? new Date(+m[1],+m[2]-1,+m[3]) : null; }
 function hariId(s){ const d=parseDate_(s); return d? HARI_ID[d.getDay()] : ''; }
 function tglPanjangId(s){ const d=parseDate_(s); return d? (d.getDate()+' '+BULAN_ID[d.getMonth()]+' '+d.getFullYear()) : String(s||''); }
+function tglHariId(s){ const h=hariId(s); const t=tglPanjangId(s); return (h? (h+', '):'')+t; }
 function ribu(n){ return Number(n||0).toLocaleString('id-ID'); }
 
 /* Total order dipakai bersama invoice & pesan WA. */
@@ -652,18 +658,21 @@ const MENUS = {
     {key:'gaji', label:'Gaji', icon:'salary'},
     {key:'gajiPokok', label:'Gaji Pokok', icon:'settings'},
     {key:'insentif', label:'Insentif', icon:'gift'},
-    {key:'layanan', label:'Layanan', icon:'inbox'}
+    {key:'layanan', label:'Layanan', icon:'inbox'},
+    {key:'__settings', label:'Pengaturan', icon:'settings'}
   ],
   CS: [
     {key:'order', label:'Order', icon:'order'},
     {key:'inputBonus', label:'Input Bonus', icon:'bonus'},
-    {key:'capaian', label:'Capaian', icon:'result'}
+    {key:'capaian', label:'Capaian', icon:'result'},
+    {key:'__settings', label:'Pengaturan', icon:'settings'}
   ],
   FINANCE: [
     {key:'capaian', label:'Capaian', icon:'result'},
     {key:'auditOrder', label:'Audit Order', icon:'audit'},
     {key:'hasilAudit', label:'Hasil Audit', icon:'result'},
-    {key:'editOrder', label:'Edit Order', icon:'edit'}
+    {key:'editOrder', label:'Edit Order', icon:'edit'},
+    {key:'__settings', label:'Pengaturan', icon:'settings'}
   ]
 };
 
@@ -802,10 +811,11 @@ const VIEWS = {
     search:['No Order','Nama Cleaner','Nama Customer'],
     form:[
       f('No Order','datalist',{list:'order', req:true, full:true}),
+      f('Nama Customer','text',{ro:true}), f('Tanggal Pengerjaan','date',{ro:true}),
       f('Jenis','select',{opts:JENIS_BONUS, req:true}), f('Nominal','num',{req:true}),
       f('Keterangan','text',{full:true}),
-      f('Nama Cleaner','text',{ro:true}), f('Nama Customer','text',{ro:true}),
-      f('Tanggal Pengerjaan','date',{ro:true}), f('Tanggal Input','date',{ro:true})
+      f('Nama Cleaner','multidyn',{full:true}),
+      f('Tanggal Input','date',{ro:true})
     ]
   },
   auditOrder:{
@@ -981,7 +991,7 @@ function markActive(key){
    LIST / TABLE
    ============================================================ */
 async function selectMenu(key){
-  if(key==='__settings'){ renderSettings(); markActive(''); return; }
+  if(key==='__settings'){ renderSettings(); markActive('__settings'); return; }
   state.view = VIEWS[key]; state.viewKey=key;
   state.filters={}; state.search=''; state.dateStart=''; state.dateEnd='';
   markActive(key);
@@ -1225,7 +1235,7 @@ function renderTable(){
             '<span class="badge b-'+st+'"><span class="d"></span>'+st+'</span>'+
             (chk?'<input type="checkbox" class="rowchk ocard-chk" data-id="'+esc(oid)+'">':'')+
           '</span></div>'+
-        '<div class="ocard-meta">'+svg('result')+'<span>'+esc(fmtTgl(r['Tanggal Pengerjaan']))+
+        '<div class="ocard-meta">'+svg('result')+'<span>'+esc(tglHariId(r['Tanggal Pengerjaan']))+
           ' · '+esc(r['Waktu Pengerjaan']||'-')+'</span>'+
           (r['Metode Pembayaran']?'<span class="pay-chip">'+esc(r['Metode Pembayaran'])+'</span>':'')+'</div>'+
         '<div class="ocard-meta sub"><span>'+esc(rp(r['Total Akhir Setelah Diskon']||r['Total Akhir']||0))+
@@ -1261,6 +1271,9 @@ function rowActions(v,r){
   return act;
 }
 function wireRowHandlers(v){
+  document.querySelectorAll('[data-cleaners]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation();
+    showCleanerPopup(b, b.dataset.cleaners.split('|'));
+  }));
   document.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation();
     const key=b.dataset.edit;
     const row=key.charAt(0)==='#'?state.rows[+key.slice(1)]:state.rows.find(x=>String(x[v.idField])===key);
@@ -1404,7 +1417,10 @@ function renderCapaian(){
       listCard('Top 5 Cabang — omzet', top5Cab, rp)+
       listCard('Top 5 Layanan — omzet', top5Lay, rp)+
       listCard('Top 5 Alamat — jumlah order', top5Alm, x=>x+' order')+
-    '</div>';
+    '</div>'+
+    '<div style="margin-top:16px;display:flex;justify-content:center">'+
+      '<button class="btn btn-danger" id="btnLogoutCap">'+svg('logout')+'Keluar</button></div>';
+  const lo=$('#btnLogoutCap'); if(lo) lo.addEventListener('click', logout);
   setCount(jumlah, 'order');
 }
 
@@ -1439,6 +1455,18 @@ function showPickMenu(anchor, items){
   setTimeout(()=>document.addEventListener('click', closePickMenu, {once:true}), 0);
 }
 function closePickMenu(){ const m=document.getElementById('pickmenu'); if(m) m.remove(); }
+/* Popup daftar semua cleaner (read-only) untuk tombol "+N lainnya". */
+function showCleanerPopup(anchor, names){
+  closePickMenu();
+  const m=document.createElement('div'); m.className='pickmenu'; m.id='pickmenu';
+  m.innerHTML='<div class="pickmenu-head">Cleaner ('+names.length+')</div>'+
+    names.map(n=>'<div class="pickmenu-item" style="cursor:default">'+svg('users')+'<span>'+esc(n)+'</span></div>').join('');
+  document.body.appendChild(m);
+  const r=anchor.getBoundingClientRect();
+  let left=Math.min(r.left+window.scrollX, window.innerWidth-210);
+  m.style.top=(r.bottom+window.scrollY+6)+'px'; m.style.left=Math.max(8,left)+'px';
+  setTimeout(()=>document.addEventListener('click', closePickMenu, {once:true}), 0);
+}
 
 /* Approve beberapa order sekaligus (hanya yang berstatus done). */
 async function approveSelected(){
@@ -1466,6 +1494,15 @@ function cell(v,c,r){
     const s=norm(val)||'pending'; return '<span class="badge b-'+s+'"><span class="d"></span>'+s+'</span>';
   }
   if(c==='Take Home Pay') return '<span class="thp">'+rp(val)+'</span>';
+  if(c==='Nama Cleaner'){
+    const names=String(val||'').split(',').map(s=>s.trim()).filter(Boolean);
+    if(!names.length) return '<span style="color:var(--faint)">—</span>';
+    if(names.length===1) return esc(names[0]);
+    return esc(names[0])+'<button class="lnk-more" data-cleaners="'+esc(names.join('|'))+'">+'+(names.length-1)+' lainnya</button>';
+  }
+  if(c==='Tanggal Pengerjaan' || c==='Tanggal Input'){
+    return val!=null && val!=='' ? esc(tglHariId(val)) : '<span style="color:var(--faint)">—</span>';
+  }
   if(/^Tanggal/.test(c)){
     return val!=null && val!=='' ? esc(tglPanjangId(val)) : '<span style="color:var(--faint)">—</span>';
   }
@@ -1622,7 +1659,7 @@ function fillDatalists(){
     const src=dl.dataset.dl; let items=[];
     if(src==='karyawan') items=(state.cache.karyawan||[]).map(e=>({v:e['ID Karyawan'], t:e['Nama Lengkap']}));
     if(src==='cleaner') items=(state.cache.cleaner||[]).map(e=>({v:e['Nama Lengkap'], t:e['Jabatan']}));
-    if(src==='order') items=(state.cache.order||[]).map(o=>({v:o['ID Order'], t:o['Nama Customer']}));
+    if(src==='order') items=(state.cache.order||[]).map(o=>({v:o['ID Order'], t:(o['Nama Customer']||'-')+' · '+tglPanjangId(o['Tanggal Pengerjaan'])}));
     dl.innerHTML = items.map(i=>'<option value="'+esc(i.v)+'">'+esc(i.t||'')+'</option>').join('');
   });
 }
@@ -1803,9 +1840,26 @@ function onPickOrder(){
   const id=getVal('No Order');
   const o=(state.cache.order||[]).find(x=>String(x['ID Order'])===id);
   if(!o) return;
-  setVal('Nama Cleaner', o['Nama Cleaner']);
   setVal('Nama Customer', o['Nama Customer']);
   setVal('Tanggal Pengerjaan', o['Tanggal Pengerjaan']);
+  setBonusCleanerChips(o['Nama Cleaner']);
+}
+/* Bangun chip cleaner pada form Input Bonus dari cleaner order terpilih
+   (semua tercentang; CS bisa pilih 1, beberapa, atau semua). */
+function setBonusCleanerChips(namesStr){
+  const box=document.querySelector('.chips[data-chips="Nama Cleaner"]');
+  if(!box) return;
+  const hid=box.parentElement.querySelector('[data-multi]');
+  const names=String(namesStr||'').split(',').map(s=>s.trim()).filter(Boolean);
+  box.innerHTML = names.length
+    ? names.map(n=>'<button type="button" class="chip on" data-chip="'+esc(n)+'">'+esc(n)+'</button>').join('')
+    : '<span class="bs-sub">Pilih No Order dulu untuk memuat cleaner.</span>';
+  if(hid) hid.value=names.join(', ');
+  box.querySelectorAll('[data-chip]').forEach(ch=>ch.addEventListener('click',()=>{
+    ch.classList.toggle('on');
+    const sel=[...box.querySelectorAll('.chip.on')].map(x=>x.dataset.chip);
+    if(hid) hid.value=sel.join(', ');
+  }));
 }
 
 /* ============================================================
@@ -2019,7 +2073,12 @@ function renderSettings(){
       '<button class="btn btn-ghost" id="testApi">Tes koneksi</button></div>'+
       '<div class="note">Dapatkan URL ini setelah <b>Deploy &gt; New deployment &gt; Web app</b> pada Apps Script. '+
       'PIN: HRD <code>818181</code>, Finance <code>787878</code>, CS <code>NAMACABANG123</code> (mis. <code>SURABAYA123</code>).</div>'+
+    '</div>'+
+    '<div class="panel settings" style="padding:18px 22px;margin-top:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'+
+      '<div><div style="font-weight:700">Akun</div><div class="page-sub">'+esc((state.session&&state.session.nama)||'')+'</div></div>'+
+      '<button class="btn btn-danger" id="btnLogoutPage">'+svg('logout')+'Keluar</button>'+
     '</div>';
+  const lo=$('#btnLogoutPage'); if(lo) lo.addEventListener('click', logout);
   $('#saveApi').addEventListener('click', ()=>{ setApiUrl($('#apiInput').value); toast('Tersimpan','ok'); });
   $('#testApi').addEventListener('click', async ()=>{
     setApiUrl($('#apiInput').value); showLoad(true);
