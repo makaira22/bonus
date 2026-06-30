@@ -334,7 +334,6 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .greet-sub{font-size:12.5px;color:var(--muted);font-weight:600;margin-top:2px;letter-spacing:.02em;text-transform:capitalize}
 .count-chip{align-self:center;background:var(--petrol);color:#fff;font-size:12px;font-weight:700;
   padding:5px 11px;border-radius:20px;white-space:nowrap}
-.filter-toggle{display:none}
 
 /* ---------- capaian dashboard ---------- */
 .cap-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px}
@@ -355,13 +354,43 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .cap-val{font-weight:700;color:var(--ink);white-space:nowrap;font-variant-numeric:tabular-nums}
 .cap-empty{color:var(--faint);font-size:12.5px;padding:8px 0}
 @media (max-width:880px){
-  .filter-toggle{display:inline-flex}
-  .toolbar{display:none}
-  .toolbar.open{display:flex}
   .cap-stats{grid-template-columns:1fr 1fr;gap:9px}
   .cap-stat-v{font-size:19px}
   .cap-grid{grid-template-columns:1fr}
 }
+/* ---------- toolbar v2: search + corong + panel ---------- */
+.toolbar{display:block}
+.tbar-row{display:flex;gap:10px;align-items:center;width:100%}
+.fbtn{position:relative}
+.fbadge{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;
+  background:var(--gold-deep);color:#fff;font-size:10px;font-weight:800;display:none;align-items:center;justify-content:center;line-height:1}
+.filter-panel{display:none;flex-wrap:wrap;gap:10px 14px;align-items:center;margin-top:12px;padding:14px 16px;
+  background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-sm)}
+.filter-panel.open{display:flex}
+
+/* ---------- desktop / mobile visibility ---------- */
+.mob-only{display:none}
+@media (max-width:880px){ .desk-only{display:none} .mob-only{display:block} }
+
+/* ---------- order cards (mobile) ---------- */
+.card-list{display:flex;flex-direction:column;gap:11px}
+.ocard{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:14px 16px;
+  box-shadow:var(--shadow-sm);cursor:pointer;transition:.12s}
+.ocard:active{transform:scale(.99)}
+.ocard-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.ocard-name{font-weight:700;font-size:15.5px;color:var(--ink);line-height:1.2}
+.ocard-meta{font-size:12.5px;color:var(--muted);margin-top:7px;display:flex;align-items:center;gap:6px}
+.ocard-meta svg{width:14px;height:14px;color:var(--faint);flex:none}
+.ocard-meta.sub{color:var(--petrol);font-weight:700}
+.ocard-act{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.ocard-act .btn-sm{padding:9px 12px}
+
+/* ---------- detail view ---------- */
+.detail{display:flex;flex-direction:column}
+.dt-row{display:flex;justify-content:space-between;gap:16px;padding:8px 0;border-bottom:1px dashed var(--line);font-size:13px}
+.dt-l{color:var(--muted);font-weight:600;flex:none;max-width:46%}
+.dt-v{text-align:right;color:var(--ink);font-weight:600;word-break:break-word}
+.dt-sec{font-weight:700;color:var(--petrol);margin:14px 0 2px;font-size:12.5px;text-transform:uppercase;letter-spacing:.04em}
 </style>
 </head>
 <body>
@@ -435,7 +464,7 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
    KLINKLIN ERP — Frontend
    ============================================================ */
 const CABANG = ['SURABAYA','MALANG','GRESIK','KEDIRI','BOJONEGORO',
-                'SAMARINDA','BALIKPAPAN','DENPASAR','TABANAN','MAKASSAR'];
+                'SAMARINDA','BALIKPAPAN','DENPASAR','TABANAN','MAKASSAR','OFFICE'];
 const JABATAN = ['CEO','MARKETING','CLEANER','CS','OPERASIONAL','FINANCE','HRD','DESIGNER'];
 const STATUS_KARYAWAN = ['TETAP','SEMI','TETAP KOOR','FREELANCE','VENDOR'];
 const STATUS_ORDER = ['pending','done','complete','cancel'];
@@ -468,7 +497,7 @@ const DYN_FIELD = { cleaner:'Nama Lengkap', layanan:'Nama Layanan' };
 /* Kode cabang (untuk ID Order) — sama dengan di Code.gs. */
 const CABANG_CODE = {
   'SURABAYA':'SBY','MALANG':'MLG','GRESIK':'GSK','KEDIRI':'KDR','BOJONEGORO':'BJN',
-  'SAMARINDA':'SMD','BALIKPAPAN':'BPP','DENPASAR':'DPS','TABANAN':'TBN','MAKASSAR':'MKS'
+  'SAMARINDA':'SMD','BALIKPAPAN':'BPP','DENPASAR':'DPS','TABANAN':'TBN','MAKASSAR':'MKS','OFFICE':'OFC'
 };
 const CODE_CABANG = Object.keys(CABANG_CODE).reduce((m,k)=>{ m[CABANG_CODE[k]]=k; return m; }, {});
 function cabangOfBonus(r){
@@ -576,6 +605,7 @@ const IC = {
   check:'<path d="M20 6L9 17l-5-5"/>',
   logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
   search:'<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/>',
+  funnel:'<path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>',
   plus:'<path d="M12 5v14M5 12h14"/>',
   edit:'<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/>',
   settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6 1.65 1.65 0 0 0 10 3.09V3a2 2 0 0 1 4 0v.09A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
@@ -948,62 +978,60 @@ function renderShell(){
       '<div><div class="page-title">'+v.title+'</div><div class="page-sub">'+v.sub+'</div><div class="hairline"></div></div>'+
       '<span class="count-chip" id="headCount"></span>'+
       '<div class="spacer"></div>'+
-      '<button class="icon-btn filter-toggle" id="filterToggle" title="Filter & cari">'+svg('search')+'</button>'+
       (v.canAdd ? '<button class="btn btn-primary" id="btnAdd">'+svg('plus')+'Tambah</button>' : '')+
     '</div>'+
     '<div class="toolbar" id="toolbar"></div>'+
     '<div class="panel" id="panel"></div>'+
     '<div class="count" id="count"></div>';
   if(v.canAdd) $('#btnAdd').addEventListener('click', ()=>openForm(null));
-  $('#filterToggle').addEventListener('click', ()=>$('#toolbar').classList.toggle('open'));
   buildToolbar();
 }
 function greetTime(){ const h=new Date().getHours(); return h<11?'pagi':h<15?'siang':h<18?'sore':'malam'; }
 function greetingHTML(){
   const s=state.session||{};
-  const bits=[s.cabang, s.jabatan, s.status].filter(Boolean).join(' · ');
+  const bits=[s.jabatan, s.status].filter(Boolean).join(' · ');
   return '<div class="greet"><div class="greet-hi">Selamat '+greetTime()+', <b>'+esc(s.nama||'')+'</b> 👋</div>'+
     (bits?'<div class="greet-sub">'+esc(bits)+'</div>':'')+'</div>';
 }
 function buildToolbar(){
-  const v=state.view; let html='';
-  if(v.search){
-    html += '<div class="search">'+svg('search')+'<input id="q" placeholder="Cari…" /></div>';
-  }
+  const v=state.view;
+  let row='<div class="tbar-row">';
+  if(v.search){ row += '<div class="search">'+svg('search')+'<input id="q" placeholder="Cari…" /></div>'; }
+  else { row += '<div class="spacer"></div>'; }
+  row += '<button class="icon-btn fbtn" id="filterToggle" title="Filter">'+svg('funnel')+'<span class="fbadge" id="fbadge"></span></button>';
+  if(v.multiApprove){ row += '<button class="btn btn-gold btn-sm" id="btnApproveSel">'+svg('check')+'Approve terpilih</button>'; }
+  row += '<button class="icon-btn" id="btnSyncManual" title="Sinkronkan data">'+svg('refresh')+'</button>';
+  row += '</div>';
+
+  let pf='';
   (v.filters||[]).forEach(fld=>{
     if(v.branchLock && fld==='Cabang') return;
     let opts = FILTER_OPTS[fld] || [];
     if(fld==='Periode Bulan'){
-      html += '<div class="fl"><span class="lbl">'+fld+'</span><input type="month" data-filter="'+fld+'"></div>';
+      pf += '<div class="fl"><span class="lbl">'+fld+'</span><input type="month" data-filter="'+fld+'"></div>';
     }else{
-      html += '<div class="fl"><span class="lbl">'+fld+'</span><select data-filter="'+fld+'"><option value="">Semua</option>'+
+      pf += '<div class="fl"><span class="lbl">'+fld+'</span><select data-filter="'+fld+'"><option value="">Semua</option>'+
         opts.map(o=>'<option>'+o+'</option>').join('')+'</select></div>';
     }
   });
   if(v.dynCleaner){
-    html += '<div class="fl"><span class="lbl">Cleaner</span>'+
-      '<select data-filter="Nama Cleaner" id="fCleaner"><option value="">Semua Cleaner</option></select></div>';
+    pf += '<div class="fl"><span class="lbl">Cleaner</span><select data-filter="Nama Cleaner" id="fCleaner"><option value="">Semua Cleaner</option></select></div>';
   }
   if(v.datePreset){
-    html += '<div class="fl"><span class="lbl">Tanggal</span>'+
-      '<select id="dpreset">'+
-        '<option value="">Semua</option>'+
-        '<option value="today">Hari ini</option>'+
-        '<option value="yesterday">Kemarin</option>'+
-        '<option value="week">Minggu ini</option>'+
-        '<option value="range">Rentang tanggal…</option>'+
-      '</select>'+
-      '<span id="dprange" class="hide"> <input type="date" id="ds"> <input type="date" id="de"></span>'+
-      '</div>';
+    pf += '<div class="fl"><span class="lbl">Tanggal</span>'+
+      '<select id="dpreset"><option value="">Semua</option><option value="today">Hari ini</option>'+
+      '<option value="yesterday">Kemarin</option><option value="week">Minggu ini</option>'+
+      '<option value="range">Rentang tanggal…</option></select>'+
+      '<span id="dprange" class="hide"> <input type="date" id="ds"> <input type="date" id="de"></span></div>';
   } else if(v.dateFilterField){
-    html += '<div class="fl"><span class="lbl">'+v.dateFilterField+'</span>'+
+    pf += '<div class="fl"><span class="lbl">'+v.dateFilterField+'</span>'+
       '<input type="date" id="ds" title="Dari tanggal"> <input type="date" id="de" title="Sampai tanggal"></div>';
   }
-  if(v.multiApprove){
-    html += '<button class="btn btn-gold btn-sm" id="btnApproveSel">'+svg('check')+'Approve terpilih</button>';
-  }
-  html += '<button class="btn btn-ghost btn-sm" id="btnSyncManual" title="Sinkronkan data">'+svg('refresh')+'Sinkronkan</button>';
-  $('#toolbar').innerHTML = html;
+
+  $('#toolbar').innerHTML = row + (pf ? '<div class="filter-panel" id="filterPanel">'+pf+'</div>' : '');
+
+  const ft=$('#filterToggle'), fp=$('#filterPanel');
+  if(ft){ if(!fp){ ft.style.display='none'; } else { ft.addEventListener('click', ()=>fp.classList.toggle('open')); } }
   const bSync=$('#btnSyncManual'); if(bSync) bSync.addEventListener('click', ()=>loadList());
   const bSel=$('#btnApproveSel'); if(bSel) bSel.addEventListener('click', approveSelected);
   if(v.search){
@@ -1011,11 +1039,11 @@ function buildToolbar(){
       clearTimeout(t); t=setTimeout(renderView,160); });
   }
   document.querySelectorAll('[data-filter]').forEach(el=>{
-    el.addEventListener('change', e=>{ state.filters[el.dataset.filter]=e.target.value; renderView(); });
+    el.addEventListener('change', e=>{ state.filters[el.dataset.filter]=e.target.value; updateFbadge(); renderView(); });
   });
   const ds=$('#ds'), de=$('#de');
-  if(ds) ds.addEventListener('change', e=>{ state.dateStart=e.target.value; renderView(); });
-  if(de) de.addEventListener('change', e=>{ state.dateEnd=e.target.value; renderView(); });
+  if(ds) ds.addEventListener('change', e=>{ state.dateStart=e.target.value; updateFbadge(); renderView(); });
+  if(de) de.addEventListener('change', e=>{ state.dateEnd=e.target.value; updateFbadge(); renderView(); });
   const dp=$('#dpreset');
   if(dp) dp.addEventListener('change', e=>{
     const val=e.target.value, range=$('#dprange'), now=new Date();
@@ -1025,8 +1053,15 @@ function buildToolbar(){
     else if(val==='week'){ state.dateStart=ymd(startOfWeek(now)); state.dateEnd=ymd(now); }
     else if(val==='range'){ state.dateStart=ds?ds.value:''; state.dateEnd=de?de.value:''; }
     else { state.dateStart=''; state.dateEnd=''; }
-    renderView();
+    updateFbadge(); renderView();
   });
+  updateFbadge();
+}
+function updateFbadge(){
+  const b=$('#fbadge'); if(!b) return;
+  let n=0; Object.keys(state.filters).forEach(k=>{ if(state.filters[k]) n++; });
+  if(state.dateStart||state.dateEnd) n++;
+  b.textContent = n? n : ''; b.style.display = n? 'flex':'none';
 }
 
 async function loadList(){
@@ -1117,67 +1152,124 @@ function setCount(n, noun){
 }
 function renderTable(){
   const v=state.view;
-  const rows = applyClientFilters(state.rows);
-  const summary = (v.sheet==='BONUS' && state.filters['Nama Cleaner'])
-    ? bonusSummaryCard(rows, state.filters['Nama Cleaner']) : '';
-  if(!rows.length){ $('#panel').innerHTML = summary + emptyState('Belum ada data'); setCount(0, countNoun()); wireSummary(); return; }
-  const cols=v.table;
-  const showAct = v.canEdit || v.approve || v.invoice || v.wa;
-  const chk = v.multiApprove;
-  let html='<div class="tbl-wrap"><table><thead><tr>'+
+  const rows=applyClientFilters(state.rows);
+  const summary=(v.sheet==='BONUS' && state.filters['Nama Cleaner']) ? bonusSummaryCard(rows, state.filters['Nama Cleaner']) : '';
+  if(!rows.length){ $('#panel').innerHTML=summary+emptyState('Belum ada data'); setCount(0,countNoun()); wireSummary(); return; }
+  const cols=v.table.filter(c=>HIDDEN_COLS.indexOf(c)<0);
+  const showAct=v.canEdit||v.approve||v.invoice||v.wa;
+  const chk=v.multiApprove;
+  const tblClass = (v.sheet==='ORDER') ? 'tbl-wrap desk-only' : 'tbl-wrap';
+  let html='<div class="'+tblClass+'"><table><thead><tr>'+
     (chk?'<th class="chkcol"><input type="checkbox" id="checkAll"></th>':'')+
-    cols.map(c=>'<th>'+c+'</th>').join('')+ (showAct?'<th></th>':'') +'</tr></thead><tbody>';
+    cols.map(c=>'<th>'+c+'</th>').join('')+(showAct?'<th></th>':'')+'</tr></thead><tbody>';
   rows.forEach(r=>{
-    const oid = r['ID Order'];
-    html += '<tr>';
-    if(chk) html += '<td class="chkcol"><input type="checkbox" class="rowchk" data-id="'+esc(oid)+'"></td>';
-    html += cols.map(c=>'<td'+(isMoney(c)?' class="money"':'')+'>'+cell(v,c,r)+'</td>').join('');
-    if(showAct){
-      let act='<div class="row-act">';
-      if(v.wa){
-        act += '<button class="btn btn-wa btn-sm" data-wac="'+esc(oid)+'" title="WhatsApp Customer">'+svg('wa')+'Cust</button>';
-        act += '<button class="btn btn-wa btn-sm" data-wak="'+esc(oid)+'" title="WhatsApp Cleaner">'+svg('wa')+'Cleaner</button>';
-      }
-      if(v.approve && norm(r['Status Order'])==='done'){
-        act += '<button class="btn btn-gold btn-sm" data-approve="'+esc(oid)+'">'+svg('check')+'Approve</button>';
-      }
-      if(v.invoice && (norm(r['Status Order'])==='done' || norm(r['Status Order'])==='complete' || r['Bukti Transfer'])){
-        act += '<button class="act-ic" data-invoice="'+esc(oid)+'" title="Download Invoice PDF">'+svg('file')+'</button>';
-      }
-      if(v.canEdit){
-        const locked = v.lockAfterProof && (r['Bukti Transfer'] || r['Bukti Cancel']);
-        const eid = v.idField ? esc(r[v.idField]) : ('#'+state.rows.indexOf(r));
-        if(locked){
-          act += '<span class="act-ic" title="Terkunci — sudah ada bukti transfer/cancel" style="opacity:.4;cursor:not-allowed">'+svg('check')+'</span>';
-        }else{
-          act += '<button class="act-ic" data-edit="'+eid+'" title="Edit">'+svg('edit')+'</button>';
-        }
-      }
-      act+='</div>';
-      html += '<td>'+act+'</td>';
-    }
-    html += '</tr>';
+    const oid=r['ID Order'];
+    html+='<tr>';
+    if(chk) html+='<td class="chkcol"><input type="checkbox" class="rowchk" data-id="'+esc(oid)+'"></td>';
+    html+=cols.map(c=>'<td'+(isMoney(c)?' class="money"':'')+'>'+cell(v,c,r)+'</td>').join('');
+    if(showAct) html+='<td><div class="row-act">'+rowActions(v,r)+'</div></td>';
+    html+='</tr>';
   });
   html+='</tbody></table></div>';
-  $('#panel').innerHTML = summary + html;
-  setCount(rows.length, countNoun());
+  // Kartu ringkas untuk ORDER (tampil di HP)
+  let cardHtml='';
+  if(v.sheet==='ORDER'){
+    cardHtml='<div class="card-list mob-only">'+rows.map(r=>{
+      const oid=r['ID Order']; const st=norm(r['Status Order'])||'pending';
+      return '<div class="ocard" data-detail="'+esc(oid)+'">'+
+        '<div class="ocard-top"><span class="ocard-name">'+esc(r['Nama Customer']||'-')+'</span>'+
+          '<span class="badge b-'+st+'"><span class="d"></span>'+st+'</span></div>'+
+        '<div class="ocard-meta">'+svg('result')+'<span>'+esc(fmtTgl(r['Tanggal Pengerjaan']))+
+          ' · '+esc(r['Waktu Pengerjaan']||'-')+'</span></div>'+
+        '<div class="ocard-meta sub"><span>'+esc(rp(r['Total Akhir Setelah Diskon']||r['Total Akhir']||0))+
+          (r['Nama Cleaner']?(' · '+esc(r['Nama Cleaner'])):'')+'</span></div>'+
+        (showAct?'<div class="ocard-act">'+rowActions(v,r)+'</div>':'')+
+      '</div>';
+    }).join('')+'</div>';
+  }
+  $('#panel').innerHTML=summary+html+cardHtml;
+  setCount(rows.length,countNoun());
   wireSummary();
-  document.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click',()=>{
+  wireRowHandlers(v);
+}
+const HIDDEN_COLS=['ID Order','No Order','ID Insentif'];
+function rowActions(v,r){
+  const oid=r['ID Order']; let act='';
+  if(v.wa){
+    act += '<button class="btn btn-wa btn-sm" data-wac="'+esc(oid)+'" title="WhatsApp Customer">'+svg('wa')+'Cust</button>';
+    act += '<button class="btn btn-wa btn-sm" data-wak="'+esc(oid)+'" title="WhatsApp Cleaner">'+svg('wa')+'Cleaner</button>';
+  }
+  if(v.approve && norm(r['Status Order'])==='done'){
+    act += '<button class="btn btn-gold btn-sm" data-approve="'+esc(oid)+'">'+svg('check')+'Approve</button>';
+  }
+  if(v.invoice && (norm(r['Status Order'])==='done' || norm(r['Status Order'])==='complete' || r['Bukti Transfer'])){
+    act += '<button class="act-ic" data-invoice="'+esc(oid)+'" title="Invoice PDF">'+svg('file')+'</button>';
+  }
+  if(v.canEdit){
+    const locked=v.lockAfterProof && (r['Bukti Transfer']||r['Bukti Cancel']);
+    const eid=v.idField?esc(r[v.idField]):('#'+state.rows.indexOf(r));
+    if(locked) act+='<span class="act-ic" title="Terkunci — sudah ada bukti" style="opacity:.4;cursor:not-allowed">'+svg('check')+'</span>';
+    else act+='<button class="act-ic" data-edit="'+eid+'" title="Edit">'+svg('edit')+'</button>';
+  }
+  return act;
+}
+function wireRowHandlers(v){
+  document.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation();
     const key=b.dataset.edit;
-    const row = key.charAt(0)==='#' ? state.rows[+key.slice(1)] : state.rows.find(x=>String(x[v.idField])===key);
+    const row=key.charAt(0)==='#'?state.rows[+key.slice(1)]:state.rows.find(x=>String(x[v.idField])===key);
     openForm(row);
   }));
-  document.querySelectorAll('[data-invoice]').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('[data-invoice]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation();
     const row=state.rows.find(x=>String(x['ID Order'])===b.dataset.invoice); downloadInvoice(row);
   }));
-  document.querySelectorAll('[data-approve]').forEach(b=>b.addEventListener('click',()=>approveOrder(b.dataset.approve)));
-  document.querySelectorAll('[data-wac]').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('[data-approve]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation(); approveOrder(b.dataset.approve); }));
+  document.querySelectorAll('[data-wac]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation();
     const o=state.rows.find(x=>String(x['ID Order'])===b.dataset.wac); if(o) waCustomer(o);
   }));
-  document.querySelectorAll('[data-wak]').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('[data-wak]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation();
     const o=state.rows.find(x=>String(x['ID Order'])===b.dataset.wak); if(o) waCleaner(o,b);
   }));
+  document.querySelectorAll('.ocard[data-detail]').forEach(c=>c.addEventListener('click',()=>{
+    const o=state.rows.find(x=>String(x['ID Order'])===c.dataset.detail); if(o) showOrderDetail(o);
+  }));
   const all=$('#checkAll'); if(all) all.addEventListener('change',()=>document.querySelectorAll('.rowchk').forEach(c=>c.checked=all.checked));
+}
+function showOrderDetail(o){
+  state.editing=null; state.files={};
+  $('#modalTitle').textContent='Detail Order '+(o['ID Order']||'');
+  const row=(l,val)=> '<div class="dt-row"><span class="dt-l">'+esc(l)+'</span><span class="dt-v">'+val+'</span></div>';
+  const st=norm(o['Status Order'])||'pending';
+  let b='<div class="detail">';
+  b+=row('Status','<span class="badge b-'+st+'"><span class="d"></span>'+st+'</span>');
+  b+=row('ID Order', esc(o['ID Order']||'-'));
+  b+=row('Cabang', esc(o['Cabang']||'-'));
+  b+=row('CS PJ', esc(o['CS Penanggung Jawab']||'-'));
+  b+=row('Tanggal Input', esc(fmtTgl(o['Tanggal Input'])));
+  b+='<div class="dt-sec">Customer</div>';
+  b+=row('Nama', esc(o['Nama Customer']||'-'));
+  b+=row('No WA', esc(o['No WA Customer']||'-'));
+  b+=row('Alamat', esc(o['Alamat']||'-'));
+  b+='<div class="dt-sec">Pengerjaan</div>';
+  b+=row('Hari & Tanggal', esc((hariId(o['Tanggal Pengerjaan'])+' '+tglPanjangId(o['Tanggal Pengerjaan'])).trim()||'-'));
+  b+=row('Waktu', esc(o['Waktu Pengerjaan']||'-'));
+  b+=row('Cleaner', esc(o['Nama Cleaner']||'-'));
+  b+=row('Metode', esc(o['Metode Pembayaran']||'-'));
+  b+='<div class="dt-sec">Layanan & Tagihan</div>';
+  [1,2,3].forEach(i=>{ if(o['Layanan '+i]||o['Harga '+i]) b+=row(esc(o['Layanan '+i]||'-')+' × '+esc(o['Qty '+i]||''), rp(qtyNum(o['Qty '+i])*Number(o['Harga '+i]||0))); });
+  b+=row('Diskon', (Number(o['Diskon (%)']||0))+'%');
+  b+=row('PPn', (Number(moneyDigits(o['PPn']))>0?'11%':'-'));
+  b+=row('Total Akhir', rp(o['Total Akhir']||0));
+  b+=row('Total Tagihan', rp(o['Total Akhir Setelah Diskon']||0));
+  if(o['Keterangan Order']) b+=row('Keterangan', esc(o['Keterangan Order']));
+  if(o['Alasan Cancel']) b+=row('Alasan Cancel', esc(o['Alasan Cancel']));
+  if(o['Waktu Approve']) b+=row('Waktu Approve', esc(o['Waktu Approve']));
+  ['Bukti Transfer','Bukti Cancel'].forEach(k=>{ if(o[k]) b+=row(k,'<a class="flink" data-img="'+esc(o[k])+'" style="cursor:zoom-in">Lihat</a>'); });
+  if(o['File Invoice']) b+=row('File Invoice','<a class="flink" href="'+esc(o['File Invoice'])+'" target="_blank">Lihat</a>');
+  b+='</div>';
+  $('#modalBody').innerHTML=b;
+  const sv=$('#modalSave'); if(sv) sv.style.display='none';
+  const cc=$('#modalCancel'); if(cc) cc.textContent='Tutup';
+  openOverlay();
 }
 
 /* Kartu ringkasan bonus untuk satu cleaner (total + rincian per jenis: customer & tanggal). */
@@ -1355,6 +1447,8 @@ async function approveOrder(id){
 async function openForm(row){
   const v=state.view;
   state.editing = row; state.files={};
+  const sv=$('#modalSave'); if(sv) sv.style.display='';
+  const cc=$('#modalCancel'); if(cc) cc.textContent='Batal';
   $('#modalTitle').textContent = (row?'Edit ':'Tambah ')+v.title;
 
   // Finance (tanpa branchLock): muat ulang daftar cleaner sesuai cabang order ini.
