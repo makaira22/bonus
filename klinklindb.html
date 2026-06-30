@@ -371,7 +371,6 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
   #headCount{display:none}
   .tbar-row #btnApproveSel{order:3}
   .tbar-row .fbtn{order:4}
-  .tbar-row #btnSyncManual{order:5}
 }
 .fbtn{position:relative}
 .fbadge{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;
@@ -379,13 +378,20 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .filter-panel{display:none;flex-wrap:wrap;gap:10px 14px;align-items:center;margin-top:12px;padding:14px 16px;
   background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-sm)}
 .filter-panel.open{display:flex}
+/* tombol di baris toolbar (light bg) biar rapi & jelas */
+.tbar-row .icon-btn{background:var(--surface);border:1px solid var(--line-2);color:var(--ink);flex:none}
+.tbar-row .icon-btn:hover{border-color:var(--petrol);color:var(--petrol)}
+.tbar-row .icon-btn svg{width:18px;height:18px}
+@media (max-width:880px){ .tbar-row #btnSyncTb{order:5} }
+.btn-danger{background:var(--danger);color:#fff;border:none}
+.ocard-chk{width:20px;height:20px;accent-color:var(--petrol);flex:none;margin-left:2px}
 
 /* ---------- desktop / mobile visibility ---------- */
-.mob-only{display:none}
-@media (max-width:880px){ .desk-only{display:none} .mob-only{display:block} }
+@media (max-width:880px){ .desk-only{display:none} }
 
 /* ---------- order cards (mobile) ---------- */
-.card-list{display:flex;flex-direction:column;gap:11px}
+.card-list{display:none;flex-direction:column;gap:11px}
+@media (max-width:880px){ .card-list{display:flex} }
 .ocard{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:14px 16px;
   box-shadow:var(--shadow-sm);cursor:pointer;transition:.12s}
 .ocard:active{transform:scale(.99)}
@@ -480,7 +486,7 @@ const CABANG = ['SURABAYA','MALANG','GRESIK','KEDIRI','BOJONEGORO',
 const JABATAN = ['CEO','MARKETING','CLEANER','CS','OPERASIONAL','FINANCE','HRD','DESIGNER'];
 const STATUS_KARYAWAN = ['TETAP','SEMI','TETAP KOOR','FREELANCE','VENDOR'];
 const STATUS_ORDER = ['pending','done','complete','cancel'];
-const CHAT_DARI = ['organik','iklan','lama'];
+const CHAT_DARI = ['Iklan','Organik','Lama'];
 const METODE = ['BCA','MANDIRI','CASH','QRIS'];
 const JENIS_BONUS = ['Kilometer','Bonus Deepclean','Bonus Salon','Tips','Parkir','Lembur','Uang Makan','Bonus Lainnya'];
 
@@ -527,7 +533,7 @@ function ribu(n){ return Number(n||0).toLocaleString('id-ID'); }
 
 /* Total order dipakai bersama invoice & pesan WA. */
 function orderTotals(o){
-  let subtotal=[1,2,3].reduce((s,i)=>s+qtyNum(o['Qty '+i])*Number(o['Harga '+i]||0),0);
+  let subtotal=[1,2,3].reduce((s,i)=>s+Number(o['Harga '+i]||0),0);
   if(!subtotal && o['Total Akhir']) subtotal=Number(o['Total Akhir'])||0;
   const disc=Number(o['Diskon (%)']||0);
   const diskonNilai=Math.round(subtotal*disc/100);
@@ -779,7 +785,7 @@ const VIEWS = {
   },
   order:{
     sheet:'ORDER', title:'Order', sub:'Input & kelola order cabang', branchLock:true,
-    idField:'ID Order', canAdd:true, canEdit:true, special:'order',
+    idField:'ID Order', canAdd:true, canEdit:true, special:'order', orderSort:true,
     table:['ID Order','Tanggal Input','Status Order','Nama Customer','Tanggal Pengerjaan','Metode Pembayaran','Nama Cleaner','Total Akhir Setelah Diskon'],
     filters:['Status Order'],
     datePreset:true, dateFilterField:'Tanggal Pengerjaan',
@@ -845,7 +851,7 @@ const MONEY_HINT = ['Gaji','Bonus','Potongan','Harga','Total','Nominal','Tagihan
 /* ---------- STATE ---------- */
 const $ = s=>document.querySelector(s);
 const state = { session:null, view:null, rows:[], filters:{}, search:'', dateStart:'', dateEnd:'',
-  editing:null, files:{}, cache:{} };
+  editing:null, files:{}, cache:{}, listCache:{} };
 
 function getApiUrl(){ return localStorage.getItem('klinklin_api') || ''; }
 function setApiUrl(u){ localStorage.setItem('klinklin_api', u.trim()); }
@@ -933,7 +939,7 @@ async function doLogin(){
 }
 function logout(){
   localStorage.removeItem('klinklin_session');
-  state.session=null; state.cache={};
+  state.session=null; state.cache={}; state.listCache={};
   $('#app').style.display='none'; $('#login').style.display='grid';
   $('#pin').value='';
 }
@@ -993,8 +999,7 @@ function renderShell(){
       (v.canAdd ? '<button class="btn btn-primary" id="btnAdd">'+svg('plus')+'Tambah</button>' : '')+
     '</div>'+
     '<div class="toolbar" id="toolbar"></div>'+
-    '<div class="panel" id="panel"></div>'+
-    '<div class="count" id="count"></div>';
+    '<div class="panel" id="panel"></div>';
   if(v.canAdd) $('#btnAdd').addEventListener('click', ()=>openForm(null));
   buildToolbar();
 }
@@ -1013,7 +1018,7 @@ function buildToolbar(){
   else { row += '<div class="spacer"></div>'; }
   if(v.multiApprove){ row += '<button class="btn btn-gold btn-sm" id="btnApproveSel">'+svg('check')+'Approve terpilih</button>'; }
   row += '<button class="icon-btn fbtn" id="filterToggle" title="Filter">'+svg('funnel')+'<span class="fbadge" id="fbadge"></span></button>';
-  row += '<button class="icon-btn" id="btnSyncManual" title="Sinkronkan data">'+svg('refresh')+'</button>';
+  row += '<button class="icon-btn" id="btnSyncTb" title="Sinkronkan data">'+svg('refresh')+'</button>';
   row += '</div>';
 
   let pf='';
@@ -1045,8 +1050,8 @@ function buildToolbar(){
 
   const ft=$('#filterToggle'), fp=$('#filterPanel');
   if(ft){ if(!fp){ ft.style.display='none'; } else { ft.addEventListener('click', ()=>fp.classList.toggle('open')); } }
-  const bSync=$('#btnSyncManual'); if(bSync) bSync.addEventListener('click', ()=>loadList());
   const bSel=$('#btnApproveSel'); if(bSel) bSel.addEventListener('click', approveSelected);
+  const bTb=$('#btnSyncTb'); if(bTb) bTb.addEventListener('click', ()=>loadList(true));
   if(v.search){
     let t; $('#q').addEventListener('input', e=>{ state.search=e.target.value.toLowerCase();
       clearTimeout(t); t=setTimeout(renderView,160); });
@@ -1077,8 +1082,15 @@ function updateFbadge(){
   b.textContent = n? n : ''; b.style.display = n? 'flex':'none';
 }
 
-async function loadList(){
-  const v=state.view;
+async function loadList(force){
+  const v=state.view, key=state.viewKey;
+  // Pakai data hasil sinkron sebelumnya saat pindah menu (tanpa minta server lagi),
+  // kecuali dipaksa (force) — yang terjadi setelah tambah/edit/approve atau tombol Sinkronkan.
+  if(!force && key && state.listCache[key]){
+    state.rows = state.listCache[key];
+    refreshDynFilters(); renderView();
+    return;
+  }
   setSync(true);
   try{
     const payload={action:'list', sheet:v.sheet};
@@ -1087,10 +1099,11 @@ async function loadList(){
     // Untuk CS, penyaringan cabang dilakukan di klien lewat kode No Order.
     if(v.branchLock && v.sheet!=='BONUS'){ payload.filters={'Cabang':state.session.cabang}; }
     const r = await api(payload);
-    state.rows = r.data || [];
+    state.rows = trimKeys(r.data || []);
+    if(key) state.listCache[key] = state.rows;
     if(v.wa && !state.cache.karyawanMap){
       try{
-        const k=(await api({action:'list', sheet:'KARYAWAN'})).data||[];
+        const k=trimKeys((await api({action:'list', sheet:'KARYAWAN'})).data||[]);
         const map={}; k.forEach(e=>{ if(e['Nama Lengkap']) map[norm(e['Nama Lengkap'])]=e['No WA']; });
         state.cache.karyawanMap=map;
       }catch(e){ state.cache.karyawanMap={}; }
@@ -1100,6 +1113,8 @@ async function loadList(){
     syncDone(state.rows.length);
   }catch(err){ setSync(false); toast(err.message,'err'); $('#panel').innerHTML=emptyState('Gagal memuat data'); }
 }
+/* Hapus semua cache daftar (dipanggil setelah ada perubahan data). */
+function invalidateLists(){ state.listCache={}; }
 
 /* Isi opsi filter "Cleaner" dari data yang sudah dimuat (distinct, sudah dipecah koma). */
 function refreshDynFilters(){
@@ -1142,7 +1157,21 @@ function applyClientFilters(rows){
   if(state.search && v.search){
     out = out.filter(r=> v.search.some(k=>String(r[k]||'').toLowerCase().indexOf(state.search)>-1));
   }
-  if(v.sortBy && v.sortBy.length){
+  if(v.orderSort){
+    const today=ymd(new Date());
+    const grp=d=>{ if(!d) return 3; if(d===today) return 0; return d>today?1:2; }; // 0 hari ini,1 mendatang,2 lampau,3 tanpa tgl
+    out.sort((a,b)=>{
+      const pa=(norm(a['Status Order'])||'pending')==='pending'?0:1;
+      const pb=(norm(b['Status Order'])||'pending')==='pending'?0:1;
+      if(pa!==pb) return pa-pb;                          // pending paling atas
+      const da=String(a['Tanggal Pengerjaan']||''), db=String(b['Tanggal Pengerjaan']||'');
+      const ga=grp(da), gb=grp(db);
+      if(ga!==gb) return ga-gb;                          // hari ini → mendatang → lampau
+      if(ga===1) return da<db?-1:da>db?1:0;              // mendatang: terdekat dulu (naik)
+      if(ga===2) return da>db?-1:da<db?1:0;              // lampau: paling baru dulu (turun)
+      return 0;
+    });
+  } else if(v.sortBy && v.sortBy.length){
     out.sort((a,b)=>{
       for(const k of v.sortBy){
         const x=String(a[k]==null?'':a[k]), y=String(b[k]==null?'':b[k]);
@@ -1163,7 +1192,6 @@ function setCount(n, noun){
   const txt=n+' '+(noun||'data');
   const c=$('#headCount'); if(c) c.textContent = txt;
   const cm=$('#headCountM'); if(cm) cm.textContent = txt;
-  const cc=$('#count'); if(cc) cc.textContent = txt;
 }
 function renderTable(){
   const v=state.view;
@@ -1193,7 +1221,10 @@ function renderTable(){
       const oid=r['ID Order']; const st=norm(r['Status Order'])||'pending';
       return '<div class="ocard" data-detail="'+esc(oid)+'">'+
         '<div class="ocard-top"><span class="ocard-name">'+esc(r['Nama Customer']||'-')+'</span>'+
-          '<span class="badge b-'+st+'"><span class="d"></span>'+st+'</span></div>'+
+          '<span style="display:flex;align-items:center;gap:9px">'+
+            '<span class="badge b-'+st+'"><span class="d"></span>'+st+'</span>'+
+            (chk?'<input type="checkbox" class="rowchk ocard-chk" data-id="'+esc(oid)+'">':'')+
+          '</span></div>'+
         '<div class="ocard-meta">'+svg('result')+'<span>'+esc(fmtTgl(r['Tanggal Pengerjaan']))+
           ' · '+esc(r['Waktu Pengerjaan']||'-')+'</span>'+
           (r['Metode Pembayaran']?'<span class="pay-chip">'+esc(r['Metode Pembayaran'])+'</span>':'')+'</div>'+
@@ -1245,6 +1276,7 @@ function wireRowHandlers(v){
   document.querySelectorAll('[data-wak]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation();
     const o=state.rows.find(x=>String(x['ID Order'])===b.dataset.wak); if(o) waCleaner(o,b);
   }));
+  document.querySelectorAll('.ocard-chk').forEach(c=>c.addEventListener('click',e=>e.stopPropagation()));
   document.querySelectorAll('.ocard[data-detail]').forEach(c=>c.addEventListener('click',()=>{
     const o=state.rows.find(x=>String(x['ID Order'])===c.dataset.detail); if(o) showOrderDetail(o);
   }));
@@ -1252,14 +1284,12 @@ function wireRowHandlers(v){
 }
 function showOrderDetail(o){
   state.editing=null; state.files={};
-  $('#modalTitle').textContent='Detail Order '+(o['ID Order']||'');
+  $('#modalTitle').textContent='Detail Order — '+(o['Nama Customer']||'-');
   const row=(l,val)=> '<div class="dt-row"><span class="dt-l">'+esc(l)+'</span><span class="dt-v">'+val+'</span></div>';
   const st=norm(o['Status Order'])||'pending';
   let b='<div class="detail">';
   b+=row('Status','<span class="badge b-'+st+'"><span class="d"></span>'+st+'</span>');
-  b+=row('ID Order', esc(o['ID Order']||'-'));
   b+=row('Cabang', esc(o['Cabang']||'-'));
-  b+=row('CS PJ', esc(o['CS Penanggung Jawab']||'-'));
   b+=row('Tanggal Input', esc(fmtTgl(o['Tanggal Input'])));
   b+='<div class="dt-sec">Customer</div>';
   b+=row('Nama', esc(o['Nama Customer']||'-'));
@@ -1271,7 +1301,7 @@ function showOrderDetail(o){
   b+=row('Cleaner', esc(o['Nama Cleaner']||'-'));
   b+=row('Metode', esc(o['Metode Pembayaran']||'-'));
   b+='<div class="dt-sec">Layanan & Tagihan</div>';
-  [1,2,3].forEach(i=>{ if(o['Layanan '+i]||o['Harga '+i]) b+=row(esc(o['Layanan '+i]||'-')+' × '+esc(o['Qty '+i]||''), rp(qtyNum(o['Qty '+i])*Number(o['Harga '+i]||0))); });
+  [1,2,3].forEach(i=>{ if(o['Layanan '+i]||o['Harga '+i]) b+=row(esc(o['Layanan '+i]||'-')+(o['Qty '+i]?(' · '+esc(o['Qty '+i])):''), rp(Number(o['Harga '+i]||0))); });
   b+=row('Diskon', (Number(o['Diskon (%)']||0))+'%');
   b+=row('PPn', (Number(moneyDigits(o['PPn']))>0?'11%':'-'));
   b+=row('Total Akhir', rp(o['Total Akhir']||0));
@@ -1284,7 +1314,7 @@ function showOrderDetail(o){
   b+='</div>';
   $('#modalBody').innerHTML=b;
   const sv=$('#modalSave'); if(sv) sv.style.display='none';
-  const cc=$('#modalCancel'); if(cc) cc.textContent='Tutup';
+  const cc=$('#modalCancel'); if(cc){ cc.textContent='Tutup'; cc.classList.add('btn-danger'); }
   openOverlay();
 }
 
@@ -1330,7 +1360,7 @@ function renderCapaian(){
   rows.forEach(r=>{
     const o=omzetOf(r);
     const cab=String(r['Cabang']||'-').toUpperCase()||'-'; byCab[cab]=(byCab[cab]||0)+o;
-    [1,2,3].forEach(i=>{ const nm=String(r['Layanan '+i]||'').trim(); if(nm) byLay[nm]=(byLay[nm]||0)+qtyNum(r['Qty '+i])*Number(r['Harga '+i]||0); });
+    [1,2,3].forEach(i=>{ const nm=String(r['Layanan '+i]||'').trim(); if(nm) byLay[nm]=(byLay[nm]||0)+Number(r['Harga '+i]||0); });
     const al=(String(r['Alamat']||'').trim())||'-'; byAlamat[al]=(byAlamat[al]||0)+1;
     const d=String(r['Tanggal Pengerjaan']||'').slice(0,10); if(d) byDay[d]=(byDay[d]||0)+o;
   });
@@ -1416,7 +1446,7 @@ async function approveSelected(){
   if(!ids.length){ toast('Pilih order dulu','err'); return; }
   if(!confirm('Approve '+ids.length+' order menjadi complete?')) return;
   setSync(true);
-  try{ const r=await api({action:'approveMany', ids}); toast((r.approved||0)+' order disetujui','ok'); await loadList(); }
+  try{ const r=await api({action:'approveMany', ids}); toast((r.approved||0)+' order disetujui','ok'); invalidateLists(); await loadList(true); }
   catch(err){ setSync(false); toast(err.message,'err'); }
 }
 
@@ -1446,6 +1476,14 @@ function emptyState(msg){
   return '<div class="empty">'+svg('inbox')+'<b>'+msg+'</b><span>Tambahkan data baru atau ubah filter.</span></div>';
 }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+/* Bersihkan spasi di nama kolom dari sheet (mis. "Nama Layanan " -> "Nama Layanan")
+   supaya nilai tetap terbaca walau header di Google Sheet ada spasi tak sengaja. */
+function trimKeys(rows){
+  return (rows||[]).map(r=>{
+    if(!r || typeof r!=='object') return r;
+    const o={}; Object.keys(r).forEach(k=>{ o[String(k).trim()]=r[k]; }); return o;
+  });
+}
 
 /* ============================================================
    APPROVE
@@ -1453,7 +1491,7 @@ function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,m=>({'&':'&amp;'
 async function approveOrder(id){
   if(!confirm('Approve order '+id+' menjadi complete?')) return;
   setSync(true);
-  try{ await api({action:'approveOrder', id}); toast('Order '+id+' disetujui','ok'); await loadList(); }
+  try{ await api({action:'approveOrder', id}); toast('Order '+id+' disetujui','ok'); invalidateLists(); await loadList(true); }
   catch(err){ setSync(false); toast(err.message,'err'); }
 }
 
@@ -1464,7 +1502,7 @@ async function openForm(row){
   const v=state.view;
   state.editing = row; state.files={};
   const sv=$('#modalSave'); if(sv) sv.style.display='';
-  const cc=$('#modalCancel'); if(cc) cc.textContent='Batal';
+  const cc=$('#modalCancel'); if(cc){ cc.textContent='Batal'; cc.classList.remove('btn-danger'); }
   $('#modalTitle').textContent = (row?'Edit ':'Tambah ')+v.title;
 
   // Finance (tanpa branchLock): muat ulang daftar cleaner sesuai cabang order ini.
@@ -1513,9 +1551,12 @@ function renderField(fd, val){
       esc(fd.label||fd.k)+'</label></div>';
   }
   if(fd.t==='select'){
+    let opts=(fd.opts||[]).slice();
+    // auto-baca nilai dari sheet meski beda huruf besar/kecil; jika tak ada, tampilkan apa adanya.
+    if(val!=='' && !opts.some(o=>norm(o)===norm(val))) opts=[val].concat(opts);
     inner = '<select data-k="'+esc(fd.k)+'"'+ro+'>'+
       '<option value=""></option>'+
-      (fd.opts||[]).map(o=>'<option'+(String(o)===String(val)?' selected':'')+'>'+esc(o)+'</option>').join('')+'</select>';
+      opts.map(o=>'<option'+(norm(o)===norm(val)?' selected':'')+'>'+esc(o)+'</option>').join('')+'</select>';
   } else if(fd.t==='textarea'){
     inner = '<textarea data-k="'+esc(fd.k)+'"'+ro+'>'+esc(val)+'</textarea>';
   } else if(fd.t==='file'){
@@ -1561,19 +1602,19 @@ async function ensureLists(v){
   const needs = new Set();
   v.form && v.form.forEach(fd=>{ if(fd.list) needs.add(fd.list); });
   if(needs.has('karyawan') && !state.cache.karyawan){
-    state.cache.karyawan = (await api({action:'list', sheet:'KARYAWAN'})).data||[];
+    state.cache.karyawan = trimKeys((await api({action:'list', sheet:'KARYAWAN'})).data||[]);
   }
   if(needs.has('cleaner') && !state.cache.cleaner){
     const cab = state.session.cabang || (state.editing && state.editing['Cabang']) || '';
     const r = await api({action:'list', sheet:'KARYAWAN', filters: cab?{'Cabang':cab}:{}});
-    state.cache.cleaner = (r.data||[]).filter(e=>String(e['Jabatan']).trim().toLowerCase()==='cleaner');
+    state.cache.cleaner = trimKeys(r.data||[]).filter(e=>String(e['Jabatan']).trim().toLowerCase()==='cleaner');
   }
   if(needs.has('order') && !state.cache.order){
     const r = await api({action:'list', sheet:'ORDER', filters:{'Cabang':state.session.cabang}});
-    state.cache.order = r.data||[];
+    state.cache.order = trimKeys(r.data||[]);
   }
   if(needs.has('layanan') && !state.cache.layanan){
-    state.cache.layanan = (await api({action:'list', sheet:'LAYANAN'})).data||[];
+    state.cache.layanan = trimKeys((await api({action:'list', sheet:'LAYANAN'})).data||[]);
   }
 }
 function fillDatalists(){
@@ -1701,9 +1742,7 @@ function showInvoiceBtn(){
 
 /* ---------- special recompute ---------- */
 function recomputeOrder(){
-  const total = qtyNum(getVal('Qty 1'))*numVal('Harga 1')
-              + qtyNum(getVal('Qty 2'))*numVal('Harga 2')
-              + qtyNum(getVal('Qty 3'))*numVal('Harga 3');
+  const total = numVal('Harga 1') + numVal('Harga 2') + numVal('Harga 3');
   const disc = numVal('Diskon (%)'), ppn = numVal('PPn');
   const afterDisc = total*(1-disc/100);
   const final = Math.round(afterDisc*(1+ppn/100));
@@ -1782,7 +1821,7 @@ function buildInvoiceHTML(o){
   let items=[1,2,3].map(i=>({nama:o['Layanan '+i]||'', qty:qtyNum(o['Qty '+i]), qtyText:String(o['Qty '+i]||''), harga:Number(o['Harga '+i]||0)}))
                    .filter(it=>it.nama||it.qtyText||it.harga);
   if(!items.length) items=[{nama:'',qty:0,qtyText:'',harga:0}];
-  let subtotal=0; items.forEach(it=>subtotal+=it.qty*it.harga);
+  let subtotal=0; items.forEach(it=>subtotal+=it.harga);
   if(!subtotal && o['Total Akhir']) subtotal=Number(o['Total Akhir'])||0;
   const disc=Number(o['Diskon (%)']||0);
   const diskonNilai=Math.round(subtotal*disc/100);
@@ -1801,7 +1840,7 @@ function buildInvoiceHTML(o){
     '<tr>'+
       '<td style="'+cellL+'">'+esc(it.nama||'-')+'</td>'+
       '<td style="'+cellL+'text-align:center">'+esc(it.qtyText||'')+'</td>'+
-      '<td style="'+cellL+'text-align:right">'+money(it.qty*it.harga)+'</td>'+
+      '<td style="'+cellL+'text-align:right">'+money(it.harga)+'</td>'+
     '</tr>'
   )).join('');
 
@@ -1951,7 +1990,8 @@ async function saveForm(){
     closeOverlay();
     state.cache[ {ORDER:'order', KARYAWAN:'karyawan'}[v.sheet] ] = undefined; // refresh caches
     if(v.sheet==='KARYAWAN'){ state.cache.cleaner=undefined; state.cache.karyawanMap=undefined; }
-    await loadList();
+    invalidateLists();
+    await loadList(true);
   }catch(err){ setSync(false); toast(err.message,'err'); }
 }
 
@@ -1999,7 +2039,7 @@ function openSettingsStandalone(){
    ============================================================ */
 $('#btnLogout').addEventListener('click', logout);
 $('#btnSettings').addEventListener('click', renderSettings);
-$('#btnSync').addEventListener('click', ()=>{ if(state.view) loadList(); else toast('Tidak ada data untuk disinkronkan'); });
+$('#btnSync').addEventListener('click', ()=>{ if(state.view) loadList(true); else toast('Tidak ada data untuk disinkronkan'); });
 $('#modalClose').addEventListener('click', closeOverlay);
 $('#modalCancel').addEventListener('click', closeOverlay);
 $('#modalSave').addEventListener('click', saveForm);
