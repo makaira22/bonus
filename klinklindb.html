@@ -236,9 +236,25 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .spin{width:34px;height:34px;border:3px solid rgba(255,255,255,.25);border-top-color:#fff;
   border-radius:50%;animation:sp .7s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
-#loader{position:fixed;inset:0;display:none;place-items:center;background:rgba(238,242,241,.55);z-index:80;backdrop-filter:blur(1px)}
-#loader.show{display:grid}
-#loader .spin{border-color:rgba(14,59,58,.18);border-top-color:var(--petrol)}
+
+/* ---------- SYNC CHIP (kecil, pojok) ---------- */
+#sync{position:fixed;left:18px;bottom:18px;z-index:85;display:none;align-items:center;gap:9px;
+  background:var(--petrol);color:#fff;padding:9px 14px;border-radius:30px;font-size:12.5px;font-weight:600;
+  box-shadow:0 12px 30px -14px rgba(10,43,42,.7);border:1px solid rgba(255,255,255,.12);
+  letter-spacing:.01em;max-width:80vw}
+#sync.show{display:inline-flex;animation:rise .2s ease}
+#sync .s{width:14px;height:14px;border:2.5px solid rgba(255,255,255,.3);border-top-color:var(--gold);
+  border-radius:50%;animation:sp .7s linear infinite;flex:none}
+#sync.done .s{display:none}
+#sync.done{background:var(--success)}
+@media (max-width:880px){ #sync{bottom:78px} }
+
+/* ---------- IMAGE POPUP ---------- */
+#imgPop{position:fixed;inset:0;z-index:95;display:none;align-items:center;justify-content:center;
+  padding:24px;background:rgba(8,24,23,.82);backdrop-filter:blur(4px);cursor:zoom-out}
+#imgPop.show{display:flex;animation:rise .18s ease}
+#imgPop img{max-width:92vw;max-height:88vh;border-radius:14px;background:#fff;
+  box-shadow:var(--shadow-lg);object-fit:contain}
 
 /* ---------- SETTINGS ---------- */
 .settings{max-width:560px}
@@ -284,7 +300,6 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
              placeholder="• • • • • •" />
       <button class="pin-eye" id="togglePin" title="Tampilkan PIN" aria-label="Tampilkan PIN"></button>
     </div>
-    <div class="keypad" id="keypad"></div>
     <button class="btn-login" id="btnLogin">Masuk</button>
     <div class="login-err" id="loginErr"></div>
     <div class="login-foot">
@@ -331,7 +346,8 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
   </div>
 </div>
 
-<div id="loader"><div class="spin"></div></div>
+<div id="sync"><span class="s"></span><span class="t"></span></div>
+<div id="imgPop"><img id="imgPopImg" src="" alt="Bukti"></div>
 <div id="toast"></div>
 
 <script>
@@ -344,7 +360,7 @@ const JABATAN = ['Cleaner','CS','Supervisor','Admin','Driver','HRD','Finance'];
 const STATUS_KARYAWAN = ['Tetap','Kontrak','Harian','Magang'];
 const STATUS_ORDER = ['pending','done','complete','cancel'];
 const CHAT_DARI = ['organik','iklan','lama'];
-const METODE = ['Transfer','Cash','QRIS','Debit'];
+const METODE = ['BCA','MANDIRI','CASH','QRIS'];
 const JENIS_BONUS = ['Kilometer','Bonus Deepclean','Bonus Salon','Tips','Parkir','Lembur','Uang Makan','Bonus Lainnya'];
 
 const GAJI_BONUS_FIELDS = ['Bonus Bulanan','Bonus Review','Bonus Tanggal Merah','Bonus Januari',
@@ -478,12 +494,12 @@ const VIEWS = {
       {sec:'Order'},
       f('Chat Dari','select',{opts:CHAT_DARI}), f('Tanggal Input','date'),
       f('Status Order','select',{opts:STATUS_ORDER, ro:true}),
-      f('CS Penanggung Jawab','text'),
+      f('CS Penanggung Jawab','text',{ro:true}),
       {sec:'Customer'},
       f('Nama Customer','text',{req:true}), f('No WA Customer','text'),
       f('Alamat','textarea',{full:true}),
       f('Waktu Pengerjaan','text'), f('Tanggal Pengerjaan','date'),
-      f('Nama Cleaner','datalist',{list:'cleaner'}),
+      f('Nama Cleaner','dynselect',{list:'cleaner'}),
       {sec:'Layanan & Tagihan'},
       f('Layanan 1','text'), f('Qty 1','num'), f('Harga 1','num'),
       f('Layanan 2','text'), f('Qty 2','num'), f('Harga 2','num'),
@@ -563,7 +579,21 @@ async function api(payload){
   if(data && data.ok===false) throw new Error(data.error || 'Gagal');
   return data;
 }
-const showLoad = on => $('#loader').classList.toggle('show', !!on);
+function setSync(on, text){
+  const el=$('#sync'); if(!el) return;
+  if(on){ el.classList.remove('done'); el.classList.add('show');
+    el.querySelector('.t').textContent = text||'Menyinkronkan…'; }
+  else { el.classList.remove('show'); }
+}
+function syncDone(n){
+  const el=$('#sync'); if(!el) return;
+  el.classList.add('show','done');
+  el.querySelector('.t').textContent = '✓ '+n+' data tersinkron';
+  clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'), 2200);
+}
+const showLoad = on => setSync(on);
+function openImg(url){ if(!url) return; $('#imgPopImg').src=url; $('#imgPop').classList.add('show'); }
+function closeImg(){ $('#imgPop').classList.remove('show'); $('#imgPopImg').src=''; }
 let toastT;
 function toast(msg, type){
   const t=$('#toast'); t.textContent=msg; t.className=''; if(type)t.classList.add(type);
@@ -577,6 +607,7 @@ function isMoney(key){
   return MONEY_HINT.some(h=>key.indexOf(h)>-1);
 }
 function initials(name){ return (name||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase(); }
+const norm = s=>String(s==null?'':s).trim().toLowerCase();
 
 /* ============================================================
    AUTH
@@ -584,18 +615,6 @@ function initials(name){ return (name||'?').trim().split(/\s+/).slice(0,2).map(w
 function initLogin(){
   $('#markLogin').innerHTML = MARK;
   $('#togglePin').innerHTML = svg('audit');
-  const pad = ['1','2','3','4','5','6','7','8','9','C','0','OK'];
-  $('#keypad').innerHTML = pad.map(k=>{
-    const fn = (k==='C'||k==='OK');
-    return '<button class="key'+(fn?' fn':'')+'" data-k="'+k+'">'+k+'</button>';
-  }).join('');
-  $('#keypad').addEventListener('click', e=>{
-    const b=e.target.closest('.key'); if(!b)return;
-    const k=b.dataset.k, inp=$('#pin');
-    if(k==='C'){ inp.value=''; }
-    else if(k==='OK'){ doLogin(); }
-    else inp.value += k;
-  });
   $('#togglePin').addEventListener('click', ()=>{
     const inp=$('#pin'); inp.type = inp.type==='password'?'text':'password';
   });
@@ -717,7 +736,7 @@ function buildToolbar(){
 
 async function loadList(){
   const v=state.view;
-  showLoad(true);
+  setSync(true);
   try{
     const payload={action:'list', sheet:v.sheet};
     if(v.statusIn){ payload.statusIn=v.statusIn; payload.statusField=v.statusField; }
@@ -725,8 +744,8 @@ async function loadList(){
     const r = await api(payload);
     state.rows = r.data || [];
     renderTable();
-  }catch(err){ toast(err.message,'err'); $('#panel').innerHTML=emptyState('Gagal memuat data'); }
-  finally{ showLoad(false); }
+    syncDone(state.rows.length);
+  }catch(err){ setSync(false); toast(err.message,'err'); $('#panel').innerHTML=emptyState('Gagal memuat data'); }
 }
 
 function applyClientFilters(rows){
@@ -734,7 +753,7 @@ function applyClientFilters(rows){
   let out = rows.slice();
   Object.keys(state.filters).forEach(k=>{
     const val=state.filters[k]; if(!val) return;
-    out = out.filter(r=>String(r[k]||'')===String(val));
+    out = out.filter(r=>norm(r[k])===norm(val));
   });
   if(v.dateFilterField && (state.dateStart||state.dateEnd)){
     out = out.filter(r=>{
@@ -762,9 +781,10 @@ function renderTable(){
     html += '<tr>'+cols.map(c=>'<td'+(isMoney(c)?' class="money"':'')+'>'+cell(v,c,r)+'</td>').join('');
     if(showAct){
       let act='<div class="row-act">';
-      if(v.approve && (r['Status Order']==='pending'||r['Status Order']==='done')){
+      if(v.approve){ const st=norm(r['Status Order'])||'pending';
+        if(st==='pending'||st==='done'){
         act += '<button class="btn btn-gold btn-sm" data-approve="'+esc(r['ID Order'])+'">'+svg('check')+'Approve</button>';
-      }
+      }}
       if(v.canEdit){
         act += '<button class="act-ic" data-edit="'+esc(r[v.idField])+'" title="Edit">'+svg('edit')+'</button>';
       }
@@ -788,11 +808,14 @@ function cell(v,c,r){
     return val ? '<img class="avatar" src="'+esc(val)+'" onerror="this.replaceWith(Object.assign(document.createElement(\'div\'),{className:\'avatar\',textContent:\''+initials(r['Nama Lengkap'])+'\'}))">'
                : '<div class="avatar">'+initials(r['Nama Lengkap'])+'</div>';
   }
-  if(/Bukti|File|Invoice/.test(c)){
+  if(/^Bukti/.test(c)){
+    return val ? '<a class="flink" data-img="'+esc(val)+'" style="cursor:zoom-in">Lihat</a>' : '<span style="color:var(--faint)">—</span>';
+  }
+  if(/File|Invoice/.test(c)){
     return val ? '<a class="flink" href="'+esc(val)+'" target="_blank" rel="noopener">Lihat</a>' : '<span style="color:var(--faint)">—</span>';
   }
   if(c==='Status Order' && v.statusBadge){
-    const s=(val||'pending'); return '<span class="badge b-'+s+'"><span class="d"></span>'+s+'</span>';
+    const s=norm(val)||'pending'; return '<span class="badge b-'+s+'"><span class="d"></span>'+s+'</span>';
   }
   if(c==='Take Home Pay') return '<span class="thp">'+rp(val)+'</span>';
   if(isMoney(c)) return rp(val);
@@ -808,10 +831,9 @@ function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,m=>({'&':'&amp;'
    ============================================================ */
 async function approveOrder(id){
   if(!confirm('Approve order '+id+' menjadi complete?')) return;
-  showLoad(true);
+  setSync(true);
   try{ await api({action:'approveOrder', id}); toast('Order '+id+' disetujui','ok'); await loadList(); }
-  catch(err){ toast(err.message,'err'); }
-  finally{ showLoad(false); }
+  catch(err){ setSync(false); toast(err.message,'err'); }
 }
 
 /* ============================================================
@@ -869,6 +891,12 @@ function renderField(fd, val){
   } else if(fd.t==='datalist'){
     inner = '<input data-k="'+esc(fd.k)+'" list="'+id+'_dl" autocomplete="off"'+ro+' value="'+esc(val)+'">'+
       '<datalist id="'+id+'_dl" data-dl="'+esc(fd.list)+'"></datalist>';
+  } else if(fd.t==='dynselect'){
+    const items=(state.cache[fd.list]||[]);
+    let opts=items.map(e=>e['Nama Lengkap']).filter(Boolean);
+    if(val && opts.indexOf(val)<0) opts=[val].concat(opts);
+    inner = '<select data-k="'+esc(fd.k)+'"'+ro+'><option value=""></option>'+
+      opts.map(o=>'<option'+(String(o)===String(val)?' selected':'')+'>'+esc(o)+'</option>').join('')+'</select>';
   } else {
     let type = fd.t==='num'?'number': fd.t==='date'?'date': fd.t==='month'?'month':'text';
     inner = '<input type="'+type+'" data-k="'+esc(fd.k)+'"'+ro+' value="'+esc(val)+'">';
@@ -879,14 +907,13 @@ function renderField(fd, val){
 /* prefetch datalist sources */
 async function ensureLists(v){
   const needs = new Set();
-  v.form && v.form.forEach(fd=>{ if(fd.t==='datalist') needs.add(fd.list); });
+  v.form && v.form.forEach(fd=>{ if(fd.list) needs.add(fd.list); });
   if(needs.has('karyawan') && !state.cache.karyawan){
     state.cache.karyawan = (await api({action:'list', sheet:'KARYAWAN'})).data||[];
   }
   if(needs.has('cleaner') && !state.cache.cleaner){
     const r = await api({action:'list', sheet:'KARYAWAN', filters:{'Cabang':state.session.cabang}});
-    state.cache.cleaner = (r.data||[]).filter(e=>String(e['Jabatan']).toLowerCase()==='cleaner');
-    if(!state.cache.cleaner.length) state.cache.cleaner = r.data||[];
+    state.cache.cleaner = (r.data||[]).filter(e=>String(e['Jabatan']).trim().toLowerCase()==='cleaner');
   }
   if(needs.has('order') && !state.cache.order){
     const r = await api({action:'list', sheet:'ORDER', filters:{'Cabang':state.session.cabang}});
@@ -906,6 +933,11 @@ function fillDatalists(){
 /* wire inputs: computed, file uploads, special lookups */
 function wireFields(v){
   fillDatalists();
+  // klik pratinjau gambar -> popup
+  document.querySelectorAll('[data-prev]').forEach(im=>{
+    im.style.cursor='zoom-in';
+    im.addEventListener('click', ()=>{ if(im.getAttribute('src')) openImg(im.getAttribute('src')); });
+  });
   // file inputs
   document.querySelectorAll('[data-file]').forEach(inp=>{
     inp.addEventListener('change', async e=>{
@@ -1030,7 +1062,7 @@ async function saveForm(){
   v.form.forEach(fd=>{ if(fd.req && !String(data[fd.k]||'').trim()) miss.push(fd.k); });
   if(miss.length){ toast('Wajib diisi: '+miss.join(', '),'err'); return; }
 
-  showLoad(true);
+  setSync(true);
   try{
     if(state.editing){
       await api({action:'update', sheet:v.sheet, idField:v.idField, id:state.editing[v.idField], data});
@@ -1042,8 +1074,7 @@ async function saveForm(){
     closeOverlay();
     state.cache[ {ORDER:'order', KARYAWAN:'karyawan'}[v.sheet] ] = undefined; // refresh caches
     await loadList();
-  }catch(err){ toast(err.message,'err'); }
-  finally{ showLoad(false); }
+  }catch(err){ setSync(false); toast(err.message,'err'); }
 }
 
 function fileToB64(file){
@@ -1094,6 +1125,9 @@ $('#modalClose').addEventListener('click', closeOverlay);
 $('#modalCancel').addEventListener('click', closeOverlay);
 $('#modalSave').addEventListener('click', saveForm);
 $('#overlay').addEventListener('click', e=>{ if(e.target===$('#overlay')) closeOverlay(); });
+$('#imgPop').addEventListener('click', closeImg);
+document.addEventListener('click', e=>{ const a=e.target.closest('[data-img]'); if(a){ e.preventDefault(); openImg(a.getAttribute('data-img')); } });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeImg(); });
 
 initLogin();
 (function restore(){
