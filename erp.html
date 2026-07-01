@@ -20,8 +20,8 @@
    (pakai kunci "anon / public", JANGAN "service_role")
    ============================================================ */
 (function () {
-  const SUPABASE_URL      = 'https://hmykvvtzmeogptswhhql.supabase.co';
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhteWt2dnR6bWVvZ3B0c3doaHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4NTY5MjEsImV4cCI6MjA5ODQzMjkyMX0.9T4BuyVQBe8g8Xjxa0GJgK5aRDrtrU78eEreQgOSLHQ';
+  const SUPABASE_URL      = 'https://GANTI-PROJECT-REF.supabase.co';
+  const SUPABASE_ANON_KEY = 'GANTI-ANON-PUBLIC-KEY';
   window.sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: { persistSession: true, autoRefreshToken: true }
   });
@@ -435,6 +435,9 @@ td.c-red{color:#c0392b}
 td.c-orange{color:#c8801a}
 td.c-blue, td.c-blue .thp{color:#1f6f9c}
 td.c-green, td.c-red, td.c-orange, td.c-blue{font-weight:700}
+.date-tabs{display:flex;gap:8px;margin:10px 0 2px;flex-wrap:wrap}
+.date-tabs .dt{padding:7px 15px;border-radius:999px;border:1px solid rgba(0,0,0,.12);background:#fff;color:#333;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit}
+.date-tabs .dt.on{background:#0E3B3A;color:#fff;border-color:transparent}
 </style>
 </head>
 <body>
@@ -456,9 +459,6 @@ td.c-green, td.c-red, td.c-orange, td.c-blue{font-weight:700}
     </div>
     <button class="btn-login" id="btnLogin">Masuk</button>
     <div class="login-err" id="loginErr"></div>
-    <div class="login-foot">
-      Belum terhubung? <a id="openSetupLogin">Atur alamat server</a>
-    </div>
   </div>
 </div>
 
@@ -1044,8 +1044,6 @@ function initLogin(){
   });
   $('#pin').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
   $('#btnLogin').addEventListener('click', doLogin);
-  $('#openSetupLogin').addEventListener('click', openSettingsStandalone);
-  if(!getApiUrl()){ setTimeout(openSettingsStandalone, 250); }
 }
 
 async function loadSupabaseProfile(){
@@ -1184,18 +1182,21 @@ function buildToolbar(){
   if(v.dynPeriode){
     pf += '<div class="fl"><span class="lbl">Periode Bulan</span><select data-filter="Periode Bulan" id="fPeriode"><option value="">Semua Periode</option></select></div>';
   }
-  if(v.datePreset){
-    pf += '<div class="fl"><span class="lbl">Tanggal</span>'+
-      '<select id="dpreset"><option value="">Semua</option><option value="today">Hari ini</option>'+
-      '<option value="yesterday">Kemarin</option><option value="week">Minggu ini</option>'+
-      '<option value="range">Rentang tanggal…</option></select>'+
-      '<span id="dprange" class="hide"> <input type="date" id="ds"> <input type="date" id="de"></span></div>';
-  } else if(v.dateFilterField){
-    pf += '<div class="fl"><span class="lbl">'+v.dateFilterField+'</span>'+
-      '<input type="date" id="ds" title="Dari tanggal"> <input type="date" id="de" title="Sampai tanggal"></div>';
+  if(v.datePreset || v.dateFilterField){
+    pf += '<div class="fl"><span class="lbl">Bulan</span><input type="month" id="fMonth"></div>'+
+      '<div class="fl"><span class="lbl">Tanggal</span><select id="fDay"><option value="">Semua tanggal</option></select></div>';
   }
 
-  $('#toolbar').innerHTML = row + (pf ? '<div class="filter-panel" id="filterPanel">'+pf+'</div>' : '');
+  let quick='';
+  if(v.datePreset){
+    quick = '<div class="date-tabs" id="dateTabs">'+
+      '<button class="dt on" data-day="">Semua</button>'+
+      '<button class="dt" data-day="yesterday">Kemarin</button>'+
+      '<button class="dt" data-day="today">Hari ini</button>'+
+      '<button class="dt" data-day="tomorrow">Besok</button>'+
+    '</div>';
+  }
+  $('#toolbar').innerHTML = row + quick + (pf ? '<div class="filter-panel" id="filterPanel">'+pf+'</div>' : '');
 
   const ft=$('#filterToggle'), fp=$('#filterPanel');
   if(ft){ if(!fp){ ft.style.display='none'; } else { ft.addEventListener('click', ()=>fp.classList.toggle('open')); } }
@@ -1208,20 +1209,30 @@ function buildToolbar(){
   document.querySelectorAll('[data-filter]').forEach(el=>{
     el.addEventListener('change', e=>{ state.filters[el.dataset.filter]=e.target.value; updateFbadge(); renderView(); });
   });
-  const ds=$('#ds'), de=$('#de');
-  if(ds) ds.addEventListener('change', e=>{ state.dateStart=e.target.value; updateFbadge(); renderView(); });
-  if(de) de.addEventListener('change', e=>{ state.dateEnd=e.target.value; updateFbadge(); renderView(); });
-  const dp=$('#dpreset');
-  if(dp) dp.addEventListener('change', e=>{
-    const val=e.target.value, range=$('#dprange'), now=new Date();
-    range.classList.toggle('hide', val!=='range');
+  const fMonth=$('#fMonth'), fDay=$('#fDay');
+  function fillDays(){ if(!fDay) return; const m=fMonth?fMonth.value:'';
+    const n=m?new Date(+m.slice(0,4),+m.slice(5,7),0).getDate():31;
+    let o='<option value="">Semua tanggal</option>'; for(let i=1;i<=n;i++) o+='<option value="'+i+'">'+i+'</option>'; fDay.innerHTML=o; }
+  function applyMonthDay(){
+    const m=fMonth?fMonth.value:'', d=fDay?fDay.value:'';
+    if(!m){ state.dateStart=''; state.dateEnd=''; }
+    else if(!d){ state.dateStart=m+'-01'; const last=new Date(+m.slice(0,4),+m.slice(5,7),0).getDate(); state.dateEnd=m+'-'+String(last).padStart(2,'0'); }
+    else { const day=m+'-'+String(d).padStart(2,'0'); state.dateStart=day; state.dateEnd=day; }
+    document.querySelectorAll('#dateTabs .dt').forEach(x=>x.classList.remove('on'));
+    updateFbadge(); renderView();
+  }
+  if(fMonth) fMonth.addEventListener('change', ()=>{ fillDays(); applyMonthDay(); });
+  if(fDay) fDay.addEventListener('change', applyMonthDay);
+  document.querySelectorAll('#dateTabs .dt').forEach(btn=>btn.addEventListener('click',()=>{
+    document.querySelectorAll('#dateTabs .dt').forEach(x=>x.classList.remove('on')); btn.classList.add('on');
+    const now=new Date(), val=btn.dataset.day;
     if(val==='today'){ const t=ymd(now); state.dateStart=t; state.dateEnd=t; }
     else if(val==='yesterday'){ const y=new Date(now); y.setDate(y.getDate()-1); const t=ymd(y); state.dateStart=t; state.dateEnd=t; }
-    else if(val==='week'){ state.dateStart=ymd(startOfWeek(now)); state.dateEnd=ymd(now); }
-    else if(val==='range'){ state.dateStart=ds?ds.value:''; state.dateEnd=de?de.value:''; }
+    else if(val==='tomorrow'){ const y=new Date(now); y.setDate(y.getDate()+1); const t=ymd(y); state.dateStart=t; state.dateEnd=t; }
     else { state.dateStart=''; state.dateEnd=''; }
+    if(fMonth) fMonth.value=''; if(fDay) fDay.value='';
     updateFbadge(); renderView();
-  });
+  }));
   updateFbadge();
 }
 function updateFbadge(){
@@ -1330,18 +1341,15 @@ function applyClientFilters(rows){
     out = out.filter(r=> v.search.some(k=>String(r[k]||'').toLowerCase().indexOf(state.search)>-1));
   }
   if(v.orderSort){
-    const today=ymd(new Date());
-    const grp=d=>{ if(!d) return 3; if(d===today) return 0; return d>today?1:2; }; // 0 hari ini,1 mendatang,2 lampau,3 tanpa tgl
+    const PRIO={pending:0, done:1, complete:2, cancel:3};
+    const jamNum=s=>{ const m=String(s||'').match(/(\d{1,2})[:.]?(\d{2})?/); return m? (+m[1])*60+(+(m[2]||0)) : 9999; };
     out.sort((a,b)=>{
-      const pa=(norm(a['Status Order'])||'pending')==='pending'?0:1;
-      const pb=(norm(b['Status Order'])||'pending')==='pending'?0:1;
-      if(pa!==pb) return pa-pb;                          // pending paling atas
+      const pa=PRIO[norm(a['Status Order'])||'pending']; const pb=PRIO[norm(b['Status Order'])||'pending'];
+      const ra=(pa==null?9:pa), rb=(pb==null?9:pb);
+      if(ra!==rb) return ra-rb;                                    // pending → done → complete → cancel
       const da=String(a['Tanggal Pengerjaan']||''), db=String(b['Tanggal Pengerjaan']||'');
-      const ga=grp(da), gb=grp(db);
-      if(ga!==gb) return ga-gb;                          // hari ini → mendatang → lampau
-      if(ga===1) return da<db?-1:da>db?1:0;              // mendatang: terdekat dulu (naik)
-      if(ga===2) return da>db?-1:da<db?1:0;              // lampau: paling baru dulu (turun)
-      return 0;
+      if(da!==db) return da<db?-1:1;                              // lalu urut tanggal (naik)
+      return jamNum(a['Waktu Pengerjaan'])-jamNum(b['Waktu Pengerjaan']); // lalu urut jam
     });
   } else if(v.sortBy && v.sortBy.length){
     out.sort((a,b)=>{
@@ -1418,6 +1426,9 @@ const HIDDEN_COLS=['ID Order','No Order','ID Insentif'];
 function colLabel(v,c){ return (v && v.colLabel && v.colLabel[c]) || c; }
 function rowActions(v,r){
   const oid=r['ID Order']; let act='';
+  if(v.special==='order' && v.canAdd && !r['Bukti Transfer'] && norm(r['Status Order'])!=='cancel'){
+    act += '<button class="btn btn-gold btn-sm" data-upproof="'+esc(oid)+'" title="Upload bukti transfer">'+svg('file')+'Bukti</button>';
+  }
   if(v.wa){
     act += '<button class="btn btn-wa btn-sm" data-wac="'+esc(oid)+'" title="WhatsApp Customer">'+svg('wa')+'Cust</button>';
     act += '<button class="btn btn-wa btn-sm" data-wak="'+esc(oid)+'" title="WhatsApp Cleaner">'+svg('wa')+'Cleaner</button>';
@@ -1475,7 +1486,26 @@ function wireRowHandlers(v){
     const key=b.dataset.slippdf; const row=key.charAt(0)==='#'?state.rows[+key.slice(1)]:state.rows.find(x=>String(x[v.idField])===key);
     if(row) downloadSlip(row);
   }));
+  document.querySelectorAll('[data-upproof]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation();
+    quickUploadProof(b.dataset.upproof);
+  }));
   const all=$('#checkAll'); if(all) all.addEventListener('change',()=>document.querySelectorAll('.rowchk').forEach(c=>c.checked=all.checked));
+}
+async function quickUploadProof(oid){
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*,application/pdf';
+  inp.addEventListener('change', async ()=>{
+    const file=inp.files[0]; if(!file) return;
+    showLoad(true);
+    try{
+      const b64=await fileToB64(file);
+      const up=await api({action:'uploadFile', base64:b64, mime:file.type, name:file.name});
+      await api({action:'update', sheet:'ORDER', id:oid, data:{'Bukti Transfer':up.url, 'Status Order':'done'}});
+      toast('Bukti transfer terunggah ✓','ok');
+      invalidateLists(); await loadList(true);
+    }catch(err){ toast(err.message||'Gagal unggah','err'); }
+    finally{ showLoad(false); }
+  });
+  inp.click();
 }
 function showOrderDetail(o){
   state.editing=null; state.files={};
@@ -2399,33 +2429,15 @@ function renderSettings(){
   state.view=null;
   $('#content').innerHTML =
     '<div class="page-head"><div><div class="page-title">Pengaturan</div>'+
-    '<div class="page-sub">Alamat server (Web App Apps Script)</div><div class="hairline"></div></div></div>'+
-    '<div class="panel settings" style="padding:22px">'+
-      '<div class="field"><label>URL Web App</label>'+
-      '<input id="apiInput" placeholder="https://script.google.com/macros/s/…/exec" value="'+esc(getApiUrl())+'"></div>'+
-      '<div style="display:flex;gap:10px;margin-top:16px"><button class="btn btn-primary" id="saveApi">Simpan</button>'+
-      '<button class="btn btn-ghost" id="testApi">Tes koneksi</button></div>'+
-      '<div class="note">Dapatkan URL ini setelah <b>Deploy &gt; New deployment &gt; Web app</b> pada Apps Script. '+
-      'PIN: HRD <code>818181</code>, Finance <code>787878</code>, CS <code>NAMACABANG123</code> (mis. <code>SURABAYA123</code>).</div>'+
-    '</div>'+
-    '<div class="panel settings" style="padding:18px 22px;margin-top:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'+
-      '<div><div style="font-weight:700">Akun</div><div class="page-sub">'+esc((state.session&&state.session.nama)||'')+'</div></div>'+
+    '<div class="page-sub">Akun & aplikasi</div><div class="hairline"></div></div></div>'+
+    '<div class="panel settings" style="padding:18px 22px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'+
+      '<div><div style="font-weight:700">'+esc((state.session&&state.session.nama)||'')+'</div>'+
+      '<div class="page-sub">'+esc([state.session&&state.session.jabatan, state.session&&state.session.cabang].filter(Boolean).join(' · '))+'</div></div>'+
       '<button class="btn btn-danger" id="btnLogoutPage">'+svg('logout')+'Keluar</button>'+
     '</div>';
   const lo=$('#btnLogoutPage'); if(lo) lo.addEventListener('click', logout);
-  $('#saveApi').addEventListener('click', ()=>{ setApiUrl($('#apiInput').value); toast('Tersimpan','ok'); });
-  $('#testApi').addEventListener('click', async ()=>{
-    setApiUrl($('#apiInput').value); showLoad(true);
-    try{ const r=await fetch(getApiUrl()); const j=await r.json(); toast(j.ok?'Koneksi OK ✓':'Server tak dikenal','ok'); }
-    catch(e){ toast('Gagal terhubung','err'); } finally{ showLoad(false); }
-  });
 }
-function openSettingsStandalone(){
-  // simple inline prompt on login page
-  const cur=getApiUrl();
-  const url=prompt('Masukkan URL Web App Apps Script (…/exec):', cur||'');
-  if(url!=null){ setApiUrl(url); toast('Alamat server disimpan','ok'); }
-}
+function openSettingsStandalone(){ /* tidak dipakai lagi (backend = Supabase) */ }
 
 /* ============================================================
    BOOT
