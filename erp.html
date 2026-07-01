@@ -319,6 +319,23 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .set-d{font-size:12px;color:var(--muted)}
 .set-arrow{color:var(--faint);flex:none}
 .set-arrow svg{width:17px;height:17px}
+
+/* ---------- DESIGNER: fly catch game ---------- */
+.fly-arena{position:relative;height:min(62vh,520px);border-radius:18px;overflow:hidden;
+  background:
+    radial-gradient(120% 90% at 20% 0%, #f4faf7 0%, rgba(244,250,247,0) 55%),
+    repeating-linear-gradient(45deg, var(--surface) 0 22px, var(--surface-2) 22px 44px);
+  border:1px solid var(--line);box-shadow:var(--shadow-sm);cursor:crosshair;touch-action:none}
+.fly-hint{position:absolute;top:14px;left:0;right:0;text-align:center;font-weight:700;
+  font-size:14px;color:var(--muted);pointer-events:none;user-select:none}
+.fly{position:absolute;left:0;top:0;width:76px;height:auto;display:flex;flex-direction:column;align-items:center;gap:2px;
+  transition:left .18s cubic-bezier(.34,1.4,.5,1), top .18s cubic-bezier(.34,1.4,.5,1);will-change:left,top;user-select:none}
+.fly-svg{width:60px;height:auto;filter:drop-shadow(0 4px 6px rgba(0,0,0,.22))}
+.fly-label{font-size:12px;font-weight:800;color:var(--petrol);background:#fff;border:1px solid var(--line-2);
+  border-radius:14px;padding:2px 9px;box-shadow:var(--shadow-sm);white-space:nowrap}
+.fly-wings{transform-origin:60px 26px;animation:flap .12s linear infinite}
+@keyframes flap{0%,100%{transform:scaleX(1)}50%{transform:scaleX(.6)}}
+@media (max-width:520px){ .fly{width:64px} .fly-svg{width:50px} }
 .settings{max-width:560px}
 .settings .note{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;
   padding:14px 16px;color:var(--muted);font-size:13px;line-height:1.6;margin-top:14px}
@@ -840,7 +857,8 @@ const MENUS = {
     {key:'reportKPI', label:'Report KPI', icon:'audit'},
     {key:'kpiCS', label:'KPI CS', icon:'users'},
     {key:'__settings', label:'Pengaturan', icon:'settings'}
-  ]
+  ],
+  DESIGNER: []
 };
 
 /* ---------- VIEW DEFINITIONS ---------- */
@@ -1286,6 +1304,8 @@ async function doLogin(){
 async function logout(){
   try{ await window.sb.auth.signOut(); }catch(e){}
   if(state._ch){ try{ window.sb.removeChannel(state._ch); }catch(e){} state._ch=null; }
+  if(window._flyIdle){ clearInterval(window._flyIdle); window._flyIdle=null; }
+  document.body.classList.remove('is-designer');
   localStorage.removeItem('klinklin_session');
   state.session=null; state.cache={}; state.listCache={};
   $('#app').style.display='none'; $('#login').style.display='grid';
@@ -1310,6 +1330,8 @@ function enterApp(){
   $('#roleLabel').textContent = s.role==='CS' ? ('CS · '+s.cabang) : s.role;
   buildNav();
   startClock();
+  document.body.classList.toggle('is-designer', s.role==='DESIGNER');
+  if(!MENUS[s.role].length){ renderDesigner(); return; }
   const first = MENUS[s.role][0].key;
   selectMenu(first);
 }
@@ -3165,6 +3187,81 @@ async function openSettingsView(key){
   }
 }
 function openSettingsStandalone(){ /* tidak dipakai lagi (backend = Supabase) */ }
+
+/* ============================================================
+   DESIGNER — halaman santai "Tangkap Aku!" (lalat kabur dari kursor)
+   ============================================================ */
+const FLY_SVG =
+  '<svg class="fly-svg" viewBox="0 0 120 90" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'+
+    '<g class="fly-wings">'+
+      '<ellipse cx="44" cy="26" rx="26" ry="15" fill="#cfe8ff" opacity="0.75" transform="rotate(-24 44 26)"/>'+
+      '<ellipse cx="76" cy="26" rx="26" ry="15" fill="#cfe8ff" opacity="0.75" transform="rotate(24 76 26)"/>'+
+    '</g>'+
+    '<ellipse cx="60" cy="58" rx="26" ry="20" fill="#2b2f36"/>'+
+    '<ellipse cx="60" cy="46" rx="16" ry="13" fill="#3a3f47"/>'+
+    '<path d="M46 60 q14 8 28 0" stroke="#12151a" stroke-width="3" fill="none" stroke-linecap="round"/>'+
+    '<path d="M46 68 q14 8 28 0" stroke="#12151a" stroke-width="3" fill="none" stroke-linecap="round"/>'+
+    '<circle cx="51" cy="44" r="8" fill="#d64a4a"/><circle cx="69" cy="44" r="8" fill="#d64a4a"/>'+
+    '<circle cx="53" cy="42" r="2.4" fill="#fff"/><circle cx="71" cy="42" r="2.4" fill="#fff"/>'+
+    '<path d="M56 34 q4 -10 10 0" stroke="#12151a" stroke-width="2.4" fill="none" stroke-linecap="round"/>'+
+    '<g stroke="#12151a" stroke-width="2.6" stroke-linecap="round">'+
+      '<path d="M40 70 l-12 10"/><path d="M44 76 l-8 12"/><path d="M76 76 l8 12"/><path d="M80 70 l12 10"/>'+
+    '</g>'+
+  '</svg>';
+
+function flyTaunt(n){
+  const list=['Hampir kena!','Coba lagi 😜','Kabuurr!','Gesit dong~','Wuuush!','Nyaris!','Meleset!','Kejar teruus!','Ngga akan kena 😏'];
+  return list[n % list.length];
+}
+function renderDesigner(){
+  document.querySelectorAll('.nav-item,.bn-item').forEach(b=>b.classList.remove('active'));
+  $('#content').innerHTML =
+    greetingHTML()+
+    '<div class="page-head"><div><div class="page-title">Ruang Santai Designer</div>'+
+      '<div class="page-sub">Tidak ada tugas di sini — coba tangkap si lalat kalau bisa 😄</div><div class="hairline"></div></div>'+
+      '<div class="spacer"></div>'+
+      '<button class="btn btn-danger" id="btnDesignerOut">'+svg('logout')+'Keluar</button>'+
+    '</div>'+
+    '<div class="fly-arena" id="flyArena">'+
+      '<div class="fly-hint" id="flyHint">Gerakkan kursor ke arah lalat…</div>'+
+      '<div class="fly" id="fly">'+FLY_SVG+'<span class="fly-label">Tangkap aku!</span></div>'+
+    '</div>';
+  const out=$('#btnDesignerOut'); if(out) out.addEventListener('click', logout);
+  initFlyGame();
+}
+function initFlyGame(){
+  const arena=$('#flyArena'), fly=$('#fly'), hint=$('#flyHint');
+  if(!arena||!fly) return;
+  let fx=0, fy=0, attempts=0;
+  function bounds(){ const r=arena.getBoundingClientRect(), fr=fly.getBoundingClientRect();
+    return {r, fw:fr.width, fh:fr.height, maxX:Math.max(0,r.width-fr.width), maxY:Math.max(0,r.height-fr.height)}; }
+  function place(x,y){ const b=bounds();
+    fx=Math.max(0,Math.min(b.maxX,x)); fy=Math.max(0,Math.min(b.maxY,y));
+    fly.style.left=fx+'px'; fly.style.top=fy+'px'; }
+  setTimeout(()=>{ const b=bounds(); place(b.maxX/2, b.maxY/2); }, 40);
+  function flee(clientX, clientY){
+    const b=bounds();
+    const cx=fx+b.fw/2, cy=fy+b.fh/2;              // titik tengah lalat (relatif arena)
+    const mx=clientX-b.r.left, my=clientY-b.r.top; // kursor relatif arena
+    const dx=cx-mx, dy=cy-my, dist=Math.hypot(dx,dy);
+    if(dist<125){
+      attempts++;
+      const ang=Math.atan2(dy,dx)+(Math.random()-0.5)*1.6;
+      const jump=150+Math.random()*140;
+      let nx=cx+Math.cos(ang)*jump-b.fw/2, ny=cy+Math.sin(ang)*jump-b.fh/2;
+      if(nx<0||nx>b.maxX||ny<0||ny>b.maxY){ nx=Math.random()*b.maxX; ny=Math.random()*b.maxY; }
+      place(nx,ny);
+      if(hint) hint.textContent=flyTaunt(attempts);
+    }
+  }
+  arena.addEventListener('mousemove', e=>flee(e.clientX,e.clientY));
+  arena.addEventListener('touchmove', e=>{ const t=e.touches[0]; if(t) flee(t.clientX,t.clientY); }, {passive:true});
+  fly.addEventListener('click', ()=>{ const b=bounds(); place(Math.random()*b.maxX, Math.random()*b.maxY);
+    if(hint) hint.textContent='Hampir! Tapi tetap ngga kena 😝'; });
+  clearInterval(window._flyIdle);
+  window._flyIdle=setInterval(()=>{ if(!document.getElementById('fly')){ clearInterval(window._flyIdle); return; }
+    place(fx+(Math.random()-0.5)*46, fy+(Math.random()-0.5)*46); }, 1500);
+}
 
 /* ============================================================
    BOOT
