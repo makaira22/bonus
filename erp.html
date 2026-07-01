@@ -300,7 +300,11 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
   padding:24px;background:rgba(8,24,23,.82);backdrop-filter:blur(4px);cursor:zoom-out}
 #imgPop.show{display:flex;animation:rise .18s ease}
 #imgPop img{max-width:92vw;max-height:88vh;border-radius:14px;background:#fff;
-  box-shadow:var(--shadow-lg);object-fit:contain}
+  box-shadow:var(--shadow-lg);object-fit:contain;cursor:default}
+.imgpop-close{position:fixed;top:16px;right:16px;z-index:96;width:44px;height:44px;border-radius:50%;
+  background:rgba(255,255,255,.16);color:#fff;font-size:26px;line-height:1;display:grid;place-items:center;
+  backdrop-filter:blur(4px);transition:.15s}
+.imgpop-close:hover{background:rgba(255,255,255,.3)}
 
 /* ---------- SETTINGS ---------- */
 .settings{max-width:560px}
@@ -428,13 +432,14 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .pay-chip{margin-left:8px;background:var(--bg);border:1px solid var(--line-2);color:var(--petrol);
   font-weight:700;font-size:11px;padding:2px 8px;border-radius:8px}
 @media (max-width:880px){
-  .tbar-row{flex-wrap:wrap}
-  .tbar-row .search{flex:1 1 60%;min-width:150px;order:2}
+  .tbar-row{flex-wrap:nowrap; gap:8px}
+  .tbar-row .search{flex:1 1 auto;min-width:0;order:2}
   .mob-count{display:inline-flex;order:1}
   #headCount{display:none}
   #headCount.count-chip-force{display:inline-flex}
-  .tbar-row #btnApproveSel{order:3}
-  .tbar-row .fbtn{order:4}
+  .tbar-row #btnApproveSel{order:3;flex:none}
+  .tbar-row .fbtn{order:4;flex:none}
+  .hide-sm{display:none}
 }
 .fbtn{position:relative}
 .fbadge{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;
@@ -459,7 +464,7 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 @media (max-width:880px){ .desk-only{display:none} }
 /* ORDER tables punya banyak kolom → di layar sempit (mis. jendela desktop di-minimize)
    otomatis pakai kartu supaya penuh & tak perlu geser horizontal. */
-@media (max-width:1100px){ .tbl-wrap.desk-only{display:none} .card-list.order-cards{display:flex} }
+@media (max-width:1100px){ .tbl-wrap.desk-only{display:none} .card-list.order-cards,.card-list.gaji-cards{display:flex} }
 tr.rowclick{cursor:pointer}
 tr.rowclick:hover td{background:var(--surface-2)}
 
@@ -564,7 +569,7 @@ td.c-green, td.c-red, td.c-orange, td.c-blue{font-weight:700}
 </div>
 
 <div id="sync"><span class="s"></span><span class="t"></span></div>
-<div id="imgPop"><img id="imgPopImg" src="" alt="Bukti"></div>
+<div id="imgPop"><button id="imgPopClose" class="imgpop-close" aria-label="Tutup">&times;</button><img id="imgPopImg" src="" alt="Bukti"></div>
 <div id="toast"></div>
 
 <script>
@@ -909,7 +914,7 @@ const VIEWS = {
   auditOrder:{
     sheet:'ORDER', title:'Audit Order', sub:'', branchLock:false,
     idField:'ID Order', statusIn:['done'], statusField:'Status Order', statusPrio:['done'],
-    approve:true, multiApprove:true, statusBadge:true, invoice:true, rowDetail:true, countTop:true,
+    approve:true, multiApprove:true, statusBadge:true, invoice:true, rowDetail:true, countTop:true, noSyncBtn:true,
     table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Metode Pembayaran','PPn','Total Akhir Setelah Diskon','Waktu Bukti Transfer','Bukti Transfer'],
     colLabel:{'Waktu Bukti Transfer':'Waktu Bukti','Total Akhir Setelah Diskon':'Total'},
     filters:['Cabang'],
@@ -1263,7 +1268,7 @@ function buildToolbar(){
   if(!v.countTop){ row += '<span class="count-chip mob-count" id="headCountM"></span>'; }
   if(v.search){ row += '<div class="search">'+svg('search')+'<input id="q" placeholder="Cari…" /></div>'; }
   else { row += '<div class="spacer"></div>'; }
-  if(v.multiApprove){ row += '<button class="btn btn-gold btn-sm" id="btnApproveSel">'+svg('check')+'Approve terpilih</button>'; }
+  if(v.multiApprove){ row += '<button class="btn btn-gold btn-sm" id="btnApproveSel">'+svg('check')+'Approve<span class="hide-sm"> terpilih</span></button>'; }
   row += '<button class="icon-btn fbtn" id="filterToggle" title="Filter">'+svg('funnel')+'<span class="fbadge" id="fbadge"></span></button>';
   if(!v.noSyncBtn){ row += '<button class="icon-btn" id="btnSyncTb" title="Sinkronkan data">'+svg('refresh')+'</button>'; }
   row += '</div>';
@@ -1495,7 +1500,7 @@ function renderTable(){
   const cols=v.table.filter(c=>HIDDEN_COLS.indexOf(c)<0);
   const showAct=v.canEdit||v.approve||v.invoice||v.wa||v.slip;
   const chk=v.multiApprove;
-  const tblClass = (v.sheet==='ORDER') ? 'tbl-wrap desk-only' : 'tbl-wrap';
+  const tblClass = (v.sheet==='ORDER'||v.sheet==='GAJI') ? 'tbl-wrap desk-only' : 'tbl-wrap';
   let html='<div class="'+tblClass+'"><table><thead><tr>'+
     (chk?'<th class="chkcol"><input type="checkbox" id="checkAll"></th>':'')+
     cols.map(c=>'<th>'+esc(colLabel(v,c))+'</th>').join('')+(showAct?'<th></th>':'')+'</tr></thead><tbody>';
@@ -1516,6 +1521,8 @@ function renderTable(){
   if(v.sheet==='ORDER'){
     cardHtml='<div class="card-list order-cards">'+rows.map(r=>{
       const oid=r['ID Order']; const st=norm(r['Status Order'])||'pending';
+      const buktiBtn = r['Bukti Transfer'] ? '<button class="btn btn-ghost btn-sm" data-img="'+esc(r['Bukti Transfer'])+'">'+svg('file')+'Lihat Bukti</button>' : '';
+      const actInner = buktiBtn + (showAct?rowActions(v,r):'');
       return '<div class="ocard" data-detail="'+esc(oid)+'">'+
         '<div class="ocard-top"><span class="ocard-name">'+esc(r['Nama Customer']||'-')+'</span>'+
           '<span style="display:flex;align-items:center;gap:9px">'+
@@ -1527,7 +1534,25 @@ function renderTable(){
           (r['Metode Pembayaran']?'<span class="pay-chip">'+esc(r['Metode Pembayaran'])+'</span>':'')+'</div>'+
         '<div class="ocard-meta sub"><span>'+esc(rp(r['Total Akhir Setelah Diskon']||r['Total Akhir']||0))+
           (r['Nama Cleaner']?(' · '+esc(r['Nama Cleaner'])):'')+'</span></div>'+
-        (showAct?'<div class="ocard-act">'+rowActions(v,r)+'</div>':'')+
+        (r['Waktu Bukti Transfer']?'<div class="ocard-meta">'+svg('file')+'<span>Waktu bukti: '+esc(r['Waktu Bukti Transfer'])+'</span></div>':'')+
+        (actInner?'<div class="ocard-act">'+actInner+'</div>':'')+
+      '</div>';
+    }).join('')+'</div>';
+  }
+  // Kartu ringkas untuk GAJI (tampil di HP): Nama, Periode, Take Home Pay, Cetak Slip
+  if(v.sheet==='GAJI'){
+    cardHtml='<div class="card-list gaji-cards">'+rows.map(r=>{
+      const sid=v.idField?esc(r[v.idField]):('#'+state.rows.indexOf(r));
+      const per=/^\d{4}-\d{2}/.test(String(r['Periode Bulan']||'')) ? monthLabel(String(r['Periode Bulan']).slice(0,7)) : (r['Periode Bulan']||'-');
+      return '<div class="ocard">'+
+        '<div class="ocard-top"><span class="ocard-name">'+esc(r['Nama Karyawan']||'-')+'</span>'+
+          '<span class="pay-chip">'+esc(per)+'</span></div>'+
+        '<div class="ocard-meta sub"><span>Take Home Pay · '+esc(rp(r['Take Home Pay']||0))+'</span></div>'+
+        '<div class="ocard-act">'+
+          '<button class="btn btn-gold btn-sm" data-slip="'+sid+'">'+svg('file')+'Cetak Slip</button>'+
+          '<button class="act-ic" data-slippdf="'+sid+'" title="Download PDF">'+svg('file')+'</button>'+
+          (v.canEdit?'<button class="act-ic" data-edit="'+sid+'" title="Edit">'+svg('edit')+'</button>':'')+
+        '</div>'+
       '</div>';
     }).join('')+'</div>';
   }
@@ -1589,7 +1614,8 @@ function wireRowHandlers(v){
     const o=state.rows.find(x=>String(x['ID Order'])===b.dataset.wak); if(o) waCleaner(o,b);
   }));
   document.querySelectorAll('.ocard-chk').forEach(c=>c.addEventListener('click',e=>e.stopPropagation()));
-  document.querySelectorAll('.ocard[data-detail]').forEach(c=>c.addEventListener('click',()=>{
+  document.querySelectorAll('.ocard[data-detail]').forEach(c=>c.addEventListener('click',e=>{
+    if(e.target.closest('button, a, input, .ocard-act, [data-img]')) return;
     const o=state.rows.find(x=>String(x['ID Order'])===c.dataset.detail); if(o) showOrderDetail(o);
   }));
   if(v.rowDetail){
@@ -2699,6 +2725,8 @@ $('#modalCancel').addEventListener('click', closeOverlay);
 $('#modalSave').addEventListener('click', saveForm);
 $('#overlay').addEventListener('click', e=>{ if(e.target===$('#overlay')) closeOverlay(); });
 $('#imgPop').addEventListener('click', closeImg);
+$('#imgPopImg').addEventListener('click', e=>e.stopPropagation());
+$('#imgPopClose').addEventListener('click', e=>{ e.stopPropagation(); closeImg(); });
 document.addEventListener('click', e=>{ const a=e.target.closest('[data-img]'); if(a){ e.preventDefault(); openImg(a.getAttribute('data-img')); } });
 document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeImg(); });
 
