@@ -307,6 +307,18 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .imgpop-close:hover{background:rgba(255,255,255,.3)}
 
 /* ---------- SETTINGS ---------- */
+.set-row{width:100%;display:flex;align-items:center;gap:14px;padding:14px 14px;border-radius:12px;
+  text-align:left;transition:.12s}
+.set-row:hover{background:var(--surface-2)}
+.set-row+.set-row{border-top:1px solid var(--line)}
+.set-ic{width:40px;height:40px;border-radius:11px;background:var(--bg);border:1px solid var(--line);
+  display:grid;place-items:center;color:var(--petrol);flex:none}
+.set-ic svg{width:19px;height:19px}
+.set-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.set-t{font-weight:700;color:var(--ink)}
+.set-d{font-size:12px;color:var(--muted)}
+.set-arrow{color:var(--faint);flex:none}
+.set-arrow svg{width:17px;height:17px}
 .settings{max-width:560px}
 .settings .note{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;
   padding:14px 16px;color:var(--muted);font-size:13px;line-height:1.6;margin-top:14px}
@@ -402,6 +414,26 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .cap-stat-v{font-family:var(--display);font-size:24px;font-weight:600;color:var(--petrol);margin-top:3px;line-height:1.1}
 .cap-stat-s{font-size:11px;color:var(--faint)}
 .cap-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow-sm);margin-bottom:14px}
+.cap-sub2{font-size:12px;font-weight:600;color:var(--muted)}
+.ops-note{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;
+  padding:11px 14px;font-size:13px;color:var(--muted);margin-bottom:14px}
+.ops-note b{color:var(--ink)}
+.grow-line{margin:-4px 0 14px}
+.ops-tbl{width:100%;border-collapse:collapse;font-size:13px;min-width:640px}
+.ops-tbl th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--faint);
+  font-weight:700;padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+.ops-tbl td{padding:10px;border-bottom:1px solid var(--line);vertical-align:middle}
+.ops-tbl td.money{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ops-tbl th:nth-child(n+2){text-align:right}
+.ops-tbl th:first-child,.ops-tbl th:nth-child(5){text-align:left}
+.ops-tbl .cab-cell{font-weight:700;color:var(--petrol);white-space:nowrap}
+.ops-tbl .ops-total td{font-weight:800;border-top:2px solid var(--line-2);background:var(--surface-2)}
+.grow{font-size:12px;font-weight:700;white-space:nowrap}
+.g-up{color:var(--success)} .g-down{color:var(--danger)} .g-flat{color:var(--muted)}
+.kpi-badge{display:inline-block;font-weight:800;font-size:12.5px;padding:4px 11px;border-radius:16px;color:#fff}
+.k-green{background:var(--success)} .k-yellow{background:#C99A28} .k-red{background:var(--danger)}
+.k-none{background:var(--faint)}
+.kpi-legend{margin-top:12px;font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .pie-wrap{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
 .pie-svg{width:150px;height:150px;flex:none}
 .pie-legend{flex:1;min-width:160px;display:flex;flex-direction:column;gap:7px}
@@ -464,7 +496,16 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 @media (max-width:880px){ .desk-only{display:none} }
 /* ORDER tables punya banyak kolom → di layar sempit (mis. jendela desktop di-minimize)
    otomatis pakai kartu supaya penuh & tak perlu geser horizontal. */
-@media (max-width:1100px){ .tbl-wrap.desk-only{display:none} .card-list.order-cards,.card-list.gaji-cards{display:flex} }
+@media (max-width:1100px){ .tbl-wrap.desk-only{display:none} .card-list.order-cards,.card-list.gaji-cards,.card-list.kar-cards{display:flex} }
+.kar-head{display:flex;align-items:center;gap:12px}
+.kar-ava{width:44px;height:44px;border-radius:50%;object-fit:cover;flex:none;border:1px solid var(--line)}
+.kar-ava-ph{display:grid;place-items:center;background:var(--gold-soft);color:var(--gold-deep);font-weight:700;font-size:18px}
+.kar-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.kar-role{font-size:12.5px;color:var(--muted);font-weight:600}
+.kar-tags{display:flex;flex-wrap:wrap;gap:7px;margin-top:11px}
+.kar-tag{font-size:11.5px;font-weight:700;color:var(--muted);background:var(--surface-2);
+  border:1px solid var(--line);border-radius:16px;padding:5px 11px}
+.kar-tag-cab{color:var(--petrol);background:var(--bg);border-color:var(--line-2)}
 tr.rowclick{cursor:pointer}
 tr.rowclick:hover td{background:var(--surface-2)}
 
@@ -757,7 +798,6 @@ const MENUS = {
   HRD: [
     {key:'karyawan', label:'Karyawan', icon:'users'},
     {key:'gaji', label:'Gaji', icon:'salary'},
-    {key:'gajiPokok', label:'Gaji Pokok', icon:'settings'},
     {key:'insentif', label:'Insentif', icon:'gift'},
     {key:'layanan', label:'Layanan', icon:'inbox'},
     {key:'__settings', label:'Pengaturan', icon:'settings'}
@@ -774,6 +814,11 @@ const MENUS = {
     {key:'hasilAudit', label:'Hasil Audit', icon:'result'},
     {key:'editOrder', label:'Edit Order', icon:'edit'},
     {key:'gajiFinance', label:'Gaji', icon:'salary'},
+    {key:'__settings', label:'Pengaturan', icon:'settings'}
+  ],
+  OPERASIONAL: [
+    {key:'laporanOmzet', label:'Laporan Omzet', icon:'result'},
+    {key:'reportKPI', label:'Report KPI', icon:'audit'},
     {key:'__settings', label:'Pengaturan', icon:'settings'}
   ]
 };
@@ -813,7 +858,7 @@ const ORDER_FORM = [
 
 const VIEWS = {
   karyawan:{
-    sheet:'KARYAWAN', title:'Karyawan', sub:'Data seluruh karyawan & profil',
+    sheet:'KARYAWAN', title:'Karyawan', sub:'', countTop:true, noSyncBtn:true,
     idField:'ID Karyawan', canAdd:true, canEdit:true, sortBy:['Cabang','Nama Lengkap'],
     table:['Foto Profil','ID Karyawan','Nama Lengkap','Jabatan','Status','Cabang','No WA'],
     filters:['Cabang','Jabatan','Status'],
@@ -827,7 +872,7 @@ const VIEWS = {
     ]
   },
   gaji:{
-    sheet:'GAJI', title:'Gaji Karyawan', sub:'Slip gaji — bonus & potongan otomatis',
+    sheet:'GAJI', title:'Gaji Karyawan', sub:'', countTop:true, noSyncBtn:true,
     idField:'ID Slip', canAdd:true, canEdit:true, special:'gaji', slip:true,
     table:['Periode Bulan','Nama Karyawan','Total Bonus','Total Potongan','Gaji Diterima','Take Home Pay'],
     colorMap:{'Total Bonus':'c-green','Total Potongan':'c-red','Gaji Diterima':'c-orange','Take Home Pay':'c-blue'},
@@ -863,7 +908,7 @@ const VIEWS = {
     ]
   },
   insentif:{
-    sheet:'BONUS', title:'Insentif', sub:'Semua bonus yang diinput CS', readOnly:true,
+    sheet:'BONUS', title:'Insentif', sub:'', countTop:true, noSyncBtn:true, readOnly:true,
     idField:'ID Insentif',
     table:['ID Insentif','No Order','Jenis','Nominal','Nama Cleaner','Nama Customer','Tanggal Pengerjaan','Tanggal Input'],
     filters:['Jenis'], dynCleaner:true,
@@ -871,14 +916,14 @@ const VIEWS = {
     datePreset:true, dateFilterField:'Tanggal Pengerjaan'
   },
   layanan:{
-    sheet:'LAYANAN', title:'Layanan', sub:'Daftar layanan untuk pilihan order',
+    sheet:'LAYANAN', title:'Layanan', sub:'', countTop:true, noSyncBtn:true,
     idField:'ID Layanan', canAdd:true, canEdit:true,
     table:['ID Layanan','Nama Layanan'],
     search:['Nama Layanan','ID Layanan'],
     form:[ f('Nama Layanan','text',{req:true, full:true}) ]
   },
   gajiPokok:{
-    sheet:'GAJI_POKOK', title:'Gaji Pokok', sub:'Setting gaji pokok, bonus bulanan & premi per cabang/jabatan/status',
+    sheet:'GAJI_POKOK', title:'Gaji Pokok', sub:'', countTop:true, noSyncBtn:true, inSettings:true,
     special:'gajiPokok', keyFields:['Cabang','Jabatan','Status'], canAdd:true, canEdit:true,
     sortBy:['Cabang','Jabatan','Status'],
     table:['Cabang','Jabatan','Status','Gaji Pokok','Bonus Bulanan','Tunjangan Kos','Tunjangan Kerja','Premi BPJS'],
@@ -969,6 +1014,29 @@ const VIEWS = {
 /* Gaji versi FINANCE: tampilannya sama persis dgn HRD, tapi hanya baca —
    tidak bisa tambah / edit (tombol Cetak Slip & PDF tetap ada). */
 VIEWS.gajiFinance = Object.assign({}, VIEWS.gaji, { canAdd:false, canEdit:false, readOnly:true });
+
+/* ===== OPERASIONAL ===== */
+VIEWS.laporanOmzet = {
+  sheet:'ORDER', title:'Laporan Omzet', sub:'', special:'laporanOmzet', countTop:true, noSyncBtn:true,
+  filters:['Cabang','Status Order'],
+  datePreset:true, dateFilterField:'Tanggal Pengerjaan'
+};
+VIEWS.reportKPI = {
+  sheet:'ORDER', title:'Report KPI', sub:'', special:'reportKPI', countTop:true, noSyncBtn:true,
+  filters:['Cabang','Status Order'],
+  datePreset:true, dateFilterField:'Tanggal Pengerjaan'
+};
+VIEWS.targetOmzet = {
+  sheet:'TARGET_OMZET', title:'Target Omzet', sub:'', inSettings:true, countTop:true, noSyncBtn:true,
+  keyFields:['Cabang'], canAdd:true, canEdit:true,
+  sortBy:['Cabang'],
+  table:['Cabang','Target Omzet'],
+  search:['Cabang'],
+  form:[
+    f('Cabang','select',{opts:CABANG, req:true}),
+    f('Target Omzet','money',{req:true})
+  ]
+};
 
 const FILTER_OPTS = {
   'Cabang':CABANG, 'Jabatan':JABATAN, 'Status':STATUS_KARYAWAN,
@@ -1196,6 +1264,11 @@ function enterApp(){
   $('#btnSettings').innerHTML = svg('settings');
   $('#btnSync').innerHTML = svg('refresh');
   const s=state.session;
+  if(!MENUS[s.role]){
+    $('#content').innerHTML='';
+    toast('Role "'+esc(s.role||'(kosong)')+'" belum dikenali. Atur kolom role di profiles.','err');
+    return;
+  }
   $('#roleLabel').textContent = s.role==='CS' ? ('CS · '+s.cabang) : s.role;
   buildNav();
   startClock();
@@ -1244,6 +1317,7 @@ function renderShell(){
   $('#content').innerHTML =
     greetingHTML()+
     '<div class="page-head">'+
+      (v.inSettings ? '<button class="icon-btn" id="btnBackSet" title="Kembali ke Pengaturan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>' : '')+
       '<div><div class="page-title">'+v.title+'</div>'+(v.sub?'<div class="page-sub">'+v.sub+'</div>':'')+'<div class="hairline"></div></div>'+
       '<span class="count-chip'+(v.countTop?' count-chip-force':'')+'" id="headCount"></span>'+
       '<div class="spacer"></div>'+
@@ -1252,6 +1326,7 @@ function renderShell(){
     '<div class="toolbar" id="toolbar"></div>'+
     '<div class="panel" id="panel"></div>';
   if(v.canAdd) $('#btnAdd').addEventListener('click', ()=>openForm(null));
+  const bk=$('#btnBackSet'); if(bk) bk.addEventListener('click', renderSettings);
   buildToolbar();
 }
 function greetTime(){ const h=new Date().getHours(); return h<11?'pagi':h<15?'siang':h<18?'sore':'malam'; }
@@ -1388,6 +1463,7 @@ async function loadList(force){
       }catch(e){ state.cache.karyawanMap={}; }
     }
     refreshDynFilters();
+    if(v.special==='reportKPI') await loadTargets();
     renderView();
     syncDone(state.rows.length);
   }catch(err){ setSync(false); toast(err.message,'err'); $('#panel').innerHTML=emptyState('Gagal memuat data'); }
@@ -1495,7 +1571,10 @@ function applyClientFilters(rows){
 
 function renderView(){
   const v=state.view; if(!v) return;
-  if(v.special==='capaian') renderCapaian(); else renderTable();
+  if(v.special==='capaian') renderCapaian();
+  else if(v.special==='laporanOmzet') renderLaporanOmzet();
+  else if(v.special==='reportKPI') renderReportKPI();
+  else renderTable();
 }
 function countNoun(){ return (state.view && state.view.sheet==='ORDER') ? 'order' : 'data'; }
 function setCount(n, noun){
@@ -1511,7 +1590,7 @@ function renderTable(){
   const cols=v.table.filter(c=>HIDDEN_COLS.indexOf(c)<0);
   const showAct=v.canEdit||v.approve||v.invoice||v.wa||v.slip;
   const chk=v.multiApprove;
-  const tblClass = (v.sheet==='ORDER'||v.sheet==='GAJI') ? 'tbl-wrap desk-only' : 'tbl-wrap';
+  const tblClass = (v.sheet==='ORDER'||v.sheet==='GAJI'||v.sheet==='KARYAWAN') ? 'tbl-wrap desk-only' : 'tbl-wrap';
   let html='<div class="'+tblClass+'"><table><thead><tr>'+
     (chk?'<th class="chkcol"><input type="checkbox" id="checkAll"></th>':'')+
     cols.map(c=>'<th>'+esc(colLabel(v,c))+'</th>').join('')+(showAct?'<th></th>':'')+'</tr></thead><tbody>';
@@ -1550,7 +1629,27 @@ function renderTable(){
       '</div>';
     }).join('')+'</div>';
   }
-  // Kartu ringkas untuk GAJI (tampil di HP): Nama, Periode, Take Home Pay, Cetak Slip
+  // Kartu ringkas untuk KARYAWAN (tampil di HP): nama, jabatan, status, cabang
+  if(v.sheet==='KARYAWAN'){
+    cardHtml='<div class="card-list kar-cards">'+rows.map(r=>{
+      const kid=v.idField?esc(r[v.idField]):('#'+state.rows.indexOf(r));
+      const foto=r['Foto Profil'];
+      const av = foto ? '<img class="kar-ava" src="'+esc(foto)+'" alt="">'
+                      : '<span class="kar-ava kar-ava-ph">'+esc(String(r['Nama Lengkap']||'?').trim().charAt(0).toUpperCase())+'</span>';
+      return '<div class="ocard">'+
+        '<div class="kar-head">'+av+
+          '<div class="kar-info"><span class="ocard-name">'+esc(r['Nama Lengkap']||'-')+'</span>'+
+            '<span class="kar-role">'+esc(r['Jabatan']||'-')+'</span></div>'+
+          (v.canEdit?'<button class="act-ic" data-edit="'+kid+'" title="Edit">'+svg('edit')+'</button>':'')+
+        '</div>'+
+        '<div class="kar-tags">'+
+          (r['Status']?'<span class="kar-tag">'+esc(r['Status'])+'</span>':'')+
+          (r['Cabang']?'<span class="kar-tag kar-tag-cab">'+esc(r['Cabang'])+'</span>':'')+
+          (r['No WA']?'<span class="kar-tag">'+esc(r['No WA'])+'</span>':'')+
+        '</div>'+
+      '</div>';
+    }).join('')+'</div>';
+  }
   if(v.sheet==='GAJI'){
     cardHtml='<div class="card-list gaji-cards">'+rows.map(r=>{
       const sid=v.idField?esc(r[v.idField]):('#'+state.rows.indexOf(r));
@@ -1845,6 +1944,178 @@ function renderCapaian(){
       listCard('Top 10 Alamat — jumlah order', top10Alm, x=>x+' order')+
     '</div>';
   setCount(jumlah, 'order');
+}
+
+/* ============================================================
+   OPERASIONAL — Laporan Omzet & Report KPI
+   Periode bulanan memakai siklus TANGGAL 28 s/d 27.
+   ============================================================ */
+function omzetOf_(r){ return Number(moneyDigits(r['Total Akhir Setelah Diskon']||r['Total Akhir']||0))||0; }
+function periodBounds(ref){
+  const d = ref ? new Date(ref) : new Date();
+  let y=d.getFullYear(), m=d.getMonth();
+  if(d.getDate()<28){ m-=1; if(m<0){ m=11; y-=1; } }
+  const start=new Date(y,m,28), end=new Date(y,m+1,27);
+  return {start:ymd(start), end:ymd(end)};
+}
+function prevPeriodBounds(cur){
+  const s=new Date(cur.start);
+  const ps=new Date(s.getFullYear(), s.getMonth()-1, 28);
+  const pe=new Date(s.getFullYear(), s.getMonth(),   27);
+  return {start:ymd(ps), end:ymd(pe)};
+}
+/* Baris ORDER setelah filter Cabang + Status Order (TANPA rentang tanggal). */
+function opsBaseRows(){
+  let rows=state.rows.slice();
+  const fc=state.filters['Cabang'], fs=state.filters['Status Order'];
+  if(fc) rows=rows.filter(r=>String(r['Cabang']||'').toUpperCase()===String(fc).toUpperCase());
+  if(fs) rows=rows.filter(r=>norm(r['Status Order'])===norm(fs));
+  return rows;
+}
+function opsCabangList(){
+  const fc=state.filters['Cabang'];
+  if(fc) return [String(fc).toUpperCase()];
+  return CABANG.filter(c=>c!=='OFFICE');
+}
+function inRange(d,a,b){ d=String(d||'').slice(0,10); return d && d>=a && d<=b; }
+function growthHTML(now, prev){
+  const diff=now-prev;
+  const pct = prev>0 ? (diff/prev*100) : (now>0?100:0);
+  const up = diff>=0;
+  const arrow = up?'▲':'▼';
+  const cls = diff===0?'g-flat':(up?'g-up':'g-down');
+  return '<span class="grow '+cls+'">'+arrow+' '+rp(Math.abs(diff))+' · '+(up?'+':'−')+Math.abs(pct).toFixed(1)+'%</span>';
+}
+async function loadTargets(){
+  try{ const r=await api({action:'list', sheet:'TARGET_OMZET'});
+    const map={}; (r.data||[]).forEach(t=>{ if(t['Cabang']) map[String(t['Cabang']).toUpperCase()]=Number(moneyDigits(t['Target Omzet']))||0; });
+    state.cache.targets=map; return map;
+  }catch(e){ state.cache.targets={}; return {}; }
+}
+
+function renderLaporanOmzet(){
+  const base=opsBaseRows();
+  const cur=periodBounds(), prev=prevPeriodBounds(cur);
+  // rentang tanggal manual (opsional) untuk bagian DETAIL
+  const useRange = !!(state.dateStart||state.dateEnd);
+  const dStart = state.dateStart||cur.start, dEnd = state.dateEnd||cur.end;
+  const cabs=opsCabangList();
+
+  let totNow=0, totPrev=0, totAds=0, totOrg=0, totLama=0;
+  const rowsHtml = cabs.map(cab=>{
+    const rc=base.filter(r=>String(r['Cabang']||'').toUpperCase()===cab);
+    const now = rc.filter(r=>inRange(r['Tanggal Pengerjaan'],cur.start,cur.end)).reduce((s,r)=>s+omzetOf_(r),0);
+    const pv  = rc.filter(r=>inRange(r['Tanggal Pengerjaan'],prev.start,prev.end)).reduce((s,r)=>s+omzetOf_(r),0);
+    const nowRows = rc.filter(r=>inRange(r['Tanggal Pengerjaan'],cur.start,cur.end));
+    const chan = k => nowRows.filter(r=>norm(r['Chat Dari'])===k).reduce((s,r)=>s+omzetOf_(r),0);
+    const ads=chan('iklan'), org=chan('organik'), lama=chan('lama');
+    // terakhir update = tanggal pengerjaan terbaru pd periode ini
+    let last=''; nowRows.forEach(r=>{ const d=String(r['Tanggal Pengerjaan']||'').slice(0,10); if(d&&d>last) last=d; });
+    totNow+=now; totPrev+=pv; totAds+=ads; totOrg+=org; totLama+=lama;
+    return '<tr><td class="cab-cell">'+esc(cab)+'</td>'+
+      '<td class="money">'+rp(now)+'</td>'+
+      '<td class="money">'+rp(pv)+'</td>'+
+      '<td>'+growthHTML(now,pv)+'</td>'+
+      '<td>'+(last?esc(tglPanjangId(last)):'<span style="color:var(--faint)">—</span>')+'</td>'+
+      '<td class="money">'+rp(ads)+'</td>'+
+      '<td class="money">'+rp(org)+'</td>'+
+      '<td class="money">'+rp(lama)+'</td></tr>';
+  }).join('');
+
+  // DETAIL omzet: per cabang → per layanan (jumlah transaksi & nominal)
+  const detRows=[];
+  cabs.forEach(cab=>{
+    const rc=base.filter(r=>String(r['Cabang']||'').toUpperCase()===cab &&
+      inRange(r['Tanggal Pengerjaan'], dStart, dEnd));
+    const byLay={};
+    rc.forEach(r=>{
+      [1,2,3].forEach(i=>{
+        const nm=String(r['Layanan '+i]||'').trim(); if(!nm) return;
+        const val=Number(moneyDigits(r['Harga '+i]))||0;
+        if(!byLay[nm]) byLay[nm]={n:0,val:0};
+        byLay[nm].n++; byLay[nm].val+=val;
+      });
+    });
+    const lays=Object.keys(byLay).sort((a,b)=>byLay[b].val-byLay[a].val);
+    lays.forEach((nm,i)=>{
+      detRows.push('<tr>'+(i===0?'<td class="cab-cell" rowspan="'+lays.length+'">'+esc(cab)+'</td>':'')+
+        '<td>'+esc(nm)+'</td><td style="text-align:center">'+byLay[nm].n+'</td><td class="money">'+rp(byLay[nm].val)+'</td></tr>');
+    });
+    if(!lays.length) detRows.push('<tr><td class="cab-cell">'+esc(cab)+'</td><td colspan="3" style="color:var(--faint)">Tidak ada transaksi</td></tr>');
+  });
+
+  const periodeLbl = tglPanjangId(cur.start)+' – '+tglPanjangId(cur.end);
+  const detLbl = useRange ? (tglPanjangId(dStart)+' – '+tglPanjangId(dEnd)) : periodeLbl;
+
+  const stat=(l,val)=>'<div class="cap-stat"><div class="cap-stat-l">'+l+'</div><div class="cap-stat-v">'+val+'</div></div>';
+  $('#panel').innerHTML =
+    '<div class="ops-note">Periode bulan ini: <b>'+esc(periodeLbl)+'</b> (siklus tgl 28–27)</div>'+
+    '<div class="cap-stats">'+stat('Omzet Bulan Ini',rp(totNow))+stat('Omzet Bulan Lalu',rp(totPrev))+stat('Growth','')+'</div>'+
+    '<div class="grow-line">'+growthHTML(totNow,totPrev)+'</div>'+
+    '<div class="cap-card"><div class="cap-card-t">Omzet per Cabang</div>'+
+      '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr>'+
+        '<th>Cabang</th><th>Bulan Ini</th><th>Bulan Lalu</th><th>Growth</th><th>Terakhir Update</th><th>Ads</th><th>Organik</th><th>Lama</th>'+
+      '</tr></thead><tbody>'+rowsHtml+
+      '<tr class="ops-total"><td>TOTAL</td><td class="money">'+rp(totNow)+'</td><td class="money">'+rp(totPrev)+'</td>'+
+        '<td>'+growthHTML(totNow,totPrev)+'</td><td>—</td><td class="money">'+rp(totAds)+'</td><td class="money">'+rp(totOrg)+'</td><td class="money">'+rp(totLama)+'</td></tr>'+
+      '</tbody></table></div></div>'+
+    '<div class="cap-card"><div class="cap-card-t">Detail Omzet per Layanan <span class="cap-sub2">('+esc(detLbl)+')</span></div>'+
+      '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr><th>Cabang</th><th>Layanan</th><th>Transaksi</th><th>Nominal</th></tr></thead>'+
+      '<tbody>'+detRows.join('')+'</tbody></table></div></div>';
+  setCount(base.filter(r=>inRange(r['Tanggal Pengerjaan'],cur.start,cur.end)).length, 'order');
+}
+
+function renderReportKPI(){
+  const base=opsBaseRows();
+  const targets=state.cache.targets||{};
+  const cur=periodBounds(), prev=prevPeriodBounds(cur);
+  // periode KPI = rentang tanggal manual bila diisi, jika tidak → periode berjalan
+  const useRange=!!(state.dateStart||state.dateEnd);
+  const pStart=state.dateStart||cur.start, pEnd=state.dateEnd||cur.end;
+  // proporsi hari berjalan dalam periode (untuk "target aman")
+  const today=ymd(new Date());
+  const total=Math.max(1,(new Date(pEnd)-new Date(pStart))/86400000+1);
+  const elapsedRaw=(new Date(Math.min(new Date(today),new Date(pEnd)))-new Date(pStart))/86400000+1;
+  const elapsed=Math.min(total,Math.max(0,elapsedRaw));
+  const safePct=Math.round(elapsed/total*100);
+  const cabs=opsCabangList();
+
+  const rowsHtml=cabs.map(cab=>{
+    const rc=base.filter(r=>String(r['Cabang']||'').toUpperCase()===cab);
+    const ach=rc.filter(r=>inRange(r['Tanggal Pengerjaan'],pStart,pEnd)).reduce((s,r)=>s+omzetOf_(r),0);
+    const pv =rc.filter(r=>inRange(r['Tanggal Pengerjaan'],prev.start,prev.end)).reduce((s,r)=>s+omzetOf_(r),0);
+    const tgt=targets[cab]||0;
+    const kpi = tgt>0 ? (ach/tgt*100) : 0;
+    // warna: >= target aman → hijau; sampai kurang 30% dari target aman → kuning; di bawah → merah
+    let cls='k-red';
+    if(tgt<=0) cls='k-none';
+    else if(kpi>=safePct) cls='k-green';
+    else if(kpi>=safePct-30) cls='k-yellow';
+    const growth = pv>0 ? ((ach-pv)/pv*100) : (ach>0?100:0);
+    const gcls = ach-pv>=0?'g-up':'g-down';
+    return '<tr>'+
+      '<td class="cab-cell">'+esc(cab)+'</td>'+
+      '<td style="text-align:center">'+safePct+'%</td>'+
+      '<td><span class="kpi-badge '+cls+'">'+(tgt>0?kpi.toFixed(1)+'%':'—')+'</span></td>'+
+      '<td class="grow '+gcls+'" style="text-align:center">'+(ach-pv>=0?'+':'−')+Math.abs(growth).toFixed(1)+'%</td>'+
+      '<td class="money">'+rp(tgt)+'</td>'+
+      '<td class="money">'+rp(ach)+'</td></tr>';
+  }).join('');
+
+  const periodeLbl = useRange ? (tglPanjangId(pStart)+' – '+tglPanjangId(pEnd)) : (tglPanjangId(cur.start)+' – '+tglPanjangId(cur.end));
+  const hasTarget=Object.keys(targets).length>0;
+  $('#panel').innerHTML =
+    '<div class="ops-note">Periode: <b>'+esc(periodeLbl)+'</b> · Target aman hari ini: <b>'+safePct+'%</b>'+
+      (hasTarget?'':' · <span style="color:var(--danger)">Target omzet belum diatur (Pengaturan → Target Omzet)</span>')+'</div>'+
+    '<div class="cap-card"><div class="cap-card-t">KPI Omzet per Cabang</div>'+
+      '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr>'+
+        '<th>Cabang</th><th>Target Aman</th><th>KPI Omzet</th><th>Growth</th><th>Target Omzet</th><th>Omzet Dicapai</th>'+
+      '</tr></thead><tbody>'+rowsHtml+'</tbody></table></div>'+
+      '<div class="kpi-legend"><span class="kpi-badge k-green">Hijau</span> di atas target aman · '+
+        '<span class="kpi-badge k-yellow">Kuning</span> kurang s/d 30% · '+
+        '<span class="kpi-badge k-red">Merah</span> di bawah itu</div>'+
+    '</div>';
+  setCount(cabs.length, 'cabang');
 }
 
 /* ---------- WHATSAPP ---------- */
@@ -2681,9 +2952,9 @@ async function saveForm(){
 
   setSync(true);
   try{
-    if(v.special==='gajiPokok'){
+    if(v.keyFields){
       await api({action:'upsert', sheet:v.sheet, keyFields:v.keyFields, data});
-      toast('Gaji pokok tersimpan','ok');
+      toast('Tersimpan','ok');
     }else if(state.editing){
       await api({action:'update', sheet:v.sheet, idField:v.idField, id:state.editing[v.idField], data});
       // Catat waktu upload bukti transfer bila baru diunggah lewat form (best-effort).
@@ -2717,15 +2988,43 @@ function closeOverlay(){ $('#overlay').classList.remove('open'); state.editing=n
    ============================================================ */
 function renderSettings(){
   state.view=null;
+  const s=state.session||{};
+  const role=s.role;
+  // Menu sub-pengaturan per jabatan
+  const entries=[];
+  if(role==='HRD') entries.push({key:'gajiPokok', label:'Gaji Pokok', desc:'Setting gaji pokok, bonus & premi per cabang/jabatan/status', icon:'salary'});
+  if(role==='OPERASIONAL') entries.push({key:'targetOmzet', label:'Target Omzet', desc:'Setting target omzet bulanan tiap cabang', icon:'result'});
+  const entriesHtml = entries.map(e=>
+    '<button class="set-row" data-setkey="'+e.key+'">'+
+      '<span class="set-ic">'+svg(e.icon)+'</span>'+
+      '<span class="set-txt"><span class="set-t">'+esc(e.label)+'</span><span class="set-d">'+esc(e.desc)+'</span></span>'+
+      '<span class="set-arrow">'+svg('edit')+'</span>'+
+    '</button>').join('');
   $('#content').innerHTML =
+    greetingHTML()+
     '<div class="page-head"><div><div class="page-title">Pengaturan</div>'+
     '<div class="page-sub">Akun & aplikasi</div><div class="hairline"></div></div></div>'+
-    '<div class="panel settings" style="padding:18px 22px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'+
-      '<div><div style="font-weight:700">'+esc((state.session&&state.session.nama)||'')+'</div>'+
-      '<div class="page-sub">'+esc([state.session&&state.session.jabatan, state.session&&state.session.cabang].filter(Boolean).join(' · '))+'</div></div>'+
+    '<div class="panel settings" style="padding:18px 22px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px">'+
+      '<div><div style="font-weight:700">'+esc(s.nama||'')+'</div>'+
+      '<div class="page-sub">'+esc([s.jabatan, s.cabang].filter(Boolean).join(' · '))+'</div></div>'+
       '<button class="btn btn-danger" id="btnLogoutPage">'+svg('logout')+'Keluar</button>'+
-    '</div>';
+    '</div>'+
+    (entriesHtml ? '<div class="panel" style="padding:8px">'+entriesHtml+'</div>' : '');
   const lo=$('#btnLogoutPage'); if(lo) lo.addEventListener('click', logout);
+  document.querySelectorAll('[data-setkey]').forEach(b=>b.addEventListener('click',()=>openSettingsView(b.dataset.setkey)));
+}
+async function openSettingsView(key){
+  state.view=VIEWS[key]; state.viewKey=key;
+  state.filters={}; state.search=''; state.dateStart=''; state.dateEnd='';
+  markActive('__settings');
+  renderShell();
+  await loadList();
+  if(state._ch){ try{ window.sb.removeChannel(state._ch); }catch(e){} state._ch=null; }
+  if(state.view && state.view.sheet){
+    state._ch = window.sb.channel('rt-'+state.view.sheet)
+      .on('postgres_changes', {event:'*', schema:'public', table:state.view.sheet}, ()=>{ loadList(true); })
+      .subscribe();
+  }
 }
 function openSettingsStandalone(){ /* tidak dipakai lagi (backend = Supabase) */ }
 
