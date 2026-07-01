@@ -354,10 +354,18 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .bs-empty{color:var(--faint);font-size:13px;padding:8px 0}
 @media (max-width:520px){ .bs-tgl{display:none} }
 /* ---------- greeting, count chip, filter toggle ---------- */
-.greet{margin-bottom:14px}
-.greet-hi{font-family:var(--display);font-size:21px;font-weight:600;color:var(--ink)}
+.greet{margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:14px;
+  background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:15px 18px;box-shadow:var(--shadow-sm)}
+.greet-hi{font-family:var(--display);font-size:20px;font-weight:600;color:var(--ink);line-height:1.2}
 .greet-hi b{color:var(--petrol)}
-.greet-sub{font-size:12.5px;color:var(--muted);font-weight:600;margin-top:2px;letter-spacing:.02em;text-transform:capitalize}
+.greet-sub{font-size:12px;color:var(--muted);font-weight:600;margin-top:3px;letter-spacing:.02em;text-transform:capitalize}
+.greet-date{flex:none;font-size:12px;font-weight:700;color:var(--petrol);background:var(--surface-2);
+  border:1px solid var(--line);border-radius:10px;padding:8px 12px;white-space:nowrap;text-align:right}
+@media (max-width:520px){
+  .greet{padding:13px 15px}
+  .greet-hi{font-size:17px}
+  .greet-date{font-size:11px;padding:7px 10px}
+}
 .count-chip{align-self:center;background:var(--petrol);color:#fff;font-size:12px;font-weight:700;
   padding:5px 11px;border-radius:20px;white-space:nowrap}
 
@@ -368,6 +376,13 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .cap-stat-v{font-family:var(--display);font-size:24px;font-weight:600;color:var(--petrol);margin-top:3px;line-height:1.1}
 .cap-stat-s{font-size:11px;color:var(--faint)}
 .cap-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow-sm);margin-bottom:14px}
+.pie-wrap{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.pie-svg{width:150px;height:150px;flex:none}
+.pie-legend{flex:1;min-width:160px;display:flex;flex-direction:column;gap:7px}
+.pie-leg{display:flex;align-items:center;gap:8px;font-size:12.5px}
+.pie-dot{width:11px;height:11px;border-radius:3px;flex:none}
+.pie-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:var(--ink)}
+.pie-val{flex:none;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
 .cap-card-t{font-weight:700;font-size:13.5px;color:var(--ink);margin-bottom:12px}
 .cap-chart{overflow-x:auto;padding-bottom:4px}
 .cap-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
@@ -420,6 +435,11 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 
 /* ---------- desktop / mobile visibility ---------- */
 @media (max-width:880px){ .desk-only{display:none} }
+/* ORDER tables punya banyak kolom → di layar sempit (mis. jendela desktop di-minimize)
+   otomatis pakai kartu supaya penuh & tak perlu geser horizontal. */
+@media (max-width:1100px){ .tbl-wrap.desk-only{display:none} .card-list.order-cards{display:flex} }
+tr.rowclick{cursor:pointer}
+tr.rowclick:hover td{background:var(--surface-2)}
 
 /* ---------- order cards (mobile) ---------- */
 .card-list{display:none;flex-direction:column;gap:11px}
@@ -703,10 +723,11 @@ const MENUS = {
     {key:'__settings', label:'Pengaturan', icon:'settings'}
   ],
   FINANCE: [
-    {key:'capaian', label:'Capaian', icon:'result'},
+    {key:'capaianFinance', label:'Capaian', icon:'result'},
     {key:'auditOrder', label:'Audit Order', icon:'audit'},
     {key:'hasilAudit', label:'Hasil Audit', icon:'result'},
     {key:'editOrder', label:'Edit Order', icon:'edit'},
+    {key:'gaji', label:'Gaji', icon:'salary'},
     {key:'__settings', label:'Pengaturan', icon:'settings'}
   ]
 };
@@ -858,8 +879,9 @@ const VIEWS = {
   auditOrder:{
     sheet:'ORDER', title:'Audit Order', sub:'', branchLock:false,
     idField:'ID Order', statusIn:['done'], statusField:'Status Order',
-    approve:true, multiApprove:true, statusBadge:true, invoice:true,
-    table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Metode Pembayaran','Total Akhir Setelah Diskon','Bukti Transfer'],
+    approve:true, multiApprove:true, statusBadge:true, invoice:true, rowDetail:true,
+    table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Metode Pembayaran','PPn','Total Akhir Setelah Diskon','Waktu Bukti Transfer','Bukti Transfer'],
+    colLabel:{'Waktu Bukti Transfer':'Waktu Bukti','Total Akhir Setelah Diskon':'Total'},
     filters:['Cabang'],
     search:['Nama Customer','ID Order'],
     datePreset:true, dateFilterField:'Tanggal Pengerjaan'
@@ -882,9 +904,15 @@ const VIEWS = {
     form: ORDER_FORM
   },
   capaian:{
-    sheet:'ORDER', title:'Capaian', sub:'Ringkasan omzet & performa', special:'capaian',
+    sheet:'ORDER', title:'Capaian', sub:'', special:'capaian', countTop:true, noSyncBtn:true,
     branchLock:true,
     filters:['Status Order'],
+    datePreset:true, dateFilterField:'Tanggal Pengerjaan'
+  },
+  capaianFinance:{
+    sheet:'ORDER', title:'Capaian', sub:'', special:'capaian', countTop:true, noSyncBtn:true,
+    financePie:true,
+    filters:['Cabang','Status Order'],
     datePreset:true, dateFilterField:'Tanggal Pengerjaan'
   }
 };
@@ -1162,9 +1190,15 @@ function renderShell(){
 function greetTime(){ const h=new Date().getHours(); return h<11?'pagi':h<15?'siang':h<18?'sore':'malam'; }
 function greetingHTML(){
   const s=state.session||{};
-  const bits=[s.jabatan, s.status].filter(Boolean).join(' · ');
-  return '<div class="greet"><div class="greet-hi">Selamat '+greetTime()+', <b>'+esc(s.nama||'')+'</b> 👋</div>'+
-    (bits?'<div class="greet-sub">'+esc(bits)+'</div>':'')+'</div>';
+  const bits=[s.jabatan||'', s.cabang||'', s.status||''].filter(Boolean).join(' · ');
+  const td=ymd(new Date());
+  return '<div class="greet">'+
+    '<div class="greet-txt">'+
+      '<div class="greet-hi">Selamat '+greetTime()+', <b>'+esc(s.nama||'')+'</b></div>'+
+      (bits?'<div class="greet-sub">'+esc(bits)+'</div>':'')+
+    '</div>'+
+    '<div class="greet-date">'+esc(tglHariId(td))+'</div>'+
+  '</div>';
 }
 function buildToolbar(){
   const v=state.view;
@@ -1399,7 +1433,7 @@ function renderTable(){
     cols.map(c=>'<th>'+esc(colLabel(v,c))+'</th>').join('')+(showAct?'<th></th>':'')+'</tr></thead><tbody>';
   rows.forEach(r=>{
     const oid=r['ID Order'];
-    html+='<tr>';
+    html+= v.rowDetail ? '<tr class="rowclick" data-detailrow="'+esc(oid)+'">' : '<tr>';
     if(chk) html+='<td class="chkcol"><input type="checkbox" class="rowchk" data-id="'+esc(oid)+'"></td>';
     html+=cols.map(c=>{
       const cls=[]; if(isMoney(c)) cls.push('money'); if(v.colorMap&&v.colorMap[c]) cls.push(v.colorMap[c]);
@@ -1412,7 +1446,7 @@ function renderTable(){
   // Kartu ringkas untuk ORDER (tampil di HP)
   let cardHtml='';
   if(v.sheet==='ORDER'){
-    cardHtml='<div class="card-list mob-only">'+rows.map(r=>{
+    cardHtml='<div class="card-list order-cards">'+rows.map(r=>{
       const oid=r['ID Order']; const st=norm(r['Status Order'])||'pending';
       return '<div class="ocard" data-detail="'+esc(oid)+'">'+
         '<div class="ocard-top"><span class="ocard-name">'+esc(r['Nama Customer']||'-')+'</span>'+
@@ -1490,6 +1524,12 @@ function wireRowHandlers(v){
   document.querySelectorAll('.ocard[data-detail]').forEach(c=>c.addEventListener('click',()=>{
     const o=state.rows.find(x=>String(x['ID Order'])===c.dataset.detail); if(o) showOrderDetail(o);
   }));
+  if(v.rowDetail){
+    document.querySelectorAll('tr[data-detailrow]').forEach(tr=>tr.addEventListener('click',e=>{
+      if(e.target.closest('button, a, input, .row-act')) return;
+      const o=state.rows.find(x=>String(x['ID Order'])===tr.dataset.detailrow); if(o) showOrderDetail(o);
+    }));
+  }
   document.querySelectorAll('[data-slip]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation();
     const key=b.dataset.slip; const row=key.charAt(0)==='#'?state.rows[+key.slice(1)]:state.rows.find(x=>String(x[v.idField])===key);
     if(row) printSlip(row);
@@ -1512,6 +1552,8 @@ async function quickUploadProof(oid){
       const b64=await fileToB64(file);
       const up=await api({action:'uploadFile', base64:b64, mime:file.type, name:file.name});
       await api({action:'update', sheet:'ORDER', id:oid, data:{'Bukti Transfer':up.url, 'Status Order':'done'}});
+      // Catat waktu upload bukti transfer (best-effort; diabaikan bila kolom belum ada di database).
+      try{ await api({action:'update', sheet:'ORDER', id:oid, data:{'Waktu Bukti Transfer':nowStr_()}}); }catch(e){}
       toast('Bukti transfer terunggah ✓','ok');
       invalidateLists(); await loadList(true);
     }catch(err){ toast(err.message||'Gagal unggah','err'); }
@@ -1546,6 +1588,7 @@ function showOrderDetail(o){
   if(o['Keterangan Order']) b+=row('Keterangan', esc(o['Keterangan Order']));
   if(o['Alasan Cancel']) b+=row('Alasan Cancel', esc(o['Alasan Cancel']));
   if(o['Waktu Approve']) b+=row('Waktu Approve', esc(o['Waktu Approve']));
+  if(o['Waktu Bukti Transfer']) b+=row('Waktu Upload Bukti', esc(o['Waktu Bukti Transfer']));
   ['Bukti Transfer','Bukti Cancel'].forEach(k=>{ if(o[k]) b+=row(k,'<a class="flink" data-img="'+esc(o[k])+'" style="cursor:zoom-in">Lihat</a>'); });
   if(o['File Invoice']) b+=row('File Invoice','<a class="flink" href="'+esc(o['File Invoice'])+'" target="_blank">Lihat</a>');
   b+='</div>';
@@ -1586,23 +1629,70 @@ function wireSummary(){ /* placeholder untuk interaksi ringkasan bila diperlukan
 /* ============================================================
    CAPAIAN (DASHBOARD CS & FINANCE)
    ============================================================ */
+/* Tokenisasi alamat: ambil kata-kata bermakna (buang kata umum & angka murni). */
+function alamatTokens(s){
+  const stop=new Set(['jalan','jl','jln','no','nomor','rt','rw','blok','gang','gg','kel','kec','kelurahan',
+    'kecamatan','kota','kab','kabupaten','perum','perumahan','komplek','kompleks','komp','the','dan','raya',
+    'gedung','ruko','apartemen','apt','lantai','lt','depan','belakang','samping','dekat','sebelah']);
+  return String(s||'').toLowerCase().replace(/[^a-z0-9\s]/g,' ').split(/\s+/)
+    .filter(w=>w.length>=3 && !stop.has(w) && !/^\d+$/.test(w));
+}
+/* Kelompokkan alamat yang berbagi minimal 2 kata sama (walau depan/belakang & panjang beda). */
+function clusterByAlamat(rows){
+  const clusters=[];
+  rows.forEach(r=>{
+    const raw=String(r['Alamat']||'').trim(); if(!raw) return;
+    const toks=alamatTokens(raw); if(!toks.length) return;
+    const tset=new Set(toks);
+    let best=null, bestShare=1;
+    clusters.forEach(c=>{ let share=0; tset.forEach(t=>{ if(c.tokens.has(t)) share++; });
+      if(share>=2 && share>bestShare){ best=c; bestShare=share; } });
+    if(best){ best.count++; toks.forEach(t=>best.tokens.add(t)); best.labelFreq[raw]=(best.labelFreq[raw]||0)+1; }
+    else { const c={tokens:tset, count:1, labelFreq:{}}; c.labelFreq[raw]=1; clusters.push(c); }
+  });
+  clusters.forEach(c=>{ c.label=Object.keys(c.labelFreq).sort((a,b)=>c.labelFreq[b]-c.labelFreq[a])[0]||'-'; });
+  return clusters.map(c=>({k:c.label, val:c.count})).sort((a,b)=>b.val-a.val);
+}
+/* Kartu diagram pie (dipakai Finance untuk Top 5 layanan). */
+function pieCard(title, arr, fmt){
+  if(!arr.length) return '<div class="cap-card"><div class="cap-card-t">'+title+'</div><div class="cap-empty">Belum ada data</div></div>';
+  const colors=['#0E3B3A','#C2A567','#17524F','#A6863F','#5E6F6C','#1F7A5E','#8A9A97'];
+  const total=arr.reduce((s,it)=>s+it.val,0)||1;
+  const cx=90, cy=90, r=80; let a0=-Math.PI/2, segs='';
+  arr.forEach((it,i)=>{
+    const frac=it.val/total, a1=a0+frac*Math.PI*2;
+    const x0=cx+r*Math.cos(a0), y0=cy+r*Math.sin(a0), x1=cx+r*Math.cos(a1), y1=cy+r*Math.sin(a1);
+    const large=frac>0.5?1:0;
+    if(arr.length===1){ segs='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="'+colors[0]+'"></circle>'; }
+    else segs+='<path d="M'+cx+' '+cy+' L'+x0.toFixed(2)+' '+y0.toFixed(2)+' A'+r+' '+r+' 0 '+large+' 1 '+x1.toFixed(2)+' '+y1.toFixed(2)+' Z" fill="'+colors[i%colors.length]+'"><title>'+esc(it.k)+': '+fmt(it.val)+'</title></path>';
+    a0=a1;
+  });
+  const legend=arr.map((it,i)=>'<div class="pie-leg"><span class="pie-dot" style="background:'+colors[i%colors.length]+'"></span>'+
+    '<span class="pie-name" title="'+esc(it.k)+'">'+esc(it.k)+'</span>'+
+    '<span class="pie-val">'+fmt(it.val)+' · '+Math.round(it.val/total*100)+'%</span></div>').join('');
+  return '<div class="cap-card"><div class="cap-card-t">'+title+'</div>'+
+    '<div class="pie-wrap"><svg viewBox="0 0 180 180" class="pie-svg">'+segs+'</svg>'+
+    '<div class="pie-legend">'+legend+'</div></div></div>';
+}
+
 function renderCapaian(){
+  const v=state.view;
   const rows = applyClientFilters(state.rows);
   const omzetOf = r => Number(moneyDigits(r['Total Akhir Setelah Diskon']||r['Total Akhir']||0))||0;
   let omzet=0; rows.forEach(r=>omzet+=omzetOf(r));
   const jumlah=rows.length;
   const avg = jumlah ? Math.round(omzet/jumlah) : 0;
 
-  const byCab={}, byLay={}, byAlamat={}, byDay={};
+  const byCab={}, byLay={}, byDay={};
   rows.forEach(r=>{
     const o=omzetOf(r);
     const cab=String(r['Cabang']||'-').toUpperCase()||'-'; byCab[cab]=(byCab[cab]||0)+o;
     [1,2,3].forEach(i=>{ const nm=String(r['Layanan '+i]||'').trim(); if(nm) byLay[nm]=(byLay[nm]||0)+Number(r['Harga '+i]||0); });
-    const al=(String(r['Alamat']||'').trim())||'-'; byAlamat[al]=(byAlamat[al]||0)+1;
     const d=String(r['Tanggal Pengerjaan']||'').slice(0,10); if(d) byDay[d]=(byDay[d]||0)+o;
   });
   const top=(obj,n)=>Object.keys(obj).map(k=>({k,val:obj[k]})).sort((a,b)=>b.val-a.val).slice(0,n);
-  const top5Cab=top(byCab,5), top5Lay=top(byLay,5), top5Alm=top(byAlamat,5);
+  const top5Cab=top(byCab,5), top10Lay=top(byLay,10), top5Lay=top(byLay,5);
+  const top10Alm=clusterByAlamat(rows).slice(0,10);
   const days=Object.keys(byDay).sort();
 
   const stat=(l,val,s)=>'<div class="cap-stat"><div class="cap-stat-l">'+l+'</div><div class="cap-stat-v">'+val+'</div>'+(s?'<div class="cap-stat-s">'+s+'</div>':'')+'</div>';
@@ -1634,17 +1724,17 @@ function renderCapaian(){
     chart='<div class="cap-card"><div class="cap-card-t">Grafik Omzet Harian</div><div class="cap-empty">Tidak ada data pada filter ini.</div></div>';
   }
 
+  const layananCard = v.financePie ? pieCard('Top 5 Layanan — omzet', top5Lay, rp)
+                                   : listCard('Top 10 Layanan — omzet', top10Lay, rp);
+
   $('#panel').innerHTML =
-    '<div class="cap-stats">'+stat('Total Omzet',rp(omzet))+stat('Jumlah Order',jumlah+'')+stat('Rata-rata / Order',rp(avg))+'</div>'+
+    '<div class="cap-stats">'+stat('Jumlah Order',jumlah+'')+stat('Total Omzet',rp(omzet))+stat('Rata-rata / Order',rp(avg))+'</div>'+
     chart+
     '<div class="cap-grid">'+
       listCard('Top 5 Cabang — omzet', top5Cab, rp)+
-      listCard('Top 5 Layanan — omzet', top5Lay, rp)+
-      listCard('Top 5 Alamat — jumlah order', top5Alm, x=>x+' order')+
-    '</div>'+
-    '<div style="margin-top:16px;display:flex;justify-content:center">'+
-      '<button class="btn btn-danger" id="btnLogoutCap">'+svg('logout')+'Keluar</button></div>';
-  const lo=$('#btnLogoutCap'); if(lo) lo.addEventListener('click', logout);
+      layananCard+
+      listCard('Top 10 Alamat — jumlah order', top10Alm, x=>x+' order')+
+    '</div>';
   setCount(jumlah, 'order');
 }
 
@@ -1752,6 +1842,9 @@ function cell(v,c,r){
   if(c==='Periode Bulan'){
     const ym=String(val||'').slice(0,7);
     return /^\d{4}-\d{2}$/.test(ym) ? esc(monthLabel(ym)) : (val!=null&&val!==''?esc(val):'<span style="color:var(--faint)">—</span>');
+  }
+  if(c==='PPn'){
+    return Number(moneyDigits(val))>0 ? '11%' : '<span style="color:var(--faint)">—</span>';
   }
   if(isMoney(c)) return rp(val);
   return val!=null && val!=='' ? esc(val) : '<span style="color:var(--faint)">—</span>';
@@ -2015,7 +2108,7 @@ function wireFields(v){
         if(prev && /image/.test(file.type)){ prev.src=r.url; prev.style.display='block'; }
         // auto status order
         if(v.special==='order'){
-          if(key==='Bukti Transfer'){ setVal('Status Order','done'); showInvoiceBtn(); }
+          if(key==='Bukti Transfer'){ setVal('Status Order','done'); showInvoiceBtn(); state.files['Waktu Bukti Transfer']=nowStr_(); }
           if(key==='Bukti Cancel') setVal('Status Order','cancel');
         }
       }catch(err){ fn.textContent='Gagal'; toast(err.message,'err'); }
@@ -2481,6 +2574,10 @@ async function saveForm(){
       toast('Gaji pokok tersimpan','ok');
     }else if(state.editing){
       await api({action:'update', sheet:v.sheet, idField:v.idField, id:state.editing[v.idField], data});
+      // Catat waktu upload bukti transfer bila baru diunggah lewat form (best-effort).
+      if(v.sheet==='ORDER' && state.files['Waktu Bukti Transfer']){
+        try{ await api({action:'update', sheet:'ORDER', id:state.editing[v.idField], data:{'Waktu Bukti Transfer':state.files['Waktu Bukti Transfer']}}); }catch(e){}
+      }
       toast('Perubahan tersimpan','ok');
     }else{
       await api({action:'create', sheet:v.sheet, data});
