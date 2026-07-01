@@ -727,7 +727,7 @@ const MENUS = {
     {key:'auditOrder', label:'Audit Order', icon:'audit'},
     {key:'hasilAudit', label:'Hasil Audit', icon:'result'},
     {key:'editOrder', label:'Edit Order', icon:'edit'},
-    {key:'gaji', label:'Gaji', icon:'salary'},
+    {key:'gajiFinance', label:'Gaji', icon:'salary'},
     {key:'__settings', label:'Pengaturan', icon:'settings'}
   ]
 };
@@ -878,8 +878,8 @@ const VIEWS = {
   },
   auditOrder:{
     sheet:'ORDER', title:'Audit Order', sub:'', branchLock:false,
-    idField:'ID Order', statusIn:['done'], statusField:'Status Order',
-    approve:true, multiApprove:true, statusBadge:true, invoice:true, rowDetail:true,
+    idField:'ID Order', statusIn:['pending'], statusField:'Status Order', statusPrio:['pending'],
+    approve:true, multiApprove:true, statusBadge:true, invoice:true, rowDetail:true, countTop:true,
     table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Metode Pembayaran','PPn','Total Akhir Setelah Diskon','Waktu Bukti Transfer','Bukti Transfer'],
     colLabel:{'Waktu Bukti Transfer':'Waktu Bukti','Total Akhir Setelah Diskon':'Total'},
     filters:['Cabang'],
@@ -887,16 +887,18 @@ const VIEWS = {
     datePreset:true, dateFilterField:'Tanggal Pengerjaan'
   },
   hasilAudit:{
-    sheet:'ORDER', title:'Hasil Audit', sub:'Order complete & status lainnya (pending / cancel)', readOnly:true,
-    idField:'ID Order', statusIn:['complete','pending','cancel'], statusField:'Status Order', statusBadge:true, invoice:true,
+    sheet:'ORDER', title:'Hasil Audit', sub:'', readOnly:true, countTop:true,
+    idField:'ID Order', statusIn:['complete','cancel'], statusField:'Status Order', statusPrio:['complete','cancel'],
+    statusBadge:true, invoice:true, rowDetail:true,
     table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Metode Pembayaran','Total Akhir Setelah Diskon','Waktu Approve'],
     filters:['Cabang','Status Order'],
     search:['Nama Customer','ID Order'],
     datePreset:true, dateFilterField:'Tanggal Pengerjaan'
   },
   editOrder:{
-    sheet:'ORDER', title:'Edit Order', sub:'Edit order apa pun — semua status & cabang',
+    sheet:'ORDER', title:'Edit Order', sub:'', countTop:true,
     idField:'ID Order', canEdit:true, special:'order', statusBadge:true, invoice:true,
+    statusPrio:['done','complete','cancel','pending'],
     table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Metode Pembayaran','Nama Cleaner','Total Akhir Setelah Diskon'],
     filters:['Cabang','Status Order'],
     datePreset:true, dateFilterField:'Tanggal Pengerjaan',
@@ -916,6 +918,10 @@ const VIEWS = {
     datePreset:true, dateFilterField:'Tanggal Pengerjaan'
   }
 };
+
+/* Gaji versi FINANCE: tampilannya sama persis dgn HRD, tapi hanya baca —
+   tidak bisa tambah / edit (tombol Cetak Slip & PDF tetap ada). */
+VIEWS.gajiFinance = Object.assign({}, VIEWS.gaji, { canAdd:false, canEdit:false, readOnly:true });
 
 const FILTER_OPTS = {
   'Cabang':CABANG, 'Jabatan':JABATAN, 'Status':STATUS_KARYAWAN,
@@ -976,8 +982,9 @@ async function api(payload){
     if(a==='approveOrder'){
       const {data:cur,error:e1}=await sb.from('ORDER').select('"Status Order"').eq('ID Order', payload.id).single();
       if(e1) throw e1;
-      if(String(cur['Status Order']||'').toLowerCase()!=='done')
-        throw new Error('Hanya order berstatus "done" yang bisa di-approve.');
+      const st=String(cur['Status Order']||'').toLowerCase();
+      if(st!=='done' && st!=='pending')
+        throw new Error('Hanya order berstatus "pending" atau "done" yang bisa di-approve.');
       const {error}=await sb.from('ORDER')
         .update({'Status Order':'complete','Waktu Approve':nowStr_()}).eq('ID Order', payload.id);
       if(error) throw error;
@@ -986,7 +993,7 @@ async function api(payload){
     if(a==='approveMany'){
       const {data,error}=await sb.from('ORDER')
         .update({'Status Order':'complete','Waktu Approve':nowStr_()})
-        .in('ID Order', payload.ids||[]).eq('Status Order','done').select('ID Order');
+        .in('ID Order', payload.ids||[]).in('Status Order',['pending','done']).select('ID Order');
       if(error) throw error;
       return {ok:true, approved:(data||[]).length};
     }
@@ -1386,7 +1393,18 @@ function applyClientFilters(rows){
   if(state.search && v.search){
     out = out.filter(r=> v.search.some(k=>String(r[k]||'').toLowerCase().indexOf(state.search)>-1));
   }
-  if(v.orderSort){
+  if(v.statusPrio){
+    const PRIO={}; v.statusPrio.forEach((s,i)=>PRIO[norm(s)]=i);
+    const jamNum=s=>{ const m=String(s||'').match(/(\d{1,2})[:.]?(\d{2})?/); return m? (+m[1])*60+(+(m[2]||0)) : 9999; };
+    out.sort((a,b)=>{
+      const pa=PRIO[norm(a['Status Order'])]; const pb=PRIO[norm(b['Status Order'])];
+      const ra=(pa==null?99:pa), rb=(pb==null?99:pb);
+      if(ra!==rb) return ra-rb;                                     // urut status sesuai statusPrio
+      const da=String(a['Tanggal Pengerjaan']||''), db=String(b['Tanggal Pengerjaan']||'');
+      if(da!==db) return da<db?-1:1;                                // lalu tanggal terkecil dulu (naik)
+      return jamNum(a['Waktu Pengerjaan'])-jamNum(b['Waktu Pengerjaan']); // lalu jam
+    });
+  } else if(v.orderSort){
     const PRIO={pending:0, done:1, complete:2, cancel:3};
     const jamNum=s=>{ const m=String(s||'').match(/(\d{1,2})[:.]?(\d{2})?/); return m? (+m[1])*60+(+(m[2]||0)) : 9999; };
     out.sort((a,b)=>{
@@ -1425,7 +1443,7 @@ function renderTable(){
   const summary=(v.sheet==='BONUS' && state.filters['Nama Cleaner']) ? bonusSummaryCard(rows, state.filters['Nama Cleaner']) : '';
   if(!rows.length){ $('#panel').innerHTML=summary+emptyState('Belum ada data'); setCount(0,countNoun()); wireSummary(); return; }
   const cols=v.table.filter(c=>HIDDEN_COLS.indexOf(c)<0);
-  const showAct=v.canEdit||v.approve||v.invoice||v.wa;
+  const showAct=v.canEdit||v.approve||v.invoice||v.wa||v.slip;
   const chk=v.multiApprove;
   const tblClass = (v.sheet==='ORDER') ? 'tbl-wrap desk-only' : 'tbl-wrap';
   let html='<div class="'+tblClass+'"><table><thead><tr>'+
@@ -1479,7 +1497,7 @@ function rowActions(v,r){
     act += '<button class="btn btn-wa btn-sm" data-wac="'+esc(oid)+'" title="WhatsApp Customer">'+svg('wa')+'Cust</button>';
     act += '<button class="btn btn-wa btn-sm" data-wak="'+esc(oid)+'" title="WhatsApp Cleaner">'+svg('wa')+'Cleaner</button>';
   }
-  if(v.approve && norm(r['Status Order'])==='done'){
+  if(v.approve && (norm(r['Status Order'])==='pending' || norm(r['Status Order'])==='done')){
     act += '<button class="btn btn-gold btn-sm" data-approve="'+esc(oid)+'">'+svg('check')+'Approve</button>';
   }
   if(v.invoice && (norm(r['Status Order'])==='done' || norm(r['Status Order'])==='complete' || r['Bukti Transfer'])){
