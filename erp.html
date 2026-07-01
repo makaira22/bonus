@@ -878,7 +878,7 @@ const VIEWS = {
   },
   auditOrder:{
     sheet:'ORDER', title:'Audit Order', sub:'', branchLock:false,
-    idField:'ID Order', statusIn:['pending'], statusField:'Status Order', statusPrio:['pending'],
+    idField:'ID Order', statusIn:['done'], statusField:'Status Order', statusPrio:['done'],
     approve:true, multiApprove:true, statusBadge:true, invoice:true, rowDetail:true, countTop:true,
     table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Metode Pembayaran','PPn','Total Akhir Setelah Diskon','Waktu Bukti Transfer','Bukti Transfer'],
     colLabel:{'Waktu Bukti Transfer':'Waktu Bukti','Total Akhir Setelah Diskon':'Total'},
@@ -898,7 +898,8 @@ const VIEWS = {
   editOrder:{
     sheet:'ORDER', title:'Edit Order', sub:'', countTop:true,
     idField:'ID Order', canEdit:true, special:'order', statusBadge:true, invoice:true,
-    statusPrio:['done','complete','cancel','pending'],
+    statusIn:['pending','done','cancel'], statusField:'Status Order',
+    statusPrio:['done','cancel','pending'],
     table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Metode Pembayaran','Nama Cleaner','Total Akhir Setelah Diskon'],
     filters:['Cabang','Status Order'],
     datePreset:true, dateFilterField:'Tanggal Pengerjaan',
@@ -1566,15 +1567,18 @@ async function quickUploadProof(oid){
   inp.addEventListener('change', async ()=>{
     const file=inp.files[0]; if(!file) return;
     showLoad(true);
+    let up;
     try{
       const b64=await fileToB64(file);
-      const up=await api({action:'uploadFile', base64:b64, mime:file.type, name:file.name});
+      up=await api({action:'uploadFile', base64:b64, mime:file.type, name:file.name});
+    }catch(err){ showLoad(false); toast('Gagal unggah file: '+(err.message||err),'err'); return; }
+    try{
       await api({action:'update', sheet:'ORDER', id:oid, data:{'Bukti Transfer':up.url, 'Status Order':'done'}});
       // Catat waktu upload bukti transfer (best-effort; diabaikan bila kolom belum ada di database).
       try{ await api({action:'update', sheet:'ORDER', id:oid, data:{'Waktu Bukti Transfer':nowStr_()}}); }catch(e){}
       toast('Bukti transfer terunggah ✓','ok');
       invalidateLists(); await loadList(true);
-    }catch(err){ toast(err.message||'Gagal unggah','err'); }
+    }catch(err){ toast('Gagal simpan order: '+(err.message||err),'err'); }
     finally{ showLoad(false); }
   });
   inp.click();
