@@ -20,8 +20,8 @@
    (pakai kunci "anon / public", JANGAN "service_role")
    ============================================================ */
 (function () {
-  const SUPABASE_URL      = 'https://GANTI-PROJECT-REF.supabase.co';
-  const SUPABASE_ANON_KEY = 'GANTI-ANON-PUBLIC-KEY';
+  const SUPABASE_URL      = 'https://hmykvvtzmeogptswhhql.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhteWt2dnR6bWVvZ3B0c3doaHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4NTY5MjEsImV4cCI6MjA5ODQzMjkyMX0.9T4BuyVQBe8g8Xjxa0GJgK5aRDrtrU78eEreQgOSLHQ';
   window.sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: { persistSession: true, autoRefreshToken: true }
   });
