@@ -481,6 +481,10 @@ tr.rowclick:hover td{background:var(--surface-2)}
 .ocard-meta.sub{color:var(--petrol);font-weight:700}
 .ocard-act{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .ocard-act .btn-sm{padding:9px 12px}
+.gaji-thp{margin-top:11px;display:flex;flex-direction:column;gap:1px}
+.gaji-thp .gt-l{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+.gaji-thp .gt-v{font-family:var(--display);font-size:26px;font-weight:600;color:var(--success);
+  font-variant-numeric:tabular-nums;line-height:1.15}
 
 /* ---------- detail view ---------- */
 .detail{display:flex;flex-direction:column}
@@ -625,6 +629,13 @@ function parseDate_(s){ const m=String(s||'').match(/^(\d{4})-(\d{2})-(\d{2})/);
 function hariId(s){ const d=parseDate_(s); return d? HARI_ID[d.getDay()] : ''; }
 function tglPanjangId(s){ const d=parseDate_(s); return d? (d.getDate()+' '+BULAN_ID[d.getMonth()]+' '+d.getFullYear()) : String(s||''); }
 function tglHariId(s){ const h=hariId(s); const t=tglPanjangId(s); return (h? (h+', '):'')+t; }
+function fmtWaktu(s){
+  s=String(s||''); if(!s) return '';
+  const m=s.match(/^(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}:\d{2}))?/);
+  if(!m) return s;
+  const tgl=tglHariId(m[1]);           // mis. "Senin, 5 Januari 2026"
+  return m[2] ? (tgl+' · '+m[2]) : tgl;
+}
 function ribu(n){ return Number(n||0).toLocaleString('id-ID'); }
 
 /* Total order dipakai bersama invoice & pesan WA. */
@@ -1534,7 +1545,7 @@ function renderTable(){
           (r['Metode Pembayaran']?'<span class="pay-chip">'+esc(r['Metode Pembayaran'])+'</span>':'')+'</div>'+
         '<div class="ocard-meta sub"><span>'+esc(rp(r['Total Akhir Setelah Diskon']||r['Total Akhir']||0))+
           (r['Nama Cleaner']?(' · '+esc(r['Nama Cleaner'])):'')+'</span></div>'+
-        (r['Waktu Bukti Transfer']?'<div class="ocard-meta">'+svg('file')+'<span>Waktu bukti: '+esc(r['Waktu Bukti Transfer'])+'</span></div>':'')+
+        (r['Waktu Bukti Transfer']?'<div class="ocard-meta">'+svg('file')+'<span>Waktu bukti: '+esc(fmtWaktu(r['Waktu Bukti Transfer']))+'</span></div>':'')+
         (actInner?'<div class="ocard-act">'+actInner+'</div>':'')+
       '</div>';
     }).join('')+'</div>';
@@ -1547,7 +1558,8 @@ function renderTable(){
       return '<div class="ocard">'+
         '<div class="ocard-top"><span class="ocard-name">'+esc(r['Nama Karyawan']||'-')+'</span>'+
           '<span class="pay-chip">'+esc(per)+'</span></div>'+
-        '<div class="ocard-meta sub"><span>Take Home Pay · '+esc(rp(r['Take Home Pay']||0))+'</span></div>'+
+        '<div class="gaji-thp"><span class="gt-l">Take Home Pay</span>'+
+          '<span class="gt-v">'+esc(rp(r['Take Home Pay']||0))+'</span></div>'+
         '<div class="ocard-act">'+
           '<button class="btn btn-gold btn-sm" data-slip="'+sid+'">'+svg('file')+'Cetak Slip</button>'+
           '<button class="act-ic" data-slippdf="'+sid+'" title="Download PDF">'+svg('file')+'</button>'+
@@ -1684,8 +1696,8 @@ function showOrderDetail(o){
   b+=row('Total Tagihan', rp(o['Total Akhir Setelah Diskon']||0));
   if(o['Keterangan Order']) b+=row('Keterangan', esc(o['Keterangan Order']));
   if(o['Alasan Cancel']) b+=row('Alasan Cancel', esc(o['Alasan Cancel']));
-  if(o['Waktu Approve']) b+=row('Waktu Approve', esc(o['Waktu Approve']));
-  if(o['Waktu Bukti Transfer']) b+=row('Waktu Upload Bukti', esc(o['Waktu Bukti Transfer']));
+  if(o['Waktu Approve']) b+=row('Waktu Approve', esc(fmtWaktu(o['Waktu Approve'])));
+  if(o['Waktu Bukti Transfer']) b+=row('Waktu Upload Bukti', esc(fmtWaktu(o['Waktu Bukti Transfer'])));
   ['Bukti Transfer','Bukti Cancel'].forEach(k=>{ if(o[k]) b+=row(k,'<a class="flink" data-img="'+esc(o[k])+'" style="cursor:zoom-in">Lihat</a>'); });
   if(o['File Invoice']) b+=row('File Invoice','<a class="flink" href="'+esc(o['File Invoice'])+'" target="_blank">Lihat</a>');
   b+='</div>';
@@ -1942,6 +1954,9 @@ function cell(v,c,r){
   }
   if(c==='PPn'){
     return Number(moneyDigits(val))>0 ? '11%' : '<span style="color:var(--faint)">—</span>';
+  }
+  if(/^Waktu /.test(c)){
+    return val!=null && val!=='' ? esc(fmtWaktu(val)) : '<span style="color:var(--faint)">—</span>';
   }
   if(isMoney(c)) return rp(val);
   return val!=null && val!=='' ? esc(val) : '<span style="color:var(--faint)">—</span>';
