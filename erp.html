@@ -235,6 +235,16 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .field label.chk{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:600;color:var(--ink);
   cursor:pointer;padding:11px 12px;border:1px solid var(--line-2);border-radius:11px;background:var(--surface)}
 .field label.chk input{width:18px;height:18px;accent-color:var(--petrol);cursor:pointer}
+.os-wrap{position:relative}
+.os-input{cursor:text}
+.os-list{display:none;position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:50;max-height:260px;overflow:auto;
+  background:var(--surface);border:1px solid var(--line-2);border-radius:12px;box-shadow:var(--shadow-lg);padding:6px}
+.os-list.open{display:block}
+.os-item{padding:9px 10px;border-radius:9px;cursor:pointer;display:flex;flex-direction:column;gap:1px}
+.os-item:hover{background:var(--surface-2)}
+.os-item b{font-size:13px;color:var(--ink)}
+.os-item span{font-size:11.5px;color:var(--muted)}
+.os-empty{padding:10px;font-size:12.5px;color:var(--faint)}
 .file-row{display:flex;align-items:center;gap:10px}
 .file-row .prev{width:42px;height:42px;border-radius:10px;object-fit:cover;border:1px solid var(--line);display:none}
 .file-btn{display:inline-flex;align-items:center;gap:7px;padding:10px 13px;border:1px dashed var(--line-2);
@@ -375,7 +385,7 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
   .cap-grid{grid-template-columns:1fr}
 }
 /* ---------- toolbar v2: search + corong + panel ---------- */
-.toolbar{display:block}
+.toolbar{display:block; position:relative}
 .tbar-row{display:flex;gap:10px;align-items:center;width:100%}
 .mob-count{display:none}
 .pay-chip{margin-left:8px;background:var(--bg);border:1px solid var(--line-2);color:var(--petrol);
@@ -385,14 +395,16 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
   .tbar-row .search{flex:1 1 60%;min-width:150px;order:2}
   .mob-count{display:inline-flex;order:1}
   #headCount{display:none}
+  #headCount.count-chip-force{display:inline-flex}
   .tbar-row #btnApproveSel{order:3}
   .tbar-row .fbtn{order:4}
 }
 .fbtn{position:relative}
 .fbadge{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;
   background:var(--gold-deep);color:#fff;font-size:10px;font-weight:800;display:none;align-items:center;justify-content:center;line-height:1}
-.filter-panel{display:none;flex-wrap:wrap;gap:10px 14px;align-items:center;margin-top:12px;padding:14px 16px;
-  background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-sm)}
+.filter-panel{display:none;position:absolute;top:calc(100% + 8px);right:0;left:auto;z-index:45;
+  width:min(380px,94vw);max-height:min(70vh,520px);overflow:auto;flex-wrap:wrap;gap:10px 14px;align-items:center;
+  padding:14px 16px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-lg)}
 .filter-panel.open{display:flex}
 /* tombol di baris toolbar (light bg) biar rapi & jelas */
 .tbar-row .icon-btn{background:var(--surface);border:1px solid var(--line-2);color:var(--ink);flex:none}
@@ -817,7 +829,7 @@ const VIEWS = {
     ]
   },
   order:{
-    sheet:'ORDER', title:'Order', sub:'Input & kelola order cabang', branchLock:true,
+    sheet:'ORDER', title:'Order', sub:'', branchLock:true, countTop:true, noSyncBtn:true,
     idField:'ID Order', canAdd:true, canEdit:true, special:'order', orderSort:true,
     table:['ID Order','Tanggal Input','Status Order','Nama Customer','Tanggal Pengerjaan','Waktu Pengerjaan','Metode Pembayaran','Nama Cleaner','Total Akhir Setelah Diskon'],
     colLabel:{'Metode Pembayaran':'Metode','Total Akhir Setelah Diskon':'Total','Waktu Pengerjaan':'Jam'},
@@ -828,16 +840,16 @@ const VIEWS = {
     form: ORDER_FORM
   },
   inputBonus:{
-    sheet:'BONUS', title:'Input Bonus', sub:'Bonus cleaner berdasarkan No Order', branchLock:true,
+    sheet:'BONUS', title:'Input Bonus', sub:'', branchLock:true, countTop:true, noSyncBtn:true,
     idField:'ID Insentif', canAdd:true, canEdit:true, special:'bonus',
     table:['ID Insentif','No Order','Jenis','Nominal','Nama Cleaner','Nama Customer','Tanggal Pengerjaan'],
     filters:['Jenis'], dynCleaner:true,
     datePreset:true, dateFilterField:'Tanggal Pengerjaan',
     search:['No Order','Nama Cleaner','Nama Customer'],
     form:[
-      f('No Order','datalist',{list:'order', req:true, full:true}),
+      f('No Order','ordersearch',{list:'order', req:true, full:true}),
       f('Nama Customer','text',{ro:true}), f('Tanggal Pengerjaan','date',{ro:true}),
-      f('Jenis','select',{opts:JENIS_BONUS, req:true}), f('Nominal','num',{req:true}),
+      f('Jenis','select',{opts:JENIS_BONUS, req:true}), f('Nominal','money',{req:true}),
       f('Keterangan','text',{full:true}),
       f('Nama Cleaner','multidyn',{full:true}),
       f('Tanggal Input','date',{ro:true})
@@ -1138,7 +1150,7 @@ function renderShell(){
     greetingHTML()+
     '<div class="page-head">'+
       '<div><div class="page-title">'+v.title+'</div>'+(v.sub?'<div class="page-sub">'+v.sub+'</div>':'')+'<div class="hairline"></div></div>'+
-      '<span class="count-chip" id="headCount"></span>'+
+      '<span class="count-chip'+(v.countTop?' count-chip-force':'')+'" id="headCount"></span>'+
       '<div class="spacer"></div>'+
       (v.canAdd ? '<button class="btn btn-primary" id="btnAdd">'+svg('plus')+'Tambah</button>' : '')+
     '</div>'+
@@ -1157,12 +1169,12 @@ function greetingHTML(){
 function buildToolbar(){
   const v=state.view;
   let row='<div class="tbar-row">';
-  row += '<span class="count-chip mob-count" id="headCountM"></span>';
+  if(!v.countTop){ row += '<span class="count-chip mob-count" id="headCountM"></span>'; }
   if(v.search){ row += '<div class="search">'+svg('search')+'<input id="q" placeholder="Cari…" /></div>'; }
   else { row += '<div class="spacer"></div>'; }
   if(v.multiApprove){ row += '<button class="btn btn-gold btn-sm" id="btnApproveSel">'+svg('check')+'Approve terpilih</button>'; }
   row += '<button class="icon-btn fbtn" id="filterToggle" title="Filter">'+svg('funnel')+'<span class="fbadge" id="fbadge"></span></button>';
-  row += '<button class="icon-btn" id="btnSyncTb" title="Sinkronkan data">'+svg('refresh')+'</button>';
+  if(!v.noSyncBtn){ row += '<button class="icon-btn" id="btnSyncTb" title="Sinkronkan data">'+svg('refresh')+'</button>'; }
   row += '</div>';
 
   let pf='';
@@ -1800,7 +1812,7 @@ function defaults(v){
   const d={}; const today=ymd(new Date());
   if(v.sheet==='ORDER'){ d['Tanggal Input']=today; d['Status Order']='pending';
     d['Cabang']=state.session.cabang; d['CS Penanggung Jawab']=state.session.nama;
-    d['PPn']=PPN_DEFAULT; }
+    d['PPn']=0; }
   if(v.sheet==='BONUS'){ d['Tanggal Input']=today; }
   if(v.sheet==='GAJI'){ d['Tanggal Cetak']=today; }
   return d;
@@ -1843,6 +1855,14 @@ function renderField(fd, val){
   } else if(fd.t==='datalist'){
     inner = '<input data-k="'+esc(fd.k)+'" list="'+id+'_dl" autocomplete="off"'+ro+' value="'+esc(val)+'">'+
       '<datalist id="'+id+'_dl" data-dl="'+esc(fd.list)+'"></datalist>';
+  } else if(fd.t==='ordersearch'){
+    const o=(state.cache.order||[]).find(x=>String(x['ID Order'])===String(val));
+    const label = o ? orderSearchLabel(o) : (val||'');
+    inner = '<div class="os-wrap" data-oswrap="'+esc(fd.k)+'">'+
+        '<input type="hidden" data-k="'+esc(fd.k)+'" value="'+esc(val)+'">'+
+        '<input type="text" class="os-input" data-os-input autocomplete="off" placeholder="Ketik nama customer…" value="'+esc(label)+'">'+
+        '<div class="os-list" data-os-list></div>'+
+      '</div>';
   } else if(fd.t==='dynselect'){
     const items=(state.cache[fd.list]||[]);
     const field=DYN_FIELD[fd.list]||'Nama';
@@ -1900,10 +1920,71 @@ function fillDatalists(){
     dl.innerHTML = items.map(i=>'<option value="'+esc(i.v)+'">'+esc(i.t||'')+'</option>').join('');
   });
 }
+/* ---------- pencarian No Order (Input Bonus): ketik-cari berdasarkan nama customer,
+   pilihan dibatasi sesuai filter Bulan/Tanggal/Kemarin-HariIni-Besok yang sedang aktif ---------- */
+function orderSearchLabel(o){
+  return o ? ((o['Nama Customer']||'-')+' · '+tglPanjangId(o['Tanggal Pengerjaan'])+' · '+o['ID Order']) : '';
+}
+function orderSearchCandidates(){
+  let arr=(state.cache.order||[]).slice();
+  if(state.dateStart||state.dateEnd){
+    arr=arr.filter(o=>{
+      const d=String(o['Tanggal Pengerjaan']||''); if(!d) return false;
+      if(state.dateStart && d<state.dateStart) return false;
+      if(state.dateEnd && d>state.dateEnd) return false;
+      return true;
+    });
+  }
+  return arr;
+}
+function wireOrderSearch(){
+  document.querySelectorAll('[data-oswrap]').forEach(wrap=>{
+    const key=wrap.dataset.oswrap;
+    const hid=wrap.querySelector('[data-k="'+CSS.escape(key)+'"]');
+    const inp=wrap.querySelector('[data-os-input]');
+    const list=wrap.querySelector('[data-os-list]');
+    if(!hid||!inp||!list) return;
+    function renderList(q){
+      const qq=norm(q||'');
+      let arr=orderSearchCandidates();
+      const curId=hid.value;
+      if(curId && !arr.some(o=>String(o['ID Order'])===String(curId))){
+        const cur=(state.cache.order||[]).find(o=>String(o['ID Order'])===String(curId));
+        if(cur) arr=[cur].concat(arr);
+      }
+      if(qq) arr=arr.filter(o=>norm(o['Nama Customer']||'').includes(qq) || norm(o['ID Order']||'').includes(qq));
+      arr=arr.slice(0,50);
+      list.innerHTML = arr.length ? arr.map(o=>
+        '<div class="os-item" data-os-id="'+esc(o['ID Order'])+'"><b>'+esc(o['Nama Customer']||'-')+'</b>'+
+        '<span>'+esc(tglPanjangId(o['Tanggal Pengerjaan']))+' · '+esc(o['ID Order'])+'</span></div>'
+      ).join('') : '<div class="os-empty">Tidak ada order cocok'+((state.dateStart||state.dateEnd)?' pada filter tanggal aktif':'')+'</div>';
+      list.querySelectorAll('[data-os-id]').forEach(it=>{
+        it.addEventListener('mousedown', e=>{
+          e.preventDefault();
+          const oid=it.dataset.osId;
+          const o=arr.find(x=>String(x['ID Order'])===oid);
+          hid.value=oid; inp.value=orderSearchLabel(o);
+          list.classList.remove('open');
+          onPickOrder();
+        });
+      });
+    }
+    inp.addEventListener('focus', ()=>{ inp.value=''; renderList(''); list.classList.add('open'); });
+    inp.addEventListener('input', ()=>{ renderList(inp.value); });
+    inp.addEventListener('blur', ()=>{
+      setTimeout(()=>{
+        list.classList.remove('open');
+        const o=(state.cache.order||[]).find(x=>String(x['ID Order'])===String(hid.value));
+        inp.value = o ? orderSearchLabel(o) : (hid.value||'');
+      },150);
+    });
+  });
+}
 
 /* wire inputs: computed, file uploads, special lookups */
 function wireFields(v){
   fillDatalists();
+  wireOrderSearch();
   // chips multi-pilih (Nama Cleaner)
   document.querySelectorAll('.chips').forEach(box=>{
     const hid=box.parentElement.querySelector('[data-multi]');
