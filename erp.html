@@ -540,9 +540,6 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .crb-label{font-size:12px;font-weight:700;color:var(--muted)}
 .chat-role-bar select{flex:1;padding:8px 11px;border:1px solid var(--line-2);border-radius:10px;background:var(--surface);font-weight:600;color:var(--ink)}
 .chat-note{font-size:11px;color:var(--faint);text-align:center;padding:6px 10px;background:var(--surface-2);border-bottom:1px solid var(--line)}
-.chat-ann{width:32px;height:32px;border-radius:8px;color:#fff;display:grid;place-items:center}
-.chat-ann:hover{background:rgba(255,255,255,.16)}
-.chat-ann svg{width:19px;height:19px}
 #chatCabang{padding:8px 9px;border:1px solid var(--line-2);border-radius:10px;background:var(--surface);font-weight:600;font-size:12px;max-width:120px}
 .ann-box{background:var(--gold-soft);border:1px solid var(--gold);border-radius:12px;padding:10px 12px;margin-bottom:12px}
 .ann-h{font-size:12px;font-weight:800;color:var(--gold-deep);margin-bottom:6px}
@@ -708,10 +705,11 @@ td.c-green, td.c-red, td.c-orange, td.c-blue{font-weight:700}
 
 /* ========== TAMBAHAN BARU ========== */
 /* Tombol Pengumuman lebih terlihat (emas) */
-.chat-ann{display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#d9bd7d,var(--gold-deep));color:#2c2205;width:auto;height:30px;padding:0 12px;border-radius:15px;gap:6px;font-weight:800;font-size:12px;line-height:1;box-shadow:0 4px 12px -6px rgba(166,134,63,.9)}
-.chat-ann svg{width:15px;height:15px;flex:none}
-.chat-ann .ann-lbl{display:inline;line-height:1;position:relative;top:.5px}
-.chat-ann:hover{background:linear-gradient(180deg,#e3c98c,var(--gold-deep));filter:brightness(1.03)}
+.chat-ann{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:30px;padding:0 13px 0 11px;border:none;border-radius:999px;background:linear-gradient(180deg,#d9bd7d,var(--gold-deep));color:#2c2205;font-weight:800;font-size:12px;line-height:30px;white-space:nowrap;box-shadow:0 4px 12px -6px rgba(166,134,63,.9);cursor:pointer}
+.chat-ann svg{display:block;width:16px;height:16px;flex:none}
+.chat-ann .ann-lbl{display:block;line-height:1}
+.chat-ann:hover{filter:brightness(1.04)}
+.chat-ann:active{transform:translateY(1px)}
 
 /* Daftar obrolan (inbox) */
 .cinbox{display:flex;flex-direction:column;gap:8px}
@@ -1560,6 +1558,23 @@ const TABLE_ID = { KARYAWAN:'ID Karyawan', GAJI:'ID Slip', ORDER:'ID Order',
 function nowStr_(){ const d=new Date(), p=n=>String(n).padStart(2,'0');
   return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }
 
+/* Deteksi kolom yang belum ada di tabel (Supabase PGRST204) agar penyimpanan
+   tidak gagal total — kolom yang tidak dikenali otomatis dilewati. */
+function missingColName(err){
+  const m=String((err&&err.message)||'');
+  const mm = m.match(/Could not find the '([^']+)' column/i)
+          || m.match(/column "([^"]+)" of relation/i)
+          || m.match(/'([^']+)' column of/i);
+  return mm ? mm[1] : '';
+}
+function dataHasCol(data, col){
+  if(Array.isArray(data)) return data.some(o=>o && (col in o));
+  return data && (col in data);
+}
+function dataStripCol(data, col){
+  if(Array.isArray(data)) return data.map(o=>{ const c=Object.assign({},o); delete c[col]; return c; });
+  const c=Object.assign({},data); delete c[col]; return c;
+}
 async function api(payload){
   const sb = window.sb;
   const a = payload.action;
@@ -1575,21 +1590,39 @@ async function api(payload){
       return {ok:true, data:data||[]};
     }
     if(a==='create'){
-      const {data,error}=await sb.from(payload.sheet).insert(payload.data).select().single();
-      if(error) throw error;
+      let data=payload.data, res, tries=0;
+      while(true){
+        res=await sb.from(payload.sheet).insert(data).select().single();
+        if(!res.error) break;
+        const col=missingColName(res.error);
+        if(col && tries<15 && dataHasCol(data,col)){ data=dataStripCol(data,col); tries++; continue; }
+        throw res.error;
+      }
       const idf=TABLE_ID[payload.sheet];
-      return {ok:true, id: idf? data[idf] : '', data};
+      return {ok:true, id: idf? res.data[idf] : '', data:res.data};
     }
     if(a==='update'){
       const idf=payload.idField||TABLE_ID[payload.sheet];
-      const {error}=await sb.from(payload.sheet).update(payload.data).eq(idf, payload.id);
-      if(error) throw error;
+      let data=payload.data, tries=0;
+      while(true){
+        const {error}=await sb.from(payload.sheet).update(data).eq(idf, payload.id);
+        if(!error) break;
+        const col=missingColName(error);
+        if(col && tries<15 && dataHasCol(data,col)){ data=dataStripCol(data,col); tries++; continue; }
+        throw error;
+      }
       return {ok:true, id:payload.id};
     }
     if(a==='upsert'){
-      const {error}=await sb.from(payload.sheet)
-        .upsert(payload.data, {onConflict:(payload.keyFields||[]).join(',')});
-      if(error) throw error;
+      let data=payload.data, tries=0;
+      while(true){
+        const {error}=await sb.from(payload.sheet)
+          .upsert(data, {onConflict:(payload.keyFields||[]).join(',')});
+        if(!error) break;
+        const col=missingColName(error);
+        if(col && tries<15 && dataHasCol(data,col)){ data=dataStripCol(data,col); tries++; continue; }
+        throw error;
+      }
       return {ok:true};
     }
     if(a==='delete'){
