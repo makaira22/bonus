@@ -1,353 +1,380 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Awas... Jangan Klik! 😈</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@500;700;900&display=swap" rel="stylesheet">
-<style>
-  :root{
-    --bg-1:#160a22;
-    --bg-2:#2b0f2e;
-    --ember:#ff6a3d;
-    --ember-hot:#ffb84d;
-    --devil:#d1223a;
-    --devil-dark:#8c1226;
-    --cream:#fff3e0;
-    --muted:#c9b8d6;
-  }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kuis Sederhana - Semut Real & Stickman Lari</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(-45deg, #a1c4fd, #c2e9fb, #e0c3fc, #8ec5fc);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
 
-  *{box-sizing:border-box;}
-  html,body{
-    margin:0;
-    height:100%;
-    overflow-x:hidden;
-  }
-  body{
-    min-height:100vh;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    background:radial-gradient(ellipse at 50% 20%, var(--bg-2), var(--bg-1) 70%);
-    font-family:'Nunito', sans-serif;
-    color:var(--cream);
-    position:relative;
-    padding:24px;
-  }
+        /* Latar Belakang Semut (Diperkecil) */
+        .background-ant {
+            position: absolute;
+            width: 15px; 
+            height: 15px;
+            pointer-events: none;
+            opacity: 0.85;
+            filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.4));
+        }
 
-  /* ambient floating embers */
-  .embers{
-    position:fixed;
-    inset:0;
-    overflow:hidden;
-    pointer-events:none;
-    z-index:0;
-  }
-  .ember{
-    position:absolute;
-    bottom:-20px;
-    width:6px;
-    height:6px;
-    border-radius:50%;
-    background:radial-gradient(circle, var(--ember-hot), var(--ember) 60%, transparent 100%);
-    opacity:0.8;
-    animation:rise linear infinite;
-    filter:blur(0.3px);
-  }
-  @keyframes rise{
-    0%{transform:translateY(0) translateX(0) scale(1); opacity:0.9;}
-    100%{transform:translateY(-110vh) translateX(var(--drift,20px)) scale(0.3); opacity:0;}
-  }
+        .quiz-container {
+            position: relative; 
+            overflow: hidden; 
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            /* Padding bawah diperlebar sedikit sebagai 'jalan' untuk stickman */
+            padding: 40px 40px 65px 40px; 
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+            text-align: center;
+            max-width: 450px;
+            width: 90%;
+            z-index: 10;
+        }
+        
+        .quiz-content {
+            position: relative;
+            z-index: 12;
+        }
 
-  .stage{
-    position:relative;
-    z-index:1;
-    width:100%;
-    max-width:560px;
-    text-align:center;
-  }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-size: 26px;
+            font-weight: 600;
+            text-shadow: 1px 1px 2px rgba(255,255,255,0.8);
+        }
+        .btn-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .quiz-btn {
+            position: relative;
+            z-index: 12;
+            background-color: rgba(255, 255, 255, 0.8);
+            color: #2c3e50;
+            border: 1px solid rgba(255, 255, 255, 0.9);
+            padding: 16px 24px;
+            font-size: 18px;
+            font-weight: 600;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            text-align: left;
+            padding-left: 25px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        .quiz-btn:hover {
+            background-color: #ffffff;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+        }
+        .quiz-btn:active {
+            transform: translateY(0);
+        }
+        
+        /* Anak Lari (Stickman - Diperkecil & Posisi Bawah) */
+        #kid-container {
+            position: absolute;
+            bottom: 12px; /* Diletakkan di bawah tombol */
+            width: 30px; 
+            height: 40px; 
+            pointer-events: none;
+            z-index: 11;
+        }
+        
+        #kid-sprite {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transform-origin: center;
+        }
 
-  /* ---------- SCENE 1: teaser ---------- */
-  #scene-teaser{
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    gap:8px;
-    transition:opacity .35s ease, transform .35s ease;
-  }
+        /* Animasi Berlari Nyata */
+        @keyframes runLeg {
+            0% { transform: rotate(-45deg); }
+            100% { transform: rotate(45deg); }
+        }
 
-  .headline{
-    font-family:'Baloo 2', sans-serif;
-    font-weight:800;
-    font-size:clamp(28px, 6vw, 42px);
-    line-height:1.15;
-    color:var(--cream);
-    text-shadow:0 0 24px rgba(255,106,61,0.35);
-    margin:0;
-  }
-  .headline .accent{
-    color:var(--ember-hot);
-  }
-  .sub{
-    color:var(--muted);
-    font-size:clamp(14px,2.4vw,17px);
-    margin:0 0 6px;
-    max-width:380px;
-  }
+        .back-leg, .front-leg { transform-origin: 25px 38px; }
+        .back-arm, .front-arm { transform-origin: 25px 23px; }
 
-  .arrow-wrap{
-    width:150px;
-    height:110px;
-    margin-top:4px;
-  }
-  .arrow-wrap svg{
-    width:100%;
-    height:100%;
-    overflow:visible;
-  }
-  .arrow-path{
-    stroke:var(--ember-hot);
-    stroke-width:5;
-    fill:none;
-    stroke-linecap:round;
-    stroke-dasharray:6 10;
-    animation:dash 1.1s linear infinite, wiggle 2.6s ease-in-out infinite;
-    filter:drop-shadow(0 0 6px rgba(255,184,77,0.6));
-  }
-  @keyframes dash{
-    to{ stroke-dashoffset:-160; }
-  }
-  @keyframes wiggle{
-    0%,100%{ transform:translateY(0) rotate(0deg); }
-    50%{ transform:translateY(4px) rotate(-3deg); }
-  }
+        .back-leg { animation: runLeg 0.4s infinite alternate ease-in-out; }
+        .front-leg { animation: runLeg 0.4s infinite alternate-reverse ease-in-out; }
+        .back-arm { animation: runLeg 0.4s infinite alternate-reverse ease-in-out; }
+        .front-arm { animation: runLeg 0.4s infinite alternate ease-in-out; }
 
-  .btn{
-    font-family:'Baloo 2', sans-serif;
-    font-weight:700;
-    font-size:clamp(18px,3.4vw,22px);
-    letter-spacing:0.5px;
-    color:#2a060f;
-    background:linear-gradient(180deg, var(--ember-hot), var(--ember));
-    border:none;
-    border-radius:100px;
-    padding:16px 40px;
-    cursor:pointer;
-    box-shadow:0 8px 0 var(--devil-dark), 0 14px 30px rgba(255,106,61,0.35);
-    transition:transform .12s ease, box-shadow .12s ease;
-    animation:pulse 1.8s ease-in-out infinite;
-  }
-  .btn:hover{ transform:translateY(-2px); }
-  .btn:active{
-    transform:translateY(6px);
-    box-shadow:0 2px 0 var(--devil-dark), 0 6px 16px rgba(255,106,61,0.3);
-  }
-  @keyframes pulse{
-    0%,100%{ box-shadow:0 8px 0 var(--devil-dark), 0 14px 30px rgba(255,106,61,0.35);}
-    50%{ box-shadow:0 8px 0 var(--devil-dark), 0 14px 42px rgba(255,106,61,0.6);}
-  }
-
-  .hidden{
-    opacity:0;
-    transform:scale(.94);
-    pointer-events:none;
-    position:absolute;
-    inset:0;
-  }
-
-  /* ---------- SCENE 2: reveal ---------- */
-  #scene-reveal{
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    gap:14px;
-    opacity:0;
-    transform:scale(0.7);
-  }
-  #scene-reveal.show{
-    animation:popIn .55s cubic-bezier(.2,1.4,.4,1) forwards;
-  }
-  @keyframes popIn{
-    0%{ opacity:0; transform:scale(0.4) rotate(-6deg); }
-    60%{ opacity:1; transform:scale(1.08) rotate(2deg); }
-    100%{ opacity:1; transform:scale(1) rotate(0deg); }
-  }
-
-  .devil-card{
-    width:220px;
-    filter:drop-shadow(0 10px 26px rgba(209,34,58,0.55));
-    animation:float 3s ease-in-out infinite;
-  }
-  @keyframes float{
-    0%,100%{ transform:translateY(0) rotate(-1deg); }
-    50%{ transform:translateY(-8px) rotate(1deg); }
-  }
-
-  .reveal-text{
-    font-family:'Baloo 2', sans-serif;
-    font-weight:800;
-    font-size:clamp(24px,5vw,34px);
-    margin:0;
-    color:var(--ember-hot);
-    text-shadow:0 0 20px rgba(255,106,61,0.5);
-  }
-  .reveal-sub{
-    color:var(--muted);
-    font-size:15px;
-    margin:0 0 10px;
-  }
-
-  .again-btn{
-    font-family:'Nunito', sans-serif;
-    font-weight:700;
-    font-size:14px;
-    color:var(--cream);
-    background:rgba(255,255,255,0.08);
-    border:1.5px solid rgba(255,255,255,0.25);
-    border-radius:100px;
-    padding:10px 22px;
-    cursor:pointer;
-    transition:background .2s ease, transform .12s ease;
-  }
-  .again-btn:hover{ background:rgba(255,255,255,0.16); transform:translateY(-1px); }
-
-  footer{
-    position:fixed;
-    bottom:14px;
-    left:0;
-    right:0;
-    text-align:center;
-    font-size:12px;
-    color:rgba(201,184,214,0.5);
-    z-index:1;
-  }
-
-  @media (prefers-reduced-motion: reduce){
-    .arrow-path, .btn, .devil-card, #scene-reveal.show, .ember{ animation:none !important; }
-  }
-</style>
+        /* Popup Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(5px);
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+        .modal.show {
+            display: flex;
+            opacity: 1;
+        }
+        .modal-content {
+            max-width: 85%;
+            max-height: 80vh;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+            transform: scale(0.8);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            object-fit: contain;
+        }
+        .modal.show .modal-content {
+            transform: scale(1);
+        }
+        .close-btn {
+            position: absolute;
+            top: 25px;
+            right: 35px;
+            color: #ffffff;
+            font-size: 45px;
+            font-weight: 300;
+            cursor: pointer;
+            line-height: 1;
+            transition: color 0.2s;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        .close-btn:hover {
+            color: #ff7675;
+        }
+    </style>
 </head>
 <body>
 
-<div class="embers" id="embers"></div>
+    <!-- Area untuk 3 Semut Latar Belakang -->
+    <div id="ants-container"></div>
 
-<div class="stage">
-
-  <!-- SCENE 1 -->
-  <div id="scene-teaser">
-    <p class="sub">Ada sesuatu yang menunggu di baliknya...</p>
-    <h1 class="headline">Klik tombol <span class="accent">ini</span>!</h1>
-
-    <div class="arrow-wrap">
-      <svg viewBox="0 0 150 110">
-        <path class="arrow-path" d="M20 15 C 10 55, 60 70, 100 68" />
-        <path class="arrow-path" d="M84 55 L100 68 L112 50" stroke-dasharray="none" />
-      </svg>
+    <div class="quiz-container" id="main-box">
+        <div class="quiz-content">
+            <h1>10 + 6 berapa?</h1>
+            <div class="btn-container">
+                <button class="quiz-btn" onclick="tampilkanPopup('A')">a. 17</button>
+                <button class="quiz-btn" onclick="tampilkanPopup('B')">b. 16</button>
+            </div>
+        </div>
+        
+        <!-- Area Stickman Lari di bagian bawah container -->
+        <div id="kid-container">
+            <div id="kid-sprite">
+                <!-- SVG Stickman yang dianimasikan -->
+                <svg viewBox="0 0 50 60" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+                    <circle cx="25" cy="12" r="7" stroke="#2c3e50" stroke-width="3" fill="transparent"/>
+                    <line x1="25" y1="19" x2="25" y2="38" stroke="#2c3e50" stroke-width="3" stroke-linecap="round"/>
+                    
+                    <!-- Lengan Kiri (Belakang) -->
+                    <line class="back-arm" x1="25" y1="23" x2="15" y2="35" stroke="#2c3e50" stroke-width="3" stroke-linecap="round"/>
+                    <!-- Kaki Kiri (Belakang) -->
+                    <line class="back-leg" x1="25" y1="38" x2="15" y2="55" stroke="#2c3e50" stroke-width="3" stroke-linecap="round"/>
+                    
+                    <!-- Kaki Kanan (Depan) -->
+                    <line class="front-leg" x1="25" y1="38" x2="35" y2="55" stroke="#2c3e50" stroke-width="3" stroke-linecap="round"/>
+                    <!-- Lengan Kanan (Depan) -->
+                    <line class="front-arm" x1="25" y1="23" x2="35" y2="35" stroke="#2c3e50" stroke-width="3" stroke-linecap="round"/>
+                </svg>
+            </div>
+        </div>
     </div>
 
-    <button class="btn" id="revealBtn">KLIK AKU 👉</button>
-  </div>
+    <!-- Elemen Audio -->
+    <audio id="suara-klik" preload="auto">
+        <source src="https://klinklin.online/hey-antek-antek-asing-prabowo.mp3" type="audio/mpeg">
+        Browser Anda tidak mendukung elemen audio.
+    </audio>
 
-  <!-- SCENE 2 -->
-  <div id="scene-reveal">
-    <svg class="devil-card" viewBox="0 0 200 220" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <radialGradient id="faceGrad" cx="35%" cy="30%" r="75%">
-          <stop offset="0%" stop-color="#ff5169"/>
-          <stop offset="100%" stop-color="#b81730"/>
-        </radialGradient>
-        <linearGradient id="hornGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#ffe0a3"/>
-          <stop offset="100%" stop-color="#ffb84d"/>
-        </linearGradient>
-      </defs>
+    <!-- Popup Gambar Besar (Modal) -->
+    <div id="popup-modal" class="modal" onclick="tutupPopup()">
+        <span class="close-btn" onclick="tutupPopup()">&times;</span>
+        <img class="modal-content" id="gambar-popup" src="" alt="Popup Tampilan">
+    </div>
 
-      <!-- tail -->
-      <path d="M60 195 C 30 205, 25 180, 45 175" stroke="#b81730" stroke-width="8" fill="none" stroke-linecap="round"/>
-      <path d="M44 172 L52 168 L50 180 Z" fill="#b81730"/>
+    <script>
+        // --- Fungsi Semut Real Berkeliaran ---
+        function initAnts() {
+            const container = document.getElementById('ants-container');
+            for (let i = 0; i < 3; i++) {
+                const ant = document.createElement('div');
+                ant.className = 'background-ant';
+                
+                // SVG Semut
+                ant.innerHTML = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <g stroke="#1a0f00" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M48,46 Q30,20 15,25" />
+                        <path d="M52,46 Q50,15 45,10" />
+                        <path d="M56,46 Q70,20 85,30" />
+                        <path d="M48,54 Q30,80 15,75" />
+                        <path d="M52,54 Q50,85 45,90" />
+                        <path d="M56,54 Q70,80 85,70" />
+                        <path d="M78,45 Q90,30 100,35" />
+                        <path d="M78,55 Q90,70 100,65" />
+                    </g>
+                    <ellipse cx="25" cy="50" rx="18" ry="12" fill="#1a0f00"/> 
+                    <ellipse cx="52" cy="50" rx="10" ry="8" fill="#1a0f00"/> 
+                    <circle cx="75" cy="50" r="7" fill="#1a0f00"/> 
+                </svg>`;
+                
+                container.appendChild(ant);
+                moveElementRandomly(ant);
+            }
+        }
 
-      <!-- horns -->
-      <path d="M62 55 C 50 25, 60 5, 78 18 C 70 30, 66 45, 68 58 Z" fill="url(#hornGrad)"/>
-      <path d="M138 55 C 150 25, 140 5, 122 18 C 130 30, 134 45, 132 58 Z" fill="url(#hornGrad)"/>
+        function moveElementRandomly(el) {
+            const maxSpeed = 1; 
+            let x = Math.random() * (window.innerWidth - 20);
+            let y = Math.random() * (window.innerHeight - 20);
+            let angle = Math.random() * 360;
+            let isMoving = true;
 
-      <!-- ears -->
-      <ellipse cx="48" cy="95" rx="10" ry="16" fill="#b81730"/>
-      <ellipse cx="152" cy="95" rx="10" ry="16" fill="#b81730"/>
+            function animate() {
+                // Perilaku Semut Nyata: Kadang berhenti (pause) lalu jalan lagi
+                if (Math.random() < 0.015) isMoving = !isMoving; 
+                
+                // Semut sering berbelok arah secara tiba-tiba
+                if (Math.random() < 0.03) angle += (Math.random() - 0.5) * 120; 
 
-      <!-- face -->
-      <ellipse cx="100" cy="105" rx="62" ry="58" fill="url(#faceGrad)"/>
+                if (isMoving) {
+                    angle += (Math.random() - 0.5) * 15; // Berbelok halus saat bergerak
+                    x += Math.cos(angle * Math.PI / 180) * maxSpeed;
+                    y += Math.sin(angle * Math.PI / 180) * maxSpeed;
+                }
 
-      <!-- eyebrows -->
-      <path d="M62 82 Q78 68 96 80" stroke="#4a0713" stroke-width="6" fill="none" stroke-linecap="round"/>
-      <path d="M138 82 Q122 68 104 80" stroke="#4a0713" stroke-width="6" fill="none" stroke-linecap="round"/>
+                if (x < 0) { x = 0; angle = 180 - angle; }
+                if (x > window.innerWidth - 20) { x = window.innerWidth - 20; angle = 180 - angle; }
+                if (y < 0) { y = 0; angle = -angle; }
+                if (y > window.innerHeight - 20) { y = window.innerHeight - 20; angle = -angle; }
 
-      <!-- eyes -->
-      <ellipse cx="78" cy="103" rx="14" ry="17" fill="#fff3e0"/>
-      <ellipse cx="122" cy="103" rx="14" ry="17" fill="#fff3e0"/>
-      <circle cx="81" cy="107" r="6.5" fill="#20040a"/>
-      <circle cx="119" cy="107" r="6.5" fill="#20040a"/>
-      <circle cx="83" cy="104" r="2" fill="#fff3e0"/>
-      <circle cx="121" cy="104" r="2" fill="#fff3e0"/>
+                el.style.left = `${x}px`;
+                el.style.top = `${y}px`;
+                el.style.transform = `rotate(${angle}deg)`; 
 
-      <!-- grin -->
-      <path d="M68 132 Q100 158 132 132 Q100 148 68 132 Z" fill="#4a0713"/>
-      <path d="M74 133 Q100 150 126 133 Q100 142 74 133 Z" fill="#ff8a9b"/>
-      <path d="M92 133 L98 145 L104 133 Z" fill="#fff3e0"/>
+                requestAnimationFrame(animate);
+            }
+            animate();
+        }
 
-      <!-- goatee -->
-      <path d="M90 156 Q100 172 110 156 Q100 164 90 156 Z" fill="#8c1226"/>
+        // --- Fungsi Stickman Berlarian Ke Kanan Kiri (Nyata) ---
+        function initKidAnimation() {
+            const mainBox = document.getElementById('main-box');
+            const kidContainer = document.getElementById('kid-container');
+            
+            let kidWidth = 30; // Sesuai dengan width di CSS
+            let posX = Math.random() * (mainBox.clientWidth - kidWidth);
+            
+            let speedX = 1.2; // Kecepatan diperlambat
+            let isMovingRight = Math.random() > 0.5;
 
-      <!-- blush -->
-      <ellipse cx="60" cy="122" rx="9" ry="6" fill="#ff8a9b" opacity="0.55"/>
-      <ellipse cx="140" cy="122" rx="9" ry="6" fill="#ff8a9b" opacity="0.55"/>
-    </svg>
+            function animateKid() {
+                const boxWidth = mainBox.clientWidth;
 
-    <p class="reveal-text">Muncul deh! 👹</p>
-    <p class="reveal-sub">Wkwkwk, kena prank iseng~</p>
-    <button class="again-btn" id="againBtn">Ulangi lagi</button>
-  </div>
+                if (isMovingRight) {
+                    posX += speedX;
+                    if (posX >= boxWidth - kidWidth - 10) { 
+                        posX = boxWidth - kidWidth - 10;
+                        isMovingRight = false;
+                        flipKid(true); // Hadap Kiri
+                    }
+                } else {
+                    posX -= speedX;
+                    if (posX <= 10) {
+                        posX = 10;
+                        isMovingRight = true;
+                        flipKid(false); // Hadap Kanan
+                    }
+                }
 
-</div>
+                kidContainer.style.left = `${posX}px`;
+                requestAnimationFrame(animateKid);
+            }
 
-<footer>dibuat cuma buat iseng-isengan 😄</footer>
+            function flipKid(isLeft) {
+                const sprite = document.getElementById('kid-sprite');
+                if (isLeft) {
+                    sprite.style.transform = 'scaleX(-1)';
+                } else {
+                    sprite.style.transform = 'scaleX(1)';
+                }
+            }
 
-<script>
-  // ambient embers
-  const emberHost = document.getElementById('embers');
-  const EMBER_COUNT = 22;
-  for(let i=0;i<EMBER_COUNT;i++){
-    const e = document.createElement('div');
-    e.className = 'ember';
-    const left = Math.random()*100;
-    const size = 3 + Math.random()*5;
-    const dur = 5 + Math.random()*6;
-    const delay = Math.random()*6;
-    const drift = (Math.random()*60-30) + 'px';
-    e.style.left = left + 'vw';
-    e.style.width = size + 'px';
-    e.style.height = size + 'px';
-    e.style.animationDuration = dur + 's';
-    e.style.animationDelay = delay + 's';
-    e.style.setProperty('--drift', drift);
-    emberHost.appendChild(e);
-  }
+            flipKid(!isMovingRight); // Sesuaikan hadap awal
+            animateKid();
+        }
 
-  const teaser = document.getElementById('scene-teaser');
-  const reveal = document.getElementById('scene-reveal');
-  const revealBtn = document.getElementById('revealBtn');
-  const againBtn = document.getElementById('againBtn');
+        window.onload = function() {
+            initAnts();
+            initKidAnimation();
+        };
 
-  revealBtn.addEventListener('click', () => {
-    teaser.classList.add('hidden');
-    reveal.classList.add('show');
-  });
+        // --- Fungsi Kuis & Popup ---
+        function tampilkanPopup(pilihan) {
+            const audio = document.getElementById('suara-klik');
+            audio.currentTime = 0; 
+            audio.play().catch(error => {
+                console.log("Audio diblokir browser:", error);
+            });
 
-  againBtn.addEventListener('click', () => {
-    reveal.classList.remove('show');
-    teaser.classList.remove('hidden');
-  });
-</script>
+            const gambar = document.getElementById('gambar-popup');
+            
+            if (pilihan === 'A') {
+                gambar.src = "LINK_GAMBAR_UNTUK_JAWABAN_A"; 
+            } else if (pilihan === 'B') {
+                gambar.src = "LINK_GAMBAR_UNTUK_JAWABAN_B"; 
+            }
 
+            const modal = document.getElementById('popup-modal');
+            modal.style.display = "flex";
+            setTimeout(() => {
+                modal.classList.add('show');
+            }, 10);
+        }
+
+        function tutupPopup() {
+            const modal = document.getElementById('popup-modal');
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.style.display = "none";
+            }, 400); 
+        }
+    </script>
 </body>
 </html>
