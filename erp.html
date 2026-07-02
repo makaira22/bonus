@@ -532,6 +532,19 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .crb-label{font-size:12px;font-weight:700;color:var(--muted)}
 .chat-role-bar select{flex:1;padding:8px 11px;border:1px solid var(--line-2);border-radius:10px;background:var(--surface);font-weight:600;color:var(--ink)}
 .chat-note{font-size:11px;color:var(--faint);text-align:center;padding:6px 10px;background:var(--surface-2);border-bottom:1px solid var(--line)}
+.chat-ann{width:32px;height:32px;border-radius:8px;color:#fff;display:grid;place-items:center}
+.chat-ann:hover{background:rgba(255,255,255,.16)}
+.chat-ann svg{width:19px;height:19px}
+#chatCabang{padding:8px 9px;border:1px solid var(--line-2);border-radius:10px;background:var(--surface);font-weight:600;font-size:12px;max-width:120px}
+.ann-box{background:var(--gold-soft);border:1px solid var(--gold);border-radius:12px;padding:10px 12px;margin-bottom:12px}
+.ann-h{font-size:12px;font-weight:800;color:var(--gold-deep);margin-bottom:6px}
+.ann-item{font-size:12.5px;color:var(--ink);padding:6px 0;border-top:1px solid rgba(0,0,0,.06)}
+.ann-item:first-of-type{border-top:none}
+.ann-from{display:block;font-size:10.5px;font-weight:700;color:var(--muted);margin-bottom:1px}
+.ann-form{padding:4px 2px}
+.ann-form-t{font-family:var(--display);font-weight:600;font-size:16px;margin-bottom:12px}
+.ann-form .field{margin-bottom:10px}
+.ann-form-act{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
 .chat-body{flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:8px;background:var(--bg)}
 .cmsg{max-width:78%;padding:8px 12px;border-radius:14px;font-size:13.5px;line-height:1.4;word-break:break-word;position:relative}
 .cmsg .cmeta{display:block;font-size:10px;opacity:.7;margin-top:3px}
@@ -629,7 +642,10 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 @media (max-width:880px){ .desk-only{display:none} }
 /* ORDER tables punya banyak kolom → di layar sempit (mis. jendela desktop di-minimize)
    otomatis pakai kartu supaya penuh & tak perlu geser horizontal. */
-@media (max-width:1100px){ .tbl-wrap.desk-only{display:none} .card-list.order-cards,.card-list.gaji-cards,.card-list.kar-cards{display:flex} }
+@media (max-width:1100px){ .tbl-wrap.desk-only{display:none} .card-list.order-cards,.card-list.gaji-cards,.card-list.kar-cards,.card-list.bonus-cards{display:flex} }
+.ocard-del{color:var(--danger)}
+.dt-bonus{display:flex;flex-direction:column;gap:6px}
+.dt-bonus-row{display:flex;justify-content:space-between;gap:10px;font-size:13px;background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:8px 11px}
 .kar-head{display:flex;align-items:center;gap:12px}
 .kar-ava{width:44px;height:44px;border-radius:50%;object-fit:cover;flex:none;border:1px solid var(--line)}
 .kar-ava-ph{display:grid;place-items:center;background:var(--gold-soft);color:var(--gold-deep);font-weight:700;font-size:18px}
@@ -645,6 +661,8 @@ tr.rowclick:hover td{background:var(--surface-2)}
 /* ---------- order cards (mobile) ---------- */
 .card-list{display:none;flex-direction:column;gap:11px}
 @media (max-width:880px){ .card-list{display:flex} }
+.order-cards .ocard:nth-child(odd){background:var(--surface)}
+.order-cards .ocard:nth-child(even){background:var(--surface-2)}
 .ocard{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:14px 16px;
   box-shadow:var(--shadow-sm);cursor:pointer;transition:.12s}
 .ocard:active{transform:scale(.99)}
@@ -738,15 +756,19 @@ td.c-green, td.c-red, td.c-orange, td.c-blue{font-weight:700}
   <div class="chat-panel" id="chatPanel">
     <div class="chat-head">
       <span class="chat-title">Obrolan</span>
-      <button class="chat-x" id="chatClose" aria-label="Tutup">&times;</button>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button class="chat-ann" id="chatAnn" title="Buat Pengumuman" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 14v-3Z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg></button>
+        <button class="chat-x" id="chatClose" aria-label="Tutup">&times;</button>
+      </div>
     </div>
     <div class="chat-role-bar">
       <span class="crb-label">Ke:</span>
       <select id="chatRole"></select>
+      <span id="chatCabangWrap" style="display:none"><select id="chatCabang"><option value="">Semua CS</option></select></span>
     </div>
     <div class="chat-note">Obrolan otomatis dihapus tiap Minggu malam.</div>
     <div class="chat-body" id="chatBody"></div>
-    <div class="chat-input">
+    <div class="chat-input" id="chatInput">
       <input id="chatMsg" placeholder="Tulis pesan…" autocomplete="off">
       <button class="chat-send" id="chatSend" aria-label="Kirim"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4Z"/></svg></button>
     </div>
@@ -780,6 +802,7 @@ td.c-green, td.c-red, td.c-orange, td.c-blue{font-weight:700}
     <div class="modal-body" id="modalBody"></div>
     <div class="modal-foot">
       <button class="btn btn-ghost" id="modalCancel">Batal</button>
+      <button class="btn btn-ghost" id="modalDone" style="display:none">Selesai</button>
       <button class="btn btn-primary" id="modalSave">Simpan</button>
     </div>
   </div>
@@ -998,7 +1021,6 @@ const MENUS = {
     {key:'inputBonus', label:'Input Bonus', icon:'bonus'},
     {key:'capaian', label:'Capaian', icon:'result'},
     {key:'kpiCSView', label:'KPI', icon:'audit'},
-    {key:'konten', label:'Konten', icon:'inbox'},
     {key:'__settings', label:'Pengaturan', icon:'settings'}
   ],
   FINANCE: [
@@ -1148,7 +1170,7 @@ const VIEWS = {
   },
   order:{
     sheet:'ORDER', title:'Order', sub:'', branchLock:true, countTop:true, noSyncBtn:true,
-    idField:'ID Order', canAdd:true, canEdit:true, special:'order', orderSort:true,
+    idField:'ID Order', canAdd:true, canEdit:true, special:'order', orderSort:true, bonusBtn:true,
     table:['ID Order','Tanggal Input','Status Order','Nama Customer','Tanggal Pengerjaan','Waktu Pengerjaan','Metode Pembayaran','Nama Cleaner','Total Akhir Setelah Diskon'],
     colLabel:{'Metode Pembayaran':'Metode','Total Akhir Setelah Diskon':'Total','Waktu Pengerjaan':'Jam'},
     filters:['Status Order'],
@@ -1158,7 +1180,7 @@ const VIEWS = {
     form: ORDER_FORM
   },
   inputBonus:{
-    sheet:'BONUS', title:'Input Bonus', sub:'', branchLock:true, countTop:true, noSyncBtn:true,
+    sheet:'BONUS', title:'Input Bonus', sub:'', branchLock:true, countTop:true, noSyncBtn:true, keepOpen:true, canDelete:true,
     idField:'ID Insentif', canAdd:true, canEdit:true, special:'bonus',
     table:['ID Insentif','No Order','Jenis','Nominal','Nama Cleaner','Nama Customer','Tanggal Pengerjaan'],
     filters:['Jenis'], dynCleaner:true,
@@ -1293,7 +1315,7 @@ VIEWS.kpiCSView = {
   sheet:'ORDER', title:'KPI', sub:'', special:'kpiCS', countTop:true, noSyncBtn:true,
   branchLock:true, monthFilter:true, filters:['Status Order']
 };
-VIEWS.konten = { sheet:null, title:'Konten', sub:'', special:'konten', noSyncBtn:true };
+VIEWS.konten = { sheet:null, title:'Konten', sub:'', special:'konten', noSyncBtn:true, inSettings:true };
 
 /* ===== AGENDA (kalender) — CEO/MARKETING/HRD/OPERASIONAL/FINANCE ===== */
 VIEWS.agenda = {
@@ -1365,6 +1387,12 @@ async function api(payload){
     if(a==='upsert'){
       const {error}=await sb.from(payload.sheet)
         .upsert(payload.data, {onConflict:(payload.keyFields||[]).join(',')});
+      if(error) throw error;
+      return {ok:true};
+    }
+    if(a==='delete'){
+      const idf=payload.idField||TABLE_ID[payload.sheet];
+      const {error}=await sb.from(payload.sheet).delete().eq(idf, payload.id);
       if(error) throw error;
       return {ok:true};
     }
@@ -1908,9 +1936,9 @@ function renderTable(){
   const summary=(v.sheet==='BONUS' && state.filters['Nama Cleaner']) ? bonusSummaryCard(rows, state.filters['Nama Cleaner']) : '';
   if(!rows.length){ $('#panel').innerHTML=summary+emptyState('Belum ada data'); setCount(0,countNoun()); wireSummary(); return; }
   const cols=v.table.filter(c=>HIDDEN_COLS.indexOf(c)<0);
-  const showAct=v.canEdit||v.approve||v.invoice||v.wa||v.slip;
+  const showAct=v.canEdit||v.approve||v.invoice||v.wa||v.slip||v.canDelete;
   const chk=v.multiApprove;
-  const tblClass = (v.sheet==='ORDER'||v.sheet==='GAJI'||v.sheet==='KARYAWAN') ? 'tbl-wrap desk-only' : 'tbl-wrap';
+  const tblClass = (v.sheet==='ORDER'||v.sheet==='GAJI'||v.sheet==='KARYAWAN'||v.sheet==='BONUS') ? 'tbl-wrap desk-only' : 'tbl-wrap';
   let html='<div class="'+tblClass+'"><table><thead><tr>'+
     (chk?'<th class="chkcol"><input type="checkbox" id="checkAll"></th>':'')+
     cols.map(c=>'<th>'+esc(colLabel(v,c))+'</th>').join('')+(showAct?'<th></th>':'')+'</tr></thead><tbody>';
@@ -1970,6 +1998,18 @@ function renderTable(){
       '</div>';
     }).join('')+'</div>';
   }
+  if(v.sheet==='BONUS'){
+    cardHtml='<div class="card-list bonus-cards">'+rows.map(r=>{
+      const bid=v.idField?esc(r[v.idField]):('#'+state.rows.indexOf(r));
+      return '<div class="ocard">'+
+        '<div class="ocard-top"><span class="ocard-name">'+esc(r['Nama Customer']||'-')+'</span>'+
+          (v.canDelete?'<button class="act-ic ocard-del" data-del="'+bid+'" title="Hapus">✕</button>':'')+'</div>'+
+        '<div class="ocard-meta">'+svg('result')+'<span>'+esc(tglHariId(r['Tanggal Pengerjaan']))+'</span></div>'+
+        (r['Nama Cleaner']?'<div class="ocard-meta">'+svg('users')+'<span>'+esc(r['Nama Cleaner'])+'</span></div>':'')+
+        '<div class="ocard-meta sub"><span>'+esc(r['Jenis']||'-')+' · '+esc(rp(r['Nominal']||0))+'</span></div>'+
+      '</div>';
+    }).join('')+'</div>';
+  }
   if(v.sheet==='GAJI'){
     cardHtml='<div class="card-list gaji-cards">'+rows.map(r=>{
       const sid=v.idField?esc(r[v.idField]):('#'+state.rows.indexOf(r));
@@ -2007,7 +2047,7 @@ function rowActions(v,r){
     act += '<button class="btn btn-gold btn-sm" data-approve="'+esc(oid)+'">'+svg('check')+'Approve</button>';
   }
   if(v.invoice && (norm(r['Status Order'])==='done' || norm(r['Status Order'])==='complete' || r['Bukti Transfer'])){
-    act += '<button class="act-ic" data-invoice="'+esc(oid)+'" title="Invoice PDF">'+svg('file')+'</button>';
+    act += '<button class="btn btn-ghost btn-sm" data-invoice="'+esc(oid)+'">'+svg('file')+'Invoice</button>';
   }
   if(v.slip){
     const sid=v.idField?esc(r[v.idField]):('#'+state.rows.indexOf(r));
@@ -2020,6 +2060,13 @@ function rowActions(v,r){
     if(locked) act+='<span class="act-ic" title="Terkunci — sudah ada bukti" style="opacity:.4;cursor:not-allowed">'+svg('check')+'</span>';
     else act+='<button class="act-ic" data-edit="'+eid+'" title="Edit">'+svg('edit')+'</button>';
   }
+  if(v.bonusBtn && norm(r['Status Order'])!=='cancel'){
+    act += '<button class="btn btn-ghost btn-sm" data-bonusfor="'+esc(oid)+'">'+svg('bonus')+'Input Bonus</button>';
+  }
+  if(v.canDelete){
+    const did=v.idField?esc(r[v.idField]):('#'+state.rows.indexOf(r));
+    act+='<button class="act-ic" data-del="'+did+'" title="Hapus" style="color:var(--danger)">✕</button>';
+  }
   return act;
 }
 function wireRowHandlers(v){
@@ -2029,13 +2076,26 @@ function wireRowHandlers(v){
   document.querySelectorAll('[data-fulltext]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation();
     showNamePopup(b, b.dataset.fulltitle||'', b.dataset.fulltext||'');
   }));
+  document.querySelectorAll('[data-bonusfor]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation();
+    openBonusForOrder(b.dataset.bonusfor);
+  }));
+  document.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',async e=>{ e.stopPropagation();
+    if(!confirm('Hapus data ini?')) return;
+    const key=b.dataset.del;
+    const row=key.charAt(0)==='#'?state.rows[+key.slice(1)]:state.rows.find(x=>String(x[v.idField])===key);
+    if(!row) return;
+    setSync(true);
+    try{ await api({action:'delete', sheet:v.sheet, idField:v.idField, id:row[v.idField]});
+      toast('Data dihapus','ok'); invalidateLists(); await loadList(true);
+    }catch(err){ setSync(false); toast('Gagal hapus: '+(err.message||err),'err'); }
+  }));
   document.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation();
     const key=b.dataset.edit;
     const row=key.charAt(0)==='#'?state.rows[+key.slice(1)]:state.rows.find(x=>String(x[v.idField])===key);
     openForm(row);
   }));
   document.querySelectorAll('[data-invoice]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation();
-    const row=state.rows.find(x=>String(x['ID Order'])===b.dataset.invoice); downloadInvoice(row);
+    const row=state.rows.find(x=>String(x['ID Order'])===b.dataset.invoice); if(row) showInvoiceChoice(b, row);
   }));
   document.querySelectorAll('[data-approve]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation(); approveOrder(b.dataset.approve); }));
   document.querySelectorAll('[data-wac]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation();
@@ -2117,13 +2177,30 @@ function showOrderDetail(o){
   if(o['Alasan Cancel']) b+=row('Alasan Cancel', esc(o['Alasan Cancel']));
   if(o['Waktu Approve']) b+=row('Waktu Approve', esc(fmtWaktu(o['Waktu Approve'])));
   if(o['Waktu Bukti Transfer']) b+=row('Waktu Upload Bukti', esc(fmtWaktu(o['Waktu Bukti Transfer'])));
-  ['Bukti Transfer','Bukti Cancel'].forEach(k=>{ if(o[k]) b+=row(k,'<a class="flink" data-img="'+esc(o[k])+'" style="cursor:zoom-in">Lihat</a>'); });
-  if(o['File Invoice']) b+=row('File Invoice','<a class="flink" href="'+esc(o['File Invoice'])+'" target="_blank">Lihat</a>');
+  b+='<div class="dt-sec">Bonus / Insentif</div><div id="dtBonus" class="dt-bonus">Memuat…</div>';
   b+='</div>';
   $('#modalBody').innerHTML=b;
   const sv=$('#modalSave'); if(sv) sv.style.display='none';
   const cc=$('#modalCancel'); if(cc){ cc.textContent='Tutup'; cc.classList.add('btn-danger'); }
   openOverlay();
+  loadDetailBonus(o['ID Order']);
+}
+async function loadDetailBonus(oid){
+  const el=$('#dtBonus'); if(!el) return;
+  let data=[];
+  try{ const r=await window.sb.from('BONUS').select('*').eq('No Order', oid); data=r.data||[]; }
+  catch(e){ el.innerHTML='<span style="color:var(--faint)">—</span>'; return; }
+  if(!data.length){ el.innerHTML='<span style="color:var(--faint)">Belum ada bonus.</span>'; return; }
+  el.innerHTML = data.map(x=>'<div class="dt-bonus-row"><span>'+esc(x['Jenis']||'-')+(x['Nama Cleaner']?(' · '+esc(x['Nama Cleaner'])):'')+'</span>'+
+    '<b>'+esc(rp(x['Nominal']||0))+'</b></div>').join('');
+}
+function openBonusForOrder(oid){
+  const o=state.rows.find(x=>String(x['ID Order'])===String(oid));
+  if(!o){ toast('Order tidak ditemukan','err'); return; }
+  state._bonusReturn = state.viewKey;
+  state.view = VIEWS.inputBonus; state.viewKey='inputBonus';
+  openForm(null, {'No Order':o['ID Order'], 'Nama Customer':o['Nama Customer']||'',
+    'Tanggal Pengerjaan':o['Tanggal Pengerjaan']||'', 'Nama Cleaner':o['Nama Cleaner']||''});
 }
 
 /* Kartu ringkasan bonus untuk satu cleaner (total + rincian per jenis: customer & tanggal). */
@@ -2727,6 +2804,29 @@ function showPickMenu(anchor, items){
 }
 function closePickMenu(){ const m=document.getElementById('pickmenu'); if(m) m.remove(); }
 /* Popup daftar semua cleaner (read-only) untuk tombol "+N lainnya". */
+function showInvoiceChoice(anchor, o){
+  closePickMenu();
+  const m=document.createElement('div'); m.className='pickmenu'; m.id='pickmenu';
+  m.innerHTML='<div class="pickmenu-head">Invoice</div>'+
+    '<button class="pickmenu-item" id="invDl">'+svg('file')+'<span>Download PDF</span></button>'+
+    '<button class="pickmenu-item" id="invWa">'+svg('wa')+'<span>Kirim ke WA Customer</span></button>';
+  document.body.appendChild(m);
+  const r=anchor.getBoundingClientRect();
+  m.style.top=(r.bottom+window.scrollY+6)+'px';
+  m.style.left=Math.max(8,Math.min(r.left+window.scrollX, window.innerWidth-230))+'px';
+  m.querySelector('#invDl').addEventListener('click', ()=>{ closePickMenu(); downloadInvoice(o); });
+  m.querySelector('#invWa').addEventListener('click', ()=>{ closePickMenu();
+    downloadInvoice(o);
+    openWa(o['No WA Customer'], invoiceWaText(o), o['Nama Customer']);
+  });
+  setTimeout(()=>document.addEventListener('click', closePickMenu, {once:true}), 0);
+}
+function invoiceWaText(o){
+  const rp_=n=>'Rp '+Number(moneyDigits(n)||0).toLocaleString('id-ID');
+  return 'Halo '+(o['Nama Customer']||'')+' 🙏\n\nBerikut invoice pesanan Anda:\nNo: '+(o['ID Order']||'')+
+    '\nTanggal: '+tglPanjangId(o['Tanggal Pengerjaan'])+'\nTotal: '+rp_(o['Total Akhir Setelah Diskon']||o['Total Akhir'])+
+    '\n\nFile invoice (PDF) sudah kami unduh — mohon dilampirkan pada chat ini. Terima kasih telah memakai layanan KLINKLIN! ✨';
+}
 function showCleanerPopup(anchor, names){
   closePickMenu();
   const m=document.createElement('div'); m.className='pickmenu'; m.id='pickmenu';
@@ -2835,10 +2935,11 @@ async function approveOrder(id){
 /* ============================================================
    FORM (ADD / EDIT)
    ============================================================ */
-async function openForm(row){
+async function openForm(row, pre){
   const v=state.view;
   state.editing = row; state.files={};
-  const sv=$('#modalSave'); if(sv) sv.style.display='';
+  const sv=$('#modalSave'); if(sv){ sv.style.display=''; sv.textContent = (v.keepOpen && !row) ? 'Simpan & lanjut' : 'Simpan'; }
+  const dn=$('#modalDone'); if(dn) dn.style.display = (v.keepOpen && !row) ? '' : 'none';
   const cc=$('#modalCancel'); if(cc){ cc.textContent='Batal'; cc.classList.remove('btn-danger'); }
   $('#modalTitle').textContent = (row?'Edit ':'Tambah ')+v.title;
 
@@ -2848,7 +2949,7 @@ async function openForm(row){
   // prefetch lists needed for datalists
   await ensureLists(v);
 
-  const data = row ? Object.assign({}, row) : defaults(v);
+  const data = row ? Object.assign({}, row) : Object.assign(defaults(v), pre||{});
   let html='<div class="form-grid">';
   v.form.forEach(fd=>{
     if(fd.sec){ html += '<div class="sec-title">'+fd.sec+'</div>'; return; }
@@ -3271,95 +3372,84 @@ function buildInvoiceHTML(o){
   let grand=Number(o['Total Akhir Setelah Diskon']||0);
   if(!grand) grand=afterDisc+ppnNilai;
 
-  const bd='1px solid #333';
-  const cellL='padding:5px 8px;border:'+bd+';font-size:11px;';
-  const lab='padding:5px 8px;border:'+bd+';font-size:11px;font-weight:bold;background:#f3f5f8;white-space:nowrap;';
+  const PET='#0E3B3A', GOLD='#C2A567', LINE='#e4e9e8', MUT='#5E6F6C';
   const money=n=>'Rp '+Number(n||0).toLocaleString('id-ID');
-
-  const itemRows=items.map(it=>(
-    '<tr>'+
-      '<td style="'+cellL+'">'+esc(it.nama||'-')+'</td>'+
-      '<td style="'+cellL+'text-align:center">'+esc(it.qtyText||'')+'</td>'+
-      '<td style="'+cellL+'text-align:right">'+money(it.harga)+'</td>'+
+  const itemRows=items.map((it,i)=>(
+    '<tr style="background:'+(i%2?'#f6f9f8':'#fff')+'">'+
+      '<td style="padding:11px 14px;font-size:12px;color:#15211F">'+esc(it.nama||'-')+'</td>'+
+      '<td style="padding:11px 14px;font-size:12px;text-align:center;color:'+MUT+'">'+esc(it.qtyText||'1')+'</td>'+
+      '<td style="padding:11px 14px;font-size:12px;text-align:right;font-variant-numeric:tabular-nums">'+money(it.harga)+'</td>'+
     '</tr>'
   )).join('');
-
   const bankRows=INVOICE_BANK.map(b=>(
-    '<tr><td style="font-size:11px;font-weight:bold;padding:2px 0;width:120px">'+esc(b.bank)+'</td>'+
-    '<td style="font-size:11px;padding:2px 0">: '+esc(b.no)+' &nbsp;a.n. '+esc(b.an)+'</td></tr>'
+    '<div style="font-size:11.5px;margin-bottom:3px"><b style="color:'+PET+'">'+esc(b.bank)+'</b> &nbsp;'+esc(b.no)+' &nbsp;·&nbsp; a.n. '+esc(b.an)+'</div>'
   )).join('');
+  const totRow=(l,v,strong)=>'<tr>'+
+    '<td style="padding:6px 14px;font-size:'+(strong?'13px':'12px')+';color:'+(strong?'#fff':'rgba(255,255,255,.8)')+';'+(strong?'font-weight:800':'')+'">'+l+'</td>'+
+    '<td style="padding:6px 14px;font-size:'+(strong?'14px':'12px')+';text-align:right;color:#fff;'+(strong?'font-weight:800':'')+';font-variant-numeric:tabular-nums">'+v+'</td></tr>';
 
   return ''+
-  '<div style="width:760px;background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif;padding:28px 30px;box-sizing:border-box">'+
-    // header
-    '<table style="width:100%;border-collapse:collapse;margin-bottom:18px"><tr>'+
-      '<td style="vertical-align:middle;width:45%">'+
-        '<div style="font-weight:800;font-size:26px;letter-spacing:-1px">'+
-        '<span style="background:#111;color:#fff;padding:2px 8px;border-radius:5px">K</span>linKlin</div>'+
-      '</td>'+
-      '<td style="vertical-align:middle">'+
-        '<div style="background:#4169d6;color:#fff;font-weight:800;font-size:32px;letter-spacing:1px;text-align:center;padding:10px 0;border-radius:2px">INVOICE</div>'+
-      '</td>'+
-    '</tr></table>'+
-    // company + meta
-    '<table style="width:100%;border-collapse:collapse;margin-bottom:14px"><tr>'+
-      '<td style="vertical-align:top;width:52%;padding-right:18px">'+
-        '<div style="font-size:12px;font-weight:bold;margin-bottom:2px">Klinklin '+esc(info.cabang)+'</div>'+
-        '<div style="font-size:12px;font-weight:bold;margin-bottom:8px">PT KlinKlin Indonesia Group</div>'+
-        '<table style="width:100%;border-collapse:collapse">'+
-          '<tr><td style="'+cellL+'">'+esc(info.alamat)+'</td></tr>'+
-        '</table>'+
-        '<table style="width:100%;border-collapse:collapse;margin-top:8px">'+
-          '<tr><td style="'+lab+'width:70px">Phone</td><td style="'+cellL+'">: '+esc(info.phone)+'</td></tr>'+
-          '<tr><td style="'+lab+'">Email</td><td style="'+cellL+'">: '+esc(info.email)+'</td></tr>'+
-        '</table>'+
-      '</td>'+
-      '<td style="vertical-align:top">'+
-        '<table style="width:100%;border-collapse:collapse">'+
-          '<tr><td style="'+lab+'width:110px">ID Order</td><td style="'+cellL+'">: '+esc(o['ID Order']||'-')+'</td></tr>'+
-          '<tr><td style="'+lab+'">Date</td><td style="'+cellL+'">: '+esc(fmtTgl(o['Tanggal Pengerjaan']||o['Tanggal Input']))+'</td></tr>'+
-          '<tr><td style="'+lab+'">Payment Term</td><td style="'+cellL+'">: '+esc(o['Metode Pembayaran']||'-')+'</td></tr>'+
-          '<tr><td style="'+lab+'">Currency</td><td style="'+cellL+'">: IDR</td></tr>'+
-        '</table>'+
-      '</td>'+
-    '</tr></table>'+
-    // customer
-    '<table style="width:52%;border-collapse:collapse;margin-bottom:16px">'+
-      '<tr><td style="'+lab+'width:70px">Customer</td><td style="'+cellL+'">: '+esc(o['Nama Customer']||'-')+'</td></tr>'+
-      '<tr><td style="'+lab+'">Address</td><td style="'+cellL+'">: '+esc(o['Alamat']||'-')+'</td></tr>'+
-      '<tr><td style="'+lab+'">Phone</td><td style="'+cellL+'">: '+esc(o['No WA Customer']||'-')+'</td></tr>'+
-    '</table>'+
-    // items
-    '<table style="width:100%;border-collapse:collapse;margin-bottom:0">'+
-      '<thead><tr>'+
-        '<th style="'+lab+'text-align:left;width:55%">Description</th>'+
-        '<th style="'+lab+'text-align:center">Qty</th>'+
-        '<th style="'+lab+'text-align:right">Amount</th>'+
-      '</tr></thead><tbody>'+itemRows+'</tbody>'+
-    '</table>'+
-    // totals
-    '<table style="width:100%;border-collapse:collapse;margin-bottom:20px"><tr>'+
-      '<td style="width:55%;border:none"></td>'+
-      '<td style="padding:0;border:none">'+
-        '<table style="width:100%;border-collapse:collapse">'+
-          '<tr><td style="'+lab+'">Subtotal</td><td style="'+cellL+'text-align:right">'+money(subtotal)+'</td></tr>'+
-          '<tr><td style="'+lab+'">Diskon</td><td style="'+cellL+'text-align:right">'+money(diskonNilai)+'</td></tr>'+
-          '<tr><td style="'+lab+'">PPn ('+ppn+'%)</td><td style="'+cellL+'text-align:right">'+money(ppnNilai)+'</td></tr>'+
-          '<tr><td style="'+lab+'font-size:12px">Grand Total</td><td style="'+cellL+'text-align:right;font-weight:bold;font-size:12px">'+money(grand)+'</td></tr>'+
-        '</table>'+
-      '</td>'+
-    '</tr></table>'+
-    // footer
-    '<table style="width:100%;border-collapse:collapse"><tr>'+
-      '<td style="vertical-align:top;width:60%">'+
-        '<div style="font-size:11px;font-weight:bold;margin-bottom:6px">Pembayaran Transfer via</div>'+
-        '<table style="border-collapse:collapse">'+bankRows+'</table>'+
-      '</td>'+
-      '<td style="vertical-align:top;text-align:center">'+
-        '<div style="font-size:11px;margin-bottom:46px">Sincerely,</div>'+
-        '<div style="font-size:12px;font-weight:bold;border-top:1px solid #111;display:inline-block;padding-top:4px">'+esc(INVOICE_SIGNER)+'</div>'+
-      '</td>'+
-    '</tr></table>'+
+  '<div style="width:760px;background:#fff;color:#15211F;font-family:Arial,Helvetica,sans-serif;box-sizing:border-box">'+
+    // header band
+    '<div style="background:'+PET+';color:#fff;padding:26px 34px;display:flex;justify-content:space-between;align-items:center">'+
+      '<div>'+
+        '<div style="font-size:26px;font-weight:800;letter-spacing:.5px">KLIN<span style="color:'+GOLD+'">KLIN</span></div>'+
+        '<div style="font-size:11px;opacity:.8;margin-top:2px">PT KlinKlin Indonesia Group</div>'+
+      '</div>'+
+      '<div style="text-align:right">'+
+        '<div style="font-size:30px;font-weight:800;letter-spacing:3px;color:'+GOLD+'">INVOICE</div>'+
+        '<div style="font-size:11px;opacity:.85;margin-top:2px">'+esc(o['ID Order']||'-')+'</div>'+
+      '</div>'+
+    '</div>'+
+    '<div style="padding:26px 34px">'+
+      // meta row
+      '<table style="width:100%;border-collapse:collapse;margin-bottom:22px"><tr>'+
+        '<td style="vertical-align:top;width:55%">'+
+          '<div style="font-size:10px;font-weight:800;letter-spacing:.08em;color:'+MUT+';text-transform:uppercase;margin-bottom:5px">Ditagihkan Kepada</div>'+
+          '<div style="font-size:15px;font-weight:800">'+esc(o['Nama Customer']||'-')+'</div>'+
+          '<div style="font-size:12px;color:'+MUT+';margin-top:3px;line-height:1.5">'+esc(o['Alamat']||'-')+'<br>'+esc(o['No WA Customer']||'')+'</div>'+
+        '</td>'+
+        '<td style="vertical-align:top">'+
+          '<div style="font-size:12px;line-height:1.9;color:'+MUT+'">'+
+            '<div><b style="color:#15211F">Tanggal:</b> '+esc(fmtTgl(o['Tanggal Pengerjaan']||o['Tanggal Input']))+'</div>'+
+            '<div><b style="color:#15211F">Cabang:</b> '+esc(info.cabang)+'</div>'+
+            '<div><b style="color:#15211F">Pembayaran:</b> '+esc(o['Metode Pembayaran']||'-')+'</div>'+
+          '</div>'+
+        '</td>'+
+      '</tr></table>'+
+      // items
+      '<table style="width:100%;border-collapse:collapse;border:1px solid '+LINE+';border-radius:10px;overflow:hidden">'+
+        '<thead><tr style="background:'+PET+';color:#fff">'+
+          '<th style="padding:11px 14px;font-size:11px;text-align:left;letter-spacing:.04em;text-transform:uppercase">Layanan</th>'+
+          '<th style="padding:11px 14px;font-size:11px;text-align:center;letter-spacing:.04em;text-transform:uppercase">Qty</th>'+
+          '<th style="padding:11px 14px;font-size:11px;text-align:right;letter-spacing:.04em;text-transform:uppercase">Harga</th>'+
+        '</tr></thead><tbody>'+itemRows+'</tbody>'+
+      '</table>'+
+      // totals box
+      '<table style="width:100%;border-collapse:collapse;margin-top:18px"><tr>'+
+        '<td style="width:52%;vertical-align:top">'+
+          '<div style="font-size:10px;font-weight:800;letter-spacing:.08em;color:'+MUT+';text-transform:uppercase;margin-bottom:7px">Transfer ke</div>'+
+          bankRows+
+        '</td>'+
+        '<td style="vertical-align:top;padding-left:14px">'+
+          '<table style="width:100%;border-collapse:collapse;background:'+PET+';border-radius:10px;overflow:hidden">'+
+            totRow('Subtotal', money(subtotal))+
+            totRow('Diskon', '- '+money(diskonNilai))+
+            totRow('PPn ('+ppn+'%)', money(ppnNilai))+
+            '<tr><td colspan="2" style="padding:0"><div style="height:1px;background:rgba(255,255,255,.2)"></div></td></tr>'+
+            totRow('Total', money(grand), true)+
+          '</table>'+
+        '</td>'+
+      '</tr></table>'+
+      // footer
+      '<div style="margin-top:28px;padding-top:16px;border-top:1px solid '+LINE+';display:flex;justify-content:space-between;align-items:flex-end">'+
+        '<div style="font-size:11px;color:'+MUT+';max-width:60%">Terima kasih telah mempercayakan kebersihan Anda kepada KLINKLIN. Simpan invoice ini sebagai bukti transaksi.</div>'+
+        '<div style="text-align:center">'+
+          '<div style="font-size:11px;color:'+MUT+';margin-bottom:40px">Hormat kami,</div>'+
+          '<div style="font-size:12px;font-weight:800;border-top:1px solid #15211F;padding-top:5px">'+esc(INVOICE_SIGNER)+'</div>'+
+        '</div>'+
+      '</div>'+
+    '</div>'+
   '</div>';
 }
 async function downloadInvoice(o){
@@ -3542,6 +3632,14 @@ async function saveForm(){
     }else{
       await api({action:'create', sheet:v.sheet, data});
       toast('Data ditambahkan','ok');
+      if(v.keepOpen && !state.editing){
+        // Simpan & lanjut: biarkan pop up terbuka, kosongkan field bonus untuk input berikutnya
+        ['Jenis','Nominal','Nama Cleaner'].forEach(k=>{ const el=getEl(k); if(el){ el.value=''; } });
+        state.cache[ {ORDER:'order', KARYAWAN:'karyawan'}[v.sheet] ] = undefined;
+        invalidateLists(); loadList(true); setSync(false);
+        const jn=getEl('Jenis'); if(jn) jn.focus();
+        return;
+      }
     }
     closeOverlay();
     state.cache[ {ORDER:'order', KARYAWAN:'karyawan'}[v.sheet] ] = undefined; // refresh caches
@@ -3578,7 +3676,9 @@ function prepUpload(file){
 
 /* ---------- overlay ---------- */
 function openOverlay(){ $('#overlay').classList.add('open'); }
-function closeOverlay(){ $('#overlay').classList.remove('open'); state.editing=null; state.files={}; }
+function closeOverlay(){ $('#overlay').classList.remove('open'); state.editing=null; state.files={};
+  if(state._bonusReturn){ const rk=state._bonusReturn; state._bonusReturn=null; selectMenu(rk); }
+}
 
 /* ============================================================
    SETTINGS
@@ -3594,6 +3694,7 @@ function renderSettings(){
     {key:'layanan', label:'Layanan', desc:'Daftar layanan untuk pilihan order', icon:'inbox'},
     {key:'gajiPokok', label:'Gaji Pokok', desc:'Setting gaji pokok, bonus & premi per cabang/jabatan/status', icon:'salary'});
   if(role==='OPERASIONAL') entries.push({key:'targetOmzet', label:'Target Omzet', desc:'Setting target omzet bulanan tiap cabang', icon:'result'});
+  if(role==='CS') entries.push({key:'konten', label:'Konten', desc:'Link Konten Story, Promo & Follow Up', icon:'inbox'});
   const entriesHtml = entries.map(e=>
     '<button class="set-row" data-setkey="'+e.key+'">'+
       '<span class="set-ic">'+svg(e.icon)+'</span>'+
@@ -3618,6 +3719,7 @@ async function openSettingsView(key){
   state.filters={}; state.search=''; state.dateStart=''; state.dateEnd='';
   markActive('__settings');
   renderShell();
+  if(state.view.special==='konten'){ renderKonten(); return; }
   await loadList();
   if(state._ch){ try{ window.sb.removeChannel(state._ch); }catch(e){} state._ch=null; }
   if(state.view && state.view.sheet){
@@ -3631,93 +3733,153 @@ function openSettingsStandalone(){ /* tidak dipakai lagi (backend = Supabase) */
 /* ============================================================
    OBROLAN ANTAR JABATAN (CHAT)
    ============================================================ */
-function chatOther(){ return $('#chatRole') ? $('#chatRole').value : ''; }
 function chatMe(){ return (state.session&&state.session.role)||''; }
+function chatMyCab(){ return String((state.session&&state.session.cabang)||'').toUpperCase(); }
+function chatOther(){ return $('#chatRole') ? $('#chatRole').value : ''; }
+function chatOtherCab(){ const s=$('#chatCabang'); return s? String(s.value||'').toUpperCase() : ''; }
+function canAnnounce(){ return AGENDA_ROLES.includes(chatMe()); }
 function lastChatReset(){
   const now=new Date(); const d=new Date(now); d.setHours(21,0,0,0);
-  d.setDate(d.getDate()-d.getDay());       // Minggu minggu ini, 21:00
-  if(d>now) d.setDate(d.getDate()-7);       // jika masih di masa depan, pakai Minggu lalu
+  d.setDate(d.getDate()-d.getDay());
+  if(d>now) d.setDate(d.getDate()-7);
   return d;
 }
 async function chatWeeklyCleanup(){
   try{ await window.sb.from('CHAT').delete().lt('created_at', lastChatReset().toISOString()); }catch(e){}
 }
-function chatOptions(byRole){
+async function chatFetchAll(){
+  try{ const r=await window.sb.from('CHAT').select('*').order('created_at',{ascending:true}).limit(800); state._chatAll=r.data||[]; }
+  catch(e){ state._chatAll=[]; }
+  return state._chatAll;
+}
+function chatIsForMe(m){
+  const me=chatMe(), cab=chatMyCab();
+  if(m.from_role===me && (me!=='CS' || String(m.from_cabang||'').toUpperCase()===cab)) return false; // dari saya sendiri
+  if(m.to_role==='ALL') return true;
+  if(m.to_role!==me) return false;
+  if(me==='CS') return !m.to_cabang || String(m.to_cabang).toUpperCase()===cab;
+  return true;
+}
+function chatParty(role,cab){ return role==='CS' ? ('CS:'+String(cab||'').toUpperCase()) : role; }
+function chatThread(){
+  const me=chatMe(), myCab=chatMyCab(), other=chatOther(), otherCab=chatOtherCab();
+  if(!other) return [];
+  const myP=chatParty(me,myCab), tP=chatParty(other,otherCab);
+  return (state._chatAll||[]).filter(m=>{
+    if(m.kind==='announce') return false;
+    const sP=chatParty(m.from_role,m.from_cabang), rP=chatParty(m.to_role,m.to_cabang);
+    return (sP===myP && rP===tP) || (sP===tP && rP===myP);
+  });
+}
+function chatSeenKey(){ return 'klinklin_chat_seen_'+chatMe()+'_'+chatMyCab(); }
+function chatMarkSeen(){ localStorage.setItem(chatSeenKey(), new Date().toISOString()); }
+function chatOptions(){
   const me=chatMe(); const sel=$('#chatRole'); if(!sel) return;
   const cur=sel.value;
-  sel.innerHTML = CHAT_ROLES.filter(r=>r!==me).map(r=>{
-    const u=(byRole&&byRole[r])||0;
-    return '<option value="'+r+'">'+r+(u?(' ('+u+' baru)'):'')+'</option>';
-  }).join('');
+  sel.innerHTML = CHAT_ROLES.filter(r=>r!==me).map(r=>'<option value="'+r+'">'+r+'</option>').join('');
   if(cur && CHAT_ROLES.includes(cur) && cur!==me) sel.value=cur;
+  chatSyncCabang();
+}
+function chatSyncCabang(){
+  const wrap=$('#chatCabangWrap'); if(!wrap) return;
+  if(chatOther()==='CS'){ wrap.style.display=''; }
+  else { wrap.style.display='none'; }
 }
 async function chatUpdateBadge(){
   const me=chatMe(); if(!me) return;
-  let data=[];
-  try{ const r=await window.sb.from('CHAT').select('from_role').eq('to_role',me).eq('read',false); data=r.data||[]; }catch(e){ return; }
-  const byRole={}; data.forEach(m=>byRole[m.from_role]=(byRole[m.from_role]||0)+1);
-  const n=data.length, b=$('#chatBadge');
+  if(!state._chatAll) await chatFetchAll();
+  const seen=localStorage.getItem(chatSeenKey())||'1970-01-01';
+  const n=(state._chatAll||[]).filter(m=>chatIsForMe(m) && (m.created_at||'')>seen).length;
+  const b=$('#chatBadge');
   if(b){ b.textContent=n>9?'9+':String(n); b.style.display=n>0?'grid':'none'; }
-  chatOptions(byRole);
 }
 function chatBubble(m, me){
-  const mine=m.from_role===me;
+  const mine=(m.from_role===me) && (me!=='CS' || String(m.from_cabang||'').toUpperCase()===chatMyCab());
   const t=(m.created_at||'').replace('T',' ').slice(0,16);
+  const who=m.from_role+(m.from_role==='CS'&&m.from_cabang?(' '+m.from_cabang):'');
   return '<div class="cmsg '+(mine?'me':'them')+'">'+
-    (mine?'':'<span class="cfrom">'+esc(m.from_role)+'</span>')+
+    (mine?'':'<span class="cfrom">'+esc(who)+'</span>')+
     esc(m.message||'')+'<span class="cmeta">'+esc(t)+'</span></div>';
 }
-async function chatLoadThread(){
-  const me=chatMe(), other=chatOther(); const body=$('#chatBody');
-  if(!me||!other||!body) return;
-  body.innerHTML='<div class="chat-empty">Memuat…</div>';
-  let data=[];
-  try{
-    const r=await window.sb.from('CHAT').select('*')
-      .or('and(from_role.eq.'+me+',to_role.eq.'+other+'),and(from_role.eq.'+other+',to_role.eq.'+me+')')
-      .order('created_at',{ascending:true}).limit(300);
-    data=r.data||[];
-  }catch(e){ body.innerHTML='<div class="chat-empty">Gagal memuat obrolan.</div>'; return; }
-  body.innerHTML = data.length ? data.map(m=>chatBubble(m,me)).join('') : '<div class="chat-empty">Belum ada pesan. Sapa '+esc(other)+' 👋</div>';
+function chatRenderBody(){
+  const me=chatMe(), body=$('#chatBody'); if(!body) return;
+  const anns=(state._chatAll||[]).filter(m=>m.kind==='announce' && chatIsForMe(m)).slice(-15).reverse();
+  const annHtml = anns.length ? '<div class="ann-box"><div class="ann-h">📢 Pengumuman</div>'+
+    anns.map(a=>'<div class="ann-item"><span class="ann-from">'+esc(a.from_role)+' · '+esc((a.created_at||'').replace('T',' ').slice(0,16))+'</span>'+esc(a.message||'')+'</div>').join('')+'</div>' : '';
+  const thread=chatThread();
+  const threadHtml = thread.length ? thread.map(m=>chatBubble(m,me)).join('')
+    : '<div class="chat-empty">Belum ada pesan. Sapa '+esc(chatOther())+(chatOther()==='CS'&&chatOtherCab()?(' '+chatOtherCab()):'')+' 👋</div>';
+  body.innerHTML = annHtml + threadHtml;
   body.scrollTop=body.scrollHeight;
-  // tandai pesan dari "other" sebagai sudah dibaca
-  try{ await window.sb.from('CHAT').update({read:true}).eq('to_role',me).eq('from_role',other).eq('read',false); }catch(e){}
-  chatUpdateBadge();
+  chatMarkSeen(); chatUpdateBadge();
 }
+async function chatLoadThread(){ if(!state._chatAll) await chatFetchAll(); chatSyncCabang(); chatRenderBody(); }
 async function chatSend(){
   const me=chatMe(), other=chatOther(); const inp=$('#chatMsg');
   if(!inp) return; const text=inp.value.trim(); if(!text||!other) return;
   inp.value='';
-  const body=$('#chatBody');
-  if(body){ if(body.querySelector('.chat-empty')) body.innerHTML='';
-    body.insertAdjacentHTML('beforeend', chatBubble({from_role:me,to_role:other,message:text,created_at:new Date().toISOString()}, me));
-    body.scrollTop=body.scrollHeight; }
-  try{ await window.sb.from('CHAT').insert({from_role:me, to_role:other, message:text, read:false}); }
+  const rec={from_role:me, from_cabang:(me==='CS'?chatMyCab():''), to_role:other,
+    to_cabang:(other==='CS'?chatOtherCab():''), message:text, kind:'chat', read:false};
+  try{ await window.sb.from('CHAT').insert(rec); await chatFetchAll(); chatRenderBody(); }
   catch(e){ toast('Gagal kirim pesan: '+(e.message||e),'err'); }
 }
-function chatOpen(){ const p=$('#chatPanel'); if(!p) return; p.classList.add('open'); chatLoadThread(); }
+/* Pengumuman */
+function chatOpenAnnounce(){
+  const body=$('#chatBody'); if(!body) return;
+  $('#chatInput').style.display='none';
+  const roleOpts=['<option value="ALL">Semua Jabatan</option>']
+    .concat(CHAT_ROLES.map(r=>'<option value="'+r+'">'+r+'</option>')).join('');
+  const cabOpts=['<option value="">Semua CS</option>'].concat(CABANG.filter(c=>c!=='OFFICE').map(c=>'<option>'+c+'</option>')).join('');
+  body.innerHTML='<div class="ann-form">'+
+    '<div class="ann-form-t">📢 Buat Pengumuman</div>'+
+    '<div class="field"><label>Tujuan</label><select id="annTarget">'+roleOpts+'</select></div>'+
+    '<div class="field" id="annCabWrap" style="display:none"><label>CS Cabang</label><select id="annCab">'+cabOpts+'</select></div>'+
+    '<div class="field"><label>Pesan</label><textarea id="annMsg" placeholder="Tulis pengumuman…"></textarea></div>'+
+    '<div class="ann-form-act"><button class="btn btn-ghost btn-sm" id="annCancel">Batal</button>'+
+    '<button class="btn btn-primary btn-sm" id="annSend">Kirim</button></div></div>';
+  const tgt=$('#annTarget');
+  const syncCab=()=>{ $('#annCabWrap').style.display = (tgt.value==='CS'||tgt.value==='ALL')?'':'none'; };
+  tgt.addEventListener('change', syncCab); syncCab();
+  $('#annCancel').addEventListener('click', ()=>{ $('#chatInput').style.display=''; chatRenderBody(); });
+  $('#annSend').addEventListener('click', chatSendAnnounce);
+}
+async function chatSendAnnounce(){
+  const me=chatMe(); const target=$('#annTarget').value; const msg=($('#annMsg').value||'').trim();
+  if(!msg){ toast('Pesan kosong','err'); return; }
+  const toCab = (target==='CS'||target==='ALL') ? String($('#annCab').value||'').toUpperCase() : '';
+  const rec={from_role:me, from_cabang:(me==='CS'?chatMyCab():''), to_role:target, to_cabang:toCab, message:msg, kind:'announce', read:false};
+  try{ await window.sb.from('CHAT').insert(rec); await chatFetchAll();
+    toast('Pengumuman terkirim','ok'); $('#chatInput').style.display=''; chatRenderBody(); }
+  catch(e){ toast('Gagal kirim: '+(e.message||e),'err'); }
+}
+async function chatOpen(){ const p=$('#chatPanel'); if(!p) return; p.classList.add('open'); await chatFetchAll(); chatSyncCabang(); chatRenderBody(); }
 function chatClose(){ const p=$('#chatPanel'); if(p) p.classList.remove('open'); }
 function initChat(){
   const me=chatMe(); if(!me) return;
   chatWeeklyCleanup();
-  chatOptions({});
+  const cabSel=$('#chatCabang');
+  if(cabSel) cabSel.innerHTML='<option value="">Semua CS</option>'+CABANG.filter(c=>c!=='OFFICE').map(c=>'<option value="'+c+'">'+c+'</option>').join('');
+  chatOptions();
+  const ann=$('#chatAnn'); if(ann) ann.style.display = canAnnounce()?'grid':'none';
   const fab=$('#chatFab'), pnl=$('#chatPanel');
   if(fab && !fab._wired){ fab._wired=true;
     fab.addEventListener('click', ()=>{ if(pnl.classList.contains('open')) chatClose(); else chatOpen(); });
     $('#chatClose').addEventListener('click', chatClose);
     $('#chatRole').addEventListener('change', chatLoadThread);
+    $('#chatCabang').addEventListener('change', chatRenderBody);
     $('#chatSend').addEventListener('click', chatSend);
     $('#chatMsg').addEventListener('keydown', e=>{ if(e.key==='Enter') chatSend(); });
+    if(ann) ann.addEventListener('click', chatOpenAnnounce);
   }
-  chatUpdateBadge();
-  // realtime: pesan masuk untuk role saya
+  chatFetchAll().then(chatUpdateBadge);
   if(state._chatCh){ try{ window.sb.removeChannel(state._chatCh); }catch(e){} state._chatCh=null; }
-  state._chatCh = window.sb.channel('chat-'+me)
-    .on('postgres_changes', {event:'INSERT', schema:'public', table:'CHAT', filter:'to_role=eq.'+me}, payload=>{
-      const m=payload.new;
+  state._chatCh = window.sb.channel('chat-live')
+    .on('postgres_changes', {event:'INSERT', schema:'public', table:'CHAT'}, payload=>{
+      const m=payload.new; if(!state._chatAll) state._chatAll=[]; state._chatAll.push(m);
+      if(!chatIsForMe(m)) return;
       const panelOpen=$('#chatPanel') && $('#chatPanel').classList.contains('open');
-      if(panelOpen && m.from_role===chatOther()){ chatLoadThread(); }
-      else { chatUpdateBadge(); toast('Pesan baru dari '+m.from_role,'ok'); }
+      if(panelOpen){ chatRenderBody(); }
+      else { chatUpdateBadge(); toast((m.kind==='announce'?'📢 Pengumuman dari ':'Pesan baru dari ')+m.from_role,'ok'); }
     }).subscribe();
 }
 
@@ -3741,7 +3903,8 @@ function csReminderHTML(){
     '<div class="rem-list">'+
       '<div class="rem-item">Lakukan <b>Follow Up</b> customer</div>'+
       '<div class="rem-item">Buat &amp; upload <b>Story</b></div>'+
-    '</div>';
+    '</div>'+
+    '<button class="btn btn-ghost rem-btn" id="remKonten" style="margin-bottom:10px">Buka Menu Konten</button>';
 }
 function showCsReminder(){
   if(!state.session || state.session.role!=='CS') return;
@@ -3752,6 +3915,7 @@ function showCsReminder(){
   $('#remConfirm').style.display='none';
   $('#remMain').style.display='';
   ov.classList.add('open');
+  const kb=$('#remKonten'); if(kb) kb.addEventListener('click', ()=>{ ov.classList.remove('open'); openSettingsView('konten'); });
 }
 function csReminderCheck(){
   if(!state.session || state.session.role!=='CS') return;
@@ -4019,6 +4183,7 @@ $('#btnSettings').addEventListener('click', renderSettings);
 $('#btnSync').addEventListener('click', ()=>{ if(state.view) loadList(true); else toast('Tidak ada data untuk disinkronkan'); });
 $('#modalClose').addEventListener('click', closeOverlay);
 $('#modalCancel').addEventListener('click', closeOverlay);
+$('#modalDone').addEventListener('click', closeOverlay);
 $('#modalSave').addEventListener('click', saveForm);
 $('#overlay').addEventListener('click', e=>{ if(e.target===$('#overlay')) closeOverlay(); });
 $('#imgPop').addEventListener('click', closeImg);
