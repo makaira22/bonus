@@ -307,6 +307,44 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .imgpop-close:hover{background:rgba(255,255,255,.3)}
 
 /* ---------- SETTINGS ---------- */
+.hub-tabs{display:flex;gap:6px;margin-bottom:14px;background:var(--surface-2);border:1px solid var(--line);
+  border-radius:13px;padding:5px;overflow-x:auto}
+.hub-tab{flex:1;min-width:max-content;padding:9px 14px;border-radius:9px;font-weight:700;font-size:13px;
+  color:var(--muted);white-space:nowrap;transition:.12s}
+.hub-tab:hover{color:var(--ink)}
+.hub-tab.active{background:var(--petrol);color:#fff;box-shadow:var(--shadow-sm)}
+
+/* ---------- AGENDA CALENDAR ---------- */
+.ag-bar{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:12px}
+.ag-month{font-family:var(--display);font-weight:600;font-size:19px;min-width:160px;text-align:center}
+.ag-legend{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-bottom:14px}
+.ag-leg{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:var(--muted)}
+.ag-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.ag-head{margin-bottom:6px;gap:6px}
+.ag-dow{text-align:center;font-size:11px;font-weight:800;color:var(--faint);padding:4px 0}
+.ag-cell{position:relative;aspect-ratio:1/1;border:1px solid var(--line);border-radius:11px;background:var(--surface);
+  display:flex;flex-direction:column;align-items:flex-start;padding:7px 8px;transition:.12s;min-height:52px}
+.ag-cell.ag-empty{border:none;background:transparent;pointer-events:none}
+.ag-cell.ag-has{cursor:pointer}
+.ag-cell:not(.ag-empty):hover{border-color:var(--petrol);background:var(--surface-2)}
+.ag-num{font-size:13px;font-weight:700;color:var(--ink)}
+.ag-today{border-color:var(--gold);background:var(--gold-soft)}
+.ag-today .ag-num{color:var(--gold-deep)}
+.ag-dots{display:flex;gap:3px;flex-wrap:wrap;margin-top:auto}
+.ag-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.ag-cnt{position:absolute;top:6px;right:7px;font-size:10px;font-weight:800;color:var(--petrol)}
+.ag-hint{margin-top:14px;font-size:12px;color:var(--muted)}
+.ag-day-list{display:flex;flex-direction:column;gap:9px;margin-bottom:16px}
+.ag-item{display:flex;gap:10px;align-items:flex-start;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:11px 12px}
+.ag-badge{flex:none;font-size:10px;font-weight:800;color:#fff;padding:3px 8px;border-radius:12px}
+.ag-item-txt{flex:1;min-width:0;font-size:13.5px}
+.ag-item-meta{font-size:11px;color:var(--muted);margin-top:2px}
+.ag-item-act{display:flex;gap:4px;flex:none}
+.ag-form{border-top:1px dashed var(--line-2);padding-top:14px}
+.ag-form-t{font-size:12px;font-weight:800;color:var(--faint);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px}
+.ag-form .field{margin-bottom:10px}
+.ag-form-act{display:flex;justify-content:flex-end;gap:8px}
+@media (max-width:520px){ .ag-cell{padding:5px 6px;min-height:46px} .ag-num{font-size:12px} .ag-dot{width:6px;height:6px} }
 .set-row{width:100%;display:flex;align-items:center;gap:14px;padding:14px 14px;border-radius:12px;
   text-align:left;transition:.12s}
 .set-row:hover{background:var(--surface-2)}
@@ -747,6 +785,16 @@ td.c-green, td.c-red, td.c-orange, td.c-blue{font-weight:700}
   </div>
 </div>
 
+<div class="overlay" id="agOverlay">
+  <div class="modal" style="width:min(520px,100%)">
+    <div class="modal-head">
+      <h3 id="agTitle">Agenda</h3>
+      <button class="x" id="agClose" aria-label="Tutup" style="font-size:24px;line-height:1">&times;</button>
+    </div>
+    <div class="modal-body" id="agBody"></div>
+  </div>
+</div>
+
 <div id="sync"><span class="s"></span><span class="t"></span></div>
 <div id="imgPop"><button id="imgPopClose" class="imgpop-close" aria-label="Tutup">&times;</button><img id="imgPopImg" src="" alt="Bukti"></div>
 <div id="toast"></div>
@@ -940,10 +988,8 @@ const MARK = '<svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000
 /* ---------- MENU CONFIG PER ROLE ---------- */
 const MENUS = {
   HRD: [
-    {key:'karyawan', label:'Karyawan', icon:'users'},
     {key:'gaji', label:'Gaji', icon:'salary'},
     {key:'insentif', label:'Insentif', icon:'gift'},
-    {key:'layanan', label:'Layanan', icon:'inbox'},
     {key:'agenda', label:'Agenda', icon:'audit'},
     {key:'__settings', label:'Pengaturan', icon:'settings'}
   ],
@@ -957,9 +1003,7 @@ const MENUS = {
   ],
   FINANCE: [
     {key:'capaianFinance', label:'Capaian', icon:'result'},
-    {key:'auditOrder', label:'Audit Order', icon:'audit'},
-    {key:'hasilAudit', label:'Hasil Audit', icon:'result'},
-    {key:'editOrder', label:'Edit Order', icon:'edit'},
+    {key:'audit', label:'Audit', icon:'audit'},
     {key:'gajiFinance', label:'Gaji', icon:'salary'},
     {key:'agenda', label:'Agenda', icon:'audit'},
     {key:'__settings', label:'Pengaturan', icon:'settings'}
@@ -1020,7 +1064,7 @@ const ORDER_FORM = [
 
 const VIEWS = {
   karyawan:{
-    sheet:'KARYAWAN', title:'Karyawan', sub:'', countTop:true, noSyncBtn:true,
+    sheet:'KARYAWAN', title:'Karyawan', sub:'', countTop:true, noSyncBtn:true, inSettings:true,
     idField:'ID Karyawan', canAdd:true, canEdit:true, sortBy:['Cabang','Nama Lengkap'],
     table:['Foto Profil','ID Karyawan','Nama Lengkap','Jabatan','Status','Cabang','No WA'],
     filters:['Cabang','Jabatan','Status'],
@@ -1078,7 +1122,7 @@ const VIEWS = {
     datePreset:true, dateFilterField:'Tanggal Pengerjaan'
   },
   layanan:{
-    sheet:'LAYANAN', title:'Layanan', sub:'', countTop:true, noSyncBtn:true,
+    sheet:'LAYANAN', title:'Layanan', sub:'', countTop:true, noSyncBtn:true, inSettings:true,
     idField:'ID Layanan', canAdd:true, canEdit:true,
     table:['ID Layanan','Nama Layanan'],
     search:['Nama Layanan','ID Layanan'],
@@ -1130,7 +1174,7 @@ const VIEWS = {
     ]
   },
   auditOrder:{
-    sheet:'ORDER', title:'Audit Order', sub:'', branchLock:false,
+    sheet:'ORDER', title:'Audit Order', sub:'', branchLock:false, hub:'audit',
     idField:'ID Order', statusIn:['done'], statusField:'Status Order', statusPrio:['done'],
     approve:true, multiApprove:true, statusBadge:true, invoice:true, rowDetail:true, countTop:true, noSyncBtn:true,
     table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Metode Pembayaran','PPn','Total Akhir Setelah Diskon','Waktu Bukti Transfer','Bukti Transfer'],
@@ -1140,7 +1184,7 @@ const VIEWS = {
     datePreset:true, dateFilterField:'Tanggal Pengerjaan'
   },
   hasilAudit:{
-    sheet:'ORDER', title:'Hasil Audit', sub:'', readOnly:true, countTop:true,
+    sheet:'ORDER', title:'Hasil Audit', sub:'', readOnly:true, countTop:true, hub:'audit',
     idField:'ID Order', statusIn:['complete','cancel'], statusField:'Status Order', statusPrio:['complete','cancel'],
     statusBadge:true, invoice:true, rowDetail:true,
     table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Metode Pembayaran','Total Akhir Setelah Diskon','Waktu Approve'],
@@ -1149,7 +1193,7 @@ const VIEWS = {
     datePreset:true, dateFilterField:'Tanggal Pengerjaan'
   },
   editOrder:{
-    sheet:'ORDER', title:'Edit Order', sub:'', countTop:true,
+    sheet:'ORDER', title:'Edit Order', sub:'', countTop:true, hub:'audit',
     idField:'ID Order', canEdit:true, special:'order', statusBadge:true, invoice:true,
     statusIn:['pending','done','cancel'], statusField:'Status Order',
     statusPrio:['done','cancel','pending'],
@@ -1251,21 +1295,9 @@ VIEWS.kpiCSView = {
 };
 VIEWS.konten = { sheet:null, title:'Konten', sub:'', special:'konten', noSyncBtn:true };
 
-/* ===== AGENDA (CEO/MARKETING/HRD/OPERASIONAL/FINANCE) ===== */
+/* ===== AGENDA (kalender) — CEO/MARKETING/HRD/OPERASIONAL/FINANCE ===== */
 VIEWS.agenda = {
-  sheet:'AGENDA', title:'Agenda', sub:'', special:'agenda', countTop:true, noSyncBtn:true,
-  keyFields:['Jabatan','Tipe','Periode'], canAdd:true, canEdit:true,
-  filters:['Tipe','Jabatan'],
-  table:['Jabatan','Tipe','Periode','Agenda','Status'],
-  search:['Agenda','Jabatan'],
-  form:[
-    f('Jabatan','select',{opts:AGENDA_ROLES, ro:true}),
-    f('Tipe','select',{opts:['Bulanan','Tahunan'], req:true}),
-    f('Periode','text',{req:true, help:'Bulanan: YYYY-MM · Tahunan: YYYY'}),
-    f('Agenda','textarea',{req:true, full:true}),
-    f('Status','select',{opts:['Rencana','Berjalan','Selesai']}),
-    f('Keterangan','textarea',{full:true})
-  ]
+  sheet:'AGENDA', title:'Agenda', sub:'', special:'agenda', noSyncBtn:true
 };
 VIEWS.targetOmzet = {
   sheet:'TARGET_OMZET', title:'Target Omzet', sub:'', inSettings:true, countTop:true, noSyncBtn:true,
@@ -1550,6 +1582,7 @@ function markActive(key){
    ============================================================ */
 async function selectMenu(key){
   if(key==='__settings'){ renderSettings(); markActive('__settings'); return; }
+  if(key==='audit'){ return openAuditTab(state.auditTab||'auditOrder'); }
   state.view = VIEWS[key]; state.viewKey=key;
   state.filters={}; state.search=''; state.dateStart=''; state.dateEnd='';
   markActive(key);
@@ -1565,10 +1598,28 @@ async function selectMenu(key){
       .subscribe();
   }
 }
+async function openAuditTab(key){
+  state.auditTab=key;
+  state.view = VIEWS[key]; state.viewKey=key;
+  state.filters={}; state.search=''; state.dateStart=''; state.dateEnd='';
+  markActive('audit');
+  renderShell();
+  await loadList();
+  if(state._ch){ try{ window.sb.removeChannel(state._ch); }catch(e){} state._ch=null; }
+  if(state.view && state.view.sheet){
+    state._ch = window.sb.channel('rt-'+state.view.sheet)
+      .on('postgres_changes', {event:'*', schema:'public', table:state.view.sheet}, ()=>{ loadList(true); })
+      .subscribe();
+  }
+}
 function renderShell(){
   const v=state.view;
+  const tabs = v.hub==='audit' ?
+    '<div class="hub-tabs">'+[['auditOrder','Audit Order'],['hasilAudit','Hasil Audit'],['editOrder','Edit Order']]
+      .map(t=>'<button class="hub-tab'+(state.viewKey===t[0]?' active':'')+'" data-audittab="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>' : '';
   $('#content').innerHTML =
     greetingHTML()+
+    tabs+
     '<div class="page-head">'+
       (v.inSettings ? '<button class="icon-btn" id="btnBackSet" title="Kembali ke Pengaturan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>' : '')+
       '<div><div class="page-title">'+v.title+'</div>'+(v.sub?'<div class="page-sub">'+v.sub+'</div>':'')+'<div class="hairline"></div></div>'+
@@ -1579,6 +1630,7 @@ function renderShell(){
     '<div class="toolbar" id="toolbar"></div>'+
     '<div class="panel" id="panel"></div>';
   if(v.canAdd) $('#btnAdd').addEventListener('click', ()=>openForm(null));
+  document.querySelectorAll('[data-audittab]').forEach(b=>b.addEventListener('click',()=>openAuditTab(b.dataset.audittab)));
   const bk=$('#btnBackSet'); if(bk) bk.addEventListener('click', renderSettings);
   buildToolbar();
 }
@@ -1841,6 +1893,7 @@ function renderView(){
   else if(v.special==='kpiCS') renderKpiCS();
   else if(v.special==='spendAds') renderSpendAds();
   else if(v.special==='dashboard') renderDashboard();
+  else if(v.special==='agenda') renderAgenda();
   else renderTable();
 }
 function countNoun(){ return (state.view && state.view.sheet==='ORDER') ? 'order' : 'data'; }
@@ -2815,7 +2868,6 @@ function defaults(v){
     d['PPn']=0; }
   if(v.sheet==='BONUS'){ d['Tanggal Input']=today; }
   if(v.sheet==='GAJI'){ d['Tanggal Cetak']=today; }
-  if(v.sheet==='AGENDA'){ d['Jabatan']=state.session.role; d['Tipe']='Bulanan'; d['Periode']=today.slice(0,7); d['Status']='Rencana'; }
   return d;
 }
 function renderField(fd, val){
@@ -3537,7 +3589,10 @@ function renderSettings(){
   const role=s.role;
   // Menu sub-pengaturan per jabatan
   const entries=[];
-  if(role==='HRD') entries.push({key:'gajiPokok', label:'Gaji Pokok', desc:'Setting gaji pokok, bonus & premi per cabang/jabatan/status', icon:'salary'});
+  if(role==='HRD') entries.push(
+    {key:'karyawan', label:'Karyawan', desc:'Data seluruh karyawan & profil', icon:'users'},
+    {key:'layanan', label:'Layanan', desc:'Daftar layanan untuk pilihan order', icon:'inbox'},
+    {key:'gajiPokok', label:'Gaji Pokok', desc:'Setting gaji pokok, bonus & premi per cabang/jabatan/status', icon:'salary'});
   if(role==='OPERASIONAL') entries.push({key:'targetOmzet', label:'Target Omzet', desc:'Setting target omzet bulanan tiap cabang', icon:'result'});
   const entriesHtml = entries.map(e=>
     '<button class="set-row" data-setkey="'+e.key+'">'+
@@ -3722,10 +3777,10 @@ async function agendaCheck(){
   if(!AGENDA_ROLES.includes(role)) return;
   const ym=ymd(new Date()).slice(0,7), yy=ym.slice(0,4);
   let data=[];
-  try{ const r=await window.sb.from('AGENDA').select('Tipe,Periode,Agenda').eq('Jabatan',role); data=r.data||[]; }
+  try{ const r=await window.sb.from('AGENDA').select('Tipe,Tanggal,Agenda,Jabatan').eq('Jabatan',role); data=r.data||[]; }
   catch(e){ return; }
-  const hasBln=data.some(a=>a['Tipe']==='Bulanan' && String(a['Periode']).slice(0,7)===ym);
-  const hasThn=data.some(a=>a['Tipe']==='Tahunan' && String(a['Periode']).slice(0,4)===yy);
+  const hasBln=data.some(a=>a['Tipe']==='Bulanan' && String(a['Tanggal']||'').slice(0,7)===ym);
+  const hasThn=data.some(a=>a['Tipe']==='Tahunan' && String(a['Tanggal']||'').slice(0,4)===yy);
   if(!hasBln || !hasThn){ showAgendaBlock(!hasBln,!hasThn); return; }
   agendaReminderMonThu(data);
 }
@@ -3742,7 +3797,7 @@ function showAgendaBlock(needBln, needThn){
   ov.classList.add('open');
   const go=$('#remGoAgenda');
   if(go) go.addEventListener('click', ()=>{ ov.classList.remove('open'); $('#remClose').style.display='';
-    selectMenu('agenda'); setTimeout(()=>{ if(VIEWS.agenda.canAdd) openForm(null); }, 350); });
+    selectMenu('agenda'); setTimeout(()=>openAgendaDay(ymd(new Date())), 400); });
 }
 function agendaReminderMonThu(data){
   const now=new Date(); const day=now.getDay(); // 1=Senin, 4=Kamis
@@ -3751,11 +3806,11 @@ function agendaReminderMonThu(data){
   if(localStorage.getItem(key)) return;
   localStorage.setItem(key,'1');
   const ym=ymd(now).slice(0,7), yy=ym.slice(0,4);
-  const bln=data.filter(a=>a['Tipe']==='Bulanan' && String(a['Periode']).slice(0,7)===ym);
-  const thn=data.filter(a=>a['Tipe']==='Tahunan' && String(a['Periode']).slice(0,4)===yy);
+  const bln=data.filter(a=>a['Tipe']==='Bulanan' && String(a['Tanggal']||'').slice(0,7)===ym);
+  const thn=data.filter(a=>a['Tipe']==='Tahunan' && String(a['Tanggal']||'').slice(0,4)===yy);
   const ov=$('#remOverlay'); if(!ov) return;
   state._remMode='agenda';
-  const list = arr => arr.length? arr.map(a=>'<div class="rem-item">'+esc(a['Agenda']||'')+'</div>').join('') : '<div class="rem-item" style="color:var(--faint)">—</div>';
+  const list = arr => arr.length? arr.map(a=>'<div class="rem-item">'+esc(a['Agenda']||'')+' <span style="color:var(--faint)">('+esc(tglPanjangId(a['Tanggal']))+')</span></div>').join('') : '<div class="rem-item" style="color:var(--faint)">—</div>';
   $('#remBody').innerHTML='<div class="rem-emoji">📌</div><div class="rem-title">Agenda '+HARI_ID[day]+' Ini</div>'+
     '<div style="text-align:left;font-size:12px;font-weight:800;color:var(--faint);margin:2px 0 6px">BULANAN</div>'+
     '<div class="rem-list">'+list(bln)+'</div>'+
@@ -3765,9 +3820,125 @@ function agendaReminderMonThu(data){
   ov.classList.add('open');
 }
 
-/* ============================================================
-   DESIGNER — halaman santai "Tangkap Aku!" (lalat kabur dari kursor)
-   ============================================================ */
+/* ---------- AGENDA: tampilan KALENDER ---------- */
+const AG_COLOR = {CEO:'#0E3B3A', MARKETING:'#C2A567', HRD:'#2F6F8F', OPERASIONAL:'#1F7A5E', FINANCE:'#B23A3A'};
+function agRows(){ return state.rows||[]; }
+function agForDate(ds){ return agRows().filter(a=>String(a['Tanggal']||'').slice(0,10)===ds); }
+function renderAgenda(){
+  const ym = state.agMonth || ymd(new Date()).slice(0,7);
+  state.agMonth = ym;
+  const [Y,M] = ym.split('-').map(Number);
+  const first = new Date(Y, M-1, 1);
+  const startDow = (first.getDay()+6)%7;      // Senin=0
+  const daysInMonth = new Date(Y, M, 0).getDate();
+  const todayStr = ymd(new Date());
+  const HARI=['Sen','Sel','Rab','Kam','Jum','Sab','Min'];
+
+  let cells='';
+  for(let i=0;i<startDow;i++) cells+='<div class="ag-cell ag-empty"></div>';
+  for(let d=1; d<=daysInMonth; d++){
+    const ds = Y+'-'+String(M).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    const items = agForDate(ds);
+    const roles=[...new Set(items.map(a=>String(a['Jabatan']||'').toUpperCase()))];
+    const dots = roles.slice(0,5).map(r=>'<span class="ag-dot" style="background:'+(AG_COLOR[r]||'#888')+'"></span>').join('');
+    cells+='<button class="ag-cell'+(ds===todayStr?' ag-today':'')+(items.length?' ag-has':'')+'" data-agday="'+ds+'">'+
+      '<span class="ag-num">'+d+'</span>'+
+      (items.length?'<span class="ag-dots">'+dots+'</span><span class="ag-cnt">'+items.length+'</span>':'')+
+    '</button>';
+  }
+  const legend = AGENDA_ROLES.map(r=>'<span class="ag-leg"><span class="ag-dot" style="background:'+AG_COLOR[r]+'"></span>'+r+'</span>').join('');
+  $('#panel').innerHTML =
+    '<div class="ag-bar">'+
+      '<button class="icon-btn" id="agPrev" title="Bulan sebelumnya"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>'+
+      '<div class="ag-month">'+BULAN_ID[M-1]+' '+Y+'</div>'+
+      '<button class="icon-btn" id="agNext" title="Bulan berikutnya"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>'+
+    '</div>'+
+    '<div class="ag-legend">'+legend+'</div>'+
+    '<div class="ag-grid ag-head">'+HARI.map(h=>'<div class="ag-dow">'+h+'</div>').join('')+'</div>'+
+    '<div class="ag-grid">'+cells+'</div>'+
+    '<div class="ag-hint">Klik tanggal untuk melihat / menambah agenda. Anda hanya bisa mengubah agenda <b>'+esc(state.session.role)+'</b>.</div>';
+  $('#agPrev').addEventListener('click', ()=>{ state.agMonth=shiftMonth(ym,-1); renderAgenda(); });
+  $('#agNext').addEventListener('click', ()=>{ state.agMonth=shiftMonth(ym,1); renderAgenda(); });
+  document.querySelectorAll('[data-agday]').forEach(b=>b.addEventListener('click',()=>openAgendaDay(b.dataset.agday)));
+}
+function shiftMonth(ym, delta){
+  const [Y,M]=ym.split('-').map(Number); const d=new Date(Y, M-1+delta, 1);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+}
+function agDayBody(ds, editId){
+  const me=state.session.role;
+  const items=agForDate(ds);
+  const list = items.length ? items.map(a=>{
+    const r=String(a['Jabatan']||'').toUpperCase(); const mine=r===me;
+    return '<div class="ag-item">'+
+      '<span class="ag-badge" style="background:'+(AG_COLOR[r]||'#888')+'">'+esc(r)+'</span>'+
+      '<div class="ag-item-txt"><div>'+esc(a['Agenda']||'')+'</div>'+
+        '<div class="ag-item-meta">'+esc(a['Tipe']||'')+(a['Status']?(' · '+esc(a['Status'])):'')+'</div></div>'+
+      (mine?'<span class="ag-item-act"><button class="act-ic" data-agedit="'+esc(a.id)+'" title="Edit">'+svg('edit')+'</button>'+
+        '<button class="act-ic" data-agdel="'+esc(a.id)+'" title="Hapus">✕</button></span>':'')+
+    '</div>';
+  }).join('') : '<div class="cap-empty">Belum ada agenda tanggal ini.</div>';
+
+  const ed = state._agEdit || {};
+  const editing = editId && editId===ed.id;
+  const form=
+    '<div class="ag-form">'+
+      '<div class="ag-form-t">'+(editing?'Edit':'Tambah')+' agenda — <b>'+esc(me)+'</b></div>'+
+      '<div class="field"><label>Tipe</label><select id="agTipe">'+
+        ['Bulanan','Tahunan'].map(t=>'<option'+((editing&&ed.Tipe===t)?' selected':'')+'>'+t+'</option>').join('')+'</select></div>'+
+      '<div class="field"><label>Agenda</label><textarea id="agText" placeholder="Tulis agenda…">'+esc(editing?ed.Agenda:'')+'</textarea></div>'+
+      '<div class="field"><label>Status</label><select id="agStatus">'+
+        ['Rencana','Berjalan','Selesai'].map(s=>'<option'+((editing&&ed.Status===s)?' selected':'')+'>'+s+'</option>').join('')+'</select></div>'+
+      '<div class="ag-form-act">'+
+        (editing?'<button class="btn btn-ghost btn-sm" id="agCancelEdit">Batal</button>':'')+
+        '<button class="btn btn-primary btn-sm" id="agSave">'+(editing?'Simpan':'Tambah')+'</button>'+
+      '</div>'+
+    '</div>';
+  return '<div class="ag-day-list">'+list+'</div>'+form;
+}
+function openAgendaDay(ds, editId){
+  state._agDate=ds; if(!editId) state._agEdit=null;
+  const ov=$('#agOverlay'); if(!ov) return;
+  $('#agTitle').textContent = 'Agenda · '+tglPanjangId(ds);
+  $('#agBody').innerHTML = agDayBody(ds, editId);
+  ov.classList.add('open');
+  wireAgendaDay(ds);
+}
+function wireAgendaDay(ds){
+  document.querySelectorAll('[data-agedit]').forEach(b=>b.addEventListener('click',()=>{
+    const a=agRows().find(x=>String(x.id)===b.dataset.agedit); if(a){ state._agEdit=a; openAgendaDay(ds, a.id); }
+  }));
+  document.querySelectorAll('[data-agdel]').forEach(b=>b.addEventListener('click',()=>agDelete(b.dataset.agdel, ds)));
+  const ce=$('#agCancelEdit'); if(ce) ce.addEventListener('click', ()=>{ state._agEdit=null; openAgendaDay(ds); });
+  const sv=$('#agSave'); if(sv) sv.addEventListener('click', ()=>agSave(ds));
+}
+async function agSave(ds){
+  const me=state.session.role;
+  const text=($('#agText').value||'').trim(); if(!text){ toast('Agenda masih kosong','err'); return; }
+  const rec={ Jabatan:me, Tanggal:ds, Tipe:$('#agTipe').value, Agenda:text, Status:$('#agStatus').value };
+  showLoad(true);
+  try{
+    if(state._agEdit && state._agEdit.id){
+      await window.sb.from('AGENDA').update(rec).eq('id', state._agEdit.id);
+    } else {
+      await window.sb.from('AGENDA').insert(rec);
+    }
+    state._agEdit=null;
+    await loadList(true);
+    openAgendaDay(ds);
+    toast('Agenda tersimpan','ok');
+  }catch(e){ toast('Gagal simpan: '+(e.message||e),'err'); }
+  finally{ showLoad(false); }
+}
+async function agDelete(id, ds){
+  if(!confirm('Hapus agenda ini?')) return;
+  showLoad(true);
+  try{ await window.sb.from('AGENDA').delete().eq('id', id); await loadList(true); openAgendaDay(ds); toast('Agenda dihapus','ok'); }
+  catch(e){ toast('Gagal hapus: '+(e.message||e),'err'); }
+  finally{ showLoad(false); }
+}
+
+
 const FLY_SVG =
   '<svg class="fly-svg" viewBox="0 0 120 90" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'+
     '<g class="fly-wings">'+
@@ -3863,6 +4034,10 @@ $('#remClose').addEventListener('click', ()=>{
 });
 $('#remYes').addEventListener('click', ()=>{ $('#remOverlay').classList.remove('open'); $('#remMain').style.display=''; $('#remConfirm').style.display='none'; });
 $('#remNo').addEventListener('click', ()=>{ $('#remMain').style.display=''; $('#remConfirm').style.display='none'; });
+
+// Modal agenda
+$('#agClose').addEventListener('click', ()=>$('#agOverlay').classList.remove('open'));
+$('#agOverlay').addEventListener('click', e=>{ if(e.target===$('#agOverlay')) $('#agOverlay').classList.remove('open'); });
 
 initLogin();
 (async function restore(){
