@@ -821,6 +821,9 @@ td.c-green, td.c-red, td.c-orange, td.c-blue{font-weight:700}
 
 /* Sembunyikan field tertentu pada form (nilai tetap tersimpan otomatis) */
 .field.form-hidden{display:none!important}
+/* Kartu yang selalu tampil (mis. Input Bonus) — desktop & HP sama */
+.card-list.cards-always{display:flex!important}
+.card-list.cards-always .ocard{cursor:pointer}
 </style>
 </head>
 <body>
@@ -1194,9 +1197,9 @@ const MENUS = {
     {key:'__settings', label:'Pengaturan', icon:'settings'}
   ],
   CS: [
+    {key:'capaian', label:'Capaian', icon:'result'},
     {key:'order', label:'Order', icon:'order'},
     {key:'inputBonus', label:'Input Bonus', icon:'bonus'},
-    {key:'capaian', label:'Capaian', icon:'result'},
     {key:'kpiCSView', label:'KPI', icon:'audit'},
     {key:'__settings', label:'Pengaturan', icon:'settings'}
   ],
@@ -1353,7 +1356,7 @@ const VIEWS = {
     filters:['Status Order'],
     datePreset:true, dateFilterField:'Tanggal Pengerjaan',
     search:['Nama Customer','ID Order','No WA Customer'],
-    statusBadge:true, lockAfterProof:true, invoice:true, wa:true,
+    statusBadge:true, lockAfterProof:true, invoice:true, wa:true, rowDetail:true,
     hideFormFields:['Tanggal Input','Status Order','CS Penanggung Jawab','Total Akhir','Total Akhir Setelah Diskon','File Invoice'],
     form: ORDER_FORM
   },
@@ -2139,7 +2142,8 @@ function setCount(n, noun){
 }
 function renderTable(){
   const v=state.view;
-  const rows=applyClientFilters(state.rows);
+  let rows=applyClientFilters(state.rows);
+  if(v.sheet==='BONUS') rows=rows.slice().sort((a,b)=>String(a['Tanggal Pengerjaan']||'').localeCompare(String(b['Tanggal Pengerjaan']||'')));
   const summary=(v.sheet==='BONUS' && state.filters['Nama Cleaner']) ? bonusSummaryCard(rows, state.filters['Nama Cleaner']) : '';
   if(!rows.length){ $('#panel').innerHTML=summary+emptyState('Belum ada data'); setCount(0,countNoun()); wireSummary(); return; }
   const cols=v.table.filter(c=>HIDDEN_COLS.indexOf(c)<0);
@@ -2206,14 +2210,17 @@ function renderTable(){
     }).join('')+'</div>';
   }
   if(v.sheet==='BONUS'){
-    cardHtml='<div class="card-list bonus-cards">'+rows.map(r=>{
+    cardHtml='<div class="card-list bonus-cards cards-always">'+rows.map(r=>{
       const bid=v.idField?esc(r[v.idField]):('#'+state.rows.indexOf(r));
-      return '<div class="ocard">'+
+      return '<div class="ocard" data-detailbonus="'+bid+'">'+
         '<div class="ocard-top"><span class="ocard-name">'+esc(r['Nama Customer']||'-')+'</span>'+
-          (v.canDelete?'<button class="act-ic ocard-del" data-del="'+bid+'" title="Hapus">✕</button>':'')+'</div>'+
-        '<div class="ocard-meta">'+svg('result')+'<span>'+esc(tglHariId(r['Tanggal Pengerjaan']))+'</span></div>'+
+          '<span style="display:flex;align-items:center;gap:9px">'+
+            '<span class="pay-chip">'+esc(r['Jenis']||'-')+'</span>'+
+            (v.canDelete?'<button class="act-ic ocard-del" data-del="'+bid+'" title="Hapus">✕</button>':'')+'</span></div>'+
+        '<div class="ocard-meta">'+svg('result')+'<span>'+esc(tglHariId(r['Tanggal Pengerjaan']))+'</span>'+
+          (r['No Order']?'<span class="pay-chip">'+esc(r['No Order'])+'</span>':'')+'</div>'+
         (r['Nama Cleaner']?'<div class="ocard-meta">'+svg('users')+'<span>'+esc(r['Nama Cleaner'])+'</span></div>':'')+
-        '<div class="ocard-meta sub"><span>'+esc(r['Jenis']||'-')+' · '+esc(rp(r['Nominal']||0))+'</span></div>'+
+        '<div class="ocard-meta sub"><span>'+esc(rp(r['Nominal']||0))+'</span></div>'+
       '</div>';
     }).join('')+'</div>';
   }
@@ -2234,6 +2241,7 @@ function renderTable(){
       '</div>';
     }).join('')+'</div>';
   }
+  if(v.sheet==='BONUS') html=''; // Input Bonus: tampil kartu di desktop & HP (sama)
   $('#panel').innerHTML=summary+html+cardHtml;
   setCount(rows.length,countNoun());
   wireSummary();
@@ -2310,6 +2318,12 @@ function wireRowHandlers(v){
   }));
   document.querySelectorAll('[data-wak]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation();
     const o=state.rows.find(x=>String(x['ID Order'])===b.dataset.wak); if(o) waCleaner(o,b);
+  }));
+  document.querySelectorAll('.ocard[data-detailbonus]').forEach(c=>c.addEventListener('click',e=>{
+    if(e.target.closest('button, a, input, .ocard-act, [data-img]')) return;
+    const key=c.dataset.detailbonus;
+    const row=key.charAt(0)==='#'?state.rows[+key.slice(1)]:state.rows.find(x=>String(x[v.idField])===key);
+    if(row) showBonusDetail(row);
   }));
   document.querySelectorAll('.ocard-chk').forEach(c=>c.addEventListener('click',e=>e.stopPropagation()));
   document.querySelectorAll('.ocard[data-detail]').forEach(c=>c.addEventListener('click',e=>{
@@ -2391,6 +2405,30 @@ function showOrderDetail(o){
   const cc=$('#modalCancel'); if(cc){ cc.textContent='Tutup'; cc.classList.add('btn-danger'); }
   openOverlay();
   loadDetailBonus(o['ID Order']);
+}
+function showBonusDetail(b){
+  b=b||{};
+  state.editing=null; state.files={};
+  $('#modalTitle').textContent='Detail Bonus — '+(b['Nama Customer']||b['Nama Cleaner']||'-');
+  const row=(l,val)=> '<div class="dt-row"><span class="dt-l">'+esc(l)+'</span><span class="dt-v">'+val+'</span></div>';
+  let h='<div class="detail">';
+  h+=row('Jenis','<span class="pay-chip">'+esc(b['Jenis']||'-')+'</span>');
+  h+=row('Nominal', rp(b['Nominal']||0));
+  h+='<div class="dt-sec">Order Terkait</div>';
+  h+=row('No Order', esc(b['No Order']||'-'));
+  h+=row('Nama Customer', esc(b['Nama Customer']||'-'));
+  h+=row('Tanggal Pengerjaan', esc((hariId(b['Tanggal Pengerjaan'])+' '+tglPanjangId(b['Tanggal Pengerjaan'])).trim()||'-'));
+  h+='<div class="dt-sec">Cleaner & Catatan</div>';
+  h+=row('Nama Cleaner', esc(b['Nama Cleaner']||'-'));
+  if(b['Keterangan']) h+=row('Keterangan', esc(b['Keterangan']));
+  if(b['Cabang']) h+=row('Cabang', esc(b['Cabang']));
+  if(b['Tanggal Input']) h+=row('Tanggal Input', esc(fmtTgl(b['Tanggal Input'])));
+  if(b['ID Insentif']) h+=row('ID Insentif', esc(b['ID Insentif']));
+  h+='</div>';
+  $('#modalBody').innerHTML=h;
+  const sv=$('#modalSave'); if(sv) sv.style.display='none';
+  const cc=$('#modalCancel'); if(cc){ cc.textContent='Tutup'; cc.classList.add('btn-danger'); }
+  openOverlay();
 }
 async function loadDetailBonus(oid){
   const el=$('#dtBonus'); if(!el) return;
@@ -3604,18 +3642,20 @@ function fmtTgl(s){
 function buildInvoiceHTML(o){
   o=o||{};
   const info=branchInfo(o['Cabang']);
-  let items=[1,2,3].map(i=>({nama:o['Layanan '+i]||'', qty:qtyNum(o['Qty '+i]), qtyText:String(o['Qty '+i]||''), harga:Number(o['Harga '+i]||0)}))
+  const md=n=>Number(moneyDigits(n))||0;
+  let items=[1,2,3].map(i=>({nama:o['Layanan '+i]||'', qty:qtyNum(o['Qty '+i]), qtyText:String(o['Qty '+i]||''), harga:md(o['Harga '+i])}))
                    .filter(it=>it.nama||it.qtyText||it.harga);
   if(!items.length) items=[{nama:'',qty:0,qtyText:'',harga:0}];
   let subtotal=0; items.forEach(it=>subtotal+=it.harga);
-  if(!subtotal && o['Total Akhir']) subtotal=Number(o['Total Akhir'])||0;
-  const disc=Number(o['Diskon (%)']||0);
+  if(!subtotal) subtotal=md(o['Total Akhir']);
+  const disc=md(o['Diskon (%)']);
   const diskonNilai=Math.round(subtotal*disc/100);
   const afterDisc=subtotal-diskonNilai;
-  const ppn=Number((o['PPn']!=null&&o['PPn']!=='')?o['PPn']:PPN_DEFAULT);
+  const ppn=(o['PPn']!=null&&o['PPn']!=='')?md(o['PPn']):PPN_DEFAULT;
   const ppnNilai=Math.round(afterDisc*ppn/100);
-  let grand=Number(o['Total Akhir Setelah Diskon']||0);
+  let grand=md(o['Total Akhir Setelah Diskon']);
   if(!grand) grand=afterDisc+ppnNilai;
+  if(!grand) grand=subtotal;
 
   const PET='#123A5E', GOLD='#3E86B5', LINE='#dfe7ee', MUT='#5E6F6C';
   const money=n=>'Rp '+Number(n||0).toLocaleString('id-ID');
@@ -3701,23 +3741,47 @@ function buildInvoiceHTML(o){
 }
 async function downloadInvoice(o){
   if(!o){ toast('Data order tidak ditemukan','err'); return; }
-  if(typeof html2pdf==='undefined'){ toast('Modul PDF belum siap, coba lagi','err'); return; }
   if(!state.cache.kantor){ try{ await loadKantor(); }catch(e){} }
+  const html=buildInvoiceHTML(o);
+  const fname='Invoice-'+String(o['ID Order']||'KLINKLIN').replace(/[^A-Za-z0-9]+/g,'_')+'.pdf';
+  if(typeof html2pdf==='undefined'){ invoicePrintWindow(o, html); return; }
   setSync(true,'Membuat invoice…');
   const holder=document.createElement('div');
-  holder.style.position='fixed'; holder.style.left='-9999px'; holder.style.top='0';
-  holder.innerHTML=buildInvoiceHTML(o);
+  // dirender di dalam viewport (bukan -9999px) & penuh (opacity 1) agar html2canvas tidak menghasilkan halaman kosong/pudar
+  holder.style.cssText='position:fixed;left:0;top:0;width:760px;background:#fff;z-index:-1';
+  holder.innerHTML=html;
   document.body.appendChild(holder);
   try{
-    await html2pdf().set({
-      margin:[8,8,8,8], filename:'Invoice-'+(o['ID Order']||'KLINKLIN')+'.pdf',
-      image:{type:'jpeg',quality:0.98},
-      html2canvas:{scale:2, useCORS:true, backgroundColor:'#ffffff'},
+    // pastikan font & layout siap supaya hasil tidak kosong/berantakan
+    if(document.fonts && document.fonts.ready){ try{ await Promise.race([document.fonts.ready, new Promise(r=>setTimeout(r,1200))]); }catch(e){} }
+    await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+    const worker = html2pdf().set({
+      margin:[8,8,8,8], filename:fname,
+      image:{type:'jpeg',quality:0.95},
+      html2canvas:{scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false, width:760, windowWidth:820},
       jsPDF:{unit:'mm', format:'a4', orientation:'portrait'}
     }).from(holder.firstElementChild).save();
+    // jangan biarkan UI menggantung: batasi 12 detik lalu fallback ke jendela cetak
+    await Promise.race([ Promise.resolve(worker),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')), 12000)) ]);
     toast('Invoice diunduh','ok');
-  }catch(e){ toast('Gagal membuat invoice','err'); }
+  }catch(e){
+    invoicePrintWindow(o, html); // selalu berhasil & rapi (bisa Save as PDF)
+  }
   finally{ holder.remove(); setSync(false); }
+}
+/* Fallback cetak: render native browser — cepat, tidak pernah kosong, ada Total. */
+function invoicePrintWindow(o, html){
+  html = html || buildInvoiceHTML(o);
+  const w=window.open('', '_blank');
+  if(!w){ toast('Popup diblokir — izinkan popup untuk cetak/simpan invoice.','err'); return; }
+  w.document.open();
+  w.document.write('<!doctype html><html><head><meta charset="utf-8">'+
+    '<title>Invoice '+String(o['ID Order']||'').replace(/[<>&"]/g,'')+'</title>'+
+    '<style>@page{size:A4;margin:8mm} body{margin:0;background:#fff;display:flex;justify-content:center}</style>'+
+    '</head><body onload="setTimeout(function(){window.focus();window.print();},250)">'+html+'</body></html>');
+  w.document.close();
+  toast('Invoice siap — pilih "Simpan sebagai PDF" pada dialog cetak','ok');
 }
 
 /* ============================================================
