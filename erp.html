@@ -708,9 +708,10 @@ td.c-green, td.c-red, td.c-orange, td.c-blue{font-weight:700}
 
 /* ========== TAMBAHAN BARU ========== */
 /* Tombol Pengumuman lebih terlihat (emas) */
-.chat-ann{background:linear-gradient(180deg,#d9bd7d,var(--gold-deep));color:#2c2205;width:auto;padding:0 11px;height:32px;gap:6px;font-weight:800;font-size:12px;box-shadow:0 4px 12px -6px rgba(166,134,63,.9)}
+.chat-ann{display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#d9bd7d,var(--gold-deep));color:#2c2205;width:auto;height:30px;padding:0 12px;border-radius:15px;gap:6px;font-weight:800;font-size:12px;line-height:1;box-shadow:0 4px 12px -6px rgba(166,134,63,.9)}
+.chat-ann svg{width:15px;height:15px;flex:none}
+.chat-ann .ann-lbl{display:inline;line-height:1;position:relative;top:.5px}
 .chat-ann:hover{background:linear-gradient(180deg,#e3c98c,var(--gold-deep));filter:brightness(1.03)}
-.chat-ann .ann-lbl{display:inline}
 
 /* Daftar obrolan (inbox) */
 .cinbox{display:flex;flex-direction:column;gap:8px}
@@ -795,6 +796,31 @@ td.c-green, td.c-red, td.c-orange, td.c-blue{font-weight:700}
 .agy-cell.on{cursor:pointer}
 .agy-hint{margin-top:10px;font-size:12px;color:var(--muted)}
 .agy-weeklbl{font-size:8px;color:var(--faint);text-align:center;padding:2px 0;background:var(--surface)}
+
+/* Detail omzet pivot (Cabang × Layanan) */
+.det-tbl th.c{min-width:96px;white-space:normal;text-align:center;vertical-align:bottom}
+.det-tbl .detcell{text-align:center;white-space:nowrap;vertical-align:middle}
+.det-tbl .detcell .dc-n{display:block;font-size:11px;color:var(--muted);font-weight:700}
+.det-tbl .detcell .dc-v{display:block;font-size:12px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--ink)}
+.det-tbl .detcell .dc-0{color:var(--faint)}
+.det-tbl .detcell.dc-total{background:var(--surface-2)}
+.det-tbl .det-cabcol{position:sticky;left:0;z-index:1;background:var(--surface);box-shadow:1px 0 0 var(--line)}
+.det-tbl .ops-total .det-cabcol{background:var(--surface-2)}
+
+/* Read receipt (mata) pada bubble sendiri */
+.cmsg .cread{display:inline-flex;align-items:center;margin-left:6px;vertical-align:middle}
+.cmsg .cread svg{width:14px;height:14px;opacity:.9}
+.cmsg .cread.read svg{color:#8fe0c4}
+.cmsg .cread.unread svg{color:rgba(255,255,255,.55)}
+
+/* Pengumuman: collapse (maks 2 terlihat) */
+.ann-more{display:block;width:100%;margin-top:8px;padding:7px 0;border:none;border-top:1px solid rgba(0,0,0,.08);
+  font-size:12px;font-weight:800;color:var(--gold-deep);text-align:center;cursor:pointer;background:none}
+.ann-more:hover{text-decoration:underline}
+.ann-item.ann-hid{display:none}
+
+/* Sembunyikan field tertentu pada form (nilai tetap tersimpan otomatis) */
+.field.form-hidden{display:none!important}
 </style>
 </head>
 <body>
@@ -1328,6 +1354,7 @@ const VIEWS = {
     datePreset:true, dateFilterField:'Tanggal Pengerjaan',
     search:['Nama Customer','ID Order','No WA Customer'],
     statusBadge:true, lockAfterProof:true, invoice:true, wa:true,
+    hideFormFields:['Tanggal Input','Status Order','CS Penanggung Jawab','Total Akhir','Total Akhir Setelah Diskon','File Invoice'],
     form: ORDER_FORM
   },
   inputBonus:{
@@ -1419,8 +1446,11 @@ VIEWS.kpiCS = {
     f('Target Stock Opname','num'), f('Bobot Stock Opname','num'), f('Nilai Stock Opname','num'),
     {sec:'Review Maps'},
     f('Target Review Maps','num'), f('Bobot Review Maps','num'), f('Nilai Review Maps','num'),
-    {sec:'Strategi Pencapaian (diisi manual oleh Operasional)'},
-    f('Strategi Pencapaian','textarea',{full:true, help:'Tulis langkah/strategi agar target tercapai'})
+    {sec:'Strategi Pencapaian — target nominal per checkpoint (diisi Operasional)'},
+    f('Strategi Tgl 7','money',{help:'Target 25% (tanggal 7)'}),
+    f('Strategi Tgl 14','money',{help:'Target 50% (tanggal 14)'}),
+    f('Strategi Tgl 21','money',{help:'Target 75% (tanggal 21)'}),
+    f('Strategi Tgl 28','money',{help:'Target 100% (tanggal 28)'})
   ]
 };
 
@@ -2643,27 +2673,37 @@ function renderLaporanOmzet(){
       '<td class="money">'+rp(lama)+'</td></tr>';
   }).join('');
 
-  // DETAIL omzet: per cabang → per layanan (jumlah transaksi & nominal)
-  const detRows=[];
+  // DETAIL omzet: matriks Cabang (baris) × Layanan (kolom) — transaksi & omzet
+  const detMatrix={}; const layatSet=new Set();
+  cabs.forEach(cab=>{ detMatrix[cab]={}; });
   cabs.forEach(cab=>{
     const rc=base.filter(r=>String(r['Cabang']||'').toUpperCase()===cab &&
       inRange(r['Tanggal Pengerjaan'], dStart, dEnd));
-    const byLay={};
     rc.forEach(r=>{
       [1,2,3].forEach(i=>{
         const nm=String(r['Layanan '+i]||'').trim(); if(!nm) return;
         const val=Number(moneyDigits(r['Harga '+i]))||0;
-        if(!byLay[nm]) byLay[nm]={n:0,val:0};
-        byLay[nm].n++; byLay[nm].val+=val;
+        layatSet.add(nm);
+        if(!detMatrix[cab][nm]) detMatrix[cab][nm]={n:0,val:0};
+        detMatrix[cab][nm].n++; detMatrix[cab][nm].val+=val;
       });
     });
-    const lays=Object.keys(byLay).sort((a,b)=>byLay[b].val-byLay[a].val);
-    lays.forEach((nm,i)=>{
-      detRows.push('<tr>'+(i===0?'<td class="cab-cell" rowspan="'+lays.length+'">'+esc(cab)+'</td>':'')+
-        '<td>'+esc(nm)+'</td><td style="text-align:center">'+byLay[nm].n+'</td><td class="money">'+rp(byLay[nm].val)+'</td></tr>');
-    });
-    if(!lays.length) detRows.push('<tr><td class="cab-cell">'+esc(cab)+'</td><td colspan="3" style="color:var(--faint)">Tidak ada transaksi</td></tr>');
   });
+  const detLays=[...layatSet].sort((a,b)=>a.localeCompare(b,'id'));
+  const colTot={}; detLays.forEach(l=>colTot[l]={n:0,val:0}); let grandN=0, grandVal=0;
+  const detBodyRows=cabs.map(cab=>{
+    let rowN=0, rowVal=0;
+    const cells=detLays.map(l=>{
+      const c=detMatrix[cab][l];
+      if(c){ rowN+=c.n; rowVal+=c.val; colTot[l].n+=c.n; colTot[l].val+=c.val; }
+      return '<td class="detcell">'+(c?('<span class="dc-n">'+c.n+' trx</span><span class="dc-v">'+rp(c.val)+'</span>'):'<span class="dc-0">—</span>')+'</td>';
+    }).join('');
+    grandN+=rowN; grandVal+=rowVal;
+    return '<tr><td class="cab-cell l det-cabcol">'+esc(cab)+'</td>'+cells+
+      '<td class="detcell dc-total"><span class="dc-n">'+rowN+' trx</span><span class="dc-v">'+rp(rowVal)+'</span></td></tr>';
+  }).join('');
+  const detHeadCols=detLays.map(l=>'<th class="c">'+esc(l)+'</th>').join('');
+  const detFootCols=detLays.map(l=>'<td class="detcell dc-total"><span class="dc-n">'+colTot[l].n+' trx</span><span class="dc-v">'+rp(colTot[l].val)+'</span></td>').join('');
 
   const periodeLbl = tglPanjangId(cur.start)+' – '+tglPanjangId(cur.end);
   const detLbl = useRange ? (tglPanjangId(dStart)+' – '+tglPanjangId(dEnd)) : periodeLbl;
@@ -2681,8 +2721,15 @@ function renderLaporanOmzet(){
         '<td>'+growthHTML(totNow,totPrev)+'</td><td>—</td><td class="money">'+rp(totAds)+'</td><td class="money">'+rp(totOrg)+'</td><td class="money">'+rp(totLama)+'</td></tr>'+
       '</tbody></table></div></div>'+
     '<div class="cap-card"><div class="cap-card-t">Detail Omzet per Layanan <span class="cap-sub2">('+esc(detLbl)+')</span></div>'+
-      '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr><th class="l">Cabang</th><th class="l">Layanan</th><th class="c">Transaksi</th><th class="r">Nominal</th></tr></thead>'+
-      '<tbody>'+detRows.join('')+'</tbody></table></div></div>';
+      (detLays.length ?
+        '<div class="tbl-wrap"><table class="ops-tbl det-tbl"><thead><tr>'+
+          '<th class="l det-cabcol">Cabang</th>'+detHeadCols+'<th class="c">Total</th>'+
+        '</tr></thead><tbody>'+detBodyRows+
+          '<tr class="ops-total"><td class="l det-cabcol">TOTAL</td>'+detFootCols+
+            '<td class="detcell dc-total"><span class="dc-n">'+grandN+' trx</span><span class="dc-v">'+rp(grandVal)+'</span></td></tr>'+
+        '</tbody></table></div>'
+      : '<div class="cap-empty">Tidak ada transaksi pada periode ini.</div>')+
+    '</div>';
   setCount(base.filter(r=>inRange(r['Tanggal Pengerjaan'],cur.start,cur.end)).length, 'order');
 }
 
@@ -2805,10 +2852,13 @@ function renderKpiCS(){
         '<td class="r">'+fN+'</td>'+
         '<td class="r"><b>'+pros.toFixed(0)+'%</b></td></tr>';
     }).join('');
-    const stratTxt = String(c['Strategi Pencapaian']||'').trim();
-    const stratBody = stratTxt
-      ? '<div class="kpi-strat-note">'+esc(stratTxt)+'</div>'
-      : '<div class="kpi-strat-empty">'+(isOps?'Belum diisi. Klik "Atur" untuk menuliskan strategi pencapaian.':'Belum diisi oleh Operasional.')+'</div>';
+    const stratDefs=[['Tgl 7','25%','Strategi Tgl 7'],['Tgl 14','50%','Strategi Tgl 14'],
+                     ['Tgl 21','75%','Strategi Tgl 21'],['Tgl 28','100%','Strategi Tgl 28']];
+    const stratBody='<div class="kpi-strat-grid">'+stratDefs.map(s=>{
+      const v=num(c[s[2]]);
+      return '<div class="kpi-strat-cell"><span class="ks-l">'+s[0]+' ('+s[1]+')</span>'+
+        '<span class="ks-v">'+(v>0?rp(v):'<span style="color:var(--faint);font-weight:600">—</span>')+'</span></div>';
+    }).join('')+'</div>';
     const totCls = total>=100?'k-green':(total>=70?'k-yellow':'k-red');
     return '<div class="cap-card kpi-cs-card">'+
       '<div class="kpi-cs-head">'+
@@ -2823,7 +2873,7 @@ function renderKpiCS(){
       '</tr></thead><tbody>'+rows+
         '<tr class="ops-total"><td class="l">TOTAL KPI</td><td></td><td></td><td></td><td class="r">'+total.toFixed(0)+'%</td></tr>'+
       '</tbody></table></div>'+
-      '<div class="kpi-strat"><div class="kpi-strat-t">Strategi Pencapaian '+(isOps?'':'<span style="font-weight:600;text-transform:none;letter-spacing:0">(diisi Operasional)</span>')+'</div>'+
+      '<div class="kpi-strat"><div class="kpi-strat-t">Strategi Pencapaian (Nominal Target)'+(isOps?'':' <span style="font-weight:600;text-transform:none;letter-spacing:0">— diisi Operasional</span>')+'</div>'+
         stratBody+'</div>'+
     '</div>';
   }).join('');
@@ -3173,6 +3223,7 @@ function renderField(fd, val){
   const full = fd.full || fd.t==='textarea' ? ' full':'';
   const comp = fd.computed ? ' computed':'';
   const svc = fd.svc ? (' svc-row svc-'+fd.svc+' hide') : '';
+  const hidden = (state.view && state.view.hideFormFields && state.view.hideFormFields.indexOf(fd.k)>-1) ? ' form-hidden' : '';
   let inner='';
   const ro = fd.ro || fd.computed ? ' readonly' : '';
   val = val==null?'':val;
@@ -3236,7 +3287,7 @@ function renderField(fd, val){
     let type = fd.t==='num'?'number': fd.t==='date'?'date': fd.t==='month'?'month':'text';
     inner = '<input type="'+type+'" data-k="'+esc(fd.k)+'"'+ro+' value="'+esc(val)+'">';
   }
-  return '<div class="field'+full+comp+svc+'"><label>'+esc(fd.k)+(fd.req?' <span class="req">*</span>':'')+'</label>'+inner+'</div>';
+  return '<div class="field'+full+comp+svc+hidden+'"><label>'+esc(fd.k)+(fd.req?' <span class="req">*</span>':'')+'</label>'+inner+'</div>';
 }
 
 /* prefetch datalist sources */
@@ -3962,7 +4013,10 @@ function lastChatReset(){
   return d;
 }
 async function chatWeeklyCleanup(){
-  try{ await window.sb.from('CHAT').delete().lt('created_at', lastChatReset().toISOString()); }catch(e){}
+  // Hapus obrolan biasa (kind chat/null) yang lebih lama dari reset mingguan, TAPI pertahankan pengumuman.
+  try{ await window.sb.from('CHAT').delete()
+        .lt('created_at', lastChatReset().toISOString())
+        .or('kind.is.null,kind.neq.announce'); }catch(e){}
 }
 async function chatFetchAll(){
   try{ const r=await window.sb.from('CHAT').select('*').order('created_at',{ascending:true}).limit(800); state._chatAll=r.data||[]; }
@@ -4032,13 +4086,31 @@ async function chatUpdateBadge(){
   const b=$('#chatBadge');
   if(b){ b.textContent=n>9?'9+':String(n); b.style.display=n>0?'grid':'none'; }
 }
+const EYE_OPEN='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_CLOSED='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7c2 0 3.8.6 5.3 1.5M22 12s-3.5 7-10 7c-2 0-3.8-.6-5.3-1.5"/><path d="m4 4 16 16"/></svg>';
 function chatBubble(m, me){
   const mine=(m.from_role===me) && (me!=='CS' || String(m.from_cabang||'').toUpperCase()===chatMyCab());
   const t=(m.created_at||'').replace('T',' ').slice(0,16);
   const who=m.from_role+(m.from_role==='CS'&&m.from_cabang?(' '+m.from_cabang):'');
+  const isRead=(m.read===true||m.read==='true'||m.read===1);
+  const eye = mine ? '<span class="cread '+(isRead?'read':'unread')+'" title="'+(isRead?'Sudah dibaca':'Belum dibaca')+'">'+(isRead?EYE_OPEN:EYE_CLOSED)+'</span>' : '';
   return '<div class="cmsg '+(mine?'me':'them')+'">'+
     (mine?'':'<span class="cfrom">'+esc(who)+'</span>')+
-    esc(m.message||'')+'<span class="cmeta">'+esc(t)+'</span></div>';
+    esc(m.message||'')+'<span class="cmeta">'+esc(t)+eye+'</span></div>';
+}
+/* Tandai pesan masuk dari lawan bicara sebagai dibaca (read-receipt). */
+async function chatMarkThreadRead(role, cab){
+  const me=chatMe(), myCab=chatMyCab();
+  const otherP=chatParty(role, cab), myP=chatParty(me, myCab);
+  const ids=(state._chatAll||[]).filter(m=>{
+    if(m.kind==='announce') return false;
+    if(m.read===true) return false;
+    const sP=chatParty(m.from_role,m.from_cabang), rP=chatParty(m.to_role,m.to_cabang);
+    return sP===otherP && rP===myP;
+  }).map(m=>m.id).filter(x=>x!=null);
+  if(!ids.length) return;
+  (state._chatAll||[]).forEach(m=>{ if(ids.indexOf(m.id)>-1) m.read=true; });
+  try{ await window.sb.from('CHAT').update({read:true}).in('id', ids); }catch(e){}
 }
 function chatBarsToInbox(){
   const back=$('#chatBack'); if(back) back.style.display='none';
@@ -4054,9 +4126,20 @@ function chatBarsToThread(){
   const inp=$('#chatInput'); if(inp) inp.style.display='';
 }
 function chatInboxHTML(){
-  const anns=(state._chatAll||[]).filter(m=>m.kind==='announce' && chatIsForMe(m)).slice(-15).reverse();
-  const annHtml = anns.length ? '<div class="ann-box"><div class="ann-h">📢 Pengumuman</div>'+
-    anns.map(a=>'<div class="ann-item"><span class="ann-from">'+esc(chatName(a.from_role,a.from_cabang))+' · '+esc((a.created_at||'').replace('T',' ').slice(0,16))+'</span>'+esc(a.message||'')+'</div>').join('')+'</div>' : '';
+  const allAnns=(state._chatAll||[]).filter(m=>m.kind==='announce' && chatIsForMe(m))
+    .sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||'')); // terbaru di atas
+  let annHtml='';
+  if(allAnns.length){
+    const expand=!!state._annExpand;
+    const visN = expand ? allAnns.length : Math.min(2, allAnns.length);
+    const items=allAnns.map((a,i)=>'<div class="ann-item'+(i>=visN?' ann-hid':'')+'">'+
+      '<span class="ann-from">'+esc(chatName(a.from_role,a.from_cabang))+' · '+esc((a.created_at||'').replace('T',' ').slice(0,16))+'</span>'+
+      esc(a.message||'')+'</div>').join('');
+    const moreBtn = allAnns.length>2
+      ? '<button class="ann-more" id="annMoreBtn">'+(expand?'Sembunyikan':('Lihat '+(allAnns.length-2)+' pengumuman lainnya'))+'</button>'
+      : '';
+    annHtml='<div class="ann-box"><div class="ann-h">📢 Pengumuman</div>'+items+moreBtn+'</div>';
+  }
   const convs=chatConversations();
   const listHtml = convs.length ? convs.map(c=>{
     const name=chatName(c.role,c.cab);
@@ -4078,6 +4161,7 @@ function chatRenderBody(){
     body.scrollTop=0;
     document.querySelectorAll('[data-convrole]').forEach(b=>b.addEventListener('click',()=>
       chatOpenThread(b.dataset.convrole, b.dataset.convcab)));
+    const mb=$('#annMoreBtn'); if(mb) mb.addEventListener('click',()=>{ state._annExpand=!state._annExpand; chatRenderBody(); });
     chatUpdateBadge();
     return;
   }
@@ -4089,11 +4173,13 @@ function chatRenderBody(){
   body.innerHTML = threadHtml;
   body.scrollTop=body.scrollHeight;
   chatMarkSeen(chatParty(chatOther(), chatOtherCab()));
+  chatMarkThreadRead(chatOther(), chatOtherCab());
   chatUpdateBadge();
 }
 function chatOpenThread(role, cab){
   state._chatActive={role:role, cab:(role==='CS'?String(cab||'').toUpperCase():'')};
   chatMarkSeen(chatParty(role, state._chatActive.cab));
+  chatMarkThreadRead(role, state._chatActive.cab);
   chatRenderBody();
   const inp=$('#chatMsg'); if(inp) setTimeout(()=>inp.focus(),50);
 }
@@ -4151,7 +4237,7 @@ function initChat(){
   const cabSel=$('#chatCabang');
   if(cabSel) cabSel.innerHTML='<option value="">Semua CS</option>'+CABANG.filter(c=>c!=='OFFICE').map(c=>'<option value="'+c+'">'+c+'</option>').join('');
   chatOptions();
-  const ann=$('#chatAnn'); if(ann) ann.style.display = canAnnounce()?'grid':'none';
+  const ann=$('#chatAnn'); if(ann) ann.style.display = canAnnounce()?'inline-flex':'none';
   const fab=$('#chatFab'), pnl=$('#chatPanel');
   if(fab && !fab._wired){ fab._wired=true;
     fab.addEventListener('click', ()=>{ if(pnl.classList.contains('open')) chatClose(); else chatOpen(); });
@@ -4181,6 +4267,18 @@ function initChat(){
       }
       if(panelOpen){ chatRenderBody(); chatUpdateBadge(); }
       else { chatUpdateBadge(); toast('Pesan baru dari '+m.from_role+(m.from_role==='CS'&&m.from_cabang?(' '+m.from_cabang):''),'ok'); }
+    })
+    .on('postgres_changes', {event:'UPDATE', schema:'public', table:'CHAT'}, payload=>{
+      const u=payload.new; if(!u||u.id==null) return;
+      const arr=state._chatAll||[]; const idx=arr.findIndex(x=>x.id===u.id);
+      if(idx>-1) arr[idx]=u; else return;
+      // bila sedang membuka thread, perbarui tanda mata (read-receipt)
+      const panelOpen=$('#chatPanel') && $('#chatPanel').classList.contains('open');
+      if(panelOpen && state._chatActive){
+        const body=$('#chatBody'); const sc=body?body.scrollTop:0;
+        const me=chatMe(); const thread=chatThread();
+        if(body){ body.innerHTML=thread.map(x=>chatBubble(x,me)).join(''); body.scrollTop=sc; }
+      }
     }).subscribe();
 }
 
