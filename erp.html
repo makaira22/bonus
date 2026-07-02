@@ -586,6 +586,10 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .rem-actions{display:flex;flex-direction:column;gap:10px}
 .rem-actions .btn{width:100%}
 .konten-row{text-decoration:none}
+.csv-list{display:flex;flex-direction:column;gap:8px}
+.csv-row{display:flex;align-items:center;gap:14px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.csv-row .set-txt{flex:1;min-width:0}
+.csv-row .btn{flex:none}
 .konten-row .set-arrow svg{width:16px;height:16px}
 .pie-wrap{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
 .pie-svg{width:150px;height:150px;flex:none}
@@ -1463,6 +1467,7 @@ VIEWS.kpiCSView = {
 };
 VIEWS.konten = { sheet:null, title:'Konten', sub:'', special:'konten', noSyncBtn:true, inSettings:true };
 VIEWS.suratTDP = { sheet:null, title:'Surat TDP', sub:'', special:'suratTDP', noSyncBtn:true, inSettings:true };
+VIEWS.formCsv = { sheet:null, title:'Contoh Form (CSV)', sub:'', special:'formCsv', noSyncBtn:true, inSettings:true };
 
 /* ===== AGENDA (kalender) — CEO/MARKETING/HRD/OPERASIONAL/FINANCE ===== */
 VIEWS.agenda = {
@@ -3890,6 +3895,8 @@ function renderSettings(){
   if(role==='CS') entries.push(
     {key:'konten', label:'Konten', desc:'Link Konten Story, Promo & Follow Up', icon:'inbox'},
     {key:'suratTDP', label:'Surat TDP', desc:'Pembuatan Surat TDP (segera)', icon:'file'});
+  if(role==='MARKETING') entries.push(
+    {key:'formCsv', label:'Contoh Form (CSV)', desc:'Unduh template CSV semua form: header + 1 contoh data', icon:'file'});
   const entriesHtml = entries.map(e=>
     '<button class="set-row" data-setkey="'+e.key+'">'+
       '<span class="set-ic">'+svg(e.icon)+'</span>'+
@@ -3916,6 +3923,7 @@ async function openSettingsView(key){
   renderShell();
   if(state.view.special==='konten'){ renderKonten(); return; }
   if(state.view.special==='suratTDP'){ renderSuratTDP(); return; }
+  if(state.view.special==='formCsv'){ renderFormCsv(); return; }
   await loadList();
   if(state._ch){ try{ window.sb.removeChannel(state._ch); }catch(e){} state._ch=null; }
   if(state.view && state.view.sheet){
@@ -4178,6 +4186,71 @@ function initChat(){
 /* ============================================================
    CS — Konten (link) & Pengingat harian
    ============================================================ */
+/* ---------- Contoh Form (CSV) ---------- */
+function csvEsc(v){ v=String(v==null?'':v); return /[",\n\r]/.test(v)? '"'+v.replace(/"/g,'""')+'"' : v; }
+function csvFields(form){ return (form||[]).filter(fd=>fd && fd.k && !fd.sec && !fd.btn && fd.t!=='file' && !fd.computed); }
+function csvExample(fd){
+  const k=fd.k||'';
+  if(fd.opts && fd.opts.length) return String(fd.opts[0]);
+  if(fd.t==='money') return '100000';
+  if(fd.t==='num') return '10';
+  if(fd.t==='date') return ymd(new Date());
+  if(fd.t==='month') return ymd(new Date()).slice(0,7);
+  if(fd.t==='check') return '0';
+  if(/no ?wa|whatsapp/i.test(k)) return '6281234567890';
+  if(/alamat/i.test(k)) return 'Jl. Contoh No. 1';
+  if(/tanggal/i.test(k)) return ymd(new Date());
+  if(/periode/i.test(k)) return ymd(new Date()).slice(0,7);
+  if(/nama cleaner/i.test(k)) return 'Andi, Budi';
+  if(/nama/i.test(k)) return 'Contoh Nama';
+  if(/email/i.test(k)) return 'contoh@email.com';
+  if(/^pin$/i.test(k)) return '1234';
+  if(/qty/i.test(k)) return '1';
+  return 'Contoh';
+}
+function buildFormCsv(form){
+  const fields=csvFields(form);
+  const header=fields.map(fd=>csvEsc(fd.k)).join(',');
+  const row=fields.map(fd=>csvEsc(csvExample(fd))).join(',');
+  return header+'\r\n'+row+'\r\n';
+}
+function downloadCsv(name, text){
+  const blob=new Blob(['\ufeff'+text],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob); const a=document.createElement('a');
+  a.href=url; a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 120);
+}
+function csvFormList(){
+  const keys=['order','inputBonus','karyawan','layanan','gaji','gajiPokok','targetOmzet','kantor','kpiCS','spendAds','progres'];
+  const list=keys.filter(k=>VIEWS[k]&&VIEWS[k].form)
+    .map(k=>({title:VIEWS[k].title, sheet:VIEWS[k].saveSheet||VIEWS[k].sheet, form:VIEWS[k].form}));
+  list.push({title:'Agenda', sheet:'AGENDA', form:[
+    f('Jabatan','select',{opts:AGENDA_ROLES}), f('Tanggal','date'), f('Tipe','select',{opts:['Bulanan','Tahunan']}),
+    f('Agenda','text'), f('Status','select',{opts:['Rencana','Berjalan','Selesai']}), f('Keterangan','text')]});
+  return list;
+}
+function renderFormCsv(){
+  const list=csvFormList();
+  const rows=list.map((t,i)=>{
+    const cols=csvFields(t.form).length;
+    return '<div class="csv-row">'+
+      '<span class="set-ic">'+svg('file')+'</span>'+
+      '<span class="set-txt"><span class="set-t">'+esc(t.title)+'</span>'+
+        '<span class="set-d">Tabel '+esc(t.sheet)+' · '+cols+' kolom</span></span>'+
+      '<button class="btn btn-primary btn-sm" data-csv="'+i+'">Unduh CSV</button></div>';
+  }).join('');
+  $('#panel').innerHTML =
+    '<div class="ops-note">Setiap file berisi <b>baris header</b> (nama kolom) + <b>1 baris contoh data</b>. '+
+      'Cocok sebagai template pengisian / impor massal ke Supabase.</div>'+
+    '<div class="csv-list">'+rows+'</div>'+
+    '<button class="btn btn-ghost" id="csvAll" style="margin-top:14px">'+svg('file')+'Unduh Semua</button>';
+  document.querySelectorAll('[data-csv]').forEach(b=>b.addEventListener('click',()=>{
+    const t=list[+b.dataset.csv]; downloadCsv('Template-'+t.sheet+'.csv', buildFormCsv(t.form));
+  }));
+  const all=$('#csvAll'); if(all) all.addEventListener('click',()=>{
+    list.forEach((t,i)=>setTimeout(()=>downloadCsv('Template-'+t.sheet+'.csv', buildFormCsv(t.form)), i*300));
+  });
+}
 function renderSuratTDP(){
   $('#panel').innerHTML = '<div class="cap-card" style="text-align:center;padding:40px 20px">'+
     '<div style="font-size:34px;margin-bottom:8px">📄</div>'+
