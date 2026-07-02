@@ -470,6 +470,42 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .ks-l{display:block;font-size:11px;font-weight:700;color:var(--gold-deep);margin-bottom:2px}
 .ks-v{display:block;font-size:14px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums}
 @media (max-width:620px){ .kpi-strat-grid{grid-template-columns:repeat(2,1fr)} }
+
+/* ---------- CHAT ---------- */
+.chat-fab{position:fixed;right:22px;bottom:22px;z-index:70;width:56px;height:56px;border-radius:50%;
+  background:var(--petrol);color:#fff;display:grid;place-items:center;box-shadow:var(--shadow-lg);transition:.15s}
+.chat-fab:hover{transform:translateY(-2px)}
+.chat-fab svg{width:24px;height:24px}
+.chat-badge{position:absolute;top:-3px;right:-3px;min-width:20px;height:20px;padding:0 5px;border-radius:11px;
+  background:var(--danger);color:#fff;font-size:11px;font-weight:800;display:grid;place-items:center;border:2px solid var(--surface)}
+.chat-panel{position:fixed;right:22px;bottom:88px;z-index:71;width:min(370px,92vw);height:min(540px,72vh);
+  background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow-lg);
+  display:none;flex-direction:column;overflow:hidden}
+.chat-panel.open{display:flex;animation:rise .18s ease}
+.chat-head{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;background:var(--petrol);color:#fff}
+.chat-title{font-family:var(--display);font-weight:600;font-size:16px}
+.chat-x{color:#fff;font-size:24px;line-height:1;width:30px;height:30px;display:grid;place-items:center;border-radius:8px}
+.chat-x:hover{background:rgba(255,255,255,.16)}
+.chat-role-bar{display:flex;align-items:center;gap:9px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--surface-2)}
+.crb-label{font-size:12px;font-weight:700;color:var(--muted)}
+.chat-role-bar select{flex:1;padding:8px 11px;border:1px solid var(--line-2);border-radius:10px;background:var(--surface);font-weight:600;color:var(--ink)}
+.chat-body{flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:8px;background:var(--bg)}
+.cmsg{max-width:78%;padding:8px 12px;border-radius:14px;font-size:13.5px;line-height:1.4;word-break:break-word;position:relative}
+.cmsg .cmeta{display:block;font-size:10px;opacity:.7;margin-top:3px}
+.cmsg.me{align-self:flex-end;background:var(--petrol);color:#fff;border-bottom-right-radius:5px}
+.cmsg.them{align-self:flex-start;background:var(--surface);border:1px solid var(--line);border-bottom-left-radius:5px}
+.cmsg.them .cfrom{display:block;font-size:10.5px;font-weight:800;color:var(--gold-deep);margin-bottom:1px}
+.chat-empty{margin:auto;color:var(--faint);font-size:13px;text-align:center}
+.chat-input{display:flex;gap:8px;padding:11px 12px;border-top:1px solid var(--line);background:var(--surface)}
+.chat-input input{flex:1;padding:11px 13px;border:1px solid var(--line-2);border-radius:22px;background:var(--surface-2);outline:none}
+.chat-input input:focus{border-color:var(--petrol);background:var(--surface)}
+.chat-send{width:42px;height:42px;border-radius:50%;background:var(--petrol);color:#fff;display:grid;place-items:center;flex:none}
+.chat-send svg{width:19px;height:19px}
+.chat-opt-badge::after{content:" ●";color:var(--danger)}
+@media (max-width:880px){
+  .chat-fab{bottom:76px}
+  .chat-panel{bottom:140px;right:12px;left:12px;width:auto}
+}
 .pie-wrap{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
 .pie-svg{width:150px;height:150px;flex:none}
 .pie-legend{flex:1;min-width:160px;display:flex;flex-direction:column;gap:7px}
@@ -632,6 +668,27 @@ td.c-green, td.c-red, td.c-orange, td.c-blue{font-weight:700}
   </div>
 
   <nav class="bottom-nav" id="navMobile"></nav>
+
+  <!-- Obrolan antar jabatan -->
+  <button class="chat-fab" id="chatFab" title="Obrolan" aria-label="Obrolan">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.5 8.7 8.7 0 0 1-3.9-.9L3 21l1.9-5.6a8.4 8.4 0 0 1-.9-3.9A8.4 8.4 0 0 1 12.5 3 8.4 8.4 0 0 1 21 11.5Z"/></svg>
+    <span class="chat-badge" id="chatBadge" style="display:none">0</span>
+  </button>
+  <div class="chat-panel" id="chatPanel">
+    <div class="chat-head">
+      <span class="chat-title">Obrolan</span>
+      <button class="chat-x" id="chatClose" aria-label="Tutup">&times;</button>
+    </div>
+    <div class="chat-role-bar">
+      <span class="crb-label">Ke:</span>
+      <select id="chatRole"></select>
+    </div>
+    <div class="chat-body" id="chatBody"></div>
+    <div class="chat-input">
+      <input id="chatMsg" placeholder="Tulis pesan…" autocomplete="off">
+      <button class="chat-send" id="chatSend" aria-label="Kirim"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4Z"/></svg></button>
+    </div>
+  </div>
 </div>
 
 <!-- ===================== MODAL ===================== -->
@@ -663,6 +720,9 @@ const JABATAN = ['CEO','MARKETING','CLEANER','CS','OPERASIONAL','FINANCE','HRD',
 const STATUS_KARYAWAN = ['TETAP','SEMI','TETAP KOOR','FREELANCE','VENDOR'];
 const STATUS_ORDER = ['pending','done','complete','cancel'];
 const CHAT_DARI = ['Iklan','Organik','Lama'];
+const AD_PLATFORM = ['Google','Meta','TikTok'];
+const PROGRES_TAHUN = (()=>{ const y=new Date().getFullYear(); return [String(y+1),String(y),String(y-1)]; })();
+const CHAT_ROLES = ['CEO','OPERASIONAL','MARKETING','HRD','FINANCE','CS','DESIGNER'];
 const METODE = ['BCA','MANDIRI','CASH','QRIS'];
 const JENIS_BONUS = ['Kilometer','Bonus Deepclean','Bonus Salon','Tips','Parkir','Lembur','Uang Makan','Bonus Lainnya'];
 
@@ -856,6 +916,15 @@ const MENUS = {
     {key:'laporanOmzet', label:'Laporan Omzet', icon:'result'},
     {key:'reportKPI', label:'Report KPI', icon:'audit'},
     {key:'kpiCS', label:'KPI CS', icon:'users'},
+    {key:'__settings', label:'Pengaturan', icon:'settings'}
+  ],
+  MARKETING: [
+    {key:'spendAds', label:'Spend Ads', icon:'result'},
+    {key:'progres', label:'Progres', icon:'audit'},
+    {key:'__settings', label:'Pengaturan', icon:'settings'}
+  ],
+  CEO: [
+    {key:'dashboard', label:'Dashboard', icon:'result'},
     {key:'__settings', label:'Pengaturan', icon:'settings'}
   ],
   DESIGNER: []
@@ -1082,6 +1151,43 @@ VIEWS.kpiCS = {
     f('Target Review Maps','num'), f('Bobot Review Maps','num'), f('Nilai Review Maps','num')
   ]
 };
+
+/* ===== MARKETING ===== */
+VIEWS.spendAds = {
+  sheet:'SPEND_ADS', title:'Spend Ads', sub:'', special:'spendAds', countTop:true, noSyncBtn:true,
+  keyFields:['Cabang','Periode','Platform'], canAdd:true, canEdit:true,
+  monthFilter:true, monthField:'Periode', filters:['Cabang','Platform'],
+  table:['Periode','Cabang','Platform','Nominal'],
+  search:['Cabang','Platform'],
+  form:[
+    f('Cabang','select',{opts:CABANG, req:true}),
+    f('Periode','month',{req:true}),
+    f('Platform','select',{opts:['Google','Meta','TikTok'], req:true}),
+    f('Nominal','money',{req:true, help:'Belum termasuk pajak 12%'})
+  ]
+};
+VIEWS.progres = {
+  sheet:'PROGRES', title:'Progres', sub:'', countTop:true, noSyncBtn:true,
+  keyFields:['Tahun','Nama Target'], canAdd:true, canEdit:true,
+  filters:['Tahun'],
+  table:['Tahun','Nama Target','Target','Capaian','Status'],
+  search:['Nama Target'],
+  form:[
+    f('Tahun','select',{opts:PROGRES_TAHUN, req:true}),
+    f('Nama Target','text',{req:true, full:true}),
+    f('Target','text',{req:true}),
+    f('Capaian','text'),
+    f('Status','select',{opts:['Belum Mulai','Berjalan','Tercapai','Tertunda']}),
+    f('Keterangan','textarea',{full:true})
+  ]
+};
+
+/* ===== CEO ===== */
+VIEWS.dashboard = {
+  sheet:'ORDER', title:'Dashboard', sub:'', special:'dashboard', countTop:true, noSyncBtn:true,
+  filters:['Cabang','Status Order'],
+  datePreset:true, dateFilterField:'Tanggal Pengerjaan'
+};
 VIEWS.targetOmzet = {
   sheet:'TARGET_OMZET', title:'Target Omzet', sub:'', inSettings:true, countTop:true, noSyncBtn:true,
   keyFields:['Cabang'], canAdd:true, canEdit:true,
@@ -1096,7 +1202,8 @@ VIEWS.targetOmzet = {
 
 const FILTER_OPTS = {
   'Cabang':CABANG, 'Jabatan':JABATAN, 'Status':STATUS_KARYAWAN,
-  'Status Order':STATUS_ORDER, 'Chat Dari':CHAT_DARI, 'Jenis':JENIS_BONUS
+  'Status Order':STATUS_ORDER, 'Chat Dari':CHAT_DARI, 'Jenis':JENIS_BONUS,
+  'Platform':AD_PLATFORM, 'Tahun':PROGRES_TAHUN
 };
 const MONEY_HINT = ['Gaji','Bonus','Potongan','Harga','Total','Nominal','Tagihan','Tunjangan','Premi','Cashbon','Saldo','Take Home','Diterima','BPJS','Akhir'];
 
@@ -1304,7 +1411,10 @@ async function doLogin(){
 async function logout(){
   try{ await window.sb.auth.signOut(); }catch(e){}
   if(state._ch){ try{ window.sb.removeChannel(state._ch); }catch(e){} state._ch=null; }
+  if(state._chatCh){ try{ window.sb.removeChannel(state._chatCh); }catch(e){} state._chatCh=null; }
   if(window._flyIdle){ clearInterval(window._flyIdle); window._flyIdle=null; }
+  const cp=$('#chatPanel'); if(cp) cp.classList.remove('open');
+  const cb=$('#chatBadge'); if(cb) cb.style.display='none';
   document.body.classList.remove('is-designer');
   localStorage.removeItem('klinklin_session');
   state.session=null; state.cache={}; state.listCache={};
@@ -1330,6 +1440,7 @@ function enterApp(){
   $('#roleLabel').textContent = s.role==='CS' ? ('CS · '+s.cabang) : s.role;
   buildNav();
   startClock();
+  initChat();
   document.body.classList.toggle('is-designer', s.role==='DESIGNER');
   if(!MENUS[s.role].length){ renderDesigner(); return; }
   const first = MENUS[s.role][0].key;
@@ -1531,6 +1642,7 @@ async function loadList(force){
     refreshDynFilters();
     if(v.special==='reportKPI') await loadTargets();
     if(v.special==='kpiCS') await loadKpiCfg();
+    if(v.special==='dashboard') await loadDashData();
     renderView();
     syncDone(state.rows.length);
   }catch(err){ setSync(false); toast(err.message,'err'); $('#panel').innerHTML=emptyState('Gagal memuat data'); }
@@ -1599,6 +1711,9 @@ function applyClientFilters(rows){
       return true;
     });
   }
+  if(v.monthFilter && v.monthField && state.kpiMonth){
+    out = out.filter(r=>String(r[v.monthField]||'').slice(0,7)===state.kpiMonth);
+  }
   if(state.search && v.search){
     out = out.filter(r=> v.search.some(k=>String(r[k]||'').toLowerCase().indexOf(state.search)>-1));
   }
@@ -1642,6 +1757,8 @@ function renderView(){
   else if(v.special==='laporanOmzet') renderLaporanOmzet();
   else if(v.special==='reportKPI') renderReportKPI();
   else if(v.special==='kpiCS') renderKpiCS();
+  else if(v.special==='spendAds') renderSpendAds();
+  else if(v.special==='dashboard') renderDashboard();
   else renderTable();
 }
 function countNoun(){ return (state.view && state.view.sheet==='ORDER') ? 'order' : 'data'; }
@@ -2278,6 +2395,129 @@ function editKpiCS(cab){
   const row = existing ? Object.assign({}, existing) : {};
   row['Cabang']=cab; row['Periode']=ym;
   openForm(row);
+}
+
+/* ---------- MARKETING: Spend Ads (tabel + ringkasan pajak 12%) ---------- */
+function renderSpendAds(){
+  renderTable();
+  const rows=applyClientFilters(state.rows);
+  const num=v=>Number(moneyDigits(v))||0;
+  let total=0; const byPlat={};
+  rows.forEach(r=>{ const n=num(r['Nominal']); total+=n; const p=r['Platform']||'-'; byPlat[p]=(byPlat[p]||0)+n; });
+  const pajak=Math.round(total*0.12), grand=total+pajak;
+  const plat=AD_PLATFORM.map(p=>'<div class="cap-stat"><div class="cap-stat-l">'+p+'</div><div class="cap-stat-v">'+rp(byPlat[p]||0)+'</div></div>').join('');
+  const html='<div class="ops-note" style="margin-top:14px">Total spend <b>'+rp(total)+'</b> · Pajak 12% <b>'+rp(pajak)+'</b> · '+
+      'Total termasuk pajak <b>'+rp(grand)+'</b></div>'+
+    '<div class="cap-stats">'+plat+'</div>';
+  const panel=$('#panel'); if(panel) panel.insertAdjacentHTML('beforeend', html);
+}
+
+/* ---------- CEO: Dashboard ---------- */
+async function loadDashData(){
+  try{ const k=await api({action:'list', sheet:'KARYAWAN'}); state.cache.karyawanAll=k.data||[]; }catch(e){ state.cache.karyawanAll=[]; }
+  try{ const s=await api({action:'list', sheet:'SPEND_ADS'}); state.cache.spendAll=s.data||[]; }catch(e){ state.cache.spendAll=[]; }
+}
+function renderDashboard(){
+  const num=v=>Number(moneyDigits(v))||0;
+  const rows=applyClientFilters(state.rows);           // ORDER: cabang + status + rentang tanggal
+  const fc=state.filters['Cabang'];
+  let omzet=0, omzetAdsTot=0; const byCab={}, byLay={}, byDay={};
+  rows.forEach(r=>{
+    const o=num(r['Total Akhir Setelah Diskon']||r['Total Akhir']); omzet+=o;
+    const cab=String(r['Cabang']||'-').toUpperCase(); byCab[cab]=(byCab[cab]||0)+o;
+    if(norm(r['Chat Dari'])==='iklan') omzetAdsTot+=o;
+    [1,2,3].forEach(i=>{ const nm=String(r['Layanan '+i]||'').trim(); if(nm) byLay[nm]=(byLay[nm]||0)+num(r['Harga '+i]); });
+    const d=String(r['Tanggal Pengerjaan']||'').slice(0,10); if(d) byDay[d]=(byDay[d]||0)+o;
+  });
+
+  // Karyawan
+  let kar=(state.cache.karyawanAll||[]).slice();
+  if(fc) kar=kar.filter(k=>String(k['Cabang']||'').toUpperCase()===String(fc).toUpperCase());
+  const totKar=kar.length;
+
+  // Spend iklan (per cabang) — hormati filter cabang
+  let spend=(state.cache.spendAll||[]).slice();
+  if(fc) spend=spend.filter(s=>String(s['Cabang']||'').toUpperCase()===String(fc).toUpperCase());
+  let totSpend=0; const spendByCab={};
+  spend.forEach(s=>{ const n=num(s['Nominal']); totSpend+=n; const c=String(s['Cabang']||'-').toUpperCase(); spendByCab[c]=(spendByCab[c]||0)+n; });
+
+  const stat=(l,val,s)=>'<div class="cap-stat"><div class="cap-stat-l">'+l+'</div><div class="cap-stat-v">'+val+'</div>'+(s?'<div class="cap-stat-s">'+s+'</div>':'')+'</div>';
+  const top=(obj,n)=>Object.keys(obj).map(k=>({k,val:obj[k]})).sort((a,b)=>b.val-a.val).slice(0,n);
+  const listCard=(title,arr,fmt)=>{
+    if(!arr.length) return '<div class="cap-card"><div class="cap-card-t">'+title+'</div><div class="cap-empty">Belum ada data</div></div>';
+    const max=arr[0].val||1;
+    return '<div class="cap-card"><div class="cap-card-t">'+title+'</div>'+arr.map((it,i)=>
+      '<div class="cap-row"><span class="cap-rank">'+(i+1)+'</span><span class="cap-name" title="'+esc(it.k)+'">'+esc(it.k)+'</span>'+
+      '<span class="cap-bar"><span style="width:'+Math.max(5,Math.round(it.val/max*100))+'%"></span></span>'+
+      '<span class="cap-val">'+fmt(it.val)+'</span></div>').join('')+'</div>';
+  };
+
+  // Detail karyawan per cabang & jabatan
+  const jabSet={}; kar.forEach(k=>{ const j=String(k['Jabatan']||'-').toUpperCase(); jabSet[j]=true; });
+  const jabs=JABATAN.map(j=>j.toUpperCase()).filter(j=>jabSet[j]);
+  const cabsK=[...new Set(kar.map(k=>String(k['Cabang']||'-').toUpperCase()))].sort();
+  const karHead='<th class="l">Cabang</th>'+jabs.map(j=>'<th class="c">'+esc(j)+'</th>').join('')+'<th class="r">Total</th>';
+  const karBody=cabsK.map(cab=>{
+    const rc=kar.filter(k=>String(k['Cabang']||'-').toUpperCase()===cab);
+    const cells=jabs.map(j=>'<td class="c">'+(rc.filter(k=>String(k['Jabatan']||'-').toUpperCase()===j).length||'')+'</td>').join('');
+    return '<tr><td class="cab-cell l">'+esc(cab)+'</td>'+cells+'<td class="r"><b>'+rc.length+'</b></td></tr>';
+  }).join('');
+
+  // Detail spend vs omzet ads
+  const cabsAll = fc ? [String(fc).toUpperCase()] : CABANG.filter(c=>c!=='OFFICE');
+  const spendRows=cabsAll.map(cab=>{
+    const sp=spendByCab[cab]||0;
+    const oa=rows.filter(r=>String(r['Cabang']||'').toUpperCase()===cab && norm(r['Chat Dari'])==='iklan')
+                 .reduce((s,r)=>s+num(r['Total Akhir Setelah Diskon']||r['Total Akhir']),0);
+    const pct = oa>0 ? (sp/oa*100) : 0;
+    const pcls = pct===0?'':(pct<=25?'g-up':(pct<=40?'':'g-down'));
+    return '<tr><td class="cab-cell l">'+esc(cab)+'</td><td class="money">'+rp(sp)+'</td>'+
+      '<td class="money">'+rp(oa)+'</td><td class="r '+pcls+'"><b>'+(oa>0?pct.toFixed(1)+'%':'—')+'</b></td></tr>';
+  }).join('');
+
+  // Grafik garis omzet harian
+  const days=Object.keys(byDay).sort();
+  let line;
+  if(days.length){
+    const maxD=Math.max.apply(null, days.map(d=>byDay[d]))||1;
+    const W=Math.max(days.length*44+40, 320), H=200, pad=28;
+    const X=i=>pad+i*((W-pad*2)/Math.max(1,days.length-1));
+    const Y=v=>H-pad-(v/maxD)*(H-pad*2);
+    const pts=days.map((d,i)=>X(i)+','+Y(byDay[d]).toFixed(1)).join(' ');
+    const dots=days.map((d,i)=>'<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(byDay[d]).toFixed(1)+'" r="3.2" fill="var(--petrol)"><title>'+d.slice(8,10)+'/'+d.slice(5,7)+': '+rp(byDay[d])+'</title></circle>').join('');
+    const labs=days.map((d,i)=> (days.length<=16||i%2===0) ? '<text x="'+X(i).toFixed(1)+'" y="'+(H-8)+'" text-anchor="middle" font-size="9" fill="var(--muted)">'+d.slice(8,10)+'/'+d.slice(5,7)+'</text>':'').join('');
+    line='<div class="cap-card"><div class="cap-card-t">Progres Omzet Harian</div><div class="cap-chart">'+
+      '<svg viewBox="0 0 '+W+' '+H+'" style="min-width:'+W+'px;height:'+H+'px">'+
+      '<polyline points="'+pts+'" fill="none" stroke="var(--petrol)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>'+
+      dots+labs+'</svg></div></div>';
+  } else line='<div class="cap-card"><div class="cap-card-t">Progres Omzet Harian</div><div class="cap-empty">Tidak ada data pada filter ini.</div></div>';
+
+  const top10Lay=top(byLay,10);
+  const top10Cab=Object.keys(byCab).map(k=>({k,val:byCab[k]})).sort((a,b)=>b.val-a.val);
+  const top10Alm=clusterByAlamat(rows).slice(0,10);
+
+  $('#panel').innerHTML =
+    '<div class="cap-stats">'+
+      stat('Total Omzet',rp(omzet))+
+      stat('Total Karyawan',totKar+'')+
+      stat('Total Spend Iklan',rp(totSpend))+
+      stat('Total Chat','—','segera')+
+    '</div>'+
+    '<div class="cap-card"><div class="cap-card-t">Omzet per Cabang (tertinggi → terendah)</div>'+
+      (top10Cab.length?'<div class="tbl-wrap"><table class="ops-tbl"><thead><tr><th class="l">Cabang</th><th class="r">Omzet</th></tr></thead><tbody>'+
+        top10Cab.map(c=>'<tr><td class="cab-cell l">'+esc(c.k)+'</td><td class="money">'+rp(c.val)+'</td></tr>').join('')+
+      '</tbody></table></div>':'<div class="cap-empty">Belum ada data</div>')+'</div>'+
+    '<div class="cap-card"><div class="cap-card-t">Detail Karyawan per Cabang & Jabatan</div>'+
+      (karBody?'<div class="tbl-wrap"><table class="ops-tbl"><thead><tr>'+karHead+'</tr></thead><tbody>'+karBody+'</tbody></table></div>':'<div class="cap-empty">Belum ada data karyawan</div>')+'</div>'+
+    '<div class="cap-card"><div class="cap-card-t">Spend Iklan vs Omzet (Ads) per Cabang</div>'+
+      '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr><th class="l">Cabang</th><th class="r">Spend Iklan</th><th class="r">Omzet Ads</th><th class="r">Spend/Omzet</th></tr></thead><tbody>'+spendRows+
+      '</tbody></table></div><div class="kpi-legend">Makin kecil % (spend ÷ omzet ads) makin efisien.</div></div>'+
+    line+
+    '<div class="cap-grid">'+
+      listCard('Top 10 Layanan — omzet', top10Lay, rp)+
+      listCard('Top 10 Alamat — jumlah order', top10Alm, x=>x+' order')+
+    '</div>';
+  setCount(rows.length,'order');
 }
 function openWa(num, text, who){
   const n=waNum(num);
@@ -3187,6 +3427,89 @@ async function openSettingsView(key){
   }
 }
 function openSettingsStandalone(){ /* tidak dipakai lagi (backend = Supabase) */ }
+
+/* ============================================================
+   OBROLAN ANTAR JABATAN (CHAT)
+   ============================================================ */
+function chatOther(){ return $('#chatRole') ? $('#chatRole').value : ''; }
+function chatMe(){ return (state.session&&state.session.role)||''; }
+function chatOptions(byRole){
+  const me=chatMe(); const sel=$('#chatRole'); if(!sel) return;
+  const cur=sel.value;
+  sel.innerHTML = CHAT_ROLES.filter(r=>r!==me).map(r=>{
+    const u=(byRole&&byRole[r])||0;
+    return '<option value="'+r+'">'+r+(u?(' ('+u+' baru)'):'')+'</option>';
+  }).join('');
+  if(cur && CHAT_ROLES.includes(cur) && cur!==me) sel.value=cur;
+}
+async function chatUpdateBadge(){
+  const me=chatMe(); if(!me) return;
+  let data=[];
+  try{ const r=await window.sb.from('CHAT').select('from_role').eq('to_role',me).eq('read',false); data=r.data||[]; }catch(e){ return; }
+  const byRole={}; data.forEach(m=>byRole[m.from_role]=(byRole[m.from_role]||0)+1);
+  const n=data.length, b=$('#chatBadge');
+  if(b){ b.textContent=n>9?'9+':String(n); b.style.display=n>0?'grid':'none'; }
+  chatOptions(byRole);
+}
+function chatBubble(m, me){
+  const mine=m.from_role===me;
+  const t=(m.created_at||'').replace('T',' ').slice(0,16);
+  return '<div class="cmsg '+(mine?'me':'them')+'">'+
+    (mine?'':'<span class="cfrom">'+esc(m.from_role)+'</span>')+
+    esc(m.message||'')+'<span class="cmeta">'+esc(t)+'</span></div>';
+}
+async function chatLoadThread(){
+  const me=chatMe(), other=chatOther(); const body=$('#chatBody');
+  if(!me||!other||!body) return;
+  body.innerHTML='<div class="chat-empty">Memuat…</div>';
+  let data=[];
+  try{
+    const r=await window.sb.from('CHAT').select('*')
+      .or('and(from_role.eq.'+me+',to_role.eq.'+other+'),and(from_role.eq.'+other+',to_role.eq.'+me+')')
+      .order('created_at',{ascending:true}).limit(300);
+    data=r.data||[];
+  }catch(e){ body.innerHTML='<div class="chat-empty">Gagal memuat obrolan.</div>'; return; }
+  body.innerHTML = data.length ? data.map(m=>chatBubble(m,me)).join('') : '<div class="chat-empty">Belum ada pesan. Sapa '+esc(other)+' 👋</div>';
+  body.scrollTop=body.scrollHeight;
+  // tandai pesan dari "other" sebagai sudah dibaca
+  try{ await window.sb.from('CHAT').update({read:true}).eq('to_role',me).eq('from_role',other).eq('read',false); }catch(e){}
+  chatUpdateBadge();
+}
+async function chatSend(){
+  const me=chatMe(), other=chatOther(); const inp=$('#chatMsg');
+  if(!inp) return; const text=inp.value.trim(); if(!text||!other) return;
+  inp.value='';
+  const body=$('#chatBody');
+  if(body){ if(body.querySelector('.chat-empty')) body.innerHTML='';
+    body.insertAdjacentHTML('beforeend', chatBubble({from_role:me,to_role:other,message:text,created_at:new Date().toISOString()}, me));
+    body.scrollTop=body.scrollHeight; }
+  try{ await window.sb.from('CHAT').insert({from_role:me, to_role:other, message:text, read:false}); }
+  catch(e){ toast('Gagal kirim pesan: '+(e.message||e),'err'); }
+}
+function chatOpen(){ const p=$('#chatPanel'); if(!p) return; p.classList.add('open'); chatLoadThread(); }
+function chatClose(){ const p=$('#chatPanel'); if(p) p.classList.remove('open'); }
+function initChat(){
+  const me=chatMe(); if(!me) return;
+  chatOptions({});
+  const fab=$('#chatFab'), pnl=$('#chatPanel');
+  if(fab && !fab._wired){ fab._wired=true;
+    fab.addEventListener('click', ()=>{ if(pnl.classList.contains('open')) chatClose(); else chatOpen(); });
+    $('#chatClose').addEventListener('click', chatClose);
+    $('#chatRole').addEventListener('change', chatLoadThread);
+    $('#chatSend').addEventListener('click', chatSend);
+    $('#chatMsg').addEventListener('keydown', e=>{ if(e.key==='Enter') chatSend(); });
+  }
+  chatUpdateBadge();
+  // realtime: pesan masuk untuk role saya
+  if(state._chatCh){ try{ window.sb.removeChannel(state._chatCh); }catch(e){} state._chatCh=null; }
+  state._chatCh = window.sb.channel('chat-'+me)
+    .on('postgres_changes', {event:'INSERT', schema:'public', table:'CHAT', filter:'to_role=eq.'+me}, payload=>{
+      const m=payload.new;
+      const panelOpen=$('#chatPanel') && $('#chatPanel').classList.contains('open');
+      if(panelOpen && m.from_role===chatOther()){ chatLoadThread(); }
+      else { chatUpdateBadge(); toast('Pesan baru dari '+m.from_role,'ok'); }
+    }).subscribe();
+}
 
 /* ============================================================
    DESIGNER — halaman santai "Tangkap Aku!" (lalat kabur dari kursor)
