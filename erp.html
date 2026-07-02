@@ -987,9 +987,10 @@ const DYN_FIELD = { cleaner:'Nama Lengkap', layanan:'Nama Layanan' };
 /* Kode cabang (untuk ID Order) — sama dengan di Code.gs. */
 const CABANG_CODE = {
   'SURABAYA':'SBY','MALANG':'MLG','GRESIK':'GSK','KEDIRI':'KDR','BOJONEGORO':'BJN',
-  'SAMARINDA':'SMD','BALIKPAPAN':'BPP','DENPASAR':'DPS','TABANAN':'TBN','MAKASSAR':'MKS','OFFICE':'OFC'
+  'SAMARINDA':'SMD','BALIKPAPAN':'BPN','DENPASAR':'DPS','TABANAN':'TBN','MAKASSAR':'MKS','OFFICE':'OFC'
 };
 const CODE_CABANG = Object.keys(CABANG_CODE).reduce((m,k)=>{ m[CABANG_CODE[k]]=k; return m; }, {});
+CODE_CABANG['BPP'] = 'BALIKPAPAN';   // alias lama (ID order Balikpapan sebelum kode diperbaiki ke BPN)
 function cabangOfBonus(r){
   if(r['Cabang']) return String(r['Cabang']).toUpperCase();
   const code=(String(r['No Order']||'').split('-')[0]||'').toUpperCase();
