@@ -426,6 +426,10 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 
 /* ---------- capaian dashboard ---------- */
 .cap-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px}
+.cap-stats-4{grid-template-columns:repeat(4,1fr)}
+.cap-stat-btn{text-align:left;cursor:pointer;border:1px solid var(--gold);transition:.12s;width:100%}
+.cap-stat-btn:hover{background:var(--gold-soft)}
+.cap-stat-btn .cap-stat-v{color:var(--gold-deep)}
 .cap-stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:15px 16px;box-shadow:var(--shadow-sm)}
 .cap-stat-l{font-size:12px;color:var(--muted);font-weight:600}
 .cap-stat-v{font-family:var(--display);font-size:24px;font-weight:600;color:var(--petrol);margin-top:3px;line-height:1.1}
@@ -489,6 +493,7 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .chat-role-bar{display:flex;align-items:center;gap:9px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--surface-2)}
 .crb-label{font-size:12px;font-weight:700;color:var(--muted)}
 .chat-role-bar select{flex:1;padding:8px 11px;border:1px solid var(--line-2);border-radius:10px;background:var(--surface);font-weight:600;color:var(--ink)}
+.chat-note{font-size:11px;color:var(--faint);text-align:center;padding:6px 10px;background:var(--surface-2);border-bottom:1px solid var(--line)}
 .chat-body{flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:8px;background:var(--bg)}
 .cmsg{max-width:78%;padding:8px 12px;border-radius:14px;font-size:13.5px;line-height:1.4;word-break:break-word;position:relative}
 .cmsg .cmeta{display:block;font-size:10px;opacity:.7;margin-top:3px}
@@ -506,6 +511,23 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
   .chat-fab{bottom:76px}
   .chat-panel{bottom:140px;right:12px;left:12px;width:auto}
 }
+
+/* ---------- REMINDER / POPUP WAJIB ---------- */
+.rem-overlay{position:fixed;inset:0;z-index:98;display:none;align-items:center;justify-content:center;
+  padding:20px;background:rgba(8,24,23,.6);backdrop-filter:blur(3px)}
+.rem-overlay.open{display:flex;animation:rise .18s ease}
+.rem-card{background:var(--surface);border-radius:20px;box-shadow:var(--shadow-lg);width:min(400px,94vw);
+  padding:26px 24px;text-align:center}
+.rem-emoji{font-size:40px;line-height:1;margin-bottom:8px}
+.rem-title{font-family:var(--display);font-size:20px;font-weight:600;color:var(--ink);margin-bottom:14px}
+.rem-list{display:flex;flex-direction:column;gap:10px;margin-bottom:20px;text-align:left}
+.rem-item{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:14px}
+.rem-btn{width:100%}
+.rem-q{font-size:16px;font-weight:700;color:var(--ink);margin:6px 0 18px}
+.rem-actions{display:flex;flex-direction:column;gap:10px}
+.rem-actions .btn{width:100%}
+.konten-row{text-decoration:none}
+.konten-row .set-arrow svg{width:16px;height:16px}
 .pie-wrap{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
 .pie-svg{width:150px;height:150px;flex:none}
 .pie-legend{flex:1;min-width:160px;display:flex;flex-direction:column;gap:7px}
@@ -526,6 +548,7 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .cap-empty{color:var(--faint);font-size:12.5px;padding:8px 0}
 @media (max-width:880px){
   .cap-stats{grid-template-columns:1fr 1fr;gap:9px}
+  .cap-stats-4{grid-template-columns:1fr 1fr}
   .cap-stat-v{font-size:19px}
   .cap-grid{grid-template-columns:1fr}
 }
@@ -683,10 +706,28 @@ td.c-green, td.c-red, td.c-orange, td.c-blue{font-weight:700}
       <span class="crb-label">Ke:</span>
       <select id="chatRole"></select>
     </div>
+    <div class="chat-note">Obrolan otomatis dihapus tiap Minggu malam.</div>
     <div class="chat-body" id="chatBody"></div>
     <div class="chat-input">
       <input id="chatMsg" placeholder="Tulis pesan…" autocomplete="off">
       <button class="chat-send" id="chatSend" aria-label="Kirim"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4Z"/></svg></button>
+    </div>
+  </div>
+
+  <!-- Pengingat / popup wajib -->
+  <div class="rem-overlay" id="remOverlay">
+    <div class="rem-card">
+      <div id="remMain">
+        <div id="remBody"></div>
+        <button class="btn btn-primary rem-btn" id="remClose">Tutup</button>
+      </div>
+      <div id="remConfirm" style="display:none">
+        <div class="rem-q">Apa benar sudah melakukannya?</div>
+        <div class="rem-actions">
+          <button class="btn btn-primary" id="remYes">Ya, sudah</button>
+          <button class="btn btn-ghost" id="remNo">Belum — jangan tutup</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -723,6 +764,13 @@ const CHAT_DARI = ['Iklan','Organik','Lama'];
 const AD_PLATFORM = ['Google','Meta','TikTok'];
 const PROGRES_TAHUN = (()=>{ const y=new Date().getFullYear(); return [String(y+1),String(y),String(y-1)]; })();
 const CHAT_ROLES = ['CEO','OPERASIONAL','MARKETING','HRD','FINANCE','CS','DESIGNER'];
+const AGENDA_ROLES = ['CEO','MARKETING','HRD','OPERASIONAL','FINANCE'];
+/* Ganti url '#' di bawah dengan link asli (Google Drive/Canva/dll). */
+const KONTEN_LINKS = [
+  {label:'Konten Story', desc:'Materi & jadwal story harian', url:'#', icon:'result'},
+  {label:'Promo', desc:'Materi promo terbaru', url:'#', icon:'gift'},
+  {label:'Konten Follow Up', desc:'Template pesan follow up customer', url:'#', icon:'audit'}
+];
 const METODE = ['BCA','MANDIRI','CASH','QRIS'];
 const JENIS_BONUS = ['Kilometer','Bonus Deepclean','Bonus Salon','Tips','Parkir','Lembur','Uang Makan','Bonus Lainnya'];
 
@@ -896,12 +944,15 @@ const MENUS = {
     {key:'gaji', label:'Gaji', icon:'salary'},
     {key:'insentif', label:'Insentif', icon:'gift'},
     {key:'layanan', label:'Layanan', icon:'inbox'},
+    {key:'agenda', label:'Agenda', icon:'audit'},
     {key:'__settings', label:'Pengaturan', icon:'settings'}
   ],
   CS: [
     {key:'order', label:'Order', icon:'order'},
     {key:'inputBonus', label:'Input Bonus', icon:'bonus'},
     {key:'capaian', label:'Capaian', icon:'result'},
+    {key:'kpiCSView', label:'KPI', icon:'audit'},
+    {key:'konten', label:'Konten', icon:'inbox'},
     {key:'__settings', label:'Pengaturan', icon:'settings'}
   ],
   FINANCE: [
@@ -910,21 +961,25 @@ const MENUS = {
     {key:'hasilAudit', label:'Hasil Audit', icon:'result'},
     {key:'editOrder', label:'Edit Order', icon:'edit'},
     {key:'gajiFinance', label:'Gaji', icon:'salary'},
+    {key:'agenda', label:'Agenda', icon:'audit'},
     {key:'__settings', label:'Pengaturan', icon:'settings'}
   ],
   OPERASIONAL: [
     {key:'laporanOmzet', label:'Laporan Omzet', icon:'result'},
     {key:'reportKPI', label:'Report KPI', icon:'audit'},
     {key:'kpiCS', label:'KPI CS', icon:'users'},
+    {key:'agenda', label:'Agenda', icon:'audit'},
     {key:'__settings', label:'Pengaturan', icon:'settings'}
   ],
   MARKETING: [
     {key:'spendAds', label:'Spend Ads', icon:'result'},
     {key:'progres', label:'Progres', icon:'audit'},
+    {key:'agenda', label:'Agenda', icon:'audit'},
     {key:'__settings', label:'Pengaturan', icon:'settings'}
   ],
   CEO: [
     {key:'dashboard', label:'Dashboard', icon:'result'},
+    {key:'agenda', label:'Agenda', icon:'audit'},
     {key:'__settings', label:'Pengaturan', icon:'settings'}
   ],
   DESIGNER: []
@@ -1188,6 +1243,30 @@ VIEWS.dashboard = {
   filters:['Cabang','Status Order'],
   datePreset:true, dateFilterField:'Tanggal Pengerjaan'
 };
+
+/* ===== CS: KPI (lihat saja) & Konten ===== */
+VIEWS.kpiCSView = {
+  sheet:'ORDER', title:'KPI', sub:'', special:'kpiCS', countTop:true, noSyncBtn:true,
+  branchLock:true, monthFilter:true, filters:['Status Order']
+};
+VIEWS.konten = { sheet:null, title:'Konten', sub:'', special:'konten', noSyncBtn:true };
+
+/* ===== AGENDA (CEO/MARKETING/HRD/OPERASIONAL/FINANCE) ===== */
+VIEWS.agenda = {
+  sheet:'AGENDA', title:'Agenda', sub:'', special:'agenda', countTop:true, noSyncBtn:true,
+  keyFields:['Jabatan','Tipe','Periode'], canAdd:true, canEdit:true,
+  filters:['Tipe','Jabatan'],
+  table:['Jabatan','Tipe','Periode','Agenda','Status'],
+  search:['Agenda','Jabatan'],
+  form:[
+    f('Jabatan','select',{opts:AGENDA_ROLES, ro:true}),
+    f('Tipe','select',{opts:['Bulanan','Tahunan'], req:true}),
+    f('Periode','text',{req:true, help:'Bulanan: YYYY-MM · Tahunan: YYYY'}),
+    f('Agenda','textarea',{req:true, full:true}),
+    f('Status','select',{opts:['Rencana','Berjalan','Selesai']}),
+    f('Keterangan','textarea',{full:true})
+  ]
+};
 VIEWS.targetOmzet = {
   sheet:'TARGET_OMZET', title:'Target Omzet', sub:'', inSettings:true, countTop:true, noSyncBtn:true,
   keyFields:['Cabang'], canAdd:true, canEdit:true,
@@ -1203,7 +1282,7 @@ VIEWS.targetOmzet = {
 const FILTER_OPTS = {
   'Cabang':CABANG, 'Jabatan':JABATAN, 'Status':STATUS_KARYAWAN,
   'Status Order':STATUS_ORDER, 'Chat Dari':CHAT_DARI, 'Jenis':JENIS_BONUS,
-  'Platform':AD_PLATFORM, 'Tahun':PROGRES_TAHUN
+  'Platform':AD_PLATFORM, 'Tahun':PROGRES_TAHUN, 'Tipe':['Bulanan','Tahunan']
 };
 const MONEY_HINT = ['Gaji','Bonus','Potongan','Harga','Total','Nominal','Tagihan','Tunjangan','Premi','Cashbon','Saldo','Take Home','Diterima','BPJS','Akhir'];
 
@@ -1441,6 +1520,8 @@ function enterApp(){
   buildNav();
   startClock();
   initChat();
+  initCsReminder();
+  agendaCheck();
   document.body.classList.toggle('is-designer', s.role==='DESIGNER');
   if(!MENUS[s.role].length){ renderDesigner(); return; }
   const first = MENUS[s.role][0].key;
@@ -1473,6 +1554,7 @@ async function selectMenu(key){
   state.filters={}; state.search=''; state.dateStart=''; state.dateEnd='';
   markActive(key);
   renderShell();
+  if(state.view && state.view.special==='konten'){ renderKonten(); return; }
   await loadList();
   // REALTIME: begitu ada perubahan di tabel ini, muat ulang otomatis
   if(state._ch){ try{ window.sb.removeChannel(state._ch); }catch(e){} state._ch=null; }
@@ -1641,7 +1723,7 @@ async function loadList(force){
     }
     refreshDynFilters();
     if(v.special==='reportKPI') await loadTargets();
-    if(v.special==='kpiCS') await loadKpiCfg();
+    if(v.special==='kpiCS' || v.special==='capaian') await loadKpiCfg();
     if(v.special==='dashboard') await loadDashData();
     renderView();
     syncDone(state.rows.length);
@@ -1940,8 +2022,8 @@ async function quickUploadProof(oid){
     showLoad(true);
     let up;
     try{
-      const b64=await fileToB64(file);
-      up=await api({action:'uploadFile', base64:b64, mime:file.type, name:file.name});
+      const up0=await prepUpload(file);
+      up=await api({action:'uploadFile', base64:up0.base64, mime:up0.mime, name:up0.name});
     }catch(err){ showLoad(false); toast('Gagal unggah file: '+(err.message||err),'err'); return; }
     try{
       await api({action:'update', sheet:'ORDER', id:oid, data:{'Bukti Transfer':up.url, 'Status Order':'done'}});
@@ -2089,6 +2171,32 @@ function renderCapaian(){
   const days=Object.keys(byDay).sort();
 
   const stat=(l,val,s)=>'<div class="cap-stat"><div class="cap-stat-l">'+l+'</div><div class="cap-stat-v">'+val+'</div>'+(s?'<div class="cap-stat-s">'+s+'</div>':'')+'</div>';
+  const isCs = state.session && state.session.role==='CS';
+  let statsHtml;
+  if(isCs){
+    const growBadge=(now,prev)=>{ const diff=now-prev; const pct=prev>0?(diff/prev*100):(now>0?100:0);
+      const cls=diff===0?'g-flat':(diff>0?'g-up':'g-down'); const ar=diff===0?'—':(diff>0?'▲':'▼');
+      return '<span class="grow '+cls+'" style="font-size:11px">'+ar+' '+Math.abs(pct).toFixed(0)+'% vs bln lalu</span>'; };
+    const cab=String(state.session.cabang||'').toUpperCase();
+    const now=new Date(); const ymNow=ymd(now).slice(0,7);
+    const lm=new Date(now.getFullYear(), now.getMonth()-1, 1); const ymLast=ymd(lm).slice(0,7);
+    const inM=(r,ym)=>String(r['Tanggal Pengerjaan']||'').slice(0,7)===ym;
+    const mNow=state.rows.filter(r=>inM(r,ymNow)), mLast=state.rows.filter(r=>inM(r,ymLast));
+    const sum=arr=>arr.reduce((s,r)=>s+omzetOf(r),0);
+    const oNow=sum(mNow), oLast=sum(mLast);
+    const jNow=mNow.length, jLast=mLast.length;
+    const aNow=jNow?Math.round(oNow/jNow):0, aLast=jLast?Math.round(oLast/jLast):0;
+    const kNow=kpiTotalFor(cab,ymNow), kLast=kpiTotalFor(cab,ymLast);
+    statsHtml='<div class="cap-stats cap-stats-4">'+
+      stat('Jumlah Order',jNow+'', growBadge(jNow,jLast))+
+      stat('Total Omzet',rp(oNow), growBadge(oNow,oLast))+
+      stat('Rata-rata / Order',rp(aNow), growBadge(aNow,aLast))+
+      '<button class="cap-stat cap-stat-btn" id="capKpi"><div class="cap-stat-l">Nilai Hasil KPI</div>'+
+        '<div class="cap-stat-v">'+kNow.toFixed(0)+'%</div><div class="cap-stat-s">'+growBadge(kNow,kLast)+' · lihat detail →</div></button>'+
+      '</div>';
+  } else {
+    statsHtml='<div class="cap-stats">'+stat('Jumlah Order',jumlah+'')+stat('Total Omzet',rp(omzet))+stat('Rata-rata / Order',rp(avg))+'</div>';
+  }
   const listCard=(title,arr,fmt)=>{
     if(!arr.length) return '<div class="cap-card"><div class="cap-card-t">'+title+'</div><div class="cap-empty">Belum ada data</div></div>';
     const max=arr[0].val||1;
@@ -2121,13 +2229,14 @@ function renderCapaian(){
                                    : listCard('Top 10 Layanan — omzet', top10Lay, rp);
 
   $('#panel').innerHTML =
-    '<div class="cap-stats">'+stat('Jumlah Order',jumlah+'')+stat('Total Omzet',rp(omzet))+stat('Rata-rata / Order',rp(avg))+'</div>'+
+    statsHtml+
     chart+
     '<div class="cap-grid">'+
       listCard('Top 5 Cabang — omzet', top5Cab, rp)+
       layananCard+
       listCard('Top 10 Alamat — jumlah order', top10Alm, x=>x+' order')+
     '</div>';
+  const kb=$('#capKpi'); if(kb) kb.addEventListener('click', ()=>selectMenu('kpiCSView'));
   setCount(jumlah, 'order');
 }
 
@@ -2158,6 +2267,8 @@ function opsBaseRows(){
   return rows;
 }
 function opsCabangList(){
+  const v=state.view;
+  if(v && v.branchLock && state.session && state.session.cabang) return [String(state.session.cabang).toUpperCase()];
   const fc=state.filters['Cabang'];
   if(fc) return [String(fc).toUpperCase()];
   return CABANG.filter(c=>c!=='OFFICE');
@@ -2319,6 +2430,19 @@ function kpiItems(){
     {key:'Stock Opname', tKey:'Target Stock Opname', bKey:'Bobot Stock Opname', nKey:'Nilai Stock Opname', defB:10},
     {key:'Review Maps',  tKey:'Target Review Maps',  bKey:'Bobot Review Maps',  nKey:'Nilai Review Maps',  defB:10}
   ];
+}
+function kpiTotalFor(cab, ym){
+  const cfg=(state.cache.kpiCfg||{})[String(cab).toUpperCase()+'|'+ym]||{};
+  const omzet=kpiOmzet(cab, ym);
+  const num=v=>Number(moneyDigits(v))||0;
+  let total=0;
+  kpiItems().forEach(it=>{
+    const target=num(cfg[it.tKey]);
+    const bobot=(cfg[it.bKey]!=null&&String(cfg[it.bKey]).trim()!=='')?num(cfg[it.bKey]):it.defB;
+    const nilai=it.auto?omzet:num(cfg[it.nKey]);
+    if(target>0) total+=(nilai/target)*bobot;
+  });
+  return total;
 }
 function kpiOmzet(cab, ym){
   const fs=state.filters['Status Order'];
@@ -2691,6 +2815,7 @@ function defaults(v){
     d['PPn']=0; }
   if(v.sheet==='BONUS'){ d['Tanggal Input']=today; }
   if(v.sheet==='GAJI'){ d['Tanggal Cetak']=today; }
+  if(v.sheet==='AGENDA'){ d['Jabatan']=state.session.role; d['Tipe']='Bulanan'; d['Periode']=today.slice(0,7); d['Status']='Rencana'; }
   return d;
 }
 function renderField(fd, val){
@@ -2883,12 +3008,12 @@ function wireFields(v){
       const fn=document.querySelector('[data-fn="'+CSS.escape(key)+'"]');
       fn.textContent='Mengunggah…';
       try{
-        const b64 = await fileToB64(file);
-        const r = await api({action:'uploadFile', base64:b64, mime:file.type, name:file.name});
+        const up0 = await prepUpload(file);
+        const r = await api({action:'uploadFile', base64:up0.base64, mime:up0.mime, name:up0.name});
         state.files[key]=r.url;
         fn.innerHTML='<a class="file-name" href="'+esc(r.url)+'" target="_blank">Tersimpan ✓</a>';
         const prev=document.querySelector('[data-prev="'+CSS.escape(key)+'"]');
-        if(prev && /image/.test(file.type)){ prev.src=r.url; prev.style.display='block'; }
+        if(prev && /image/.test(up0.mime)){ prev.src=r.url; prev.style.display='block'; }
         // auto status order
         if(v.special==='order'){
           if(key==='Bukti Transfer'){ setVal('Status Order','done'); showInvoiceBtn(); state.files['Waktu Bukti Transfer']=nowStr_(); }
@@ -3378,6 +3503,26 @@ function fileToB64(file){
   return new Promise((res,rej)=>{ const r=new FileReader();
     r.onload=()=>res(String(r.result).split(',')[1]); r.onerror=rej; r.readAsDataURL(file); });
 }
+/* Kompres gambar sebelum upload: resize maks 1400px + JPEG kualitas 0.62 (tetap terbaca). */
+function prepUpload(file){
+  return new Promise(resolve=>{
+    const fallback=()=>{ const r=new FileReader(); r.onload=()=>resolve({base64:String(r.result).split(',')[1], mime:file.type, name:file.name}); r.readAsDataURL(file); };
+    if(!/^image\//.test(file.type) || /gif|svg/.test(file.type)) return fallback();
+    const url=URL.createObjectURL(file); const img=new Image();
+    img.onload=()=>{
+      let w=img.naturalWidth, h=img.naturalHeight; const maxDim=1400;
+      if(Math.max(w,h)>maxDim){ const s=maxDim/Math.max(w,h); w=Math.round(w*s); h=Math.round(h*s); }
+      const c=document.createElement('canvas'); c.width=w; c.height=h;
+      const ctx=c.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,w,h); ctx.drawImage(img,0,0,w,h);
+      URL.revokeObjectURL(url);
+      try{ const d=c.toDataURL('image/jpeg',0.62);
+        resolve({base64:d.split(',')[1], mime:'image/jpeg', name:(file.name||'foto').replace(/\.[^.]+$/,'')+'.jpg'}); }
+      catch(e){ fallback(); }
+    };
+    img.onerror=()=>{ URL.revokeObjectURL(url); fallback(); };
+    img.src=url;
+  });
+}
 
 /* ---------- overlay ---------- */
 function openOverlay(){ $('#overlay').classList.add('open'); }
@@ -3433,6 +3578,15 @@ function openSettingsStandalone(){ /* tidak dipakai lagi (backend = Supabase) */
    ============================================================ */
 function chatOther(){ return $('#chatRole') ? $('#chatRole').value : ''; }
 function chatMe(){ return (state.session&&state.session.role)||''; }
+function lastChatReset(){
+  const now=new Date(); const d=new Date(now); d.setHours(21,0,0,0);
+  d.setDate(d.getDate()-d.getDay());       // Minggu minggu ini, 21:00
+  if(d>now) d.setDate(d.getDate()-7);       // jika masih di masa depan, pakai Minggu lalu
+  return d;
+}
+async function chatWeeklyCleanup(){
+  try{ await window.sb.from('CHAT').delete().lt('created_at', lastChatReset().toISOString()); }catch(e){}
+}
 function chatOptions(byRole){
   const me=chatMe(); const sel=$('#chatRole'); if(!sel) return;
   const cur=sel.value;
@@ -3490,6 +3644,7 @@ function chatOpen(){ const p=$('#chatPanel'); if(!p) return; p.classList.add('op
 function chatClose(){ const p=$('#chatPanel'); if(p) p.classList.remove('open'); }
 function initChat(){
   const me=chatMe(); if(!me) return;
+  chatWeeklyCleanup();
   chatOptions({});
   const fab=$('#chatFab'), pnl=$('#chatPanel');
   if(fab && !fab._wired){ fab._wired=true;
@@ -3509,6 +3664,105 @@ function initChat(){
       if(panelOpen && m.from_role===chatOther()){ chatLoadThread(); }
       else { chatUpdateBadge(); toast('Pesan baru dari '+m.from_role,'ok'); }
     }).subscribe();
+}
+
+/* ============================================================
+   CS — Konten (link) & Pengingat harian
+   ============================================================ */
+function renderKonten(){
+  const cards = KONTEN_LINKS.map(k=>{
+    const has = k.url && k.url!=='#';
+    return '<a class="set-row konten-row" '+(has?('href="'+esc(k.url)+'" target="_blank" rel="noopener"'):'href="javascript:void(0)"')+'>'+
+      '<span class="set-ic">'+svg(k.icon)+'</span>'+
+      '<span class="set-txt"><span class="set-t">'+esc(k.label)+'</span><span class="set-d">'+esc(k.desc)+(has?'':' — link belum diatur')+'</span></span>'+
+      '<span class="set-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg></span></a>';
+  }).join('');
+  $('#panel').innerHTML = '<div class="panel" style="padding:8px">'+cards+'</div>';
+}
+
+function csReminderHTML(){
+  return '<div class="rem-emoji">📢</div>'+
+    '<div class="rem-title">Pengingat CS</div>'+
+    '<div class="rem-list">'+
+      '<div class="rem-item">Lakukan <b>Follow Up</b> customer</div>'+
+      '<div class="rem-item">Buat &amp; upload <b>Story</b></div>'+
+    '</div>';
+}
+function showCsReminder(){
+  if(!state.session || state.session.role!=='CS') return;
+  const ov=$('#remOverlay'); if(!ov) return;
+  state._remMode='cs';
+  $('#remBody').innerHTML = csReminderHTML();
+  $('#remClose').style.display=''; $('#remClose').textContent='Tutup';
+  $('#remConfirm').style.display='none';
+  $('#remMain').style.display='';
+  ov.classList.add('open');
+}
+function csReminderCheck(){
+  if(!state.session || state.session.role!=='CS') return;
+  const now=new Date(); const hm=now.getHours()*60+now.getMinutes();
+  const key='klinklin_rem_'+ymd(now);
+  let done={}; try{ done=JSON.parse(localStorage.getItem(key)||'{}'); }catch(e){}
+  [['pagi',510],['siang',750]].forEach(a=>{
+    const slot=a[0], mins=a[1];
+    if(hm>=mins && !done[slot]){ done[slot]=1; localStorage.setItem(key,JSON.stringify(done)); showCsReminder(); }
+  });
+}
+function initCsReminder(){
+  if(state.session && state.session.role==='CS'){
+    showCsReminder();
+    clearInterval(window._remTick);
+    window._remTick=setInterval(csReminderCheck, 60000);
+  }
+}
+
+/* ---------- AGENDA: wajib isi + pengingat Senin/Kamis ---------- */
+async function agendaCheck(){
+  const role=state.session && state.session.role;
+  if(!AGENDA_ROLES.includes(role)) return;
+  const ym=ymd(new Date()).slice(0,7), yy=ym.slice(0,4);
+  let data=[];
+  try{ const r=await window.sb.from('AGENDA').select('Tipe,Periode,Agenda').eq('Jabatan',role); data=r.data||[]; }
+  catch(e){ return; }
+  const hasBln=data.some(a=>a['Tipe']==='Bulanan' && String(a['Periode']).slice(0,7)===ym);
+  const hasThn=data.some(a=>a['Tipe']==='Tahunan' && String(a['Periode']).slice(0,4)===yy);
+  if(!hasBln || !hasThn){ showAgendaBlock(!hasBln,!hasThn); return; }
+  agendaReminderMonThu(data);
+}
+function showAgendaBlock(needBln, needThn){
+  const ov=$('#remOverlay'); if(!ov) return;
+  state._remMode='block';
+  const miss=[]; if(needBln) miss.push('Agenda Bulanan'); if(needThn) miss.push('Agenda Tahunan');
+  $('#remBody').innerHTML='<div class="rem-emoji">🗓️</div><div class="rem-title">Isi Agenda Dulu</div>'+
+    '<div class="rem-list"><div class="rem-item">Anda belum mengisi <b>'+miss.join('</b> &amp; <b>')+'</b> periode ini. Wajib diisi sebelum memakai menu lain.</div></div>'+
+    '<button class="btn btn-primary rem-btn" id="remGoAgenda">Isi Agenda Sekarang</button>';
+  $('#remClose').style.display='none';
+  $('#remConfirm').style.display='none';
+  $('#remMain').style.display='';
+  ov.classList.add('open');
+  const go=$('#remGoAgenda');
+  if(go) go.addEventListener('click', ()=>{ ov.classList.remove('open'); $('#remClose').style.display='';
+    selectMenu('agenda'); setTimeout(()=>{ if(VIEWS.agenda.canAdd) openForm(null); }, 350); });
+}
+function agendaReminderMonThu(data){
+  const now=new Date(); const day=now.getDay(); // 1=Senin, 4=Kamis
+  if(day!==1 && day!==4) return;
+  const key='klinklin_agenda_'+ymd(now);
+  if(localStorage.getItem(key)) return;
+  localStorage.setItem(key,'1');
+  const ym=ymd(now).slice(0,7), yy=ym.slice(0,4);
+  const bln=data.filter(a=>a['Tipe']==='Bulanan' && String(a['Periode']).slice(0,7)===ym);
+  const thn=data.filter(a=>a['Tipe']==='Tahunan' && String(a['Periode']).slice(0,4)===yy);
+  const ov=$('#remOverlay'); if(!ov) return;
+  state._remMode='agenda';
+  const list = arr => arr.length? arr.map(a=>'<div class="rem-item">'+esc(a['Agenda']||'')+'</div>').join('') : '<div class="rem-item" style="color:var(--faint)">—</div>';
+  $('#remBody').innerHTML='<div class="rem-emoji">📌</div><div class="rem-title">Agenda '+HARI_ID[day]+' Ini</div>'+
+    '<div style="text-align:left;font-size:12px;font-weight:800;color:var(--faint);margin:2px 0 6px">BULANAN</div>'+
+    '<div class="rem-list">'+list(bln)+'</div>'+
+    (thn.length?'<div style="text-align:left;font-size:12px;font-weight:800;color:var(--faint);margin:12px 0 6px">TAHUNAN</div><div class="rem-list">'+list(thn)+'</div>':'');
+  $('#remClose').style.display=''; $('#remClose').textContent='Oke, siap';
+  $('#remConfirm').style.display='none'; $('#remMain').style.display='';
+  ov.classList.add('open');
 }
 
 /* ============================================================
@@ -3601,6 +3855,14 @@ $('#imgPopImg').addEventListener('click', e=>e.stopPropagation());
 $('#imgPopClose').addEventListener('click', e=>{ e.stopPropagation(); closeImg(); });
 document.addEventListener('click', e=>{ const a=e.target.closest('[data-img]'); if(a){ e.preventDefault(); openImg(a.getAttribute('data-img')); } });
 document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeImg(); });
+
+// Pengingat / popup wajib
+$('#remClose').addEventListener('click', ()=>{
+  if(state._remMode==='cs'){ $('#remMain').style.display='none'; $('#remConfirm').style.display=''; }
+  else { $('#remOverlay').classList.remove('open'); }
+});
+$('#remYes').addEventListener('click', ()=>{ $('#remOverlay').classList.remove('open'); $('#remMain').style.display=''; $('#remConfirm').style.display='none'; });
+$('#remNo').addEventListener('click', ()=>{ $('#remMain').style.display=''; $('#remConfirm').style.display='none'; });
 
 initLogin();
 (async function restore(){
