@@ -503,6 +503,14 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .kpi-cs-head-r .btn-ghost{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.28);color:#fff}
 .kpi-cs-card .tbl-wrap{padding:6px 14px 0}
 .kpi-tbl{min-width:560px}
+@media (max-width:560px){
+  .kpi-cs-card .tbl-wrap{overflow-x:visible}
+  .kpi-tbl{min-width:0;width:100%}
+  .kpi-tbl th,.kpi-tbl td{padding:7px 5px;font-size:10.5px}
+  .kpi-tbl th:nth-child(1),.kpi-tbl td:nth-child(1){display:none}
+  .kpi-tbl th:nth-child(5),.kpi-tbl td:nth-child(5){display:none}
+  .kpi-auto{display:none}
+}
 .kpi-auto{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;
   color:var(--info);background:var(--surface-2);border-radius:6px;padding:1px 5px;vertical-align:middle}
 .kpi-strat{padding:14px 16px 16px}
@@ -987,6 +995,39 @@ function cabangOfBonus(r){
 const HARI_ID=['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
 const BULAN_ID=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 function parseDate_(s){ const m=String(s||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m? new Date(+m[1],+m[2]-1,+m[3]) : null; }
+/* ===== Parser tanggal universal: baca "2 Juli 2026", "2/7/2026", "7/2/2026",
+   "July 2 2026", "2026-07-02", dll. Kembalikan selalu "YYYY-MM-DD". ===== */
+function pad2_(n){ return String(n).padStart(2,'0'); }
+const MONTHS_MAP = {jan:1,januari:1,january:1,peb:2,feb:2,februari:2,february:2,mar:3,maret:3,march:3,
+  apr:4,april:4,mei:5,may:5,jun:6,juni:6,june:6,jul:7,juli:7,july:7,agu:8,ags:8,agustus:8,aug:8,august:8,
+  sep:9,sept:9,september:9,okt:10,oct:10,oktober:10,october:10,nop:11,nov:11,november:11,nopember:11,
+  des:12,dec:12,desember:12,december:12};
+function monthNum_(tok){ tok=String(tok||'').toLowerCase().replace(/[^a-z]/g,''); if(!tok) return 0;
+  if(MONTHS_MAP[tok]!=null) return MONTHS_MAP[tok]; return MONTHS_MAP[tok.slice(0,3)]||0; }
+function parseAnyDate(v){
+  if(v instanceof Date) return isNaN(v)?'':ymd(v);
+  let s=String(v||'').trim(); if(!s) return '';
+  let m=s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/); if(m) return m[1]+'-'+pad2_(m[2])+'-'+pad2_(m[3]);
+  m=s.match(/(\d{1,2})\s+([A-Za-z]+)\.?\s+(\d{4})/); if(m){ const mo=monthNum_(m[2]); if(mo) return m[3]+'-'+pad2_(mo)+'-'+pad2_(m[1]); }
+  m=s.match(/([A-Za-z]+)\.?\s+(\d{1,2}),?\s+(\d{4})/); if(m){ const mo=monthNum_(m[1]); if(mo) return m[3]+'-'+pad2_(mo)+'-'+pad2_(m[2]); }
+  m=s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})/);
+  if(m){ let a=+m[1], b=+m[2], y=+m[3]; if(y<100) y+=2000; let day,mo;
+    if(a>12){ day=a; mo=b; } else if(b>12){ mo=a; day=b; } else { day=a; mo=b; }
+    if(mo>=1&&mo<=12&&day>=1&&day<=31) return y+'-'+pad2_(mo)+'-'+pad2_(day); }
+  const d=new Date(s); return isNaN(d)?'':ymd(d);
+}
+function parseAnyMonth(v){
+  let s=String(v||'').trim(); if(!s) return '';
+  let m=s.match(/^(\d{4})[-\/.](\d{1,2})(?![-\/.]?\d)/); if(m) return m[1]+'-'+pad2_(m[2]);
+  m=s.match(/^(\d{1,2})[-\/.](\d{4})$/); if(m) return m[2]+'-'+pad2_(m[1]);
+  m=s.match(/([A-Za-z]+)\.?\s+(\d{4})/); if(m){ const mo=monthNum_(m[1]); if(mo) return m[2]+'-'+pad2_(mo); }
+  m=s.match(/(\d{4})\s+([A-Za-z]+)/); if(m){ const mo=monthNum_(m[2]); if(mo) return m[1]+'-'+pad2_(mo); }
+  const d=parseAnyDate(s); return d?d.slice(0,7):'';
+}
+function ymOf(v){ return parseAnyMonth(v); }
+function calMonthBounds(ym){ const m=String(ym||'').match(/^(\d{4})-(\d{2})/); if(!m) return null;
+  const y=+m[1], mo=+m[2]; const last=new Date(y,mo,0).getDate();
+  return {start:ym+'-01', end:ym+'-'+pad2_(last)}; }
 function hariId(s){ const d=parseDate_(s); return d? HARI_ID[d.getDay()] : ''; }
 function tglPanjangId(s){ const d=parseDate_(s); return d? (d.getDate()+' '+BULAN_ID[d.getMonth()]+' '+d.getFullYear()) : String(s||''); }
 function tglHariId(s){ const h=hariId(s); const t=tglPanjangId(s); return (h? (h+', '):'')+t; }
@@ -1191,7 +1232,7 @@ const ORDER_FORM = [
 
 const VIEWS = {
   karyawan:{
-    sheet:'KARYAWAN', title:'Karyawan', sub:'', countTop:true, noSyncBtn:true, inSettings:true,
+    sheet:'KARYAWAN', title:'Karyawan', sub:'', countTop:true, noSyncBtn:true, inSettings:true, canDelete:true,
     idField:'ID Karyawan', canAdd:true, canEdit:true, sortBy:['Cabang','Nama Lengkap'],
     table:['Foto Profil','ID Karyawan','Nama Lengkap','Jabatan','Status','Cabang','No WA'],
     filters:['Cabang','Jabatan','Status'],
@@ -1246,10 +1287,10 @@ const VIEWS = {
     table:['ID Insentif','No Order','Jenis','Nominal','Nama Cleaner','Nama Customer','Tanggal Pengerjaan','Tanggal Input'],
     filters:['Jenis'], dynCleaner:true,
     search:['Nama Cleaner','No Order','Nama Customer'],
-    datePreset:true, dateFilterField:'Tanggal Pengerjaan'
+    datePreset:true, dateFilterField:'Tanggal Pengerjaan', defaultMonth:true
   },
   layanan:{
-    sheet:'LAYANAN', title:'Layanan', sub:'', countTop:true, noSyncBtn:true, inSettings:true,
+    sheet:'LAYANAN', title:'Layanan', sub:'', countTop:true, noSyncBtn:true, inSettings:true, canDelete:true,
     idField:'ID Layanan', canAdd:true, canEdit:true,
     table:['ID Layanan','Nama Layanan'],
     search:['Nama Layanan','ID Layanan'],
@@ -1351,13 +1392,11 @@ VIEWS.gajiFinance = Object.assign({}, VIEWS.gaji, { canAdd:false, canEdit:false,
 /* ===== OPERASIONAL ===== */
 VIEWS.laporanOmzet = {
   sheet:'ORDER', title:'Laporan Omzet', sub:'', special:'laporanOmzet', countTop:true, noSyncBtn:true,
-  filters:['Cabang','Status Order'],
-  datePreset:true, dateFilterField:'Tanggal Pengerjaan'
+  monthFilter:true, monthField:'Tanggal Pengerjaan', filters:['Cabang','Status Order']
 };
 VIEWS.reportKPI = {
   sheet:'ORDER', title:'Report KPI', sub:'', special:'reportKPI', countTop:true, noSyncBtn:true,
-  filters:['Cabang','Status Order'],
-  datePreset:true, dateFilterField:'Tanggal Pengerjaan'
+  monthFilter:true, monthField:'Tanggal Pengerjaan', filters:['Cabang','Status Order']
 };
 VIEWS.kpiCS = {
   sheet:'ORDER', title:'KPI CS', sub:'', special:'kpiCS', countTop:true, noSyncBtn:true,
@@ -1423,6 +1462,7 @@ VIEWS.kpiCSView = {
   branchLock:true, monthFilter:true, filters:['Status Order']
 };
 VIEWS.konten = { sheet:null, title:'Konten', sub:'', special:'konten', noSyncBtn:true, inSettings:true };
+VIEWS.suratTDP = { sheet:null, title:'Surat TDP', sub:'', special:'suratTDP', noSyncBtn:true, inSettings:true };
 
 /* ===== AGENDA (kalender) — CEO/MARKETING/HRD/OPERASIONAL/FINANCE ===== */
 VIEWS.agenda = {
@@ -1736,6 +1776,7 @@ async function selectMenu(key){
   if(key==='audit'){ return openAuditTab(state.auditTab||'auditOrder'); }
   state.view = VIEWS[key]; state.viewKey=key;
   state.filters={}; state.search=''; state.dateStart=''; state.dateEnd='';
+  if(state.view && state.view.defaultMonth){ const b=calMonthBounds(ymd(new Date()).slice(0,7)); state.dateStart=b.start; state.dateEnd=b.end; }
   markActive(key);
   renderShell();
   if(state.view && state.view.special==='konten'){ renderKonten(); return; }
@@ -1866,6 +1907,12 @@ function buildToolbar(){
     el.addEventListener('change', e=>{ state.filters[el.dataset.filter]=e.target.value; updateFbadge(); renderView(); });
   });
   const fMonth=$('#fMonth'), fDay=$('#fDay');
+  if(fMonth && state.dateStart){
+    const ym=state.dateStart.slice(0,7); const b=calMonthBounds(ym);
+    if(b && state.dateStart===b.start && state.dateEnd===b.end){ fMonth.value=ym; }
+    else if(state.dateStart===state.dateEnd){ fMonth.value=state.dateStart.slice(0,7); }
+    const tabAll=document.querySelector('#dateTabs .dt[data-day=""]'); if(tabAll) tabAll.classList.remove('on');
+  }
   function fillDays(){ if(!fDay) return; const m=fMonth?fMonth.value:'';
     const n=m?new Date(+m.slice(0,4),+m.slice(5,7),0).getDate():31;
     let o='<option value="">Semua tanggal</option>'; for(let i=1;i<=n;i++) o+='<option value="'+i+'">'+i+'</option>'; fDay.innerHTML=o; }
@@ -1983,22 +2030,22 @@ function applyClientFilters(rows){
     if(k==='Nama Cleaner'){
       out = out.filter(r=>String(r['Nama Cleaner']||'').split(',').map(s=>norm(s)).indexOf(norm(val))>-1);
     }else if(k==='Periode Bulan'){
-      const want=String(val).slice(0,7);
-      out = out.filter(r=>String(r['Periode Bulan']||'').slice(0,7)===want);
+      const want=parseAnyMonth(val);
+      out = out.filter(r=>parseAnyMonth(r['Periode Bulan'])===want);
     }else{
       out = out.filter(r=>norm(r[k])===norm(val));
     }
   });
   if(v.dateFilterField && (state.dateStart||state.dateEnd)){
     out = out.filter(r=>{
-      const d=String(r[v.dateFilterField]||''); if(!d) return false;
+      const d=parseAnyDate(r[v.dateFilterField]); if(!d) return false;
       if(state.dateStart && d<state.dateStart) return false;
       if(state.dateEnd && d>state.dateEnd) return false;
       return true;
     });
   }
   if(v.monthFilter && v.monthField && state.kpiMonth){
-    out = out.filter(r=>String(r[v.monthField]||'').slice(0,7)===state.kpiMonth);
+    out = out.filter(r=>parseAnyMonth(r[v.monthField])===state.kpiMonth);
   }
   if(state.search && v.search){
     out = out.filter(r=> v.search.some(k=>String(r[k]||'').toLowerCase().indexOf(state.search)>-1));
@@ -2406,7 +2453,10 @@ function pieCard(title, arr, fmt){
 
 function renderCapaian(){
   const v=state.view;
-  const rows = applyClientFilters(state.rows);
+  const isCsCap = state.session && state.session.role==='CS' && state.view && state.view.special==='capaian';
+  const rows = isCsCap
+    ? state.rows.filter(r=>parseAnyMonth(r['Tanggal Pengerjaan'])===ymd(new Date()).slice(0,7))
+    : applyClientFilters(state.rows);
   const omzetOf = r => Number(moneyDigits(r['Total Akhir Setelah Diskon']||r['Total Akhir']||0))||0;
   let omzet=0; rows.forEach(r=>omzet+=omzetOf(r));
   const jumlah=rows.length;
@@ -2434,7 +2484,7 @@ function renderCapaian(){
     const cab=String(state.session.cabang||'').toUpperCase();
     const now=new Date(); const ymNow=ymd(now).slice(0,7);
     const lm=new Date(now.getFullYear(), now.getMonth()-1, 1); const ymLast=ymd(lm).slice(0,7);
-    const inM=(r,ym)=>String(r['Tanggal Pengerjaan']||'').slice(0,7)===ym;
+    const inM=(r,ym)=>parseAnyMonth(r['Tanggal Pengerjaan'])===ym;
     const mNow=state.rows.filter(r=>inM(r,ymNow)), mLast=state.rows.filter(r=>inM(r,ymLast));
     const sum=arr=>arr.reduce((s,r)=>s+omzetOf(r),0);
     const oNow=sum(mNow), oLast=sum(mLast);
@@ -2539,7 +2589,9 @@ function opsCabangList(){
   if(fc) return [String(fc).toUpperCase()];
   return CABANG.filter(c=>c!=='OFFICE');
 }
-function inRange(d,a,b){ d=String(d||'').slice(0,10); return d && d>=a && d<=b; }
+function inRange(d,a,b){ d=parseAnyDate(d); return d && d>=a && d<=b; }
+function prevCalMonth(ym){ const m=String(ym||'').match(/^(\d{4})-(\d{2})/); if(!m) return ym;
+  const d=new Date(+m[1],+m[2]-2,1); return d.getFullYear()+'-'+pad2_(d.getMonth()+1); }
 function growthHTML(now, prev){
   const diff=now-prev;
   const pct = prev>0 ? (diff/prev*100) : (now>0?100:0);
@@ -2557,10 +2609,11 @@ async function loadTargets(){
 
 function renderLaporanOmzet(){
   const base=opsBaseRows();
-  const cur=periodBounds(), prev=prevPeriodBounds(cur);
-  // rentang tanggal manual (opsional) untuk bagian DETAIL
-  const useRange = !!(state.dateStart||state.dateEnd);
-  const dStart = state.dateStart||cur.start, dEnd = state.dateEnd||cur.end;
+  const ym = state.kpiMonth || ymd(new Date()).slice(0,7);
+  state.kpiMonth = ym;
+  const cur=calMonthBounds(ym), prev=calMonthBounds(prevCalMonth(ym));
+  const useRange = false;
+  const dStart = cur.start, dEnd = cur.end;
   const cabs=opsCabangList();
 
   let totNow=0, totPrev=0, totAds=0, totOrg=0, totLama=0;
@@ -2611,7 +2664,7 @@ function renderLaporanOmzet(){
 
   const stat=(l,val)=>'<div class="cap-stat"><div class="cap-stat-l">'+l+'</div><div class="cap-stat-v">'+val+'</div></div>';
   $('#panel').innerHTML =
-    '<div class="ops-note">Periode bulan ini: <b>'+esc(periodeLbl)+'</b> (siklus tgl 28–27)</div>'+
+    '<div class="ops-note">Periode: <b>'+esc(monthLabel(ym))+'</b> (1 s/d akhir bulan · berdasarkan Tanggal Pengerjaan)</div>'+
     '<div class="cap-stats">'+stat('Omzet Bulan Ini',rp(totNow))+stat('Omzet Bulan Lalu',rp(totPrev))+stat('Growth','')+'</div>'+
     '<div class="grow-line">'+growthHTML(totNow,totPrev)+'</div>'+
     '<div class="cap-card"><div class="cap-card-t">Omzet per Cabang</div>'+
@@ -2630,11 +2683,11 @@ function renderLaporanOmzet(){
 function renderReportKPI(){
   const base=opsBaseRows();
   const targets=state.cache.targets||{};
-  const cur=periodBounds(), prev=prevPeriodBounds(cur);
-  // periode KPI = rentang tanggal manual bila diisi, jika tidak → periode berjalan
-  const useRange=!!(state.dateStart||state.dateEnd);
-  const pStart=state.dateStart||cur.start, pEnd=state.dateEnd||cur.end;
-  // proporsi hari berjalan dalam periode (untuk "target aman")
+  const ym = state.kpiMonth || ymd(new Date()).slice(0,7);
+  state.kpiMonth = ym;
+  const cur=calMonthBounds(ym), prev=calMonthBounds(prevCalMonth(ym));
+  const pStart=cur.start, pEnd=cur.end;
+  // proporsi hari berjalan dalam bulan kalender (untuk "target aman")
   const today=ymd(new Date());
   const total=Math.max(1,(new Date(pEnd)-new Date(pStart))/86400000+1);
   const elapsedRaw=(new Date(Math.min(new Date(today),new Date(pEnd)))-new Date(pStart))/86400000+1;
@@ -2664,7 +2717,7 @@ function renderReportKPI(){
       '<td class="money">'+rp(ach)+'</td></tr>';
   }).join('');
 
-  const periodeLbl = useRange ? (tglPanjangId(pStart)+' – '+tglPanjangId(pEnd)) : (tglPanjangId(cur.start)+' – '+tglPanjangId(cur.end));
+  const periodeLbl = monthLabel(ym);
   const hasTarget=Object.keys(targets).length>0;
   $('#panel').innerHTML =
     '<div class="ops-note">Periode: <b>'+esc(periodeLbl)+'</b> · Target aman hari ini: <b>'+safePct+'%</b>'+
@@ -2715,7 +2768,7 @@ function kpiOmzet(cab, ym){
   return state.rows.filter(r=>{
     if(String(r['Cabang']||'').toUpperCase()!==cab) return false;
     if(fs && norm(r['Status Order'])!==norm(fs)) return false;
-    return String(r['Tanggal Pengerjaan']||'').slice(0,7)===ym;
+    return parseAnyMonth(r['Tanggal Pengerjaan'])===ym;
   }).reduce((s,r)=>s+omzetOf_(r),0);
 }
 function renderKpiCS(){
@@ -3834,7 +3887,9 @@ function renderSettings(){
   if(role==='OPERASIONAL') entries.push(
     {key:'targetOmzet', label:'Target Omzet', desc:'Setting target omzet bulanan tiap cabang', icon:'result'},
     {key:'kantor', label:'Kantor Klinklin', desc:'Data cabang, alamat, status sewa/aset & masa sewa', icon:'inbox'});
-  if(role==='CS') entries.push({key:'konten', label:'Konten', desc:'Link Konten Story, Promo & Follow Up', icon:'inbox'});
+  if(role==='CS') entries.push(
+    {key:'konten', label:'Konten', desc:'Link Konten Story, Promo & Follow Up', icon:'inbox'},
+    {key:'suratTDP', label:'Surat TDP', desc:'Pembuatan Surat TDP (segera)', icon:'file'});
   const entriesHtml = entries.map(e=>
     '<button class="set-row" data-setkey="'+e.key+'">'+
       '<span class="set-ic">'+svg(e.icon)+'</span>'+
@@ -3860,6 +3915,7 @@ async function openSettingsView(key){
   markActive('__settings');
   renderShell();
   if(state.view.special==='konten'){ renderKonten(); return; }
+  if(state.view.special==='suratTDP'){ renderSuratTDP(); return; }
   await loadList();
   if(state._ch){ try{ window.sb.removeChannel(state._ch); }catch(e){} state._ch=null; }
   if(state.view && state.view.sheet){
@@ -4122,6 +4178,12 @@ function initChat(){
 /* ============================================================
    CS — Konten (link) & Pengingat harian
    ============================================================ */
+function renderSuratTDP(){
+  $('#panel').innerHTML = '<div class="cap-card" style="text-align:center;padding:40px 20px">'+
+    '<div style="font-size:34px;margin-bottom:8px">📄</div>'+
+    '<div class="cap-card-t" style="justify-content:center">Surat TDP</div>'+
+    '<div style="color:var(--muted);font-size:13px;margin-top:6px">Fitur pembuatan Surat TDP akan segera hadir.</div></div>';
+}
 function renderKonten(){
   const cards = KONTEN_LINKS.map(k=>{
     const has = k.url && k.url!=='#';
