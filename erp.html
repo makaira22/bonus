@@ -503,14 +503,21 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .kpi-cs-head-r .btn-ghost{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.28);color:#fff}
 .kpi-cs-card .tbl-wrap{padding:6px 14px 0}
 .kpi-tbl{min-width:560px}
+.kpi-mlist{display:none}
 @media (max-width:560px){
-  .kpi-cs-card .tbl-wrap{overflow-x:visible}
-  .kpi-tbl{min-width:0;width:100%}
-  .kpi-tbl th,.kpi-tbl td{padding:7px 5px;font-size:10.5px}
-  .kpi-tbl th:nth-child(1),.kpi-tbl td:nth-child(1){display:none}
-  .kpi-tbl th:nth-child(5),.kpi-tbl td:nth-child(5){display:none}
-  .kpi-auto{display:none}
+  .kpi-cs-card .tbl-wrap.kpi-desk{display:none}
+  .kpi-mlist{display:block;padding:9px 12px 4px}
 }
+.kpi-mrow{border:1px solid var(--line);border-radius:11px;padding:9px 11px;margin-bottom:8px;background:var(--surface)}
+.kpi-mrow-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.kpi-mname{font-size:12.5px;font-weight:700;color:var(--petrol)}
+.kpi-mcap{font-size:14px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+.kpi-mrow-sub{display:flex;flex-wrap:wrap;gap:3px 14px;margin-top:6px;font-size:11.5px;color:var(--muted)}
+.kpi-mrow-sub b{color:var(--ink);font-weight:700}
+.kpi-mtotal{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 12px;margin-top:2px;
+  border-radius:11px;background:var(--petrol);color:#fff;font-weight:800}
+.kpi-mtotal-v{font-variant-numeric:tabular-nums;white-space:nowrap}
+.kpi-mtotal-t{font-size:11.5px;opacity:.85;font-weight:700}
 .kpi-auto{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;
   color:var(--info);background:var(--surface-2);border-radius:6px;padding:1px 5px;vertical-align:middle}
 .kpi-strat{padding:14px 16px 16px}
@@ -3096,8 +3103,9 @@ function renderKpiCS(){
   const cards = cabs.map(cab=>{
     const c = cfg[cab+'|'+ym] || {};
     const omzet = kpiOmzet(cab, ym);
+    const tgtKpi = num(c['Target Nilai KPI']);
     let total=0;
-    const rows = kpiItems().map((it,idx)=>{
+    const itemData = kpiItems().map(it=>{
       const target = num(c[it.tKey]);
       const bobot  = (c[it.bKey]!=null && String(c[it.bKey]).trim()!=='') ? num(c[it.bKey]) : it.defB;
       const nilai  = it.auto ? omzet : num(c[it.nKey]);
@@ -3105,13 +3113,20 @@ function renderKpiCS(){
       total += pros;
       const fT = it.money?rp(target):(it.pct?target+'%':target);
       const fN = it.money?rp(nilai):(it.pct?nilai+'%':nilai);
-      return '<tr>'+
-        '<td class="l">'+it.key+(it.auto?' <span class="kpi-auto">auto</span>':'')+'</td>'+
-        '<td class="r">'+fT+'</td>'+
-        '<td class="c">'+bobot+'%</td>'+
-        '<td class="r">'+fN+'</td>'+
-        '<td class="r"><b>'+pros.toFixed(0)+'%</b></td></tr>';
-    }).join('');
+      return {it,bobot,pros,fT,fN};
+    });
+    const autoTag = d => d.it.auto?' <span class="kpi-auto">auto</span>':'';
+    const rows = itemData.map(d=>'<tr>'+
+      '<td class="l">'+d.it.key+autoTag(d)+'</td>'+
+      '<td class="r">'+d.fT+'</td>'+
+      '<td class="c">'+d.bobot+'%</td>'+
+      '<td class="r">'+d.fN+'</td>'+
+      '<td class="r"><b>'+d.pros.toFixed(0)+'%</b></td></tr>').join('');
+    const mlist = itemData.map(d=>'<div class="kpi-mrow">'+
+      '<div class="kpi-mrow-top"><span class="kpi-mname">'+d.it.key+autoTag(d)+'</span>'+
+        '<span class="kpi-mcap">'+d.pros.toFixed(0)+'%</span></div>'+
+      '<div class="kpi-mrow-sub"><span>Target: <b>'+d.fT+'</b></span><span>Bobot: <b>'+d.bobot+'%</b></span><span>Nilai: <b>'+d.fN+'</b></span></div>'+
+    '</div>').join('');
     const stratDefs=[['Tgl 7','25%','Strategi Tgl 7'],['Tgl 14','50%','Strategi Tgl 14'],
                      ['Tgl 21','75%','Strategi Tgl 21'],['Tgl 28','100%','Strategi Tgl 28']];
     const stratBody='<div class="kpi-strat-grid">'+stratDefs.map(s=>{
@@ -3120,21 +3135,24 @@ function renderKpiCS(){
         '<span class="ks-v">'+(v>0?rp(v):'<span style="color:var(--faint);font-weight:600">—</span>')+'</span></div>';
     }).join('')+'</div>';
     const totCls = total>=100?'k-green':(total>=70?'k-yellow':'k-red');
-    const tgtKpi = num(c['Target Nilai KPI']);
+    const tgtLbl = tgtKpi>0?tgtKpi.toFixed(0)+'%':'—';
     return '<div class="cap-card kpi-cs-card">'+
       '<div class="kpi-cs-head">'+
         '<div><span class="kpi-cs-cab">'+esc(cab)+'</span>'+
         '<span class="kpi-cs-month">Bulan: '+esc(monthLbl)+'</span></div>'+
         '<div class="kpi-cs-head-r"><span class="kpi-badge '+totCls+'">Total '+total.toFixed(0)+'%</span>'+
-        (tgtKpi>0?'<span class="kpi-badge k-none">Target '+tgtKpi.toFixed(0)+'%</span>':'')+
+        '<span class="kpi-badge k-none">Target '+tgtLbl+'</span>'+
         (isOps?'<button class="btn btn-ghost btn-sm" data-kpiedit="'+esc(cab)+'">'+svg('edit')+'Atur</button>':'')+'</div>'+
       '</div>'+
-      '<div class="tbl-wrap"><table class="ops-tbl kpi-tbl"><thead><tr>'+
+      '<div class="tbl-wrap kpi-desk"><table class="ops-tbl kpi-tbl"><thead><tr>'+
         '<th class="l">Item</th><th class="r">Target</th>'+
         '<th class="c">Bobot</th><th class="r">Nilai</th><th class="r">Capaian</th>'+
       '</tr></thead><tbody>'+rows+
-        '<tr class="ops-total"><td class="l">TOTAL KPI</td><td></td><td></td><td></td><td class="r">'+total.toFixed(0)+'%</td></tr>'+
+        '<tr class="ops-total"><td class="l">TOTAL KPI</td><td></td><td></td><td class="r">Target '+tgtLbl+'</td><td class="r">'+total.toFixed(0)+'%</td></tr>'+
       '</tbody></table></div>'+
+      '<div class="kpi-mlist">'+mlist+
+        '<div class="kpi-mtotal"><span>TOTAL KPI</span><span class="kpi-mtotal-v">'+total.toFixed(0)+'% <span class="kpi-mtotal-t">/ target '+tgtLbl+'</span></span></div>'+
+      '</div>'+
       '<div class="kpi-strat"><div class="kpi-strat-t">Strategi Pencapaian (Nominal Target)'+(isOps?'':' <span style="font-weight:600;text-transform:none;letter-spacing:0">— diisi Operasional</span>')+'</div>'+
         stratBody+'</div>'+
     '</div>';
@@ -3906,7 +3924,8 @@ function buildInvoiceHTML(o){
     '<td style="padding:6px 14px;font-size:'+(strong?'14px':'12px')+';text-align:right;color:#fff;'+(strong?'font-weight:800':'')+';font-variant-numeric:tabular-nums">'+v+'</td></tr>';
 
   return ''+
-  '<div style="width:760px;background:#fff;color:#15211F;font-family:Arial,Helvetica,sans-serif;box-sizing:border-box">'+
+  '<div style="width:794px;box-sizing:border-box;background:#fff;padding:40px;font-family:Arial,Helvetica,sans-serif">'+
+    '<div style="border:1px solid '+LINE+';border-radius:14px;overflow:hidden;color:#15211F;background:#fff">'+
     // header band
     '<div style="background:'+PET+';color:#fff;padding:26px 34px;display:flex;justify-content:space-between;align-items:flex-start;gap:16px">'+
       '<div style="max-width:56%">'+
@@ -3969,6 +3988,7 @@ function buildInvoiceHTML(o){
         '</div>'+
       '</div>'+
     '</div>'+
+    '</div>'+
   '</div>';
 }
 async function downloadInvoice(o){
@@ -3980,7 +4000,7 @@ async function downloadInvoice(o){
   setSync(true,'Membuat invoice…');
   const holder=document.createElement('div');
   // dirender di dalam viewport (bukan -9999px) & penuh (opacity 1) agar html2canvas tidak menghasilkan halaman kosong/pudar
-  holder.style.cssText='position:fixed;left:0;top:0;width:760px;background:#fff;z-index:-1';
+  holder.style.cssText='position:fixed;left:0;top:0;width:794px;background:#fff;z-index:-1';
   holder.innerHTML=html;
   document.body.appendChild(holder);
   try{
@@ -3988,10 +4008,11 @@ async function downloadInvoice(o){
     if(document.fonts && document.fonts.ready){ try{ await Promise.race([document.fonts.ready, new Promise(r=>setTimeout(r,1200))]); }catch(e){} }
     await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
     const worker = html2pdf().set({
-      margin:[8,8,8,8], filename:fname,
+      margin:0, filename:fname,
       image:{type:'jpeg',quality:0.95},
-      html2canvas:{scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false, width:760, windowWidth:820},
-      jsPDF:{unit:'mm', format:'a4', orientation:'portrait'}
+      html2canvas:{scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false, width:794, windowWidth:794},
+      jsPDF:{unit:'mm', format:'a4', orientation:'portrait'},
+      pagebreak:{mode:['css','legacy']}
     }).from(holder.firstElementChild).save();
     // jangan biarkan UI menggantung: batasi 12 detik lalu fallback ke jendela cetak
     await Promise.race([ Promise.resolve(worker),
@@ -4010,7 +4031,7 @@ function invoicePrintWindow(o, html){
   w.document.open();
   w.document.write('<!doctype html><html><head><meta charset="utf-8">'+
     '<title>Invoice '+String(o['ID Order']||'').replace(/[<>&"]/g,'')+'</title>'+
-    '<style>@page{size:A4;margin:8mm} body{margin:0;background:#fff;display:flex;justify-content:center}</style>'+
+    '<style>@page{size:A4;margin:0} body{margin:0;background:#fff;display:flex;justify-content:center}</style>'+
     '</head><body onload="setTimeout(function(){window.focus();window.print();},250)">'+html+'</body></html>');
   w.document.close();
   toast('Invoice siap — pilih "Simpan sebagai PDF" pada dialog cetak','ok');
@@ -4129,6 +4150,12 @@ async function downloadSlip(g){
 }
 
 /* ---------- save ---------- */
+/* ID Insentif unik (tabel BONUS tidak punya default/sequence di DB). Format: INS-YYYYMMDD-HHMMSS-XXX */
+function genInsentifId(){
+  const d=new Date(), p=n=>String(n).padStart(2,'0');
+  const rnd=Math.random().toString(36).slice(2,5).toUpperCase();
+  return 'INS-'+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'-'+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds())+'-'+rnd;
+}
 async function saveForm(){
   const v=state.view;
   const data = state.editing ? Object.assign({}, state.editing) : {};
@@ -4146,6 +4173,10 @@ async function saveForm(){
   // enforce branch & cs
   if(v.sheet==='ORDER' && v.branchLock){ data['Cabang']=state.session.cabang; }
   if(v.sheet==='BONUS' && !data['Tanggal Input']) data['Tanggal Input']=new Date().toISOString().slice(0,10);
+  // BONUS: ID Insentif tidak di-generate otomatis oleh database (NOT NULL) → buat di sisi klien.
+  if(v.sheet==='BONUS' && !state.editing && !String(data['ID Insentif']||'').trim()){
+    data['ID Insentif']=genInsentifId();
+  }
   // Pastikan bonus selalu membawa Cleaner/Customer/Tanggal dari order (agar tampil & terhitung).
   if(v.sheet==='BONUS' && data['No Order']){
     const o=(state.cache.order||[]).find(x=>String(x['ID Order'])===String(data['No Order']));
