@@ -1320,7 +1320,7 @@ const VIEWS = {
   },
   gaji:{
     sheet:'GAJI', title:'Gaji Karyawan', sub:'', countTop:true, noSyncBtn:true,
-    idField:'ID Slip', canAdd:true, canEdit:true, special:'gaji', slip:true,
+    idField:'ID Slip', canAdd:true, canEdit:true, canDelete:true, rowDetail:true, gajiSort:true, special:'gaji', slip:true,
     table:['Periode Bulan','Nama Karyawan','Total Bonus','Total Potongan','Gaji Diterima','Take Home Pay'],
     colorMap:{'Total Bonus':'c-green','Total Potongan':'c-red','Gaji Diterima':'c-orange','Take Home Pay':'c-blue'},
     filters:['Cabang'], dynPeriode:true,
@@ -1400,7 +1400,7 @@ const VIEWS = {
     form: ORDER_FORM
   },
   inputBonus:{
-    sheet:'BONUS', title:'Input Bonus', sub:'', branchLock:true, countTop:true, noSyncBtn:true, keepOpen:true, canDelete:true, paged:true, defaultMonth:true,
+    sheet:'BONUS', title:'Input Bonus', sub:'', branchLock:true, countTop:true, noSyncBtn:true, keepOpen:true, canDelete:true, paged:true, defaultMonthDisplay:true,
     idField:'ID Insentif', canAdd:true, canEdit:true, special:'bonus',
     table:['ID Insentif','No Order','Jenis','Nominal','Nama Cleaner','Nama Customer','Tanggal Pengerjaan'],
     filters:['Jenis'], dynCleaner:true,
@@ -2213,6 +2213,10 @@ function applyClientFilters(rows){
   if(v.monthFilter && v.monthField && state.kpiMonth){
     out = out.filter(r=>parseAnyMonth(r[v.monthField])===state.kpiMonth);
   }
+  if(v.defaultMonthDisplay && !state.dateStart && !state.dateEnd && v.dateFilterField){
+    const b=calMonthBounds(ymd(new Date()).slice(0,7));
+    out = out.filter(r=>{ const d=parseAnyDate(r[v.dateFilterField]); return d && d>=b.start && d<=b.end; });
+  }
   if(state.search && v.search){
     out = out.filter(r=> v.search.some(k=>String(r[k]||'').toLowerCase().indexOf(state.search)>-1));
   }
@@ -2239,6 +2243,16 @@ function applyClientFilters(rows){
       const da=String(a['Tanggal Pengerjaan']||''), db=String(b['Tanggal Pengerjaan']||'');
       if(da!==db) return da<db?-1:1;                              // lalu urut tanggal (naik)
       return jamNum(a['Waktu Pengerjaan'])-jamNum(b['Waktu Pengerjaan']); // lalu urut jam
+    });
+  } else if(v.gajiSort){
+    const ORD=['SURABAYA','GRESIK','BOJONEGORO','MALANG','KEDIRI','BALIKPAPAN','DENPASAR','MAKASSAR','TABANAN','SAMARINDA'];
+    out.sort((a,b)=>{
+      const pa=parseAnyMonth(a['Periode Bulan'])||'9999-99', pb=parseAnyMonth(b['Periode Bulan'])||'9999-99';
+      if(pa!==pb) return pa<pb?-1:1;                                  // Januari → Desember
+      const ia=ORD.indexOf(cabangOf(a)), ib=ORD.indexOf(cabangOf(b));
+      const xa=ia<0?99:ia, xb=ib<0?99:ib;
+      if(xa!==xb) return xa-xb;                                       // urutan cabang khusus
+      return String(a['Nama Karyawan']||'').localeCompare(String(b['Nama Karyawan']||''),'id');
     });
   } else if(v.sortBy && v.sortBy.length){
     out.sort((a,b)=>{
@@ -2380,7 +2394,7 @@ function renderTable(){
     cardHtml='<div class="card-list gaji-cards">'+rows.map(r=>{
       const sid=v.idField?esc(r[v.idField]):('#'+state.rows.indexOf(r));
       const per=/^\d{4}-\d{2}/.test(String(r['Periode Bulan']||'')) ? monthLabel(String(r['Periode Bulan']).slice(0,7)) : (r['Periode Bulan']||'-');
-      return '<div class="ocard">'+
+      return '<div class="ocard" data-detailgaji="'+sid+'">'+
         '<div class="ocard-top"><span class="ocard-name">'+esc(r['Nama Karyawan']||'-')+'</span>'+
           '<span class="pay-chip">'+esc(per)+'</span></div>'+
         '<div class="gaji-thp"><span class="gt-l">Take Home Pay</span>'+
@@ -2389,6 +2403,7 @@ function renderTable(){
           '<button class="btn btn-gold btn-sm" data-slip="'+sid+'">'+svg('file')+'Cetak Slip</button>'+
           '<button class="act-ic" data-slippdf="'+sid+'" title="Download PDF">'+svg('file')+'</button>'+
           (v.canEdit?'<button class="act-ic" data-edit="'+sid+'" title="Edit">'+svg('edit')+'</button>':'')+
+          (v.canDelete?'<button class="act-ic" data-del="'+sid+'" title="Hapus" style="color:var(--danger)">✕</button>':'')+
         '</div>'+
       '</div>';
     }).join('')+'</div>';
@@ -2492,10 +2507,19 @@ function wireRowHandlers(v){
     if(e.target.closest('button, a, input, .ocard-act, [data-img]')) return;
     const o=state.rows.find(x=>String(x['ID Order'])===c.dataset.detail); if(o) showOrderDetail(o);
   }));
+  document.querySelectorAll('.ocard[data-detailgaji]').forEach(c=>c.addEventListener('click',e=>{
+    if(e.target.closest('button, a, input, .ocard-act')) return;
+    const key=c.dataset.detailgaji;
+    const row=key.charAt(0)==='#'?state.rows[+key.slice(1)]:state.rows.find(x=>String(x[v.idField])===key);
+    if(row) showGajiDetail(row);
+  }));
   if(v.rowDetail){
     document.querySelectorAll('tr[data-detailrow]').forEach(tr=>tr.addEventListener('click',e=>{
       if(e.target.closest('button, a, input, .row-act')) return;
-      const o=state.rows.find(x=>String(x['ID Order'])===tr.dataset.detailrow); if(o) showOrderDetail(o);
+      const key=tr.dataset.detailrow;
+      const row=key.charAt(0)==='#'?state.rows[+key.slice(1)]:state.rows.find(x=>String(x[v.idField])===key);
+      if(!row) return;
+      if(v.sheet==='GAJI') showGajiDetail(row); else showOrderDetail(row);
     }));
   }
   document.querySelectorAll('[data-slip]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation();
@@ -2586,6 +2610,34 @@ function showBonusDetail(b){
   if(b['Cabang']) h+=row('Cabang', esc(b['Cabang']));
   if(b['Tanggal Input']) h+=row('Tanggal Input', esc(fmtTgl(b['Tanggal Input'])));
   if(b['ID Insentif']) h+=row('ID Insentif', esc(b['ID Insentif']));
+  h+='</div>';
+  $('#modalBody').innerHTML=h;
+  const sv=$('#modalSave'); if(sv) sv.style.display='none';
+  const cc=$('#modalCancel'); if(cc){ cc.textContent='Tutup'; cc.classList.add('btn-danger'); }
+  openOverlay();
+}
+function showGajiDetail(g){
+  g=g||{};
+  state.editing=null; state.files={};
+  const per=/^\d{4}-\d{2}/.test(String(g['Periode Bulan']||'')) ? monthLabel(String(g['Periode Bulan']).slice(0,7)) : (g['Periode Bulan']||'-');
+  $('#modalTitle').textContent='Detail Gaji — '+(g['Nama Karyawan']||'-');
+  const md=n=>Number(moneyDigits(n))||0;
+  const row=(l,val)=> '<div class="dt-row"><span class="dt-l">'+esc(l)+'</span><span class="dt-v">'+val+'</span></div>';
+  let h='<div class="detail">';
+  h+=row('Nama', esc(g['Nama Karyawan']||'-'));
+  h+=row('Cabang', esc(g['Cabang']||'-'));
+  h+=row('Periode', esc(per));
+  if(g['Awal Periode']||g['Akhir Periode']) h+=row('Rentang', esc(fmtTgl(g['Awal Periode'])+' – '+fmtTgl(g['Akhir Periode'])));
+  h+='<div class="dt-sec">Rincian</div>';
+  h+=row('Gaji Pokok', rp(md(g['Gaji Pokok'])));
+  GAJI_TUNJANGAN_FIELDS.forEach(k=>{ const val=md(g[k]); if(val) h+=row(k, rp(val)); });
+  GAJI_BONUS_FIELDS.forEach(k=>{ const val=md(g[k]); if(val) h+=row(k, rp(val)); });
+  GAJI_POTONGAN_FIELDS.forEach(k=>{ const val=md(g[k]); if(val) h+=row(k, '− '+rp(val)); });
+  h+='<div class="dt-sec">Total</div>';
+  h+=row('Total Bonus', rp(md(g['Total Bonus'])));
+  h+=row('Total Potongan', '− '+rp(md(g['Total Potongan'])));
+  h+=row('Take Home Pay', '<b>'+rp(md(g['Take Home Pay']||g['Gaji Diterima']))+'</b>');
+  if(g['ID Slip']) h+=row('ID Slip', esc(g['ID Slip']));
   h+='</div>';
   $('#modalBody').innerHTML=h;
   const sv=$('#modalSave'); if(sv) sv.style.display='none';
@@ -3899,16 +3951,16 @@ function buildInvoiceHTML(o){
   let items=[1,2,3].map(i=>({nama:o['Layanan '+i]||'', qty:qtyNum(o['Qty '+i]), qtyText:String(o['Qty '+i]||''), harga:md(o['Harga '+i])}))
                    .filter(it=>it.nama||it.qtyText||it.harga);
   if(!items.length) items=[{nama:'',qty:0,qtyText:'',harga:0}];
-  let subtotal=0; items.forEach(it=>subtotal+=it.harga);
-  if(!subtotal) subtotal=md(o['Total Akhir'])||md(o['Total Akhir Setelah Diskon'])||md(o['Total Tagihan'])||omzetOf_(o);
+  let subtotal = md(o['Harga 1']) + md(o['Harga 2']) + md(o['Harga 3']);
   const disc=md(o['Diskon (%)']);
   const diskonNilai=Math.round(subtotal*disc/100);
   const afterDisc=subtotal-diskonNilai;
   const ppn=(o['PPn']!=null&&o['PPn']!=='')?md(o['PPn']):PPN_DEFAULT;
   const ppnNilai=Math.round(afterDisc*ppn/100);
-  let grand=md(o['Total Akhir Setelah Diskon']);
-  if(!grand) grand=afterDisc+ppnNilai;
-  if(!grand) grand=subtotal;
+  let grand = md(o['Total Akhir Setelah Diskon']) || md(o['Total Tagihan']) || md(o['Total Akhir']);
+  if(!grand) grand = afterDisc + ppnNilai;
+  if(!subtotal) subtotal = md(o['Total Akhir']) || grand || omzetOf_(o);
+  if(!grand) grand = subtotal;
 
   const PET='#123A5E', GOLD='#3E86B5', LINE='#dfe7ee', MUT='#5E6F6C';
   const money=n=>'Rp '+Number(n||0).toLocaleString('id-ID');
