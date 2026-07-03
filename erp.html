@@ -842,6 +842,14 @@ td.c-green, td.c-red, td.c-orange, td.c-blue{font-weight:700}
 /* Kartu yang selalu tampil (mis. Input Bonus) — desktop & HP sama */
 .card-list.cards-always{display:flex!important}
 .card-list.cards-always .ocard{cursor:pointer}
+/* Input Bonus: desktop tampil 1 halaman (15) + Sebelumnya/Selanjutnya; HP kumulatif + Muat lebih banyak */
+.card-list.bonus-desk{display:none!important}
+.card-list.bonus-mob{display:flex!important}
+.card-list.bonus-desk .ocard,.card-list.bonus-mob .ocard{cursor:pointer}
+@media(min-width:1101px){
+  .card-list.bonus-desk{display:flex!important}
+  .card-list.bonus-mob{display:none!important}
+}
 </style>
 </head>
 <body>
@@ -1385,7 +1393,7 @@ const VIEWS = {
     form: ORDER_FORM
   },
   inputBonus:{
-    sheet:'BONUS', title:'Input Bonus', sub:'', branchLock:true, countTop:true, noSyncBtn:true, keepOpen:true, canDelete:true,
+    sheet:'BONUS', title:'Input Bonus', sub:'', branchLock:true, countTop:true, noSyncBtn:true, keepOpen:true, canDelete:true, paged:true,
     idField:'ID Insentif', canAdd:true, canEdit:true, special:'bonus',
     table:['ID Insentif','No Order','Jenis','Nominal','Nama Cleaner','Nama Customer','Tanggal Pengerjaan'],
     filters:['Jenis'], dynCleaner:true,
@@ -1402,7 +1410,7 @@ const VIEWS = {
   },
   auditOrder:{
     sheet:'ORDER', title:'Audit Order', sub:'', branchLock:false, hub:'audit',
-    idField:'ID Order', statusIn:['done'], statusField:'Status Order', statusPrio:['done'],
+    idField:'ID Order', statusClient:['done'], statusPrio:['done'], paged:true,
     approve:true, multiApprove:true, statusBadge:true, invoice:true, rowDetail:true, countTop:true, noSyncBtn:true,
     table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Metode Pembayaran','PPn','Total Akhir Setelah Diskon','Waktu Bukti Transfer','Bukti Transfer'],
     colLabel:{'Waktu Bukti Transfer':'Waktu Bukti','Total Akhir Setelah Diskon':'Total'},
@@ -1412,7 +1420,7 @@ const VIEWS = {
   },
   hasilAudit:{
     sheet:'ORDER', title:'Hasil Audit', sub:'', readOnly:true, countTop:true, hub:'audit',
-    idField:'ID Order', statusIn:['complete','cancel'], statusField:'Status Order', statusPrio:['complete','cancel'],
+    idField:'ID Order', statusClient:['cancel','complete'], statusPrio:['cancel','complete'], paged:true,
     statusBadge:true, invoice:true, rowDetail:true,
     table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Metode Pembayaran','Total Akhir Setelah Diskon','Waktu Approve'],
     filters:['Cabang','Status Order'],
@@ -1422,8 +1430,7 @@ const VIEWS = {
   editOrder:{
     sheet:'ORDER', title:'Edit Order', sub:'', countTop:true, hub:'audit',
     idField:'ID Order', canEdit:true, special:'order', statusBadge:true, invoice:true,
-    statusIn:['pending','done','cancel'], statusField:'Status Order',
-    statusPrio:['done','cancel','pending'],
+    statusClient:['done','complete'], statusPrio:['done','complete'], paged:true,
     table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Metode Pembayaran','Nama Cleaner','Total Akhir Setelah Diskon'],
     filters:['Cabang','Status Order'],
     datePreset:true, dateFilterField:'Tanggal Pengerjaan',
@@ -1451,7 +1458,7 @@ VIEWS.gajiFinance = Object.assign({}, VIEWS.gaji, { canAdd:false, canEdit:false,
 /* ===== OPERASIONAL ===== */
 VIEWS.laporanOmzet = {
   sheet:'ORDER', title:'Laporan Omzet', sub:'', special:'laporanOmzet', countTop:true, noSyncBtn:true,
-  monthFilter:true, monthField:'Tanggal Pengerjaan', filters:['Cabang','Status Order']
+  datePreset:true, dateRange:true, dateFilterField:'Tanggal Pengerjaan', filters:['Cabang','Status Order']
 };
 VIEWS.reportKPI = {
   sheet:'ORDER', title:'Report KPI', sub:'', special:'reportKPI', countTop:true, noSyncBtn:true,
@@ -1986,6 +1993,7 @@ function buildToolbar(){
   (v.filters||[]).forEach(fld=>{
     if(v.branchLock && fld==='Cabang') return;
     let opts = FILTER_OPTS[fld] || [];
+    if(fld==='Status Order' && v.statusClient) opts = v.statusClient.slice();
     if(fld==='Periode Bulan'){
       pf += '<div class="fl"><span class="lbl">'+fld+'</span><input type="month" data-filter="'+fld+'"></div>';
     }else{
@@ -2007,6 +2015,10 @@ function buildToolbar(){
   if(v.datePreset || v.dateFilterField){
     pf += '<div class="fl"><span class="lbl">Bulan</span><input type="month" id="fMonth"></div>'+
       '<div class="fl"><span class="lbl">Tanggal</span><select id="fDay"><option value="">Semua tanggal</option></select></div>';
+  }
+  if(v.dateRange){
+    pf += '<div class="fl"><span class="lbl">Dari Tanggal</span><input type="date" id="fFrom" value="'+esc(state.dateStart||'')+'"></div>'+
+      '<div class="fl"><span class="lbl">Sampai Tanggal</span><input type="date" id="fTo" value="'+esc(state.dateEnd||'')+'"></div>';
   }
 
   let quick='';
@@ -2048,10 +2060,24 @@ function buildToolbar(){
     else if(!d){ state.dateStart=m+'-01'; const last=new Date(+m.slice(0,4),+m.slice(5,7),0).getDate(); state.dateEnd=m+'-'+String(last).padStart(2,'0'); }
     else { const day=m+'-'+String(d).padStart(2,'0'); state.dateStart=day; state.dateEnd=day; }
     document.querySelectorAll('#dateTabs .dt').forEach(x=>x.classList.remove('on'));
+    const _ff=$('#fFrom'), _ft=$('#fTo'); if(_ff) _ff.value=''; if(_ft) _ft.value='';
     updateFbadge(); renderView();
   }
   if(fMonth) fMonth.addEventListener('change', ()=>{ fillDays(); applyMonthDay(); });
   if(fDay) fDay.addEventListener('change', applyMonthDay);
+  // Rentang tanggal (Dari–Sampai)
+  const fFrom=$('#fFrom'), fTo=$('#fTo');
+  function applyRange(){
+    const s=fFrom&&fFrom.value?fFrom.value:'', e=fTo&&fTo.value?fTo.value:'';
+    // jika hanya salah satu diisi, pakai sebagai satu hari
+    state.dateStart = s || e || '';
+    state.dateEnd   = e || s || '';
+    document.querySelectorAll('#dateTabs .dt').forEach(x=>x.classList.remove('on'));
+    if(fMonth) fMonth.value=''; if(fDay) fDay.value='';
+    updateFbadge(); renderView();
+  }
+  if(fFrom) fFrom.addEventListener('change', applyRange);
+  if(fTo) fTo.addEventListener('change', applyRange);
   document.querySelectorAll('#dateTabs .dt').forEach(btn=>btn.addEventListener('click',()=>{
     document.querySelectorAll('#dateTabs .dt').forEach(x=>x.classList.remove('on')); btn.classList.add('on');
     const now=new Date(), val=btn.dataset.day;
@@ -2060,6 +2086,7 @@ function buildToolbar(){
     else if(val==='tomorrow'){ const y=new Date(now); y.setDate(y.getDate()+1); const t=ymd(y); state.dateStart=t; state.dateEnd=t; }
     else { state.dateStart=''; state.dateEnd=''; }
     if(fMonth) fMonth.value=''; if(fDay) fDay.value='';
+    if(fFrom) fFrom.value=''; if(fTo) fTo.value='';
     updateFbadge(); renderView();
   }));
   updateFbadge();
@@ -2151,6 +2178,12 @@ function applyClientFilters(rows){
   if(v.branchLock && v.sheet==='BONUS' && state.session.cabang){
     out = out.filter(r=>cabangOfBonus(r)===String(state.session.cabang).toUpperCase());
   }
+  // Batasan status per-view (dinormalisasi) — tahan terhadap perbedaan huruf besar/kecil & spasi,
+  // sehingga order tetap muncul walau di database tersimpan "Done"/"DONE"/"done ".
+  if(v.statusClient){
+    const allow=v.statusClient.map(norm);
+    out = out.filter(r=>allow.indexOf(norm(r['Status Order']))>-1);
+  }
   Object.keys(state.filters).forEach(k=>{
     const val=state.filters[k]; if(!val) return;
     if(k==='Nama Cleaner'){
@@ -2183,8 +2216,10 @@ function applyClientFilters(rows){
       const pa=PRIO[norm(a['Status Order'])]; const pb=PRIO[norm(b['Status Order'])];
       const ra=(pa==null?99:pa), rb=(pb==null?99:pb);
       if(ra!==rb) return ra-rb;                                     // urut status sesuai statusPrio
-      const da=String(a['Tanggal Pengerjaan']||''), db=String(b['Tanggal Pengerjaan']||'');
-      if(da!==db) return da<db?-1:1;                                // lalu tanggal terkecil dulu (naik)
+      // tanggal terkecil dulu (naik) — pakai parseAnyDate agar bulan ikut terurut benar
+      const da=parseAnyDate(a['Tanggal Pengerjaan'])||String(a['Tanggal Pengerjaan']||'');
+      const db=parseAnyDate(b['Tanggal Pengerjaan'])||String(b['Tanggal Pengerjaan']||'');
+      if(da!==db) return da<db?-1:1;
       return jamNum(a['Waktu Pengerjaan'])-jamNum(b['Waktu Pengerjaan']); // lalu jam
     });
   } else if(v.orderSort){
@@ -2316,7 +2351,7 @@ function renderTable(){
     }).join('')+'</div>';
   }
   if(v.sheet==='BONUS'){
-    cardHtml='<div class="card-list bonus-cards cards-always">'+cardRows.map(r=>{
+    const bonusCard=r=>{
       const bid=v.idField?esc(r[v.idField]):('#'+state.rows.indexOf(r));
       return '<div class="ocard" data-detailbonus="'+bid+'">'+
         '<div class="ocard-top"><span class="ocard-name">'+esc(r['Nama Customer']||'-')+'</span>'+
@@ -2328,7 +2363,11 @@ function renderTable(){
         (r['Nama Cleaner']?'<div class="ocard-meta">'+svg('users')+'<span>'+esc(r['Nama Cleaner'])+'</span></div>':'')+
         '<div class="ocard-meta sub"><span>'+esc(rp(r['Nominal']||0))+'</span></div>'+
       '</div>';
-    }).join('')+'</div>';
+    };
+    // Desktop: satu halaman (15) + tombol Sebelumnya/Selanjutnya. HP: kumulatif + Muat lebih banyak.
+    cardHtml =
+      '<div class="card-list bonus-cards bonus-desk">'+pageRows.map(bonusCard).join('')+'</div>'+
+      '<div class="card-list bonus-cards bonus-mob">'+cardRows.map(bonusCard).join('')+'</div>';
   }
   if(v.sheet==='GAJI'){
     cardHtml='<div class="card-list gaji-cards">'+rows.map(r=>{
@@ -2347,8 +2386,12 @@ function renderTable(){
       '</div>';
     }).join('')+'</div>';
   }
-  if(v.sheet==='BONUS') html=''; // Input Bonus: tampil kartu di desktop & HP (sama)
-  $('#panel').innerHTML=summary+html+cardHtml+moreHtml;
+  if(v.sheet==='BONUS'){
+    // Input Bonus: tabel disembunyikan (kartu di desktop & HP). Pager desktop tampil setelah kartu.
+    $('#panel').innerHTML=summary+cardHtml+pagerHtml+moreHtml;
+  } else {
+    $('#panel').innerHTML=summary+html+cardHtml+moreHtml;
+  }
   setCount(rows.length,countNoun());
   wireSummary();
   wireRowHandlers(v);
@@ -2837,14 +2880,18 @@ async function loadTargets(){
 
 function renderLaporanOmzet(){
   const base=opsBaseRows();
-  const ym = state.kpiMonth || ymd(new Date()).slice(0,7);
-  state.kpiMonth = ym;
   const todayYmd = ymd(new Date());
-  const isCurMonth = (ym === todayYmd.slice(0,7));
-  // Bulan ini: tgl 1 s/d hari ini (jika bulan berjalan) atau 1 s/d akhir bulan (jika bulan lampau)
-  const cmb=calMonthBounds(ym);
-  const cur = { start: cmb.start, end: isCurMonth ? todayYmd : cmb.end };
-  // Bulan lalu: rentang yang sama digeser mundur 1 bulan
+  // Periode dari filter tanggal (rentang / hari / preset). Default: bulan berjalan tgl 1 s/d hari ini.
+  let cur;
+  if(state.dateStart || state.dateEnd){
+    const s = state.dateStart || state.dateEnd;
+    const e = state.dateEnd   || state.dateStart;
+    cur = { start:(s<=e?s:e), end:(s<=e?e:s) };
+  } else {
+    const cmb=calMonthBounds(todayYmd.slice(0,7));
+    cur = { start: cmb.start, end: todayYmd };
+  }
+  // Pembanding: rentang yang sama digeser mundur 1 bulan
   const backM=s=>{ const d=parseDate_(s); const lastPrev=new Date(d.getFullYear(), d.getMonth(), 0).getDate();
     return ymd(new Date(d.getFullYear(), d.getMonth()-1, Math.min(d.getDate(), lastPrev))); };
   const prev = { start: backM(cur.start), end: backM(cur.end) };
@@ -2852,14 +2899,21 @@ function renderLaporanOmzet(){
   const dStart = cur.start, dEnd = cur.end;
   const cabs=opsCabangList();
 
+  // Sumber chat → kanal (toleran terhadap ejaan: Iklan/Ads, Organik/Organic, Lama/Repeat)
+  const chanKey=r=>{ const c=norm(r['Chat Dari']);
+    if(c==='iklan'||c==='ads'||c==='iklan/ads'||c==='paid') return 'ads';
+    if(c==='organik'||c==='organic'||c==='organ') return 'org';
+    if(c==='lama'||c==='repeat'||c==='pelanggan lama'||c==='customer lama') return 'lama';
+    return c; };
+
   let totNow=0, totPrev=0, totAds=0, totOrg=0, totLama=0;
   const rowsHtml = cabs.map(cab=>{
     const rc=base.filter(r=>cabangOf(r)===cab);
     const now = rc.filter(r=>inRange(r['Tanggal Pengerjaan'],cur.start,cur.end)).reduce((s,r)=>s+omzetOf_(r),0);
     const pv  = rc.filter(r=>inRange(r['Tanggal Pengerjaan'],prev.start,prev.end)).reduce((s,r)=>s+omzetOf_(r),0);
     const nowRows = rc.filter(r=>inRange(r['Tanggal Pengerjaan'],cur.start,cur.end));
-    const chan = k => nowRows.filter(r=>norm(r['Chat Dari'])===k).reduce((s,r)=>s+omzetOf_(r),0);
-    const ads=chan('iklan'), org=chan('organik'), lama=chan('lama');
+    const chan = key => nowRows.filter(r=>chanKey(r)===key).reduce((s,r)=>s+omzetOf_(r),0);
+    const ads=chan('ads'), org=chan('org'), lama=chan('lama');
     // terakhir update = tanggal pengerjaan terbaru pd periode ini
     let last=''; nowRows.forEach(r=>{ const d=parseAnyDate(r['Tanggal Pengerjaan']); if(d&&d>last) last=d; });
     totNow+=now; totPrev+=pv; totAds+=ads; totOrg+=org; totLama+=lama;
@@ -2910,12 +2964,12 @@ function renderLaporanOmzet(){
 
   const stat=(l,val)=>'<div class="cap-stat"><div class="cap-stat-l">'+l+'</div><div class="cap-stat-v">'+val+'</div></div>';
   $('#panel').innerHTML =
-    '<div class="ops-note">Bulan Ini: <b>'+esc(tglPanjangId(cur.start)+' – '+tglPanjangId(cur.end))+'</b> vs Bulan Lalu: <b>'+esc(tglPanjangId(prev.start)+' – '+tglPanjangId(prev.end))+'</b><br>Berdasarkan Tanggal Pengerjaan · semua status kecuali cancel'+(state.filters['Status Order']?(' · filter: '+esc(state.filters['Status Order'])):'')+'</div>'+
-    '<div class="cap-stats">'+stat('Omzet Bulan Ini',rp(totNow))+stat('Omzet Bulan Lalu',rp(totPrev))+stat('Growth','')+'</div>'+
+    '<div class="ops-note">Periode: <b>'+esc(tglPanjangId(cur.start)+' – '+tglPanjangId(cur.end))+'</b> vs Periode Sebelumnya (−1 bulan): <b>'+esc(tglPanjangId(prev.start)+' – '+tglPanjangId(prev.end))+'</b><br>Berdasarkan Tanggal Pengerjaan · semua status kecuali cancel'+(state.filters['Status Order']?(' · filter: '+esc(state.filters['Status Order'])):'')+'</div>'+
+    '<div class="cap-stats">'+stat('Omzet Periode Ini',rp(totNow))+stat('Omzet Periode Lalu',rp(totPrev))+stat('Growth','')+'</div>'+
     '<div class="grow-line">'+growthHTML(totNow,totPrev)+'</div>'+
     '<div class="cap-card"><div class="cap-card-t">Omzet per Cabang</div>'+
       '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr>'+
-        '<th class="l">Cabang</th><th class="r">Bulan Ini</th><th class="r">Bulan Lalu</th><th class="l">Growth</th><th class="l">Terakhir Update</th><th class="r">Ads</th><th class="r">Organik</th><th class="r">Lama</th>'+
+        '<th class="l">Cabang</th><th class="r">Periode Ini</th><th class="r">Periode Lalu</th><th class="l">Growth</th><th class="l">Terakhir Update</th><th class="r">Ads</th><th class="r">Organik</th><th class="r">Lama</th>'+
       '</tr></thead><tbody>'+rowsHtml+
       '<tr class="ops-total"><td>TOTAL</td><td class="money">'+rp(totNow)+'</td><td class="money">'+rp(totPrev)+'</td>'+
         '<td>'+growthHTML(totNow,totPrev)+'</td><td>—</td><td class="money">'+rp(totAds)+'</td><td class="money">'+rp(totOrg)+'</td><td class="money">'+rp(totLama)+'</td></tr>'+
@@ -3025,7 +3079,8 @@ function kpiOmzet(cab, ym){
   const fs=state.filters['Status Order'];
   return state.rows.filter(r=>{
     if(cabangOf(r)!==cab) return false;
-    if(fs && norm(r['Status Order'])!==norm(fs)) return false;
+    // Samakan dgn menu Capaian: jika ada filter status pakai itu, jika tidak → semua status KECUALI cancel.
+    if(fs ? norm(r['Status Order'])!==norm(fs) : norm(r['Status Order'])==='cancel') return false;
     return parseAnyMonth(r['Tanggal Pengerjaan'])===ym;
   }).reduce((s,r)=>s+omzetOf_(r),0);
 }
