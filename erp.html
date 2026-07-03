@@ -1463,6 +1463,8 @@ VIEWS.kpiCS = {
   saveSheet:'KPI_CS', keyFields:['Cabang','Periode'],
   form:[
     f('Cabang','text',{ro:true}), f('Periode','text',{ro:true}),
+    {sec:'Target Nilai KPI (total, %)'},
+    f('Target Nilai KPI','num',{help:'Target total nilai KPI untuk cabang ini, mis. 100'}),
     {sec:'Omzet (nilai capaian dihitung otomatis dari order)'},
     f('Target Omzet','money'), f('Bobot Omzet','num'),
     {sec:'Closing Rate (target & nilai dalam %)'},
@@ -1619,8 +1621,16 @@ async function api(payload){
     if(a==='list'){
       const f = payload.filters||{};
       const PAGE=1000; let from=0, all=[];
+      // Kunci urutan stabil (primary key) — WAJIB agar paginasi .range() konsisten.
+      // Tanpa ini, Postgres mengembalikan halaman acak (baris terulang / terlewat),
+      // sehingga data >1000 tidak lengkap & banyak cabang seolah kosong.
+      // Hanya untuk tabel yang PK-nya diketahui (mis. ORDER) — tabel konfigurasi
+      // kecil (<1000 baris) tetap tanpa order agar tidak menyentuh kolom yg mungkin tak ada.
+      const _orderCol = TABLE_ID[payload.sheet] || '';
       while(true){
-        let q = sb.from(payload.sheet).select('*').range(from, from+PAGE-1);
+        let q = sb.from(payload.sheet).select('*');
+        if(_orderCol) q = q.order(_orderCol, {ascending:true});
+        q = q.range(from, from+PAGE-1);
         for(const k in f){ if(f[k]!=='' && f[k]!=null) q=q.eq(k, f[k]); }
         if(payload.statusIn && payload.statusField) q=q.in(payload.statusField, payload.statusIn);
         if(payload.dateField && payload.dateStart)  q=q.gte(payload.dateField, payload.dateStart);
@@ -2631,7 +2641,7 @@ function renderCapaian(){
   let rows, csMLast=null;
   if(isCsCap){
     const statusFilter=state.filters['Status Order'];
-    const okStatus=r=>statusFilter?norm(r['Status Order'])===norm(statusFilter):['pending','done','complete'].indexOf(norm(r['Status Order']))>=0;
+    const okStatus=r=>statusFilter?norm(r['Status Order'])===norm(statusFilter):norm(r['Status Order'])!=='cancel';
     const today=ymd(new Date()); const ym=today.slice(0,7);
     const dStart=state.dateStart||(ym+'-01'); const dEnd=state.dateEnd||today;
     rows=state.rows.filter(r=>{ const d=parseAnyDate(r['Tanggal Pengerjaan']); return d && d>=dStart && d<=dEnd && okStatus(r); });
@@ -2665,29 +2675,38 @@ function renderCapaian(){
   const isCs = state.session && state.session.role==='CS';
   let statsHtml;
   if(isCs){
+    // Badge naik/turun (persentase saja) — utk Jumlah Order & Rata-rata/Order
     const growBadge=(now,prev)=>{ const diff=now-prev; const pct=prev>0?(diff/prev*100):(now>0?100:0);
       const cls=diff===0?'g-flat':(diff>0?'g-up':'g-down'); const ar=diff===0?'—':(diff>0?'▲':'▼');
       return '<span class="grow '+cls+'" style="font-size:11px">'+ar+' '+Math.abs(pct).toFixed(0)+'% vs bln lalu</span>'; };
+    // Badge naik/turun dgn NOMINAL + persentase — utk Total Omzet
+    const growNom=(now,prev)=>{ const diff=now-prev; const pct=prev>0?(diff/prev*100):(now>0?100:0);
+      const cls=diff===0?'g-flat':(diff>0?'g-up':'g-down'); const ar=diff===0?'—':(diff>0?'▲':'▼');
+      return '<span class="grow '+cls+'" style="font-size:11px">'+ar+' '+rp(Math.abs(diff))+' · '+(diff>=0?'+':'−')+Math.abs(pct).toFixed(0)+'% vs bln lalu</span>'; };
     const cab=String(state.session.cabang||'').toUpperCase();
     const now=new Date(); const ymNow=ymd(now).slice(0,7);
     const lm=new Date(now.getFullYear(), now.getMonth()-1, 1); const ymLast=ymd(lm).slice(0,7);
-    const inM=(r,ym)=>parseAnyMonth(r['Tanggal Pengerjaan'])===ym;
     const mNow=rows, mLast=csMLast||[];
     const sum=arr=>arr.reduce((s,r)=>s+omzetOf(r),0);
     const oNow=sum(mNow), oLast=sum(mLast);
     const jNow=mNow.length, jLast=mLast.length;
     const aNow=jNow?Math.round(oNow/jNow):0, aLast=jLast?Math.round(oLast/jLast):0;
-    const kNow=kpiTotalFor(cab,ymNow), kLast=kpiTotalFor(cab,ymLast);
+    // Nilai Hasil KPI: berbasis bulan berjalan (TIDAK ikut rentang tanggal), tanpa naik/turun.
+    const kNow=kpiTotalFor(cab,ymNow);
+    // Target Nilai KPI: diinput Operasional di menu KPI CS (per cabang · periode)
+    const kpiCfgNow=(state.cache.kpiCfg||{})[cab+'|'+ymNow]||{};
+    const tgtKpi=Number(moneyDigits(kpiCfgNow['Target Nilai KPI']))||0;
     // Target omzet (diinput Operasional) untuk cabang ini
     const tgtOmzet=Number(((state.cache.targets||{})[cab])||0);
-    let omzetInner='<div class="cap-stat-l">Total Omzet</div><div class="cap-stat-v">'+rp(oNow)+'</div>';
+    // Total Omzet: nominal + naik/turun (nominal & %) vs bln lalu + progress ke target omzet
+    let omzetInner='<div class="cap-stat-l">Total Omzet</div><div class="cap-stat-v">'+rp(oNow)+'</div>'+
+      '<div class="cap-stat-s">'+growNom(oNow,oLast)+'</div>';
     if(tgtOmzet>0){
       const pct=Math.min(100, Math.round(oNow/tgtOmzet*100));
       omzetInner+='<div class="cap-prog"><div class="cap-prog-bar"><span style="width:'+pct+'%"></span></div>'+
         '<div class="cap-prog-l"><span>Target: '+rp(tgtOmzet)+'</span><span>'+pct+'%</span></div></div>';
     } else {
-      omzetInner+='<div class="cap-stat-s">'+growBadge(oNow,oLast)+'</div>'+
-        '<div class="cap-stat-s" style="color:var(--warn)">Target belum diatur Operasional</div>';
+      omzetInner+='<div class="cap-stat-s" style="color:var(--warn)">Target omzet belum diatur Operasional</div>';
     }
     const omzetStat='<div class="cap-stat">'+omzetInner+'</div>';
     statsHtml='<div class="cap-stats cap-stats-4">'+
@@ -2695,7 +2714,8 @@ function renderCapaian(){
       omzetStat+
       stat('Rata-rata / Order',rp(aNow), growBadge(aNow,aLast))+
       '<button class="cap-stat cap-stat-btn" id="capKpi"><div class="cap-stat-l">Nilai Hasil KPI</div>'+
-        '<div class="cap-stat-v">'+kNow.toFixed(0)+'%</div><div class="cap-stat-s">'+growBadge(kNow,kLast)+' · lihat detail →</div></button>'+
+        '<div class="cap-stat-v">'+kNow.toFixed(0)+'%</div>'+
+        '<div class="cap-stat-s">Target: '+(tgtKpi>0?tgtKpi.toFixed(0)+'%':'<span style="color:var(--warn)">belum diatur</span>')+' · lihat detail →</div></button>'+
       '</div>';
   } else {
     statsHtml='<div class="cap-stats">'+stat('Jumlah Order',jumlah+'')+stat('Total Omzet',rp(omzet))+stat('Rata-rata / Order',rp(avg))+'</div>';
@@ -3045,11 +3065,13 @@ function renderKpiCS(){
         '<span class="ks-v">'+(v>0?rp(v):'<span style="color:var(--faint);font-weight:600">—</span>')+'</span></div>';
     }).join('')+'</div>';
     const totCls = total>=100?'k-green':(total>=70?'k-yellow':'k-red');
+    const tgtKpi = num(c['Target Nilai KPI']);
     return '<div class="cap-card kpi-cs-card">'+
       '<div class="kpi-cs-head">'+
         '<div><span class="kpi-cs-cab">'+esc(cab)+'</span>'+
         '<span class="kpi-cs-month">Bulan: '+esc(monthLbl)+'</span></div>'+
         '<div class="kpi-cs-head-r"><span class="kpi-badge '+totCls+'">Total '+total.toFixed(0)+'%</span>'+
+        (tgtKpi>0?'<span class="kpi-badge k-none">Target '+tgtKpi.toFixed(0)+'%</span>':'')+
         (isOps?'<button class="btn btn-ghost btn-sm" data-kpiedit="'+esc(cab)+'">'+svg('edit')+'Atur</button>':'')+'</div>'+
       '</div>'+
       '<div class="tbl-wrap"><table class="ops-tbl kpi-tbl"><thead><tr>'+
