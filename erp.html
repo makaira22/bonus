@@ -2628,9 +2628,11 @@ function renderCapaian(){
     const today=ymd(new Date()); const ym=today.slice(0,7);
     const dStart=state.dateStart||(ym+'-01'); const dEnd=state.dateEnd||today;
     rows=state.rows.filter(r=>{ const d=parseAnyDate(r['Tanggal Pengerjaan']); return d && d>=dStart && d<=dEnd && okStatus(r); });
-    const now=new Date(); const lm=new Date(now.getFullYear(),now.getMonth()-1,1); const ymL=ymd(lm).slice(0,7);
-    const lastDay=new Date(+ymL.slice(0,4),+ymL.slice(5,7),0).getDate(); const dn=Math.min(now.getDate(),lastDay);
-    const lStart=ymL+'-01', lEnd=ymL+'-'+pad2_(dn);
+    // pembanding: rentang tanggal yang SAMA, digeser mundur 1 bulan (mis. 1–3 Jul → 1–3 Jun; 3 Jul → 3 Jun)
+    const backM=s=>{ const d=parseDate_(s); if(!d) return s;
+      const lastPrev=new Date(d.getFullYear(), d.getMonth(), 0).getDate();
+      return ymd(new Date(d.getFullYear(), d.getMonth()-1, Math.min(d.getDate(), lastPrev))); };
+    const lStart=backM(dStart), lEnd=backM(dEnd);
     csMLast=state.rows.filter(r=>{ const d=parseAnyDate(r['Tanggal Pengerjaan']); return d && d>=lStart && d<=lEnd && okStatus(r); });
   } else {
     rows = applyClientFilters(state.rows);
@@ -2754,7 +2756,11 @@ function renderCapaian(){
    OPERASIONAL — Laporan Omzet & Report KPI
    Periode bulanan memakai siklus TANGGAL 28 s/d 27.
    ============================================================ */
-function omzetOf_(r){ return Number(moneyDigits(r['Total Akhir Setelah Diskon']||r['Total Akhir']||0))||0; }
+function omzetOf_(r){
+  let v=Number(moneyDigits(r['Total Akhir Setelah Diskon']||r['Total Akhir']||0))||0;
+  if(!v){ v=[1,2,3].reduce((s,i)=>s+(Number(moneyDigits(r['Harga '+i]))||0),0); }
+  return v;
+}
 function periodBounds(ref){
   const d = ref ? new Date(ref) : new Date();
   let y=d.getFullYear(), m=d.getMonth();
@@ -2774,6 +2780,7 @@ function opsBaseRows(){
   const fc=state.filters['Cabang'], fs=state.filters['Status Order'];
   if(fc) rows=rows.filter(r=>String(r['Cabang']||'').toUpperCase()===String(fc).toUpperCase());
   if(fs) rows=rows.filter(r=>norm(r['Status Order'])===norm(fs));
+  else rows=rows.filter(r=>norm(r['Status Order'])!=='cancel');   // default: semua status kecuali cancel
   return rows;
 }
 function opsCabangList(){
@@ -2805,7 +2812,15 @@ function renderLaporanOmzet(){
   const base=opsBaseRows();
   const ym = state.kpiMonth || ymd(new Date()).slice(0,7);
   state.kpiMonth = ym;
-  const cur=calMonthBounds(ym), prev=calMonthBounds(prevCalMonth(ym));
+  const todayYmd = ymd(new Date());
+  const isCurMonth = (ym === todayYmd.slice(0,7));
+  // Bulan ini: tgl 1 s/d hari ini (jika bulan berjalan) atau 1 s/d akhir bulan (jika bulan lampau)
+  const cmb=calMonthBounds(ym);
+  const cur = { start: cmb.start, end: isCurMonth ? todayYmd : cmb.end };
+  // Bulan lalu: rentang yang sama digeser mundur 1 bulan
+  const backM=s=>{ const d=parseDate_(s); const lastPrev=new Date(d.getFullYear(), d.getMonth(), 0).getDate();
+    return ymd(new Date(d.getFullYear(), d.getMonth()-1, Math.min(d.getDate(), lastPrev))); };
+  const prev = { start: backM(cur.start), end: backM(cur.end) };
   const useRange = false;
   const dStart = cur.start, dEnd = cur.end;
   const cabs=opsCabangList();
@@ -2819,7 +2834,7 @@ function renderLaporanOmzet(){
     const chan = k => nowRows.filter(r=>norm(r['Chat Dari'])===k).reduce((s,r)=>s+omzetOf_(r),0);
     const ads=chan('iklan'), org=chan('organik'), lama=chan('lama');
     // terakhir update = tanggal pengerjaan terbaru pd periode ini
-    let last=''; nowRows.forEach(r=>{ const d=String(r['Tanggal Pengerjaan']||'').slice(0,10); if(d&&d>last) last=d; });
+    let last=''; nowRows.forEach(r=>{ const d=parseAnyDate(r['Tanggal Pengerjaan']); if(d&&d>last) last=d; });
     totNow+=now; totPrev+=pv; totAds+=ads; totOrg+=org; totLama+=lama;
     return '<tr><td class="cab-cell">'+esc(cab)+'</td>'+
       '<td class="money">'+rp(now)+'</td>'+
@@ -2868,7 +2883,7 @@ function renderLaporanOmzet(){
 
   const stat=(l,val)=>'<div class="cap-stat"><div class="cap-stat-l">'+l+'</div><div class="cap-stat-v">'+val+'</div></div>';
   $('#panel').innerHTML =
-    '<div class="ops-note">Periode: <b>'+esc(monthLabel(ym))+'</b> (1 s/d akhir bulan · berdasarkan Tanggal Pengerjaan)</div>'+
+    '<div class="ops-note">Bulan Ini: <b>'+esc(tglPanjangId(cur.start)+' – '+tglPanjangId(cur.end))+'</b> vs Bulan Lalu: <b>'+esc(tglPanjangId(prev.start)+' – '+tglPanjangId(prev.end))+'</b><br>Berdasarkan Tanggal Pengerjaan · semua status kecuali cancel'+(state.filters['Status Order']?(' · filter: '+esc(state.filters['Status Order'])):'')+'</div>'+
     '<div class="cap-stats">'+stat('Omzet Bulan Ini',rp(totNow))+stat('Omzet Bulan Lalu',rp(totPrev))+stat('Growth','')+'</div>'+
     '<div class="grow-line">'+growthHTML(totNow,totPrev)+'</div>'+
     '<div class="cap-card"><div class="cap-card-t">Omzet per Cabang</div>'+
@@ -3446,7 +3461,10 @@ function renderField(fd, val){
     inner = '<input type="text" inputmode="numeric" data-k="'+esc(fd.k)+'" data-money="1"'+ro+' value="'+esc(fmtRp(val))+'">';
   } else {
     let type = fd.t==='num'?'number': fd.t==='date'?'date': fd.t==='month'?'month':'text';
-    inner = '<input type="'+type+'" data-k="'+esc(fd.k)+'"'+ro+' value="'+esc(val)+'">';
+    let ival = val;
+    if(fd.t==='date') ival = parseAnyDate(val)||'';
+    else if(fd.t==='month') ival = parseAnyMonth(val)||'';
+    inner = '<input type="'+type+'" data-k="'+esc(fd.k)+'"'+ro+' value="'+esc(ival)+'">';
   }
   return '<div class="field'+full+comp+svc+hidden+'"><label>'+esc(fd.k)+(fd.req?' <span class="req">*</span>':'')+'</label>'+inner+'</div>';
 }
@@ -3618,6 +3636,8 @@ function numVal(k){ const e=getEl(k);
 function setVal(k,v){ const e=getEl(k); if(!e) return;
   if(e.type==='checkbox'){ e.checked = Number(String(v).replace(/[^0-9-]/g,''))>0; return; }
   if(e.dataset && e.dataset.money){ e.value = fmtRp(v); return; }
+  if(e.type==='date'){ e.value = parseAnyDate(v)||''; return; }
+  if(e.type==='month'){ e.value = parseAnyMonth(v)||''; return; }
   e.value=(v==null?'':v);
 }
 function revealSvc(n){ document.querySelectorAll('.svc-'+n).forEach(el=>el.classList.remove('hide')); }
