@@ -3088,8 +3088,9 @@ function kpiOmzet(cab, ym){
   const fs=state.filters['Status Order'];
   return state.rows.filter(r=>{
     if(cabangOf(r)!==cab) return false;
-    // Samakan dgn menu Capaian: jika ada filter status pakai itu, jika tidak → semua status KECUALI cancel.
-    if(fs ? norm(r['Status Order'])!==norm(fs) : norm(r['Status Order'])==='cancel') return false;
+    // status: jika ada filter pakai itu; jika tidak → hanya pending/done/complete (buang cancel & status kosong)
+    if(fs){ if(norm(r['Status Order'])!==norm(fs)) return false; }
+    else if(['pending','done','complete'].indexOf(norm(r['Status Order']))<0) return false;
     return parseAnyMonth(r['Tanggal Pengerjaan'])===ym;
   }).reduce((s,r)=>s+omzetOf_(r),0);
 }
@@ -4158,6 +4159,11 @@ function genInsentifId(){
   const rnd=Math.random().toString(36).slice(2,5).toUpperCase();
   return 'INS-'+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'-'+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds())+'-'+rnd;
 }
+function genId(prefix){
+  const d=new Date(), p=n=>String(n).padStart(2,'0');
+  const rnd=Math.random().toString(36).slice(2,5).toUpperCase();
+  return prefix+'-'+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'-'+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds())+'-'+rnd;
+}
 async function saveForm(){
   const v=state.view;
   const data = state.editing ? Object.assign({}, state.editing) : {};
@@ -4178,6 +4184,10 @@ async function saveForm(){
   // BONUS: ID Insentif tidak di-generate otomatis oleh database (NOT NULL) → buat di sisi klien.
   if(v.sheet==='BONUS' && !state.editing && !String(data['ID Insentif']||'').trim()){
     data['ID Insentif']=genInsentifId();
+  }
+  // GAJI: ID Slip juga NOT NULL tanpa default → buat di sisi klien.
+  if(v.sheet==='GAJI' && !state.editing && !String(data['ID Slip']||'').trim()){
+    data['ID Slip']=genId('SLIP');
   }
   // Pastikan bonus selalu membawa Cleaner/Customer/Tanggal dari order (agar tampil & terhitung).
   if(v.sheet==='BONUS' && data['No Order']){
