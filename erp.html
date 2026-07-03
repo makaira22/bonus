@@ -1400,7 +1400,7 @@ const VIEWS = {
     form: ORDER_FORM
   },
   inputBonus:{
-    sheet:'BONUS', title:'Input Bonus', sub:'', branchLock:true, countTop:true, noSyncBtn:true, keepOpen:true, canDelete:true, paged:true,
+    sheet:'BONUS', title:'Input Bonus', sub:'', branchLock:true, countTop:true, noSyncBtn:true, keepOpen:true, canDelete:true, paged:true, defaultMonth:true,
     idField:'ID Insentif', canAdd:true, canEdit:true, special:'bonus',
     table:['ID Insentif','No Order','Jenis','Nominal','Nama Cleaner','Nama Customer','Tanggal Pengerjaan'],
     filters:['Jenis'], dynCleaner:true,
@@ -1695,9 +1695,9 @@ async function api(payload){
     }
     if(a==='delete'){
       const idf=payload.idField||TABLE_ID[payload.sheet];
-      const {error}=await sb.from(payload.sheet).delete().eq(idf, payload.id);
+      const {data,error}=await sb.from(payload.sheet).delete().eq(idf, payload.id).select();
       if(error) throw error;
-      return {ok:true};
+      return {ok:true, deleted:(data||[]).length};
     }
     if(a==='approveOrder'){
       const {data:cur,error:e1}=await sb.from('ORDER').select('"Status Order"').eq('ID Order', payload.id).single();
@@ -2460,7 +2460,9 @@ function wireRowHandlers(v){
     const row=key.charAt(0)==='#'?state.rows[+key.slice(1)]:state.rows.find(x=>String(x[v.idField])===key);
     if(!row) return;
     setSync(true);
-    try{ await api({action:'delete', sheet:v.sheet, idField:v.idField, id:row[v.idField]});
+    try{ const res=await api({action:'delete', sheet:v.sheet, idField:v.idField, id:row[v.idField]});
+      if(res && res.deleted===0){ setSync(false);
+        toast('Gagal hapus: data tidak terhapus. Cek izin (policy DELETE) tabel '+v.sheet+' di Supabase.','err'); return; }
       toast('Data dihapus','ok'); invalidateLists(); await loadList(true);
     }catch(err){ setSync(false); toast('Gagal hapus: '+(err.message||err),'err'); }
   }));
@@ -3897,7 +3899,7 @@ function buildInvoiceHTML(o){
                    .filter(it=>it.nama||it.qtyText||it.harga);
   if(!items.length) items=[{nama:'',qty:0,qtyText:'',harga:0}];
   let subtotal=0; items.forEach(it=>subtotal+=it.harga);
-  if(!subtotal) subtotal=md(o['Total Akhir']);
+  if(!subtotal) subtotal=md(o['Total Akhir'])||md(o['Total Akhir Setelah Diskon'])||md(o['Total Tagihan'])||omzetOf_(o);
   const disc=md(o['Diskon (%)']);
   const diskonNilai=Math.round(subtotal*disc/100);
   const afterDisc=subtotal-diskonNilai;
@@ -3949,7 +3951,7 @@ function buildInvoiceHTML(o){
         '</td>'+
         '<td style="vertical-align:top">'+
           '<div style="font-size:12px;line-height:1.9;color:'+MUT+'">'+
-            '<div><b style="color:#15211F">Tanggal:</b> '+esc(fmtTgl(o['Tanggal Pengerjaan']||o['Tanggal Input']))+'</div>'+
+            '<div><b style="color:#15211F">Tanggal:</b> '+esc(fmtTgl(o['Tanggal Pengerjaan'])||'-')+'</div>'+
             '<div><b style="color:#15211F">Cabang:</b> '+esc(info.cabang)+'</div>'+
             '<div><b style="color:#15211F">Pembayaran:</b> '+esc(o['Metode Pembayaran']||'-')+'</div>'+
           '</div>'+
