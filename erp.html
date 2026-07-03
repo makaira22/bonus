@@ -583,6 +583,13 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .rem-actions{display:flex;flex-direction:column;gap:10px}
 .rem-actions .btn{width:100%}
 .konten-row{text-decoration:none}
+.kontn-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.kontn-item{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface);display:flex;flex-direction:column}
+.kontn-img{width:100%;aspect-ratio:1/1;object-fit:cover;cursor:zoom-in;background:var(--surface-2)}
+.kontn-noimg{width:100%;aspect-ratio:1/1;display:grid;place-items:center;color:var(--faint);font-size:12px;background:var(--surface-2)}
+.kontn-teks{padding:8px 10px;font-size:12.5px;color:var(--ink);white-space:pre-wrap;flex:1}
+.kontn-act{display:flex;gap:6px;padding:8px 10px;border-top:1px solid var(--line)}
+.kontn-act .btn{flex:1;justify-content:center}
 .csv-list{display:flex;flex-direction:column;gap:8px}
 .csv-row{display:flex;align-items:center;gap:14px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
 .csv-row .set-txt{flex:1;min-width:0}
@@ -605,6 +612,13 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .cap-bar{flex:1;height:7px;background:var(--bg);border-radius:6px;overflow:hidden;max-width:120px}
 .cap-bar span{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--petrol))}
 .cap-val{font-weight:700;color:var(--ink);white-space:nowrap;font-variant-numeric:tabular-nums}
+@media (max-width:560px){
+  .cap-row{gap:8px;font-size:12px}
+  .cap-bar{display:none}
+  .cap-name{flex:1}
+  .cap-val{font-size:11.5px}
+  .cap-name .lnk-more{margin-left:3px}
+}
 .cap-empty{color:var(--faint);font-size:12.5px;padding:8px 0}
 @media (max-width:880px){
   .cap-stats{grid-template-columns:1fr 1fr;gap:9px}
@@ -672,6 +686,12 @@ tr.rowclick:hover td{background:var(--surface-2)}
 @media (max-width:880px){ .card-list{display:flex} }
 .order-cards .ocard:nth-child(odd){background:var(--surface)}
 .order-cards .ocard:nth-child(even){background:var(--surface-2)}
+.pager{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:14px}
+.pager-info{font-size:12.5px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
+.load-more{display:block;width:100%;margin-top:12px}
+@media (max-width:1100px){ .pager.desk-only{display:none} }
+@media (min-width:1101px){ .load-more{display:none} }
+.ocard-svc{font-size:12.5px;color:var(--gold-deep);font-weight:600}
 .ocard{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:14px 16px;
   box-shadow:var(--shadow-sm);cursor:pointer;transition:.12s}
 .ocard:active{transform:scale(.99)}
@@ -1063,6 +1083,12 @@ function calMonthBounds(ym){ const m=String(ym||'').match(/^(\d{4})-(\d{2})/); i
 function hariId(s){ const d=parseDate_(s); return d? HARI_ID[d.getDay()] : ''; }
 function tglPanjangId(s){ const d=parseDate_(s); return d? (d.getDate()+' '+BULAN_ID[d.getMonth()]+' '+d.getFullYear()) : String(s||''); }
 function tglHariId(s){ const h=hariId(s); const t=tglPanjangId(s); return (h? (h+', '):'')+t; }
+function layananRingkas(r){
+  const arr=[];
+  for(let i=1;i<=3;i++){ const nm=String(r['Layanan '+i]||'').trim();
+    if(nm){ const q=String(r['Qty '+i]||'').trim(); arr.push(nm+(q&&q!=='1'?(' ×'+q):'')); } }
+  return arr.join(', ');
+}
 function fmtWaktu(s){
   s=String(s||''); if(!s) return '';
   const m=s.match(/^(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}:\d{2}))?/);
@@ -1348,7 +1374,7 @@ const VIEWS = {
   },
   order:{
     sheet:'ORDER', title:'Order', sub:'', branchLock:true, countTop:true, noSyncBtn:true,
-    idField:'ID Order', canAdd:true, canEdit:true, special:'order', orderSort:true, bonusBtn:true,
+    idField:'ID Order', canAdd:true, canEdit:true, special:'order', orderSort:true, bonusBtn:true, paged:true,
     table:['ID Order','Tanggal Input','Status Order','Nama Customer','Tanggal Pengerjaan','Waktu Pengerjaan','Metode Pembayaran','Nama Cleaner','Total Akhir Setelah Diskon'],
     colLabel:{'Metode Pembayaran':'Metode','Total Akhir Setelah Diskon':'Total','Waktu Pengerjaan':'Jam'},
     filters:['Status Order'],
@@ -1500,6 +1526,17 @@ VIEWS.kpiCSView = {
 VIEWS.konten = { sheet:null, title:'Konten', sub:'', special:'konten', noSyncBtn:true, inSettings:true };
 VIEWS.suratTDP = { sheet:null, title:'Surat TDP', sub:'', special:'suratTDP', noSyncBtn:true, inSettings:true };
 VIEWS.formCsv = { sheet:null, title:'Contoh Form (CSV)', sub:'', special:'formCsv', noSyncBtn:true, inSettings:true };
+VIEWS.kontenKelola = {
+  sheet:'KONTEN', title:'Kelola Konten CS', sub:'', inSettings:true, countTop:true, noSyncBtn:true,
+  idField:'id', canAdd:true, canEdit:true, canDelete:true,
+  table:['Tipe','Teks','Gambar'],
+  search:['Teks','Tipe'],
+  form:[
+    f('Tipe','select',{opts:['Konten Story','Promo','Konten Follow Up'], req:true}),
+    f('Teks','textarea',{full:true, req:true}),
+    f('Gambar','file',{accept:'image/*', full:true})
+  ]
+};
 
 /* ===== AGENDA (kalender) — CEO/MARKETING/HRD/OPERASIONAL/FINANCE ===== */
 VIEWS.agenda = {
@@ -2158,6 +2195,7 @@ function applyClientFilters(rows){
 
 function renderView(){
   const v=state.view; if(!v) return;
+  state.page=0;
   if(v.special==='capaian') renderCapaian();
   else if(v.special==='laporanOmzet') renderLaporanOmzet();
   else if(v.special==='reportKPI') renderReportKPI();
@@ -2180,13 +2218,30 @@ function renderTable(){
   const summary=(v.sheet==='BONUS' && state.filters['Nama Cleaner']) ? bonusSummaryCard(rows, state.filters['Nama Cleaner']) : '';
   if(!rows.length){ $('#panel').innerHTML=summary+emptyState('Belum ada data'); setCount(0,countNoun()); wireSummary(); return; }
   const cols=v.table.filter(c=>HIDDEN_COLS.indexOf(c)<0);
+  const PAGE=15; const total=rows.length;
+  let pageRows=rows, cardRows=rows, pagerHtml='', moreHtml='';
+  if(v.paged && total>0){
+    if(state.page==null) state.page=0;
+    const maxPage=Math.max(0, Math.ceil(total/PAGE)-1);
+    if(state.page>maxPage) state.page=maxPage; if(state.page<0) state.page=0;
+    pageRows=rows.slice(state.page*PAGE,(state.page+1)*PAGE);
+    cardRows=rows.slice(0,(state.page+1)*PAGE);
+    if(total>PAGE){
+      pagerHtml='<div class="pager desk-only"><button class="btn btn-ghost btn-sm" id="pgPrev"'+(state.page<=0?' disabled':'')+'>‹ Sebelumnya</button>'+
+        '<span class="pager-info">'+(state.page*PAGE+1)+'–'+Math.min(total,(state.page+1)*PAGE)+' dari '+total+'</span>'+
+        '<button class="btn btn-ghost btn-sm" id="pgNext"'+(state.page>=maxPage?' disabled':'')+'>Selanjutnya ›</button></div>';
+    }
+    if(cardRows.length<total){
+      moreHtml='<button class="btn btn-ghost load-more" id="pgMore">Muat lebih banyak ('+cardRows.length+'/'+total+')</button>';
+    }
+  }
   const showAct=v.canEdit||v.approve||v.invoice||v.wa||v.slip||v.canDelete;
   const chk=v.multiApprove;
   const tblClass = (v.sheet==='ORDER'||v.sheet==='GAJI'||v.sheet==='KARYAWAN'||v.sheet==='BONUS') ? 'tbl-wrap desk-only' : 'tbl-wrap';
   let html='<div class="'+tblClass+'"><table><thead><tr>'+
     (chk?'<th class="chkcol"><input type="checkbox" id="checkAll"></th>':'')+
     cols.map(c=>'<th>'+esc(colLabel(v,c))+'</th>').join('')+(showAct?'<th></th>':'')+'</tr></thead><tbody>';
-  rows.forEach(r=>{
+  pageRows.forEach(r=>{
     const oid=r['ID Order'];
     html+= v.rowDetail ? '<tr class="rowclick" data-detailrow="'+esc(oid)+'">' : '<tr>';
     if(chk) html+='<td class="chkcol"><input type="checkbox" class="rowchk" data-id="'+esc(oid)+'"></td>';
@@ -2197,11 +2252,11 @@ function renderTable(){
     if(showAct) html+='<td><div class="row-act">'+rowActions(v,r)+'</div></td>';
     html+='</tr>';
   });
-  html+='</tbody></table></div>';
+  html+='</tbody></table></div>'+pagerHtml;
   // Kartu ringkas untuk ORDER (tampil di HP)
   let cardHtml='';
   if(v.sheet==='ORDER'){
-    cardHtml='<div class="card-list order-cards">'+rows.map(r=>{
+    cardHtml='<div class="card-list order-cards">'+cardRows.map(r=>{
       const oid=r['ID Order']; const st=norm(r['Status Order'])||'pending';
       const buktiBtn = r['Bukti Transfer'] ? '<button class="btn btn-ghost btn-sm" data-img="'+esc(r['Bukti Transfer'])+'">'+svg('file')+'Lihat Bukti</button>' : '';
       const actInner = buktiBtn + (showAct?rowActions(v,r):'');
@@ -2216,6 +2271,7 @@ function renderTable(){
           (r['Metode Pembayaran']?'<span class="pay-chip">'+esc(r['Metode Pembayaran'])+'</span>':'')+'</div>'+
         '<div class="ocard-meta sub"><span>'+esc(rp(r['Total Akhir Setelah Diskon']||r['Total Akhir']||0))+
           (r['Nama Cleaner']?(' · '+esc(r['Nama Cleaner'])):'')+'</span></div>'+
+        (layananRingkas(r)?'<div class="ocard-meta"><span class="ocard-svc">'+esc(layananRingkas(r))+'</span></div>':'')+
         (r['Waktu Bukti Transfer']?'<div class="ocard-meta">'+svg('file')+'<span>Waktu bukti: '+esc(fmtWaktu(r['Waktu Bukti Transfer']))+'</span></div>':'')+
         (actInner?'<div class="ocard-act">'+actInner+'</div>':'')+
       '</div>';
@@ -2243,7 +2299,7 @@ function renderTable(){
     }).join('')+'</div>';
   }
   if(v.sheet==='BONUS'){
-    cardHtml='<div class="card-list bonus-cards cards-always">'+rows.map(r=>{
+    cardHtml='<div class="card-list bonus-cards cards-always">'+cardRows.map(r=>{
       const bid=v.idField?esc(r[v.idField]):('#'+state.rows.indexOf(r));
       return '<div class="ocard" data-detailbonus="'+bid+'">'+
         '<div class="ocard-top"><span class="ocard-name">'+esc(r['Nama Customer']||'-')+'</span>'+
@@ -2275,10 +2331,14 @@ function renderTable(){
     }).join('')+'</div>';
   }
   if(v.sheet==='BONUS') html=''; // Input Bonus: tampil kartu di desktop & HP (sama)
-  $('#panel').innerHTML=summary+html+cardHtml;
+  $('#panel').innerHTML=summary+html+cardHtml+moreHtml;
   setCount(rows.length,countNoun());
   wireSummary();
   wireRowHandlers(v);
+  const pgP=$('#pgPrev'), pgN=$('#pgNext'), pgM=$('#pgMore');
+  if(pgP) pgP.addEventListener('click',()=>{ state.page=Math.max(0,(state.page||0)-1); renderTable(); });
+  if(pgN) pgN.addEventListener('click',()=>{ state.page=(state.page||0)+1; renderTable(); });
+  if(pgM) pgM.addEventListener('click',()=>{ state.page=(state.page||0)+1; renderTable(); });
 }
 const HIDDEN_COLS=['ID Order','No Order','ID Insentif'];
 function colLabel(v,c){ return (v && v.colLabel && v.colLabel[c]) || c; }
@@ -2561,9 +2621,20 @@ function pieCard(title, arr, fmt){
 function renderCapaian(){
   const v=state.view;
   const isCsCap = state.session && state.session.role==='CS' && state.view && state.view.special==='capaian';
-  const rows = isCsCap
-    ? state.rows.filter(r=>parseAnyMonth(r['Tanggal Pengerjaan'])===ymd(new Date()).slice(0,7))
-    : applyClientFilters(state.rows);
+  let rows, csMLast=null;
+  if(isCsCap){
+    const statusFilter=state.filters['Status Order'];
+    const okStatus=r=>statusFilter?norm(r['Status Order'])===norm(statusFilter):['pending','done','complete'].indexOf(norm(r['Status Order']))>=0;
+    const today=ymd(new Date()); const ym=today.slice(0,7);
+    const dStart=state.dateStart||(ym+'-01'); const dEnd=state.dateEnd||today;
+    rows=state.rows.filter(r=>{ const d=parseAnyDate(r['Tanggal Pengerjaan']); return d && d>=dStart && d<=dEnd && okStatus(r); });
+    const now=new Date(); const lm=new Date(now.getFullYear(),now.getMonth()-1,1); const ymL=ymd(lm).slice(0,7);
+    const lastDay=new Date(+ymL.slice(0,4),+ymL.slice(5,7),0).getDate(); const dn=Math.min(now.getDate(),lastDay);
+    const lStart=ymL+'-01', lEnd=ymL+'-'+pad2_(dn);
+    csMLast=state.rows.filter(r=>{ const d=parseAnyDate(r['Tanggal Pengerjaan']); return d && d>=lStart && d<=lEnd && okStatus(r); });
+  } else {
+    rows = applyClientFilters(state.rows);
+  }
   const omzetOf = r => Number(moneyDigits(r['Total Akhir Setelah Diskon']||r['Total Akhir']||0))||0;
   let omzet=0; rows.forEach(r=>omzet+=omzetOf(r));
   const jumlah=rows.length;
@@ -2574,7 +2645,7 @@ function renderCapaian(){
     const o=omzetOf(r);
     const cab=String(r['Cabang']||'-').toUpperCase()||'-'; byCab[cab]=(byCab[cab]||0)+o;
     [1,2,3].forEach(i=>{ const nm=String(r['Layanan '+i]||'').trim(); if(nm) byLay[nm]=(byLay[nm]||0)+Number(r['Harga '+i]||0); });
-    const d=String(r['Tanggal Pengerjaan']||'').slice(0,10); if(d) byDay[d]=(byDay[d]||0)+o;
+    const d=parseAnyDate(r['Tanggal Pengerjaan']); if(d) byDay[d]=(byDay[d]||0)+o;
   });
   const top=(obj,n)=>Object.keys(obj).map(k=>({k,val:obj[k]})).sort((a,b)=>b.val-a.val).slice(0,n);
   const top5Cab=top(byCab,5), top10Lay=top(byLay,10), top5Lay=top(byLay,5);
@@ -2592,7 +2663,7 @@ function renderCapaian(){
     const now=new Date(); const ymNow=ymd(now).slice(0,7);
     const lm=new Date(now.getFullYear(), now.getMonth()-1, 1); const ymLast=ymd(lm).slice(0,7);
     const inM=(r,ym)=>parseAnyMonth(r['Tanggal Pengerjaan'])===ym;
-    const mNow=state.rows.filter(r=>inM(r,ymNow)), mLast=state.rows.filter(r=>inM(r,ymLast));
+    const mNow=rows, mLast=csMLast||[];
     const sum=arr=>arr.reduce((s,r)=>s+omzetOf(r),0);
     const oNow=sum(mNow), oLast=sum(mLast);
     const jNow=mNow.length, jLast=mLast.length;
@@ -2629,6 +2700,20 @@ function renderCapaian(){
       '<span class="cap-val">'+fmt(it.val)+'</span></div>').join('');
     return '<div class="cap-card"><div class="cap-card-t">'+title+'</div>'+body+'</div>';
   };
+  const listCardAlmt=(title,arr)=>{
+    if(!arr.length) return '<div class="cap-card"><div class="cap-card-t">'+title+'</div><div class="cap-empty">Belum ada data</div></div>';
+    const max=arr[0].val||1;
+    const body=arr.map((it,i)=>{
+      const full=String(it.k||'').trim(); const words=full.split(/\s+/);
+      const shortTxt = words.length<=3 ? full : words.slice(0,3).join(' ');
+      const more = words.length>3 ? '<button class="lnk-more" data-fulltext="'+esc(full)+'" data-fulltitle="Alamat lengkap">…</button>' : '';
+      return '<div class="cap-row"><span class="cap-rank">'+(i+1)+'</span>'+
+        '<span class="cap-name">'+esc(shortTxt)+more+'</span>'+
+        '<span class="cap-bar"><span style="width:'+Math.max(5,Math.round(it.val/max*100))+'%"></span></span>'+
+        '<span class="cap-val">'+it.val+' order</span></div>';
+    }).join('');
+    return '<div class="cap-card"><div class="cap-card-t">'+title+'</div>'+body+'</div>';
+  };
 
   let chart;
   if(days.length){
@@ -2657,9 +2742,11 @@ function renderCapaian(){
     '<div class="cap-grid">'+
       listCard('Top 5 Cabang — omzet', top5Cab, rp)+
       layananCard+
-      listCard('Top 10 Alamat — jumlah order', top10Alm, x=>x+' order')+
+      listCardAlmt('Top 10 Alamat — jumlah order', top10Alm)+
     '</div>';
   const kb=$('#capKpi'); if(kb) kb.addEventListener('click', ()=>selectMenu('kpiCSView'));
+  document.querySelectorAll('#panel [data-fulltext]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation();
+    showNamePopup(b, b.dataset.fulltitle||'', b.dataset.fulltext||''); }));
   setCount(jumlah, 'order');
 }
 
@@ -3183,6 +3270,9 @@ function cell(v,c,r){
                : '<div class="avatar">'+initials(r['Nama Lengkap'])+'</div>';
   }
   if(/^Bukti/.test(c)){
+    return val ? '<a class="flink" data-img="'+esc(val)+'" style="cursor:zoom-in">Lihat</a>' : '<span style="color:var(--faint)">—</span>';
+  }
+  if(c==='Gambar'){
     return val ? '<a class="flink" data-img="'+esc(val)+'" style="cursor:zoom-in">Lihat</a>' : '<span style="color:var(--faint)">—</span>';
   }
   if(/File|Invoice/.test(c)){
@@ -4045,6 +4135,7 @@ function renderSettings(){
     {key:'konten', label:'Konten', desc:'Link Konten Story, Promo & Follow Up', icon:'inbox'},
     {key:'suratTDP', label:'Surat TDP', desc:'Pembuatan Surat TDP (segera)', icon:'file'});
   if(role==='MARKETING') entries.push(
+    {key:'kontenKelola', label:'Kelola Konten CS', desc:'Atur gambar & teks Story, Promo, Follow Up untuk CS', icon:'inbox'},
     {key:'formCsv', label:'Contoh Form (CSV)', desc:'Unduh template CSV semua form: header + 1 contoh data', icon:'file'});
   const entriesHtml = entries.map(e=>
     '<button class="set-row" data-setkey="'+e.key+'">'+
@@ -4453,15 +4544,38 @@ function renderSuratTDP(){
     '<div class="cap-card-t" style="justify-content:center">Surat TDP</div>'+
     '<div style="color:var(--muted);font-size:13px;margin-top:6px">Fitur pembuatan Surat TDP akan segera hadir.</div></div>';
 }
-function renderKonten(){
-  const cards = KONTEN_LINKS.map(k=>{
-    const has = k.url && k.url!=='#';
-    return '<a class="set-row konten-row" '+(has?('href="'+esc(k.url)+'" target="_blank" rel="noopener"'):'href="javascript:void(0)"')+'>'+
-      '<span class="set-ic">'+svg(k.icon)+'</span>'+
-      '<span class="set-txt"><span class="set-t">'+esc(k.label)+'</span><span class="set-d">'+esc(k.desc)+(has?'':' — link belum diatur')+'</span></span>'+
-      '<span class="set-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg></span></a>';
-  }).join('');
-  $('#panel').innerHTML = '<div class="panel" style="padding:8px">'+cards+'</div>';
+async function renderKonten(){
+  $('#panel').innerHTML='<div class="cap-empty">Memuat konten…</div>';
+  let data=[];
+  try{ const r=await window.sb.from('KONTEN').select('*').order('created_at',{ascending:false}); data=r.data||[]; }
+  catch(e){ data=[]; }
+  const types=[['Konten Story','Buat Story'],['Promo','Buat Promo'],['Konten Follow Up','Buat Follow Up']];
+  const grp = data.reduce((m,x)=>{ (m[x['Tipe']]=m[x['Tipe']]||[]).push(x); return m; },{});
+  let html='';
+  types.forEach(t=>{
+    const tipe=t[0], btnLabel=t[1]; const items=grp[tipe]||[];
+    html+='<div class="cap-card"><div class="cap-card-t">'+esc(tipe)+'</div>';
+    if(!items.length){ html+='<div class="cap-empty">Belum ada konten. Minta tim Marketing menambahkan.</div>'; }
+    else{
+      html+='<div class="kontn-grid">'+items.map(it=>{
+        const img=it['Gambar'];
+        return '<div class="kontn-item">'+
+          (img?'<img class="kontn-img" src="'+esc(img)+'" data-img="'+esc(img)+'" alt="">':'<div class="kontn-noimg">Tanpa gambar</div>')+
+          (it['Teks']?'<div class="kontn-teks">'+esc(it['Teks'])+'</div>':'')+
+          '<div class="kontn-act">'+
+            (img?'<a class="btn btn-ghost btn-sm" href="'+esc(img)+'" target="_blank" download>'+svg('file')+'Gambar</a>':'')+
+            '<button class="btn btn-primary btn-sm" data-kirim="'+esc(it['Teks']||'')+'">'+svg('wa')+esc(btnLabel)+'</button>'+
+          '</div></div>';
+      }).join('')+'</div>';
+    }
+    html+='</div>';
+  });
+  $('#panel').innerHTML =
+    '<div class="ops-note">Pilih gambar → unduh, lalu klik tombol untuk mengirim teksnya ke WhatsApp (pilih diri sendiri / Status). Konten diisi oleh tim Marketing.</div>'+html;
+  document.querySelectorAll('[data-kirim]').forEach(b=>b.addEventListener('click',()=>{
+    window.open('https://wa.me/?text='+encodeURIComponent(b.dataset.kirim||''),'_blank');
+  }));
+  document.querySelectorAll('#panel [data-img]').forEach(b=>b.addEventListener('click',()=>openImg(b.dataset.img)));
 }
 
 function csReminderHTML(){
