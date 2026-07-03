@@ -1617,14 +1617,21 @@ async function api(payload){
   const a = payload.action;
   try{
     if(a==='list'){
-      let q = sb.from(payload.sheet).select('*');
       const f = payload.filters||{};
-      for(const k in f){ if(f[k]!=='' && f[k]!=null) q=q.eq(k, f[k]); }
-      if(payload.statusIn && payload.statusField) q=q.in(payload.statusField, payload.statusIn);
-      if(payload.dateField && payload.dateStart)  q=q.gte(payload.dateField, payload.dateStart);
-      if(payload.dateField && payload.dateEnd)    q=q.lte(payload.dateField, payload.dateEnd);
-      const {data,error}=await q; if(error) throw error;
-      return {ok:true, data:data||[]};
+      const PAGE=1000; let from=0, all=[];
+      while(true){
+        let q = sb.from(payload.sheet).select('*').range(from, from+PAGE-1);
+        for(const k in f){ if(f[k]!=='' && f[k]!=null) q=q.eq(k, f[k]); }
+        if(payload.statusIn && payload.statusField) q=q.in(payload.statusField, payload.statusIn);
+        if(payload.dateField && payload.dateStart)  q=q.gte(payload.dateField, payload.dateStart);
+        if(payload.dateField && payload.dateEnd)    q=q.lte(payload.dateField, payload.dateEnd);
+        const {data,error}=await q; if(error) throw error;
+        all = all.concat(data||[]);
+        if(!data || data.length<PAGE) break;
+        from += PAGE;
+        if(from>200000) break; // pengaman
+      }
+      return {ok:true, data:all};
     }
     if(a==='create'){
       let data=payload.data, res, tries=0;
@@ -2637,7 +2644,7 @@ function renderCapaian(){
   } else {
     rows = applyClientFilters(state.rows);
   }
-  const omzetOf = r => Number(moneyDigits(r['Total Akhir Setelah Diskon']||r['Total Akhir']||0))||0;
+  const omzetOf = r => omzetOf_(r);
   let omzet=0; rows.forEach(r=>omzet+=omzetOf(r));
   const jumlah=rows.length;
   const avg = jumlah ? Math.round(omzet/jumlah) : 0;
@@ -2827,7 +2834,7 @@ function renderLaporanOmzet(){
 
   let totNow=0, totPrev=0, totAds=0, totOrg=0, totLama=0;
   const rowsHtml = cabs.map(cab=>{
-    const rc=base.filter(r=>String(r['Cabang']||'').toUpperCase()===cab);
+    const rc=base.filter(r=>cabangOf(r)===cab);
     const now = rc.filter(r=>inRange(r['Tanggal Pengerjaan'],cur.start,cur.end)).reduce((s,r)=>s+omzetOf_(r),0);
     const pv  = rc.filter(r=>inRange(r['Tanggal Pengerjaan'],prev.start,prev.end)).reduce((s,r)=>s+omzetOf_(r),0);
     const nowRows = rc.filter(r=>inRange(r['Tanggal Pengerjaan'],cur.start,cur.end));
@@ -2850,7 +2857,7 @@ function renderLaporanOmzet(){
   const detMatrix={}; const layatSet=new Set();
   cabs.forEach(cab=>{ detMatrix[cab]={}; });
   cabs.forEach(cab=>{
-    const rc=base.filter(r=>String(r['Cabang']||'').toUpperCase()===cab &&
+    const rc=base.filter(r=>cabangOf(r)===cab &&
       inRange(r['Tanggal Pengerjaan'], dStart, dEnd));
     rc.forEach(r=>{
       [1,2,3].forEach(i=>{
@@ -2922,7 +2929,7 @@ function renderReportKPI(){
   const cabs=opsCabangList();
 
   const rowsHtml=cabs.map(cab=>{
-    const rc=base.filter(r=>String(r['Cabang']||'').toUpperCase()===cab);
+    const rc=base.filter(r=>cabangOf(r)===cab);
     const ach=rc.filter(r=>inRange(r['Tanggal Pengerjaan'],pStart,pEnd)).reduce((s,r)=>s+omzetOf_(r),0);
     const pv =rc.filter(r=>inRange(r['Tanggal Pengerjaan'],prev.start,prev.end)).reduce((s,r)=>s+omzetOf_(r),0);
     const tgt=targets[cab]||0;
@@ -2989,10 +2996,15 @@ function kpiTotalFor(cab, ym){
   });
   return total;
 }
+function cabangOf(r){
+  const c=String(r['Cabang']||'').trim().toUpperCase(); if(c) return c;
+  const code=(String(r['ID Order']||r['No Order']||'').split('-')[0]||'').trim().toUpperCase();
+  return CODE_CABANG[code]||'';
+}
 function kpiOmzet(cab, ym){
   const fs=state.filters['Status Order'];
   return state.rows.filter(r=>{
-    if(String(r['Cabang']||'').toUpperCase()!==cab) return false;
+    if(cabangOf(r)!==cab) return false;
     if(fs && norm(r['Status Order'])!==norm(fs)) return false;
     return parseAnyMonth(r['Tanggal Pengerjaan'])===ym;
   }).reduce((s,r)=>s+omzetOf_(r),0);
