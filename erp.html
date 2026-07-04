@@ -3611,12 +3611,14 @@ function showInvoiceChoice(anchor, o){
   const m=document.createElement('div'); m.className='pickmenu'; m.id='pickmenu';
   m.innerHTML='<div class="pickmenu-head">Invoice</div>'+
     '<button class="pickmenu-item" id="invDl">'+svg('file')+'<span>Download PDF</span></button>'+
+    '<button class="pickmenu-item" id="invPrint">'+svg('file')+'<span>Cetak</span></button>'+
     '<button class="pickmenu-item" id="invWa">'+svg('wa')+'<span>Kirim ke WA Customer</span></button>';
   document.body.appendChild(m);
   const r=anchor.getBoundingClientRect();
   m.style.top=(r.bottom+window.scrollY+6)+'px';
   m.style.left=Math.max(8,Math.min(r.left+window.scrollX, window.innerWidth-230))+'px';
   m.querySelector('#invDl').addEventListener('click', ()=>{ closePickMenu(); downloadInvoice(o); });
+  m.querySelector('#invPrint').addEventListener('click', ()=>{ closePickMenu(); printInvoice(o); });
   m.querySelector('#invWa').addEventListener('click', ()=>{ closePickMenu();
     downloadInvoice(o);
     openWa(o['No WA Customer'], invoiceWaText(o), o['Nama Customer']);
@@ -4168,6 +4170,26 @@ function fmtTgl(s){
   s=String(s||''); const m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);
   return m ? (m[3]+'/'+m[2]+'/'+m[1]) : (s||'-');
 }
+/* Terbilang Rupiah (Bahasa Indonesia). 300000 -> "Tiga Ratus Ribu Rupiah" */
+function terbilang(n){
+  n=Math.floor(Math.abs(Number(moneyDigits(n))||0));
+  if(n===0) return 'Nol Rupiah';
+  const sat=['','Satu','Dua','Tiga','Empat','Lima','Enam','Tujuh','Delapan','Sembilan','Sepuluh','Sebelas'];
+  function w(x){
+    x=Math.floor(x);
+    if(x<12) return sat[x];
+    if(x<20) return w(x-10)+' Belas';
+    if(x<100) return w(Math.floor(x/10))+' Puluh'+(x%10?' '+sat[x%10]:'');
+    if(x<200) return 'Seratus'+(x-100?' '+w(x-100):'');
+    if(x<1000) return sat[Math.floor(x/100)]+' Ratus'+(x%100?' '+w(x%100):'');
+    if(x<2000) return 'Seribu'+(x-1000?' '+w(x-1000):'');
+    if(x<1000000) return w(Math.floor(x/1000))+' Ribu'+(x%1000?' '+w(x%1000):'');
+    if(x<1000000000) return w(Math.floor(x/1000000))+' Juta'+(x%1000000?' '+w(x%1000000):'');
+    if(x<1000000000000) return w(Math.floor(x/1000000000))+' Miliar'+(x%1000000000?' '+w(x%1000000000):'');
+    return w(Math.floor(x/1000000000000))+' Triliun'+(x%1000000000000?' '+w(x%1000000000000):'');
+  }
+  return w(n).replace(/\s+/g,' ').trim()+' Rupiah';
+}
 function buildInvoiceHTML(o){
   o=o||{};
   const info=branchInfo(o['Cabang']);
@@ -4212,7 +4234,10 @@ function buildInvoiceHTML(o){
 
   return ''+
   '<div style="width:760px;box-sizing:border-box;background:#fff;font-family:Arial,Helvetica,sans-serif">'+
-    '<div style="border:1px solid '+LINE+';border-radius:14px;overflow:hidden;color:#15211F;background:#fff">'+
+    '<div style="position:relative;border:1px solid '+LINE+';border-radius:14px;overflow:hidden;color:#15211F;background:#fff">'+
+    // watermark KLINKLIN (simpel & efisien)
+    '<div style="position:absolute;top:54%;left:50%;transform:translate(-50%,-50%) rotate(-28deg);font-size:120px;font-weight:800;letter-spacing:6px;color:'+PET+';opacity:.05;white-space:nowrap;z-index:0;pointer-events:none">KLINKLIN</div>'+
+    '<div style="position:relative;z-index:1">'+
     // header band
     '<div style="background:'+PET+';color:#fff;padding:26px 34px;display:flex;justify-content:space-between;align-items:flex-start;gap:16px">'+
       '<div style="max-width:56%">'+
@@ -4266,8 +4291,10 @@ function buildInvoiceHTML(o){
           '</table>'+
         '</td>'+
       '</tr></table>'+
+      // terbilang
+      '<div style="margin-top:14px;font-size:11.5px;color:'+MUT+'"><b style="color:#15211F">Terbilang:</b> <i>'+esc(terbilang(grand))+'</i></div>'+
       // footer
-      '<div style="margin-top:28px;padding-top:16px;border-top:1px solid '+LINE+';display:flex;justify-content:space-between;align-items:flex-end">'+
+      '<div style="margin-top:22px;padding-top:16px;border-top:1px solid '+LINE+';display:flex;justify-content:space-between;align-items:flex-end">'+
         '<div style="font-size:11px;color:'+MUT+';max-width:60%">Terima kasih telah mempercayakan kebersihan Anda kepada KLINKLIN. Simpan invoice ini sebagai bukti transaksi.</div>'+
         '<div style="text-align:center">'+
           '<div style="font-size:11px;color:'+MUT+';margin-bottom:40px">Hormat kami,</div>'+
@@ -4276,63 +4303,88 @@ function buildInvoiceHTML(o){
       '</div>'+
     '</div>'+
     '</div>'+
+    '</div>'+
   '</div>';
 }
-async function downloadInvoice(o){
-  if(!o){ toast('Data order tidak ditemukan','err'); return; }
-  if(!state.cache.kantor){ try{ await loadKantor(); }catch(e){} }
+/* Render invoice ke canvas SEKALI — dipakai untuk unduh & cetak agar hasilnya identik. */
+async function invoiceToCanvas(o){
+  const canRender = (typeof html2pdf!=='undefined') || (typeof window.html2canvas!=='undefined');
+  if(!canRender) return null;
   const html=buildInvoiceHTML(o);
-  const fname='Invoice-'+String(o['ID Order']||'KLINKLIN').replace(/[^A-Za-z0-9]+/g,'_')+'.pdf';
-  if(typeof html2pdf==='undefined'){ invoicePrintWindow(o, html); return; }
-  setSync(true,'Membuat invoice…');
   const holder=document.createElement('div');
-  // dirender di dalam viewport (bukan -9999px) agar html2canvas tidak menghasilkan halaman kosong
   holder.style.cssText='position:fixed;left:0;top:0;background:#fff;z-index:-1;opacity:1';
   holder.innerHTML=html;
   document.body.appendChild(holder);
-  const el = holder.firstElementChild;
+  const el=holder.firstElementChild;
   try{
     if(document.fonts && document.fonts.ready){ try{ await Promise.race([document.fonts.ready, new Promise(r=>setTimeout(r,1200))]); }catch(e){} }
     await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
-    // Tangkap SELURUH elemen invoice ke canvas (pakai scrollWidth agar tidak ada yang terpotong)
-    const capW = Math.max(el.scrollWidth, el.offsetWidth);
-    const worker = html2pdf().set({
-      html2canvas:{ scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false, width:capW, windowWidth:capW },
-      jsPDF:{ unit:'mm', format:'a4', orientation:'portrait' }
-    }).from(el);
-    const canvas = await worker.toCanvas().get('canvas');
-    // Ambil kelas jsPDF (dari global bundle, atau dari instance worker)
-    let JsPDF = (window.jspdf && window.jspdf.jsPDF) || (window.jsPDF);
-    if(!JsPDF){ const tmp = await worker.toPdf().get('pdf'); JsPDF = tmp.constructor; }
-    const pdf = new JsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
-    const pageW = pdf.internal.pageSize.getWidth();   // 210
-    const pageH = pdf.internal.pageSize.getHeight();  // 297
-    const margin = 10;                                // margin sama di semua sisi
-    const availW = pageW - margin*2, availH = pageH - margin*2;
-    // Skala agar SELURUH invoice muat (lebar & tinggi) — tidak akan pernah terpotong
-    const ratio = Math.min(availW/canvas.width, availH/canvas.height);
-    const imgW = canvas.width*ratio, imgH = canvas.height*ratio;
-    const x = (pageW - imgW)/2;   // di tengah → jarak kiri-kanan sama
-    const y = margin;             // jarak atas = jarak kiri/kanan
-    pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', x, y, imgW, imgH);
-    pdf.save(fname);
-    toast('Invoice diunduh','ok');
-  }catch(e){
-    invoicePrintWindow(o, html); // fallback cetak (selalu berhasil & rapi)
-  }
-  finally{ holder.remove(); setSync(false); }
+    const capW=Math.max(el.scrollWidth, el.offsetWidth);
+    const opt={ scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false, width:capW, windowWidth:capW };
+    let canvas;
+    if(typeof window.html2canvas!=='undefined'){ canvas=await window.html2canvas(el, opt); }
+    else { canvas=await html2pdf().set({html2canvas:opt}).from(el).toCanvas().get('canvas'); }
+    return canvas;
+  }catch(e){ return null; }
+  finally{ holder.remove(); }
 }
-/* Fallback cetak: render native browser — cepat, tidak pernah kosong, ada Total. */
-function invoicePrintWindow(o, html){
-  html = html || buildInvoiceHTML(o);
+/* Cetak / preview memakai GAMBAR yang sama dengan unduhan → desain identik. */
+function printInvoiceImage(o, canvas){
+  const url=canvas.toDataURL('image/jpeg',0.96);
   const w=window.open('', '_blank');
   if(!w){ toast('Popup diblokir — izinkan popup untuk cetak/simpan invoice.','err'); return; }
   w.document.open();
   w.document.write('<!doctype html><html><head><meta charset="utf-8">'+
     '<title>Invoice '+String(o['ID Order']||'').replace(/[<>&"]/g,'')+'</title>'+
     '<style>@page{size:A4;margin:10mm} html,body{margin:0;padding:0;background:#fff}'+
-    '.inv-fit{width:760px;transform:scale(0.93);transform-origin:top left}'+
-    '</style>'+
+    '.wrap{width:190mm;margin:0 auto} img{display:block;width:100%;height:auto}</style>'+
+    '</head><body onload="setTimeout(function(){window.focus();window.print();},300)">'+
+    '<div class="wrap"><img src="'+url+'"></div></body></html>');
+  w.document.close();
+  toast('Invoice siap — pilih "Simpan sebagai PDF" pada dialog cetak','ok');
+}
+async function downloadInvoice(o){
+  if(!o){ toast('Data order tidak ditemukan','err'); return; }
+  if(!state.cache.kantor){ try{ await loadKantor(); }catch(e){} }
+  const fname='Invoice-'+String(o['ID Order']||'KLINKLIN').replace(/[^A-Za-z0-9]+/g,'_')+'.pdf';
+  setSync(true,'Membuat invoice…');
+  try{
+    const canvas=await invoiceToCanvas(o);
+    if(!canvas){ setSync(false); invoicePrintWindow(o); return; }   // modul PDF tak tersedia
+    let JsPDF=(window.jspdf && window.jspdf.jsPDF) || window.jsPDF || null;
+    if(!JsPDF){ setSync(false); printInvoiceImage(o, canvas); return; } // cetak pakai gambar yg sama (identik)
+    const pdf=new JsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
+    const pageW=pdf.internal.pageSize.getWidth(), pageH=pdf.internal.pageSize.getHeight();
+    const margin=10, availW=pageW-margin*2, availH=pageH-margin*2;
+    const ratio=Math.min(availW/canvas.width, availH/canvas.height);
+    const imgW=canvas.width*ratio, imgH=canvas.height*ratio;
+    pdf.addImage(canvas.toDataURL('image/jpeg',0.96),'JPEG',(pageW-imgW)/2, margin, imgW, imgH);
+    pdf.save(fname);
+    toast('Invoice diunduh','ok');
+  }catch(e){ invoicePrintWindow(o); }
+  finally{ setSync(false); }
+}
+/* Cetak invoice (memakai gambar yang sama dengan unduhan → identik). */
+async function printInvoice(o){
+  if(!o){ toast('Data order tidak ditemukan','err'); return; }
+  if(!state.cache.kantor){ try{ await loadKantor(); }catch(e){} }
+  setSync(true,'Menyiapkan invoice…');
+  try{
+    const canvas=await invoiceToCanvas(o);
+    if(canvas) printInvoiceImage(o, canvas);
+    else invoicePrintWindow(o);
+  }catch(e){ invoicePrintWindow(o); }
+  finally{ setSync(false); }
+}
+/* Cadangan terakhir bila modul PDF gagal dimuat: cetak HTML (jarang dipakai). */
+function invoicePrintWindow(o, html){
+  html = html || buildInvoiceHTML(o);
+  const w=window.open('', '_blank');
+  if(!w){ toast('Popup diblokir — izinkan popup untuk cetak/simpan invoice.','err'); return; }
+  w.document.write('<!doctype html><html><head><meta charset="utf-8">'+
+    '<title>Invoice '+String(o['ID Order']||'').replace(/[<>&"]/g,'')+'</title>'+
+    '<style>@page{size:A4;margin:10mm} html,body{margin:0;padding:0;background:#fff}'+
+    '.inv-fit{width:760px;transform:scale(0.93);transform-origin:top left}</style>'+
     '</head><body onload="setTimeout(function(){window.focus();window.print();},300)">'+
     '<div class="inv-fit">'+html+'</div></body></html>');
   w.document.close();
