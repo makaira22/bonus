@@ -4221,13 +4221,31 @@ function terbilang(n){
   }
   return w(n).replace(/\s+/g,' ').trim()+' Rupiah';
 }
+function _terbilang(x){
+  x=Math.floor(Math.abs(Number(x)||0));
+  const sat=['','satu','dua','tiga','empat','lima','enam','tujuh','delapan','sembilan','sepuluh','sebelas'];
+  function w(n){
+    if(n<12) return sat[n];
+    if(n<20) return w(n-10)+' belas';
+    if(n<100) return w(Math.floor(n/10))+' puluh'+(n%10?' '+w(n%10):'');
+    if(n<200) return 'seratus'+(n%100?' '+w(n%100):'');
+    if(n<1000) return w(Math.floor(n/100))+' ratus'+(n%100?' '+w(n%100):'');
+    if(n<2000) return 'seribu'+(n%1000?' '+w(n%1000):'');
+    if(n<1000000) return w(Math.floor(n/1000))+' ribu'+(n%1000?' '+w(n%1000):'');
+    if(n<1000000000) return w(Math.floor(n/1000000))+' juta'+(n%1000000?' '+w(n%1000000):'');
+    if(n<1000000000000) return w(Math.floor(n/1000000000))+' miliar'+(n%1000000000?' '+w(n%1000000000):'');
+    return w(Math.floor(n/1000000000000))+' triliun'+(n%1000000000000?' '+w(n%1000000000000):'');
+  }
+  if(x===0) return 'nol';
+  return w(x).replace(/\s+/g,' ').trim();
+}
+function terbilangRp(n){ let t=_terbilang(n); t=t.charAt(0).toUpperCase()+t.slice(1); return t+' rupiah'; }
 function buildInvoiceHTML(o){
   o=o||{};
   const info=branchInfo(o['Cabang']);
   const md=n=>Number(moneyDigits(n))||0;
-  let items=[1,2,3].map(i=>({nama:o['Layanan '+i]||'', qty:qtyNum(o['Qty '+i]), qtyText:String(o['Qty '+i]||''), harga:md(o['Harga '+i])}))
+  let items=[1,2,3].map(i=>({nama:o['Layanan '+i]||'', qtyText:String(o['Qty '+i]||''), harga:md(o['Harga '+i])}))
                    .filter(it=>it.nama||it.qtyText||it.harga);
-  if(!items.length) items=[{nama:'',qty:0,qtyText:'',harga:0}];
   let subtotal = md(o['Harga 1']) + md(o['Harga 2']) + md(o['Harga 3']);
   const disc=md(o['Diskon (%)']);
   const diskonNilai=Math.round(subtotal*disc/100);
@@ -4238,102 +4256,92 @@ function buildInvoiceHTML(o){
   if(!grand) grand = afterDisc + ppnNilai;
   if(!subtotal) subtotal = md(o['Total Akhir']) || grand || omzetOf_(o);
   if(!grand) grand = subtotal;
-
-  // Order lama tanpa rincian layanan (hanya total): tampilkan satu baris ringkas
-  // agar desain invoice konsisten untuk SEMUA order di database.
-  const hasNamed = items.some(it=>String(it.nama).trim());
-  if(!hasNamed){
-    const ring = (typeof layananRingkas==='function' ? layananRingkas(o) : '') || o['Keterangan Order'] || 'Layanan Kebersihan';
-    items = [{ nama: ring, qty:1, qtyText:'1', harga: subtotal }];
+  if(!items.some(it=>String(it.nama).trim())){
+    const ring=(typeof layananRingkas==='function'?layananRingkas(o):'')||o['Keterangan Order']||'Layanan Kebersihan';
+    items=[{nama:ring, qtyText:'1', harga:subtotal}];
   }
 
   const PET='#123A5E', GOLD='#3E86B5', LINE='#dfe7ee', MUT='#5E6F6C';
   const money=n=>'Rp '+Number(n||0).toLocaleString('id-ID');
   const itemRows=items.map((it,i)=>(
-    '<tr style="background:'+(i%2?'#f6f9f8':'#fff')+'">'+
-      '<td style="padding:11px 14px;font-size:12px;color:#15211F">'+esc(it.nama||'-')+'</td>'+
-      '<td style="padding:11px 14px;font-size:12px;text-align:center;color:'+MUT+'">'+esc(it.qtyText||'1')+'</td>'+
-      '<td style="padding:11px 14px;font-size:12px;text-align:right;font-variant-numeric:tabular-nums">'+money(it.harga)+'</td>'+
+    '<tr style="background:'+(i%2?'#f5f8fb':'#fff')+'">'+
+      '<td style="padding:11px 16px;font-size:12px;color:#15211F">'+esc(it.nama||'-')+'</td>'+
+      '<td style="padding:11px 12px;font-size:12px;text-align:center;color:'+MUT+'">'+esc(it.qtyText||'1')+'</td>'+
+      '<td style="padding:11px 16px;font-size:12px;text-align:right;white-space:nowrap">'+money(it.harga)+'</td>'+
     '</tr>'
   )).join('');
   const bankRows=INVOICE_BANK.map(b=>(
-    '<div style="font-size:11.5px;margin-bottom:3px"><b style="color:'+PET+'">'+esc(b.bank)+'</b> &nbsp;'+esc(b.no)+' &nbsp;·&nbsp; a.n. '+esc(b.an)+'</div>'
+    '<div style="font-size:11px;margin-bottom:3px;color:'+MUT+'"><b style="color:'+PET+'">'+esc(b.bank)+'</b> '+esc(b.no)+' · a.n. '+esc(b.an)+'</div>'
   )).join('');
-  const totRow=(l,v,strong)=>'<tr>'+
-    '<td style="padding:6px 14px;font-size:'+(strong?'13px':'12px')+';color:'+(strong?'#fff':'rgba(255,255,255,.8)')+';'+(strong?'font-weight:800':'')+'">'+l+'</td>'+
-    '<td style="padding:6px 14px;font-size:'+(strong?'14px':'12px')+';text-align:right;color:#fff;'+(strong?'font-weight:800':'')+';font-variant-numeric:tabular-nums">'+v+'</td></tr>';
+  const trow=(l,v,strong)=>'<tr>'+
+    '<td style="padding:7px 16px;font-size:'+(strong?'13px':'12px')+';color:'+(strong?'#ffffff':'#d7e2ee')+';'+(strong?'font-weight:800':'')+'">'+l+'</td>'+
+    '<td style="padding:7px 16px;font-size:'+(strong?'14px':'12px')+';color:#ffffff;text-align:right;white-space:nowrap;'+(strong?'font-weight:800':'')+'">'+v+'</td></tr>';
 
   return ''+
-  '<div style="width:760px;box-sizing:border-box;background:#fff;font-family:Arial,Helvetica,sans-serif">'+
-    '<div style="position:relative;border:1px solid '+LINE+';border-radius:14px;overflow:hidden;color:#15211F;background:#fff">'+
-    // watermark KLINKLIN (simpel & efisien)
-    '<div style="position:absolute;top:54%;left:50%;transform:translate(-50%,-50%) rotate(-28deg);font-size:120px;font-weight:800;letter-spacing:6px;color:'+PET+';opacity:.05;white-space:nowrap;z-index:0;pointer-events:none">KLINKLIN</div>'+
+  '<div style="width:760px;box-sizing:border-box;background:#fff;position:relative;overflow:hidden;border:1px solid '+LINE+';border-radius:14px;font-family:Arial,Helvetica,sans-serif;color:#15211F">'+
+    '<div style="position:absolute;top:52%;left:50%;transform:translate(-50%,-50%) rotate(-27deg);font-size:118px;font-weight:800;letter-spacing:6px;color:rgba(18,58,94,0.055);white-space:nowrap;z-index:0">KLINKLIN</div>'+
     '<div style="position:relative;z-index:1">'+
-    // header band
-    '<div style="background:'+PET+';color:#fff;padding:26px 34px;display:flex;justify-content:space-between;align-items:flex-start;gap:16px">'+
-      '<div style="max-width:56%">'+
-        '<div style="font-size:26px;font-weight:800;letter-spacing:.5px">KLIN<span style="color:'+GOLD+'">KLIN</span>'+
-          ' <span style="font-size:13px;font-weight:700;opacity:.9">'+esc(info.cabang)+'</span></div>'+
-        '<div style="font-size:11px;opacity:.85;margin-top:5px;line-height:1.5">'+esc(info.alamat||'-')+'</div>'+
-        (info.phone && info.phone!=='-' ? '<div style="font-size:11px;opacity:.85;margin-top:2px">Telp: '+esc(info.phone)+'</div>' : '')+
-      '</div>'+
-      '<div style="text-align:right">'+
-        '<div style="font-size:30px;font-weight:800;letter-spacing:3px;color:'+GOLD+'">INVOICE</div>'+
-        '<div style="font-size:11px;opacity:.85;margin-top:2px">'+esc(o['ID Order']||'-')+'</div>'+
-      '</div>'+
-    '</div>'+
-    '<div style="padding:26px 34px">'+
-      // meta row
-      '<table style="width:100%;border-collapse:collapse;margin-bottom:22px"><tr>'+
-        '<td style="vertical-align:top;width:55%">'+
-          '<div style="font-size:10px;font-weight:800;letter-spacing:.08em;color:'+MUT+';text-transform:uppercase;margin-bottom:5px">Ditagihkan Kepada</div>'+
-          '<div style="font-size:15px;font-weight:800">'+esc(o['Nama Customer']||'-')+'</div>'+
-          '<div style="font-size:12px;color:'+MUT+';margin-top:3px;line-height:1.5">'+esc(o['Alamat']||'-')+'<br>'+esc(o['No WA Customer']||'')+'</div>'+
+      // header
+      '<table style="width:100%;border-collapse:collapse;background:'+PET+'"><tr>'+
+        '<td style="padding:24px 30px;vertical-align:top;color:#fff">'+
+          '<div style="font-size:24px;font-weight:800;letter-spacing:.5px">KLIN<span style="color:'+GOLD+'">KLIN</span> <span style="font-size:12px;font-weight:700;opacity:.9">'+esc(info.cabang)+'</span></div>'+
+          '<div style="font-size:10.5px;opacity:.85;margin-top:5px;line-height:1.5">'+esc(info.alamat||'-')+'</div>'+
+          (info.phone&&info.phone!=='-'?'<div style="font-size:10.5px;opacity:.85;margin-top:2px">Telp: '+esc(info.phone)+'</div>':'')+
         '</td>'+
-        '<td style="vertical-align:top">'+
-          '<div style="font-size:12px;line-height:1.9;color:'+MUT+'">'+
+        '<td style="padding:24px 30px;vertical-align:top;text-align:right;color:#fff;white-space:nowrap">'+
+          '<div style="font-size:28px;font-weight:800;letter-spacing:2px;color:'+GOLD+'">INVOICE</div>'+
+          '<div style="font-size:11px;opacity:.85;margin-top:3px">'+esc(o['ID Order']||'-')+'</div>'+
+        '</td>'+
+      '</tr></table>'+
+      '<div style="padding:26px 30px">'+
+        // meta
+        '<table style="width:100%;border-collapse:collapse;margin-bottom:20px"><tr>'+
+          '<td style="vertical-align:top;width:56%">'+
+            '<div style="font-size:10px;font-weight:800;letter-spacing:.06em;color:'+MUT+';text-transform:uppercase;margin-bottom:5px">Ditagihkan Kepada</div>'+
+            '<div style="font-size:15px;font-weight:800">'+esc(o['Nama Customer']||'-')+'</div>'+
+            '<div style="font-size:11.5px;color:'+MUT+';margin-top:3px;line-height:1.5">'+esc(o['Alamat']||'-')+(o['No WA Customer']?('<br>'+esc(o['No WA Customer'])):'')+'</div>'+
+          '</td>'+
+          '<td style="vertical-align:top;font-size:11.5px;line-height:1.9;color:'+MUT+'">'+
             '<div><b style="color:#15211F">Tanggal:</b> '+esc(fmtTgl(o['Tanggal Pengerjaan'])||'-')+'</div>'+
             '<div><b style="color:#15211F">Cabang:</b> '+esc(info.cabang)+'</div>'+
             '<div><b style="color:#15211F">Pembayaran:</b> '+esc(o['Metode Pembayaran']||'-')+'</div>'+
+          '</td>'+
+        '</tr></table>'+
+        // items
+        '<table style="width:100%;border-collapse:collapse;border:1px solid '+LINE+'">'+
+          '<thead><tr style="background:'+PET+';color:#fff">'+
+            '<th style="padding:10px 16px;font-size:11px;text-align:left;text-transform:uppercase">Layanan</th>'+
+            '<th style="padding:10px 12px;font-size:11px;text-align:center;text-transform:uppercase;width:80px">Qty</th>'+
+            '<th style="padding:10px 16px;font-size:11px;text-align:right;text-transform:uppercase;width:140px">Harga</th>'+
+          '</tr></thead><tbody>'+itemRows+'</tbody></table>'+
+        // bank (kiri) + totals (kanan, float — aman utk html2canvas)
+        '<div style="margin-top:18px;overflow:hidden">'+
+          '<div style="float:right;width:290px">'+
+            '<table style="width:290px;border-collapse:collapse;background:'+PET+';border-radius:10px;overflow:hidden">'+
+              trow('Subtotal', money(subtotal))+
+              trow('Diskon', '- '+money(diskonNilai))+
+              trow('PPn ('+ppn+'%)', money(ppnNilai))+
+              '<tr><td colspan="2" style="padding:0 16px"><div style="height:1px;background:rgba(255,255,255,.25)"></div></td></tr>'+
+              trow('Total', money(grand), true)+
+            '</table>'+
           '</div>'+
-        '</td>'+
-      '</tr></table>'+
-      // items
-      '<table style="width:100%;border-collapse:collapse;border:1px solid '+LINE+';border-radius:10px;overflow:hidden">'+
-        '<thead><tr style="background:'+PET+';color:#fff">'+
-          '<th style="padding:11px 14px;font-size:11px;text-align:left;letter-spacing:.04em;text-transform:uppercase">Layanan</th>'+
-          '<th style="padding:11px 14px;font-size:11px;text-align:center;letter-spacing:.04em;text-transform:uppercase">Qty</th>'+
-          '<th style="padding:11px 14px;font-size:11px;text-align:right;letter-spacing:.04em;text-transform:uppercase">Harga</th>'+
-        '</tr></thead><tbody>'+itemRows+'</tbody>'+
-      '</table>'+
-      // totals box (lebar tetap agar nilai tidak terpotong)
-      '<table style="width:100%;border-collapse:collapse;margin-top:18px;table-layout:fixed"><tr>'+
-        '<td style="vertical-align:top;padding-right:16px">'+
-          '<div style="font-size:10px;font-weight:800;letter-spacing:.08em;color:'+MUT+';text-transform:uppercase;margin-bottom:7px">Transfer ke</div>'+
-          bankRows+
-        '</td>'+
-        '<td style="vertical-align:top;width:280px">'+
-          '<table style="width:280px;border-collapse:collapse;background:'+PET+';border-radius:10px;overflow:hidden">'+
-            totRow('Subtotal', money(subtotal))+
-            totRow('Diskon', '- '+money(diskonNilai))+
-            totRow('PPn ('+ppn+'%)', money(ppnNilai))+
-            '<tr><td colspan="2" style="padding:0"><div style="height:1px;background:rgba(255,255,255,.2)"></div></td></tr>'+
-            totRow('Total', money(grand), true)+
-          '</table>'+
-        '</td>'+
-      '</tr></table>'+
-      // terbilang
-      '<div style="margin-top:14px;font-size:11.5px;color:'+MUT+'"><b style="color:#15211F">Terbilang:</b> <i>'+esc(terbilang(grand))+'</i></div>'+
-      // footer
-      '<div style="margin-top:22px;padding-top:16px;border-top:1px solid '+LINE+';display:flex;justify-content:space-between;align-items:flex-end">'+
-        '<div style="font-size:11px;color:'+MUT+';max-width:60%">Terima kasih telah mempercayakan kebersihan Anda kepada KLINKLIN. Simpan invoice ini sebagai bukti transaksi.</div>'+
-        '<div style="text-align:center">'+
-          '<div style="font-size:11px;color:'+MUT+';margin-bottom:40px">Hormat kami,</div>'+
-          '<div style="font-size:12px;font-weight:800;border-top:1px solid #15211F;padding-top:5px">'+esc(INVOICE_SIGNER)+'</div>'+
+          '<div style="overflow:hidden;padding-right:16px">'+
+            '<div style="font-size:10px;font-weight:800;letter-spacing:.06em;color:'+MUT+';text-transform:uppercase;margin-bottom:6px">Transfer Ke</div>'+
+            bankRows+
+          '</div>'+
         '</div>'+
+        // terbilang
+        '<div style="margin-top:16px;padding:10px 14px;background:#f4f7fa;border:1px solid '+LINE+';border-radius:8px;font-size:11.5px;color:#15211F">'+
+          '<b>Terbilang:</b> <i>'+esc(terbilangRp(grand))+'</i></div>'+
+        // footer
+        '<table style="width:100%;border-collapse:collapse;margin-top:22px;border-top:1px solid '+LINE+'"><tr>'+
+          '<td style="vertical-align:bottom;padding-top:14px;font-size:11px;color:'+MUT+';width:58%">Terima kasih telah mempercayakan kebersihan Anda kepada KLINKLIN. Simpan invoice ini sebagai bukti transaksi.</td>'+
+          '<td style="vertical-align:bottom;padding-top:14px;text-align:center">'+
+            '<div style="font-size:11px;color:'+MUT+';margin-bottom:34px">Hormat kami,</div>'+
+            '<div style="font-size:12px;font-weight:800;border-top:1px solid #15211F;padding-top:5px;display:inline-block">'+esc(INVOICE_SIGNER)+'</div>'+
+          '</td>'+
+        '</tr></table>'+
       '</div>'+
-    '</div>'+
-    '</div>'+
     '</div>'+
   '</div>';
 }
@@ -4343,14 +4351,14 @@ async function invoiceToCanvas(o){
   if(!canRender) return null;
   const html=buildInvoiceHTML(o);
   const holder=document.createElement('div');
-  holder.style.cssText='position:fixed;left:0;top:0;background:#fff;z-index:-1;opacity:1';
+  holder.style.cssText='position:fixed;left:0;top:0;width:760px;background:#fff;z-index:-1;opacity:1';
   holder.innerHTML=html;
   document.body.appendChild(holder);
   const el=holder.firstElementChild;
   try{
     if(document.fonts && document.fonts.ready){ try{ await Promise.race([document.fonts.ready, new Promise(r=>setTimeout(r,1200))]); }catch(e){} }
     await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
-    const capW=Math.max(el.scrollWidth, el.offsetWidth);
+    const capW=760;
     const opt={ scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false, width:capW, windowWidth:capW };
     let canvas;
     if(typeof window.html2canvas!=='undefined'){ canvas=await window.html2canvas(el, opt); }
