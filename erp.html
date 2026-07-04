@@ -299,8 +299,11 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 #imgPop{position:fixed;inset:0;z-index:95;display:none;align-items:center;justify-content:center;
   padding:24px;background:rgba(8,24,23,.82);backdrop-filter:blur(4px);cursor:zoom-out}
 #imgPop.show{display:flex;animation:rise .18s ease}
-#imgPop img{max-width:92vw;max-height:88vh;border-radius:14px;background:#fff;
-  box-shadow:var(--shadow-lg);object-fit:contain;cursor:default}
+#imgPopBody{display:flex;gap:14px;flex-wrap:wrap;align-items:center;justify-content:center;max-width:96vw;max-height:90vh}
+#imgPopBody img{border-radius:14px;background:#fff;box-shadow:var(--shadow-lg);object-fit:contain;cursor:default}
+#imgPopBody:not(.multi) img{max-width:92vw;max-height:88vh}
+#imgPopBody.multi img{max-width:46vw;max-height:82vh}
+@media(max-width:700px){ #imgPopBody.multi img{max-width:90vw;max-height:43vh} }
 .imgpop-close{position:fixed;top:16px;right:16px;z-index:96;width:44px;height:44px;border-radius:50%;
   background:rgba(255,255,255,.16);color:#fff;font-size:26px;line-height:1;display:grid;place-items:center;
   backdrop-filter:blur(4px);transition:.15s}
@@ -1015,7 +1018,7 @@ td.c-green, td.c-red, td.c-orange, td.c-blue{font-weight:700}
 </div>
 
 <div id="sync"><span class="s"></span><span class="t"></span></div>
-<div id="imgPop"><button id="imgPopClose" class="imgpop-close" aria-label="Tutup">&times;</button><img id="imgPopImg" src="" alt="Bukti"></div>
+<div id="imgPop"><button id="imgPopClose" class="imgpop-close" aria-label="Tutup">&times;</button><div id="imgPopBody"></div></div>
 <div id="toast"></div>
 
 <script>
@@ -1446,7 +1449,7 @@ const VIEWS = {
   },
   auditOrder:{
     sheet:'ORDER', title:'Audit Order', sub:'', branchLock:false, hub:'audit',
-    idField:'ID Order', statusClient:['done'], statusPrio:['done'], paged:true,
+    idField:'ID Order', statusClient:['done'], statusPrio:['done'], paged:true, revertPending:true,
     approve:true, multiApprove:true, statusBadge:true, invoice:true, rowDetail:true, countTop:true, noSyncBtn:true,
     table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Metode Pembayaran','PPn','Total Akhir Setelah Diskon','Waktu Bukti Transfer','Bukti Transfer'],
     colLabel:{'Waktu Bukti Transfer':'Waktu Bukti','Total Akhir Setelah Diskon':'Total'},
@@ -1841,15 +1844,23 @@ function syncDone(n){
   clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'), 2200);
 }
 const showLoad = on => setSync(on);
-function openImg(url){
-  if(!url) return;
-  // File PDF / non-gambar → buka langsung di tab baru.
-  if(/\.pdf(\?|$)/i.test(url)){ window.open(url,'_blank','noopener'); return; }
-  const img=$('#imgPopImg');
-  img.onerror=()=>{ img.onerror=null; closeImg(); toast('Gambar tidak bisa dimuat — dibuka di tab baru','err'); window.open(url,'_blank','noopener'); };
-  img.src=url; $('#imgPop').classList.add('show');
+function openImg(url){ openImgs([url]); }
+function openImgs(urls){
+  urls=(Array.isArray(urls)?urls:[urls]).filter(Boolean);
+  if(!urls.length) return;
+  const imgs=urls.filter(u=>!/\.pdf(\?|$)/i.test(u));
+  if(!imgs.length){ window.open(urls[0],'_blank','noopener'); return; }   // hanya PDF
+  const body=$('#imgPopBody'); if(!body) return;
+  body.className = imgs.length>1 ? 'multi' : '';
+  body.innerHTML = imgs.map(u=>'<img alt="Bukti" src="'+esc(u)+'">').join('');
+  // jika sebuah gambar gagal dimuat → buka gambar itu di tab baru (tanpa mengganggu yg lain)
+  body.querySelectorAll('img').forEach((im,i)=>{ im.addEventListener('error', function onErr(){ im.removeEventListener('error',onErr); im.remove(); window.open(imgs[i],'_blank','noopener'); }); });
+  $('#imgPop').classList.add('show');
 }
-function closeImg(){ $('#imgPop').classList.remove('show'); $('#imgPopImg').src=''; }
+function closeImg(){
+  const b=$('#imgPopBody'); if(b) b.innerHTML='';   // hapus elemen (tanpa memicu error → tidak buka tab baru)
+  $('#imgPop').classList.remove('show');
+}
 let toastT;
 function toast(msg, type){
   const t=$('#toast'); t.textContent=msg; t.className=''; if(type)t.classList.add(type);
@@ -2416,8 +2427,8 @@ function renderTable(){
   if(v.sheet==='ORDER'){
     cardHtml='<div class="card-list order-cards">'+cardRows.map(r=>{
       const oid=r['ID Order']; const st=norm(r['Status Order'])||'pending';
-      const buktiBtn = r['Bukti Transfer'] ? '<button class="btn btn-ghost btn-sm" data-img="'+esc(r['Bukti Transfer'])+'">'+svg('file')+'Lihat Bukti</button>'
-        + (r['Bukti Transfer 2'] ? '<button class="btn btn-ghost btn-sm" data-img="'+esc(r['Bukti Transfer 2'])+'">'+svg('file')+'Bukti 2</button>' : '') : '';
+      const buktiUrls=[r['Bukti Transfer'], r['Bukti Transfer 2']].filter(Boolean);
+      const buktiBtn = buktiUrls.length ? '<button class="btn btn-ghost btn-sm" data-imgs="'+esc(buktiUrls.join('|||'))+'">'+svg('file')+'Lihat Bukti'+(buktiUrls.length>1?' (2)':'')+'</button>' : '';
       const actInner = buktiBtn + (showAct?rowActions(v,r):'');
       return '<div class="ocard" data-detail="'+esc(oid)+'">'+
         '<div class="ocard-top"><span class="ocard-name">'+esc(r['Nama Customer']||'-')+'</span>'+
@@ -2539,8 +2550,8 @@ function rowActions(v,r){
   if(v.bonusBtn && norm(r['Status Order'])!=='cancel'){
     act += '<button class="btn btn-ghost btn-sm" data-bonusfor="'+esc(oid)+'">'+svg('bonus')+'Input Bonus</button>';
   }
-  if(v.revertPending && norm(r['Status Order'])==='done'){
-    act += '<button class="btn btn-ghost btn-sm" data-topending="'+esc(oid)+'" title="Kembalikan ke pending agar bisa diedit CS">'+svg('edit')+'→ Pending</button>';
+  if(v.revertPending && norm(r['Status Order'])==='done' && state.session && state.session.role==='FINANCE'){
+    act += '<button class="btn btn-ghost btn-sm" data-topending="'+esc(oid)+'" title="Kembalikan ke pending & hapus bukti transfer agar CS bisa edit + upload ulang" style="color:var(--danger)">'+svg('edit')+'Reset ke Pending</button>';
   }
   if(v.canDelete){
     const did=v.idField?esc(r[v.idField]):('#'+state.rows.indexOf(r));
@@ -2550,10 +2561,11 @@ function rowActions(v,r){
 }
 function wireRowHandlers(v){
   document.querySelectorAll('[data-topending]').forEach(b=>b.addEventListener('click',async e=>{ e.stopPropagation();
-    if(!confirm('Kembalikan order ini ke status pending? CS pembuat order bisa mengeditnya lagi.')) return;
+    if(!confirm('Kembalikan order ini ke PENDING dan HAPUS bukti transfer?\nCS pembuat order bisa mengedit & mengupload bukti transfer lagi.')) return;
     setSync(true);
-    try{ await api({action:'update', sheet:'ORDER', idField:'ID Order', id:b.dataset.topending, data:{'Status Order':'pending'}});
-      toast('Order dikembalikan ke pending','ok'); invalidateLists(); await loadList(true);
+    try{ await api({action:'update', sheet:'ORDER', idField:'ID Order', id:b.dataset.topending,
+        data:{'Status Order':'pending','Bukti Transfer':'','Bukti Transfer 2':'','Waktu Bukti Transfer':''}});
+      toast('Order → pending & bukti transfer dihapus','ok'); invalidateLists(); await loadList(true);
     }catch(err){ setSync(false); toast('Gagal: '+(err.message||err),'err'); }
   }));
   document.querySelectorAll('[data-cleaners]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation();
@@ -2686,8 +2698,8 @@ function showOrderDetail(o){
   if(o['Alasan Cancel']) b+=row('Alasan Cancel', esc(o['Alasan Cancel']));
   if(o['Waktu Approve']) b+=row('Waktu Approve', esc(fmtWaktu(o['Waktu Approve'])));
   if(o['Waktu Bukti Transfer']) b+=row('Waktu Upload Bukti', esc(fmtWaktu(o['Waktu Bukti Transfer'])));
-  if(o['Bukti Transfer']) b+=row('Bukti Transfer', '<a href="'+esc(o['Bukti Transfer'])+'" target="_blank" style="color:var(--petrol);font-weight:700;text-decoration:underline">Lihat gambar 1</a>'+
-    (o['Bukti Transfer 2']?' · <a href="'+esc(o['Bukti Transfer 2'])+'" target="_blank" style="color:var(--petrol);font-weight:700;text-decoration:underline">gambar 2</a>':''));
+  { const bu=[o['Bukti Transfer'],o['Bukti Transfer 2']].filter(Boolean);
+    if(bu.length) b+=row('Bukti Transfer', '<a data-imgs="'+esc(bu.join('|||'))+'" style="cursor:zoom-in;color:var(--petrol);font-weight:700;text-decoration:underline">Lihat '+(bu.length>1?'2 gambar':'gambar')+'</a>'); }
   b+='<div class="dt-sec">Bonus / Insentif</div><div id="dtBonus" class="dt-bonus">Memuat…</div>';
   b+='</div>';
   $('#modalBody').innerHTML=b;
@@ -5697,9 +5709,13 @@ $('#modalDone').addEventListener('click', closeOverlay);
 $('#modalSave').addEventListener('click', saveForm);
 $('#overlay').addEventListener('click', e=>{ if(e.target===$('#overlay')) closeOverlay(); });
 $('#imgPop').addEventListener('click', closeImg);
-$('#imgPopImg').addEventListener('click', e=>e.stopPropagation());
+$('#imgPopBody').addEventListener('click', e=>e.stopPropagation());
 $('#imgPopClose').addEventListener('click', e=>{ e.stopPropagation(); closeImg(); });
-document.addEventListener('click', e=>{ const a=e.target.closest('[data-img]'); if(a){ e.preventDefault(); openImg(a.getAttribute('data-img')); } });
+document.addEventListener('click', e=>{
+  const bs=e.target.closest('[data-imgs]');
+  if(bs){ e.preventDefault(); openImgs(String(bs.getAttribute('data-imgs')||'').split('|||')); return; }
+  const a=e.target.closest('[data-img]'); if(a){ e.preventDefault(); openImg(a.getAttribute('data-img')); }
+});
 document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeImg(); });
 
 // Pengingat / popup wajib
