@@ -1741,6 +1741,7 @@ async function api(payload){
       const idf=payload.idField||TABLE_ID[payload.sheet];
       let data=payload.data, tries=0;
       while(true){
+        if(!data || Object.keys(data).length===0) return {ok:true, id:payload.id, skipped:true};
         const {error}=await sb.from(payload.sheet).update(data).eq(idf, payload.id);
         if(!error) break;
         const col=missingColName(error);
@@ -2562,9 +2563,16 @@ function rowActions(v,r){
 function wireRowHandlers(v){
   document.querySelectorAll('[data-topending]').forEach(b=>b.addEventListener('click',async e=>{ e.stopPropagation();
     if(!confirm('Kembalikan order ini ke PENDING dan HAPUS bukti transfer?\nCS pembuat order bisa mengedit & mengupload bukti transfer lagi.')) return;
+    const oid=b.dataset.topending;
     setSync(true);
-    try{ await api({action:'update', sheet:'ORDER', idField:'ID Order', id:b.dataset.topending,
-        data:{'Status Order':'pending','Bukti Transfer':'','Bukti Transfer 2':'','Waktu Bukti Transfer':''}});
+    try{
+      // 1) Status → pending (paling penting)
+      await api({action:'update', sheet:'ORDER', idField:'ID Order', id:oid, data:{'Status Order':'pending'}});
+      // 2) Kosongkan tiap kolom bukti SECARA TERPISAH (pakai null). Dipisah agar kolom yang
+      //    kebetulan belum ada di database tidak menggagalkan pengosongan kolom lain.
+      for(const col of ['Bukti Transfer','Bukti Transfer 2','Waktu Bukti Transfer']){
+        try{ await api({action:'update', sheet:'ORDER', idField:'ID Order', id:oid, data:{[col]: null}}); }catch(_){}
+      }
       toast('Order → pending & bukti transfer dihapus','ok'); invalidateLists(); await loadList(true);
     }catch(err){ setSync(false); toast('Gagal: '+(err.message||err),'err'); }
   }));
@@ -4332,8 +4340,8 @@ function buildInvoiceHTML(o){
     '<div style="font-size:11px;margin-bottom:3px;color:'+MUT+'"><b style="color:'+PET+'">'+esc(b.bank)+'</b> '+esc(b.no)+' · a.n. '+esc(b.an)+'</div>'
   )).join('');
   const trow=(l,v,strong)=>'<tr>'+
-    '<td style="padding:7px 16px;font-size:'+(strong?'13px':'12px')+';color:'+(strong?'#ffffff':'#d7e2ee')+';'+(strong?'font-weight:800':'')+'">'+l+'</td>'+
-    '<td style="padding:7px 16px;font-size:'+(strong?'14px':'12px')+';color:#ffffff;text-align:right;white-space:nowrap;'+(strong?'font-weight:800':'')+'">'+v+'</td></tr>';
+    '<td style="width:150px;padding:7px 14px;font-size:'+(strong?'13px':'12px')+';color:'+(strong?'#ffffff':'#d7e2ee')+';'+(strong?'font-weight:800':'')+'">'+l+'</td>'+
+    '<td style="width:150px;padding:7px 14px;font-size:'+(strong?'14px':'12px')+';color:#ffffff;text-align:right;white-space:nowrap;'+(strong?'font-weight:800':'')+'">'+v+'</td></tr>';
 
   return ''+
   '<div style="width:760px;box-sizing:border-box;background:#fff;position:relative;overflow:hidden;border:1px solid '+LINE+';border-radius:14px;font-family:Arial,Helvetica,sans-serif;color:#15211F">'+
@@ -4372,22 +4380,22 @@ function buildInvoiceHTML(o){
             '<th style="padding:10px 12px;font-size:11px;text-align:center;text-transform:uppercase;width:80px">Qty</th>'+
             '<th style="padding:10px 16px;font-size:11px;text-align:right;text-transform:uppercase;width:140px">Harga</th>'+
           '</tr></thead><tbody>'+itemRows+'</tbody></table>'+
-        // bank (kiri) + totals (kanan, float — aman utk html2canvas)
-        '<div style="margin-top:18px;overflow:hidden">'+
-          '<div style="float:right;width:290px">'+
-            '<table style="width:290px;border-collapse:collapse;background:'+PET+';border-radius:10px;overflow:hidden">'+
+        // bank (kiri) + totals (kanan) — pakai TABEL table-layout:fixed (aman utk html2canvas, tidak seperti float)
+        '<table style="width:100%;table-layout:fixed;border-collapse:collapse;margin-top:18px"><tr>'+
+          '<td style="vertical-align:top;padding-right:18px">'+
+            '<div style="font-size:10px;font-weight:800;letter-spacing:.06em;color:'+MUT+';text-transform:uppercase;margin-bottom:6px">Transfer Ke</div>'+
+            bankRows+
+          '</td>'+
+          '<td style="vertical-align:top;width:300px">'+
+            '<table style="width:300px;table-layout:fixed;border-collapse:collapse;background:'+PET+';border-radius:10px;overflow:hidden">'+
               trow('Subtotal', money(subtotal))+
               trow('Diskon', '- '+money(diskonNilai))+
               trow('PPn ('+ppn+'%)', money(ppnNilai))+
-              '<tr><td colspan="2" style="padding:0 16px"><div style="height:1px;background:rgba(255,255,255,.25)"></div></td></tr>'+
+              '<tr><td colspan="2" style="padding:0 14px"><div style="height:1px;background:rgba(255,255,255,.25)"></div></td></tr>'+
               trow('Total', money(grand), true)+
             '</table>'+
-          '</div>'+
-          '<div style="overflow:hidden;padding-right:16px">'+
-            '<div style="font-size:10px;font-weight:800;letter-spacing:.06em;color:'+MUT+';text-transform:uppercase;margin-bottom:6px">Transfer Ke</div>'+
-            bankRows+
-          '</div>'+
-        '</div>'+
+          '</td>'+
+        '</tr></table>'+
         // terbilang
         '<div style="margin-top:16px;padding:10px 14px;background:#f4f7fa;border:1px solid '+LINE+';border-radius:8px;font-size:11.5px;color:#15211F">'+
           '<b>Terbilang:</b> <i>'+esc(terbilangRp(grand))+'</i></div>'+
@@ -4433,8 +4441,9 @@ function printInvoiceImage(o, canvas){
   w.document.open();
   w.document.write('<!doctype html><html><head><meta charset="utf-8">'+
     '<title>Invoice '+String(o['ID Order']||'').replace(/[<>&"]/g,'')+'</title>'+
-    '<style>@page{size:A4;margin:10mm} html,body{margin:0;padding:0;background:#fff}'+
-    '.wrap{width:190mm;margin:0 auto} img{display:block;width:100%;height:auto}</style>'+
+    '<style>@page{size:A4;margin:0} html,body{margin:0;padding:0;background:#fff}'+
+    '.wrap{width:210mm;min-height:297mm;box-sizing:border-box;padding:10mm;display:flex;align-items:flex-start;justify-content:center}'+
+    '.wrap img{max-width:100%;max-height:277mm;object-fit:contain;display:block}</style>'+
     '</head><body onload="setTimeout(function(){window.focus();window.print();},300)">'+
     '<div class="wrap"><img src="'+url+'"></div></body></html>');
   w.document.close();
@@ -4447,15 +4456,16 @@ async function downloadInvoice(o){
   setSync(true,'Membuat invoice…');
   try{
     const canvas=await invoiceToCanvas(o);
-    if(!canvas){ setSync(false); invoicePrintWindow(o); return; }   // modul PDF tak tersedia
+    if(!canvas || !canvas.width || !canvas.height){ setSync(false); invoicePrintWindow(o); return; }
     let JsPDF=(window.jspdf && window.jspdf.jsPDF) || window.jsPDF || null;
-    if(!JsPDF){ setSync(false); printInvoiceImage(o, canvas); return; } // cetak pakai gambar yg sama (identik)
+    if(!JsPDF){ setSync(false); printInvoiceImage(o, canvas); return; } // cetak pakai gambar yg sama (identik & muat 1 halaman)
     const pdf=new JsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
     const pageW=pdf.internal.pageSize.getWidth(), pageH=pdf.internal.pageSize.getHeight();
     const margin=10, availW=pageW-margin*2, availH=pageH-margin*2;
-    const ratio=Math.min(availW/canvas.width, availH/canvas.height);
+    const ratio=Math.min(availW/canvas.width, availH/canvas.height);   // FIT: tidak akan terpotong (lebar & tinggi)
     const imgW=canvas.width*ratio, imgH=canvas.height*ratio;
-    pdf.addImage(canvas.toDataURL('image/jpeg',0.96),'JPEG',(pageW-imgW)/2, margin, imgW, imgH);
+    const x=(pageW-imgW)/2, y=margin;                                  // di tengah horizontal, margin atas sama
+    pdf.addImage(canvas.toDataURL('image/jpeg',0.96),'JPEG', x, y, imgW, imgH);
     pdf.save(fname);
     toast('Invoice diunduh','ok');
   }catch(e){ invoicePrintWindow(o); }
