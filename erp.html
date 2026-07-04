@@ -4026,7 +4026,7 @@ function buildInvoiceHTML(o){
     '<td style="padding:6px 14px;font-size:'+(strong?'14px':'12px')+';text-align:right;color:#fff;'+(strong?'font-weight:800':'')+';font-variant-numeric:tabular-nums">'+v+'</td></tr>';
 
   return ''+
-  '<div style="width:794px;box-sizing:border-box;background:#fff;padding:40px;font-family:Arial,Helvetica,sans-serif">'+
+  '<div style="width:760px;box-sizing:border-box;background:#fff;font-family:Arial,Helvetica,sans-serif">'+
     '<div style="border:1px solid '+LINE+';border-radius:14px;overflow:hidden;color:#15211F;background:#fff">'+
     // header band
     '<div style="background:'+PET+';color:#fff;padding:26px 34px;display:flex;justify-content:space-between;align-items:flex-start;gap:16px">'+
@@ -4101,27 +4101,39 @@ async function downloadInvoice(o){
   if(typeof html2pdf==='undefined'){ invoicePrintWindow(o, html); return; }
   setSync(true,'Membuat invoice…');
   const holder=document.createElement('div');
-  // dirender di dalam viewport (bukan -9999px) & penuh (opacity 1) agar html2canvas tidak menghasilkan halaman kosong/pudar
-  holder.style.cssText='position:fixed;left:0;top:0;width:794px;background:#fff;z-index:-1';
+  // dirender di dalam viewport (bukan -9999px) agar html2canvas tidak menghasilkan halaman kosong
+  holder.style.cssText='position:fixed;left:0;top:0;background:#fff;z-index:-1;opacity:1';
   holder.innerHTML=html;
   document.body.appendChild(holder);
+  const el = holder.firstElementChild;
   try{
-    // pastikan font & layout siap supaya hasil tidak kosong/berantakan
     if(document.fonts && document.fonts.ready){ try{ await Promise.race([document.fonts.ready, new Promise(r=>setTimeout(r,1200))]); }catch(e){} }
     await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+    // Tangkap SELURUH elemen invoice ke canvas (pakai scrollWidth agar tidak ada yang terpotong)
+    const capW = Math.max(el.scrollWidth, el.offsetWidth);
     const worker = html2pdf().set({
-      margin:0, filename:fname,
-      image:{type:'jpeg',quality:0.95},
-      html2canvas:{scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false, width:794, windowWidth:794},
-      jsPDF:{unit:'mm', format:'a4', orientation:'portrait'},
-      pagebreak:{mode:['css','legacy']}
-    }).from(holder.firstElementChild).save();
-    // jangan biarkan UI menggantung: batasi 12 detik lalu fallback ke jendela cetak
-    await Promise.race([ Promise.resolve(worker),
-      new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')), 12000)) ]);
+      html2canvas:{ scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false, width:capW, windowWidth:capW },
+      jsPDF:{ unit:'mm', format:'a4', orientation:'portrait' }
+    }).from(el);
+    const canvas = await worker.toCanvas().get('canvas');
+    // Ambil kelas jsPDF (dari global bundle, atau dari instance worker)
+    let JsPDF = (window.jspdf && window.jspdf.jsPDF) || (window.jsPDF);
+    if(!JsPDF){ const tmp = await worker.toPdf().get('pdf'); JsPDF = tmp.constructor; }
+    const pdf = new JsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
+    const pageW = pdf.internal.pageSize.getWidth();   // 210
+    const pageH = pdf.internal.pageSize.getHeight();  // 297
+    const margin = 10;                                // margin sama di semua sisi
+    const availW = pageW - margin*2, availH = pageH - margin*2;
+    // Skala agar SELURUH invoice muat (lebar & tinggi) — tidak akan pernah terpotong
+    const ratio = Math.min(availW/canvas.width, availH/canvas.height);
+    const imgW = canvas.width*ratio, imgH = canvas.height*ratio;
+    const x = (pageW - imgW)/2;   // di tengah → jarak kiri-kanan sama
+    const y = margin;             // jarak atas = jarak kiri/kanan
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', x, y, imgW, imgH);
+    pdf.save(fname);
     toast('Invoice diunduh','ok');
   }catch(e){
-    invoicePrintWindow(o, html); // selalu berhasil & rapi (bisa Save as PDF)
+    invoicePrintWindow(o, html); // fallback cetak (selalu berhasil & rapi)
   }
   finally{ holder.remove(); setSync(false); }
 }
@@ -4133,9 +4145,8 @@ function invoicePrintWindow(o, html){
   w.document.open();
   w.document.write('<!doctype html><html><head><meta charset="utf-8">'+
     '<title>Invoice '+String(o['ID Order']||'').replace(/[<>&"]/g,'')+'</title>'+
-    '<style>@page{size:A4;margin:0} html,body{margin:0;padding:0;background:#fff}'+
-    '.inv-fit{width:794px;transform-origin:top left}'+
-    '@media print{ .inv-fit{ transform:scale(0.985); } }'+
+    '<style>@page{size:A4;margin:10mm} html,body{margin:0;padding:0;background:#fff}'+
+    '.inv-fit{width:760px;transform:scale(0.93);transform-origin:top left}'+
     '</style>'+
     '</head><body onload="setTimeout(function(){window.focus();window.print();},300)">'+
     '<div class="inv-fit">'+html+'</div></body></html>');
