@@ -1194,10 +1194,14 @@ function waCustomerText(o){
     'Pembayaran Anda dianggap sah jika disertai Invoice Resmi. File PDF invoice akan kami kirimkan setelah Pembayaran LUNAS.\n'+
     'Jika Anda melakukan pembayaran tanpa menerima Invoice, maka transaksi dianggap TIDAK ADA / ILEGAL';
 }
-function waCleanerText(o){
+function waCleanerText(o, selectedName){
   const cab=String(o['Cabang']||'').toUpperCase();
-  const first=String(o['Nama Cleaner']||'').split(',')[0].trim();
-  return 'Halo '+first+', ada tugas baru untukmu! 🧹\n'+
+  const names=String(o['Nama Cleaner']||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const sel=(selectedName && String(selectedName).trim()) ? String(selectedName).trim() : (names[0]||'');
+  const others=names.filter(n=>norm(n)!==norm(sel));
+  const joinDan=a=> a.length<=1 ? a.join('') : (a.slice(0,-1).join(', ')+' dan '+a[a.length-1]);
+  const partnerLine = others.length ? ('Dikerjakan bersama '+joinDan(others)+'\n') : '';
+  return 'Halo '+sel+', ada tugas baru untukmu! 🧹\n'+
     '📄 KLINKLIN '+cab+'\n'+
     '--------------------------------\n'+
     'No. Order : '+(o['ID Order']||'')+'\n'+
@@ -1207,6 +1211,7 @@ function waCleanerText(o){
     'Hari : '+hariId(o['Tanggal Pengerjaan'])+'\n'+
     'Waktu : '+(o['Waktu Pengerjaan']||'')+'\n'+
     'Tanggal : '+tglPanjangId(o['Tanggal Pengerjaan'])+'\n'+
+    partnerLine+
     '--------------------------------\n'+
     'Keterangan Order:\n'+(o['Keterangan Order']||'-')+'\n'+
     'Semangat ya kerjanya! Tolong foto before after jangan lupa.';
@@ -3680,7 +3685,7 @@ function openWa(num, text, who){
 function waCustomer(o){ openWa(o['No WA Customer'], waCustomerText(o), o['Nama Customer']); }
 function sendWaCleaner(o, name){
   const wa=(state.cache.karyawanMap||{})[norm(name)];
-  openWa(wa, waCleanerText(Object.assign({}, o, {'Nama Cleaner':name})), name);
+  openWa(wa, waCleanerText(o, name), name);
 }
 function waCleaner(o, btn){
   const names=String(o['Nama Cleaner']||'').split(',').map(s=>s.trim()).filter(Boolean);
