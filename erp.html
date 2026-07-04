@@ -1442,7 +1442,7 @@ const VIEWS = {
   },
   editOrder:{
     sheet:'ORDER', title:'Edit Order', sub:'', countTop:true, hub:'audit',
-    idField:'ID Order', canEdit:true, special:'order', statusBadge:true, invoice:true,
+    idField:'ID Order', canEdit:true, special:'order', statusBadge:true, invoice:true, revertPending:true,
     statusClient:['done','complete'], statusPrio:['done','complete'], paged:true,
     table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Metode Pembayaran','Nama Cleaner','Total Akhir Setelah Diskon'],
     filters:['Cabang','Status Order'],
@@ -1548,6 +1548,17 @@ VIEWS.kpiCSView = {
 VIEWS.konten = { sheet:null, title:'Konten', sub:'', special:'konten', noSyncBtn:true, inSettings:true };
 VIEWS.suratTDP = { sheet:null, title:'Surat TDP', sub:'', special:'suratTDP', noSyncBtn:true, inSettings:true };
 VIEWS.formCsv = { sheet:null, title:'Contoh Form (CSV)', sub:'', special:'formCsv', noSyncBtn:true, inSettings:true };
+VIEWS.todo = {
+  sheet:'TODO', title:'To Do List', sub:'', inSettings:true, countTop:true, noSyncBtn:true,
+  idField:'id', roleLock:true, canAdd:true, canEdit:true, canDelete:true,
+  table:['Tanggal','Tugas','Status'],
+  search:['Tugas'],
+  form:[
+    f('Tanggal','date',{req:true}),
+    f('Tugas','textarea',{req:true, full:true}),
+    f('Status','select',{opts:['Belum','Proses','Selesai']})
+  ]
+};
 VIEWS.kontenKelola = {
   sheet:'KONTEN', title:'Kelola Konten CS', sub:'', inSettings:true, countTop:true, noSyncBtn:true,
   idField:'id', canAdd:true, canEdit:true, canDelete:true,
@@ -1970,7 +1981,7 @@ function renderShell(){
     '<div class="panel" id="panel"></div>';
   if(v.canAdd) $('#btnAdd').addEventListener('click', ()=>openForm(null));
   document.querySelectorAll('[data-audittab]').forEach(b=>b.addEventListener('click',()=>openAuditTab(b.dataset.audittab)));
-  const bk=$('#btnBackSet'); if(bk) bk.addEventListener('click', renderSettings);
+  const bk=$('#btnBackSet'); if(bk) bk.addEventListener('click', ()=>{ if(state.session && state.session.role==='DESIGNER') renderDesigner(); else renderSettings(); });
   buildToolbar();
 }
 function greetTime(){ const h=new Date().getHours(); return h<11?'pagi':h<15?'siang':h<18?'sore':'malam'; }
@@ -2145,6 +2156,7 @@ async function loadList(force){
     // BONUS tidak punya kolom Cabang → jangan filter cabang di server (akan kosong).
     // Untuk CS, penyaringan cabang dilakukan di klien lewat kode No Order.
     if(v.branchLock && v.sheet!=='BONUS'){ payload.filters={'Cabang':state.session.cabang}; }
+    if(v.roleLock){ payload.filters=Object.assign({}, payload.filters, {'Jabatan':state.session.role}); }
     const r = await api(payload);
     state.rows = trimKeys(r.data || []);
     if(key) state.listCache[key] = state.rows;
@@ -2477,6 +2489,9 @@ function rowActions(v,r){
   if(v.bonusBtn && norm(r['Status Order'])!=='cancel'){
     act += '<button class="btn btn-ghost btn-sm" data-bonusfor="'+esc(oid)+'">'+svg('bonus')+'Input Bonus</button>';
   }
+  if(v.revertPending && norm(r['Status Order'])==='done'){
+    act += '<button class="btn btn-ghost btn-sm" data-topending="'+esc(oid)+'" title="Kembalikan ke pending agar bisa diedit CS">'+svg('edit')+'→ Pending</button>';
+  }
   if(v.canDelete){
     const did=v.idField?esc(r[v.idField]):('#'+state.rows.indexOf(r));
     act+='<button class="act-ic" data-del="'+did+'" title="Hapus" style="color:var(--danger)">✕</button>';
@@ -2484,6 +2499,13 @@ function rowActions(v,r){
   return act;
 }
 function wireRowHandlers(v){
+  document.querySelectorAll('[data-topending]').forEach(b=>b.addEventListener('click',async e=>{ e.stopPropagation();
+    if(!confirm('Kembalikan order ini ke status pending? CS pembuat order bisa mengeditnya lagi.')) return;
+    setSync(true);
+    try{ await api({action:'update', sheet:'ORDER', idField:'ID Order', id:b.dataset.topending, data:{'Status Order':'pending'}});
+      toast('Order dikembalikan ke pending','ok'); invalidateLists(); await loadList(true);
+    }catch(err){ setSync(false); toast('Gagal: '+(err.message||err),'err'); }
+  }));
   document.querySelectorAll('[data-cleaners]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation();
     showCleanerPopup(b, b.dataset.cleaners.split('|'));
   }));
@@ -3575,6 +3597,7 @@ function defaults(v){
     d['PPn']=0; }
   if(v.sheet==='BONUS'){ d['Tanggal Input']=today; }
   if(v.sheet==='GAJI'){ d['Tanggal Cetak']=today; }
+  if(v.sheet==='TODO'){ d['Jabatan']=state.session.role; d['Tanggal']=today; d['Status']='Belum'; }
   return d;
 }
 function renderField(fd, val){
@@ -4365,6 +4388,8 @@ function renderSettings(){
   if(role==='MARKETING') entries.push(
     {key:'kontenKelola', label:'Kelola Konten CS', desc:'Atur gambar & teks Story, Promo, Follow Up untuk CS', icon:'inbox'},
     {key:'formCsv', label:'Contoh Form (CSV)', desc:'Unduh template CSV semua form: header + 1 contoh data', icon:'file'});
+  if(['CEO','FINANCE','MARKETING','DESIGNER','HRD'].indexOf(role)>=0) entries.push(
+    {key:'todo', label:'To Do List', desc:'Daftar tugas & pengingat (muncul saat tanggalnya tiba)', icon:'audit'});
   const entriesHtml = entries.map(e=>
     '<button class="set-row" data-setkey="'+e.key+'">'+
       '<span class="set-ic">'+svg(e.icon)+'</span>'+
@@ -4894,6 +4919,7 @@ async function runLoginPopups(){
   const queue=[];
   if(role==='CS') queue.push(cb=>showCsReminder(cb));
   if(AGENDA_ROLES.includes(role)) queue.push(cb=>agendaShowIfNeeded(cb));
+  if(['CEO','FINANCE','MARKETING','DESIGNER','HRD'].indexOf(role)>=0) queue.push(cb=>todoShow(cb));
   queue.push(cb=>{ annShowPopup(cb); });   // pengumuman selalu jadi antrian terakhir
   runPopupQueue(queue,0);
 }
@@ -4920,6 +4946,23 @@ async function agendaShowIfNeeded(onClose){
 }
 /* dipertahankan untuk kompatibilitas pemanggilan lama */
 function agendaCheck(){ agendaShowIfNeeded(null); }
+async function todoShow(onClose){
+  const role=state.session && state.session.role;
+  if(['CEO','FINANCE','MARKETING','DESIGNER','HRD'].indexOf(role)<0){ if(onClose) onClose(); return; }
+  const today=ymd(new Date());
+  let data=[];
+  try{ const r=await window.sb.from('TODO').select('*').eq('Jabatan',role); data=r.data||[]; }
+  catch(e){ if(onClose) onClose(); return; }
+  const todays=data.filter(t=>parseAnyDate(t['Tanggal'])===today && norm(t['Status'])!=='selesai');
+  if(!todays.length){ if(onClose) onClose(); return; }
+  const ov=$('#remOverlay'); if(!ov){ if(onClose) onClose(); return; }
+  state._remMode='todo'; state._remOnClose = onClose || null;
+  const list=todays.map(t=>'<div class="rem-item">'+esc(t['Tugas']||'')+(t['Status']?(' <span style="color:var(--faint)">('+esc(t['Status'])+')</span>'):'')+'</div>').join('');
+  $('#remBody').innerHTML='<div class="rem-emoji">📝</div><div class="rem-title">To Do List Hari Ini</div><div class="rem-list">'+list+'</div>';
+  $('#remClose').style.display=''; $('#remClose').textContent='Oke';
+  $('#remConfirm').style.display='none'; $('#remMain').style.display='';
+  ov.classList.add('open');
+}
 function showAgendaBlock(needBln, needThn){
   const ov=$('#remOverlay'); if(!ov) return;
   state._remMode='block'; state._remOnClose=null;
@@ -5255,6 +5298,7 @@ function renderDesigner(){
     '<div class="page-head"><div><div class="page-title">Ruang Santai Designer</div>'+
       '<div class="page-sub">Tidak ada tugas di sini — coba tangkap si lalat kalau bisa 😄</div><div class="hairline"></div></div>'+
       '<div class="spacer"></div>'+
+      '<button class="btn btn-ghost" id="btnDesignerTodo">'+svg('audit')+'To Do List</button>'+
       '<button class="btn btn-danger" id="btnDesignerOut">'+svg('logout')+'Keluar</button>'+
     '</div>'+
     '<div class="fly-arena" id="flyArena">'+
@@ -5262,6 +5306,7 @@ function renderDesigner(){
       '<div class="fly" id="fly">'+FLY_SVG+'<span class="fly-label">Tangkap aku!</span></div>'+
     '</div>';
   const out=$('#btnDesignerOut'); if(out) out.addEventListener('click', logout);
+  const td=$('#btnDesignerTodo'); if(td) td.addEventListener('click', ()=>openSettingsView('todo'));
   initFlyGame();
 }
 function initFlyGame(){
