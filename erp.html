@@ -516,9 +516,11 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .kpi-tbl{min-width:560px}
 .kpi-mlist{display:none}
 @media (max-width:560px){
-  .kpi-cs-card .tbl-wrap.kpi-desk{display:none}
+  .tbl-wrap.kpi-desk{display:none}
   .kpi-mlist{display:block;padding:9px 12px 4px}
 }
+.kpi-mrow.kpi-below{border-color:var(--danger);background:rgba(178,58,58,.06)}
+.kpi-mrow.kpi-below .kpi-mname,.kpi-mrow.kpi-below .kpi-mcap{color:var(--danger)}
 .kpi-mrow{border:1px solid var(--line);border-radius:11px;padding:9px 11px;margin-bottom:8px;background:var(--surface)}
 .kpi-mrow-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .kpi-mname{font-size:12.5px;font-weight:700;color:var(--petrol)}
@@ -1325,6 +1327,7 @@ const ORDER_FORM = [
   f('Update Invoice','text',{full:true}),
   f('Alasan Cancel','text',{full:true}),
   f('Bukti Transfer','file',{accept:'image/*'}),
+  f('Bukti Transfer 2','file',{accept:'image/*'}),
   f('Bukti Cancel','file',{accept:'image/*'}),
   f('File Invoice','file',{accept:'image/*,application/pdf'})
 ];
@@ -1622,6 +1625,31 @@ VIEWS.kantor = {
     f('Akhir Sewa','date')
   ]
 };
+VIEWS.chatHarian = {
+  sheet:'CHAT_HARIAN', title:'Chat Harian', sub:'', inSettings:true, countTop:true, noSyncBtn:true,
+  idField:'ID Laporan', canAdd:true, canEdit:true, canDelete:true,
+  sortBy:['Tanggal'],
+  table:['Tanggal','Cabang','Cust Baru Organik','Cust Baru Iklan','Cust Lama','Jumlah Orderan','Telp','SDM'],
+  search:['Cabang','SDM'],
+  filters:['Cabang'],
+  datePreset:true, dateFilterField:'Tanggal',
+  form:[
+    f('Tanggal','date',{req:true}),
+    f('Cabang','select',{opts:CABANG, req:true}),
+    {sec:'Customer Baru & Lama'},
+    f('Cust Baru Organik','num'),
+    f('Cust Baru Iklan','num'),
+    f('Cust Lama','num'),
+    {sec:'Closing'},
+    f('Closing Cust Baru Organik','num'),
+    f('Closing Cust Baru Iklan','num'),
+    f('Closing Cust Lama','num'),
+    {sec:'Lainnya'},
+    f('Jumlah Orderan','num'),
+    f('Telp','num'),
+    f('SDM','text',{help:'Nama SDM/CS yang melaporkan'})
+  ]
+};
 
 const FILTER_OPTS = {
   'Cabang':CABANG, 'Jabatan':JABATAN, 'Status':STATUS_KARYAWAN,
@@ -1644,7 +1672,7 @@ function setApiUrl(u){ /* tidak dipakai lagi — backend = Supabase */ }
    dengan Code.gs, jadi seluruh aplikasi lain tidak perlu diubah)
    ============================================================ */
 const TABLE_ID = { KARYAWAN:'ID Karyawan', GAJI:'ID Slip', ORDER:'ID Order',
-                   BONUS:'ID Insentif', LAYANAN:'ID Layanan' };
+                   BONUS:'ID Insentif', LAYANAN:'ID Layanan', CHAT_HARIAN:'ID Laporan' };
 function nowStr_(){ const d=new Date(), p=n=>String(n).padStart(2,'0');
   return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }
 
@@ -2388,7 +2416,8 @@ function renderTable(){
   if(v.sheet==='ORDER'){
     cardHtml='<div class="card-list order-cards">'+cardRows.map(r=>{
       const oid=r['ID Order']; const st=norm(r['Status Order'])||'pending';
-      const buktiBtn = r['Bukti Transfer'] ? '<button class="btn btn-ghost btn-sm" data-img="'+esc(r['Bukti Transfer'])+'">'+svg('file')+'Lihat Bukti</button>' : '';
+      const buktiBtn = r['Bukti Transfer'] ? '<button class="btn btn-ghost btn-sm" data-img="'+esc(r['Bukti Transfer'])+'">'+svg('file')+'Lihat Bukti</button>'
+        + (r['Bukti Transfer 2'] ? '<button class="btn btn-ghost btn-sm" data-img="'+esc(r['Bukti Transfer 2'])+'">'+svg('file')+'Bukti 2</button>' : '') : '';
       const actInner = buktiBtn + (showAct?rowActions(v,r):'');
       return '<div class="ocard" data-detail="'+esc(oid)+'">'+
         '<div class="ocard-top"><span class="ocard-name">'+esc(r['Nama Customer']||'-')+'</span>'+
@@ -2603,20 +2632,25 @@ function wireRowHandlers(v){
   const all=$('#checkAll'); if(all) all.addEventListener('change',()=>document.querySelectorAll('.rowchk').forEach(c=>c.checked=all.checked));
 }
 async function quickUploadProof(oid){
-  const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*,application/pdf';
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*,application/pdf'; inp.multiple=true;
   inp.addEventListener('change', async ()=>{
-    const file=inp.files[0]; if(!file) return;
+    const files=Array.from(inp.files||[]).slice(0,2); if(!files.length) return;   // maks 2 gambar
     showLoad(true);
-    let up;
+    const urls=[];
     try{
-      const up0=await prepUpload(file);
-      up=await api({action:'uploadFile', base64:up0.base64, mime:up0.mime, name:up0.name});
+      for(const file of files){
+        const up0=await prepUpload(file);
+        const up=await api({action:'uploadFile', base64:up0.base64, mime:up0.mime, name:up0.name});
+        urls.push(up.url);
+      }
     }catch(err){ showLoad(false); toast('Gagal unggah file: '+(err.message||err),'err'); return; }
     try{
-      await api({action:'update', sheet:'ORDER', id:oid, data:{'Bukti Transfer':up.url, 'Status Order':'done'}});
+      const data={'Bukti Transfer':urls[0], 'Status Order':'done'};
+      if(urls[1]) data['Bukti Transfer 2']=urls[1];   // gambar ke-2 (opsional)
+      await api({action:'update', sheet:'ORDER', id:oid, data});
       // Catat waktu upload bukti transfer (best-effort; diabaikan bila kolom belum ada di database).
       try{ await api({action:'update', sheet:'ORDER', id:oid, data:{'Waktu Bukti Transfer':nowStr_()}}); }catch(e){}
-      toast('Bukti transfer terunggah ✓','ok');
+      toast(urls.length>1?'2 bukti transfer terunggah ✓':'Bukti transfer terunggah ✓','ok');
       invalidateLists(); await loadList(true);
     }catch(err){ toast('Gagal simpan order: '+(err.message||err),'err'); }
     finally{ showLoad(false); }
@@ -2631,6 +2665,7 @@ function showOrderDetail(o){
   let b='<div class="detail">';
   b+=row('Status','<span class="badge b-'+st+'"><span class="d"></span>'+st+'</span>');
   b+=row('Cabang', esc(o['Cabang']||'-'));
+  b+=row('Chat Dari', esc(o['Chat Dari']||'-'));
   b+=row('Tanggal Input', esc(fmtTgl(o['Tanggal Input'])));
   b+='<div class="dt-sec">Customer</div>';
   b+=row('Nama', esc(o['Nama Customer']||'-'));
@@ -2651,6 +2686,8 @@ function showOrderDetail(o){
   if(o['Alasan Cancel']) b+=row('Alasan Cancel', esc(o['Alasan Cancel']));
   if(o['Waktu Approve']) b+=row('Waktu Approve', esc(fmtWaktu(o['Waktu Approve'])));
   if(o['Waktu Bukti Transfer']) b+=row('Waktu Upload Bukti', esc(fmtWaktu(o['Waktu Bukti Transfer'])));
+  if(o['Bukti Transfer']) b+=row('Bukti Transfer', '<a href="'+esc(o['Bukti Transfer'])+'" target="_blank" style="color:var(--petrol);font-weight:700;text-decoration:underline">Lihat gambar 1</a>'+
+    (o['Bukti Transfer 2']?' · <a href="'+esc(o['Bukti Transfer 2'])+'" target="_blank" style="color:var(--petrol);font-weight:700;text-decoration:underline">gambar 2</a>':''));
   b+='<div class="dt-sec">Bonus / Insentif</div><div id="dtBonus" class="dt-bonus">Memuat…</div>';
   b+='</div>';
   $('#modalBody').innerHTML=b;
@@ -3454,12 +3491,21 @@ function renderKpiCS(){
     '<td class="r">'+(o.tgtKpi>0?o.tgtKpi.toFixed(0)+'%':'—')+'</td>'+
     '<td class="r"><b>'+o.total.toFixed(0)+'%</b></td></tr>').join('');
   const sortCar = (state.kpiCsSort&&state.kpiCsSort.col==='total')?(state.kpiCsSort.dir>0?' ▲':' ▼'):' ⇅';
-  const summaryTable = '<div class="cap-card"><div class="cap-card-t">Ringkasan Nilai KPI per Cabang</div>'+
-    '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr>'+
+  const sumCards = sumObjs.map(o=>'<div class="kpi-mrow'+(o.below?' kpi-below':'')+'">'+
+    '<div class="kpi-mrow-top"><span class="kpi-mname">'+esc(o.cab)+'</span>'+
+      '<span class="kpi-mcap">Total '+o.total.toFixed(0)+'%</span></div>'+
+    '<div class="kpi-mrow-sub"><span>Omzet: <b>'+rp(o.omzet)+'</b></span>'+
+      '<span>Target KPI: <b>'+(o.tgtKpi>0?o.tgtKpi.toFixed(0)+'%':'—')+'</b></span></div>'+
+  '</div>').join('');
+  const summaryTable = '<div class="cap-card"><div class="cap-card-t" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'+
+      '<span>Ringkasan Nilai KPI per Cabang</span>'+
+      '<button class="btn btn-ghost btn-sm" data-kpicssort="total">Urut Total'+sortCar+'</button></div>'+
+    '<div class="tbl-wrap kpi-desk"><table class="ops-tbl"><thead><tr>'+
       '<th class="l">Cabang</th><th class="r">Omzet</th><th class="r">Target Nilai KPI</th>'+
       '<th class="r rk-sort" data-kpicssort="total">Total Nilai KPI<span class="rk-car">'+sortCar+'</span></th>'+
     '</tr></thead><tbody>'+(sumRows||'<tr><td colspan="4" style="text-align:center;color:var(--faint);padding:12px">Belum ada data</td></tr>')+'</tbody></table></div>'+
-    '<div class="kpi-legend"><span class="kpi-badge k-red">Merah</span> = Belum Capai Mnimal · <span style="color:var(--faint)">Target KPI</span></div>'+
+    '<div class="kpi-mlist">'+(sumCards||'<div style="text-align:center;color:var(--faint);padding:10px">Belum ada data</div>')+'</div>'+
+    '<div class="kpi-legend"><span class="kpi-badge k-red">Merah</span> = Belum Capai Minimal Target KPI</div>'+
   '</div>';
 
   $('#panel').innerHTML =
@@ -4579,6 +4625,10 @@ async function saveForm(){
   if(v.sheet==='GAJI' && !state.editing && !String(data['ID Slip']||'').trim()){
     data['ID Slip']=genId('SLIP');
   }
+  // CHAT_HARIAN: ID Laporan dibuat di sisi klien.
+  if(v.sheet==='CHAT_HARIAN' && !state.editing && !String(data['ID Laporan']||'').trim()){
+    data['ID Laporan']=genId('CH');
+  }
   // Pastikan bonus selalu membawa Cleaner/Customer/Tanggal dari order (agar tampil & terhitung).
   if(v.sheet==='BONUS' && data['No Order']){
     const o=(state.cache.order||[]).find(x=>String(x['ID Order'])===String(data['No Order']));
@@ -4674,6 +4724,7 @@ function renderSettings(){
     {key:'targetOmzet', label:'Target Omzet', desc:'Setting target omzet bulanan tiap cabang', icon:'result'},
     {key:'kantor', label:'Kantor Klinklin', desc:'Data cabang, alamat, status sewa/aset & masa sewa', icon:'inbox'});
   if(role==='CS') entries.push(
+    {key:'chatHarian', label:'Chat Harian', desc:'Laporan chat harian per cabang: customer baru/lama, closing, orderan, telp, SDM', icon:'audit'},
     {key:'konten', label:'Konten', desc:'Link Konten Story, Promo & Follow Up', icon:'inbox'},
     {key:'suratTDP', label:'Surat TDP', desc:'Pembuatan Surat TDP (segera)', icon:'file'});
   if(role==='MARKETING') entries.push(
