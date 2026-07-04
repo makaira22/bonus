@@ -488,6 +488,11 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .ops-tbl th.r,.ops-tbl td.r{text-align:right}
 .ops-tbl .cab-cell{font-weight:700;color:var(--petrol);white-space:nowrap}
 .ops-tbl .ops-total td{font-weight:800;border-top:2px solid var(--line-2);background:var(--surface-2)}
+.ops-tbl th.rk-sort{cursor:pointer;user-select:none;white-space:nowrap}
+.ops-tbl th.rk-sort:hover{color:var(--petrol)}
+.rk-car{font-size:10px;opacity:.55;margin-left:3px}
+.ops-tbl tr.kpi-below td,.ops-tbl tr.kpi-below .cab-cell{color:var(--danger)}
+.ops-tbl tr.rk-orow:hover td{background:var(--surface-2)}
 .grow{font-size:12px;font-weight:700;white-space:nowrap}
 .g-up{color:var(--success)} .g-down{color:var(--danger)} .g-flat{color:var(--muted)}
 .kpi-badge{display:inline-block;font-weight:800;font-size:12.5px;padding:4px 11px;border-radius:16px;color:#fff}
@@ -1475,7 +1480,7 @@ VIEWS.laporanOmzet = {
 };
 VIEWS.reportKPI = {
   sheet:'ORDER', title:'Report KPI', sub:'', special:'reportKPI', countTop:true, noSyncBtn:true,
-  monthFilter:true, monthField:'Tanggal Pengerjaan', filters:['Cabang','Status Order']
+  datePreset:true, dateRange:true, dateFilterField:'Tanggal Pengerjaan', filters:['Cabang','Status Order']
 };
 VIEWS.kpiCS = {
   sheet:'ORDER', title:'KPI CS', sub:'', special:'kpiCS', countTop:true, noSyncBtn:true,
@@ -2168,9 +2173,10 @@ async function loadList(force){
       }catch(e){ state.cache.karyawanMap={}; }
     }
     refreshDynFilters();
-    if(v.special==='reportKPI') await loadTargets();
+    if(v.special==='reportKPI'){ await loadTargets(); state.rkSort=null; state.rkOrderPage=0; }
     if(v.special==='capaian') await loadTargets();
     if(v.special==='kpiCS' || v.special==='capaian') await loadKpiCfg();
+    if(v.special==='kpiCS'){ await loadTargets(); state.kpiCsSort=null; }
     if(v.special==='dashboard') await loadDashData();
     renderView();
     syncDone(state.rows.length);
@@ -3097,54 +3103,133 @@ function renderLaporanOmzet(){
 function renderReportKPI(){
   const base=opsBaseRows();
   const targets=state.cache.targets||{};
-  const ym = state.kpiMonth || ymd(new Date()).slice(0,7);
-  state.kpiMonth = ym;
-  const cur=calMonthBounds(ym), prev=calMonthBounds(prevCalMonth(ym));
+  const todayYmd = ymd(new Date());
+  // Periode dari filter tanggal (rentang / hari / preset). Default: bulan berjalan tgl 1 s/d hari ini.
+  let cur;
+  if(state.dateStart || state.dateEnd){
+    const s = state.dateStart || state.dateEnd;
+    const e = state.dateEnd   || state.dateStart;
+    cur = { start:(s<=e?s:e), end:(s<=e?e:s) };
+  } else {
+    const cmb=calMonthBounds(todayYmd.slice(0,7));
+    cur = { start: cmb.start, end: todayYmd };
+  }
+  // Pembanding: rentang yang SAMA digeser mundur 1 bulan (mis. 1–10 Jul → 1–10 Jun)
+  const backM=s=>{ const d=parseDate_(s); const lastPrev=new Date(d.getFullYear(), d.getMonth(), 0).getDate();
+    return ymd(new Date(d.getFullYear(), d.getMonth()-1, Math.min(d.getDate(), lastPrev))); };
+  const prev = { start: backM(cur.start), end: backM(cur.end) };
   const pStart=cur.start, pEnd=cur.end;
-  // proporsi hari berjalan dalam bulan kalender (untuk "target aman")
-  const today=ymd(new Date());
-  const total=Math.max(1,(new Date(pEnd)-new Date(pStart))/86400000+1);
-  const elapsedRaw=(new Date(Math.min(new Date(today),new Date(pEnd)))-new Date(pStart))/86400000+1;
-  const elapsed=Math.min(total,Math.max(0,elapsedRaw));
-  const safePct=Math.round(elapsed/total*100);
+  // "Target aman": proporsi lama rentang terhadap jumlah hari di bulan rentang tsb
+  const dim = calMonthBounds(pStart.slice(0,7));
+  const daysInMonth = Math.max(1,(new Date(dim.end)-new Date(dim.start))/86400000+1);
+  const rangeDays = Math.max(1,(new Date(pEnd)-new Date(pStart))/86400000+1);
+  const safePct = Math.min(100, Math.round(rangeDays/daysInMonth*100));
   const cabs=opsCabangList();
 
-  const rowsHtml=cabs.map(cab=>{
+  let objs = cabs.map(cab=>{
     const rc=base.filter(r=>cabangOf(r)===cab);
     const ach=rc.filter(r=>inRange(r['Tanggal Pengerjaan'],pStart,pEnd)).reduce((s,r)=>s+omzetOf_(r),0);
     const pv =rc.filter(r=>inRange(r['Tanggal Pengerjaan'],prev.start,prev.end)).reduce((s,r)=>s+omzetOf_(r),0);
     const tgt=targets[cab]||0;
     const kpi = tgt>0 ? (ach/tgt*100) : 0;
-    // warna: >= target aman → hijau; sampai kurang 30% dari target aman → kuning; di bawah → merah
     let cls='k-red';
     if(tgt<=0) cls='k-none';
     else if(kpi>=safePct) cls='k-green';
     else if(kpi>=safePct-30) cls='k-yellow';
     const growth = pv>0 ? ((ach-pv)/pv*100) : (ach>0?100:0);
-    const gcls = ach-pv>=0?'g-up':'g-down';
+    return {cab, ach, pv, tgt, kpi, cls, growth, hasT:tgt>0};
+  });
+  // Urutkan sesuai kolom yang diklik
+  if(state.rkSort && state.rkSort.col){
+    const c=state.rkSort.col, dir=state.rkSort.dir;
+    objs.sort((a,b)=>(a[c]-b[c])*dir);
+  }
+  const rowsHtml = objs.map(o=>{
+    const gcls = o.ach-o.pv>=0?'g-up':'g-down';
     return '<tr>'+
-      '<td class="cab-cell l">'+esc(cab)+'</td>'+
+      '<td class="cab-cell l">'+esc(o.cab)+'</td>'+
       '<td class="c">'+safePct+'%</td>'+
-      '<td class="c"><span class="kpi-badge '+cls+'">'+(tgt>0?kpi.toFixed(1)+'%':'—')+'</span></td>'+
-      '<td class="grow '+gcls+' c">'+(ach-pv>=0?'+':'−')+Math.abs(growth).toFixed(1)+'%</td>'+
-      '<td class="money">'+rp(tgt)+'</td>'+
-      '<td class="money">'+rp(ach)+'</td></tr>';
+      '<td class="c"><span class="kpi-badge '+o.cls+'">'+(o.hasT?o.kpi.toFixed(1)+'%':'—')+'</span></td>'+
+      '<td class="grow '+gcls+' c">'+(o.ach-o.pv>=0?'+':'−')+Math.abs(o.growth).toFixed(1)+'%</td>'+
+      '<td class="money">'+rp(o.ach)+'</td>'+
+      '<td class="money">'+rp(o.tgt)+'</td></tr>';
   }).join('');
 
-  const periodeLbl = monthLabel(ym);
+  const th=(label,col,cls)=>{
+    const s=state.rkSort||{}; const on=s.col===col;
+    const car=on?(s.dir>0?' ▲':' ▼'):' ⇅';
+    return '<th class="'+(cls||'')+' rk-sort" data-rksort="'+col+'">'+label+'<span class="rk-car">'+car+'</span></th>';
+  };
   const hasTarget=Object.keys(targets).length>0;
   $('#panel').innerHTML =
-    '<div class="ops-note">Periode: <b>'+esc(periodeLbl)+'</b> · Target aman hari ini: <b>'+safePct+'%</b>'+
+    '<div class="ops-note">Periode: <b>'+esc(tglPanjangId(cur.start)+' – '+tglPanjangId(cur.end))+'</b> · Pembanding (−1 bulan): <b>'+esc(tglPanjangId(prev.start)+' – '+tglPanjangId(prev.end))+'</b> · Target aman: <b>'+safePct+'%</b>'+
       (hasTarget?'':' · <span style="color:var(--danger)">Target omzet belum diatur (Pengaturan → Target Omzet)</span>')+'</div>'+
     '<div class="cap-card"><div class="cap-card-t">KPI Omzet per Cabang</div>'+
       '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr>'+
-        '<th class="l">Cabang</th><th class="c">Target Aman</th><th class="c">KPI Omzet</th><th class="c">Growth</th><th class="r">Target Omzet</th><th class="r">Omzet Dicapai</th>'+
+        '<th class="l">Cabang</th><th class="c">Target Aman</th>'+
+        th('KPI Omzet','kpi','c')+th('Growth','growth','c')+th('Omzet Dicapai','ach','r')+th('Target Omzet','tgt','r')+
       '</tr></thead><tbody>'+rowsHtml+'</tbody></table></div>'+
       '<div class="kpi-legend"><span class="kpi-badge k-green">Hijau</span> di atas target aman · '+
         '<span class="kpi-badge k-yellow">Kuning</span> kurang s/d 30% · '+
-        '<span class="kpi-badge k-red">Merah</span> di bawah itu</div>'+
-    '</div>';
+        '<span class="kpi-badge k-red">Merah</span> di bawah itu · <span style="color:var(--faint)">klik judul kolom untuk mengurutkan</span></div>'+
+    '</div>'+
+    '<div class="cap-card"><div class="cap-card-t">Semua Order (dibuat CS · semua cabang · semua status)</div>'+
+      '<div id="rkOrders"></div></div>';
+  // handler sort kolom
+  document.querySelectorAll('[data-rksort]').forEach(t=>t.addEventListener('click',()=>{
+    const col=t.dataset.rksort; const s=state.rkSort||{};
+    state.rkSort = (s.col===col) ? {col, dir:-s.dir} : {col, dir:-1}; // klik pertama: terbesar→terkecil
+    renderReportKPI();
+  }));
+  renderRkOrders();
   setCount(cabs.length, 'cabang');
+}
+/* Daftar semua order (semua cabang & status) di bawah Report KPI — hanya detail saat diklik. */
+function renderRkOrders(){
+  const box=$('#rkOrders'); if(!box) return;
+  let rows=state.rows.slice();
+  rows.sort((a,b)=>{ const da=parseAnyDate(a['Tanggal Pengerjaan'])||parseAnyDate(a['Tanggal Input'])||'';
+    const db=parseAnyDate(b['Tanggal Pengerjaan'])||parseAnyDate(b['Tanggal Input'])||''; return da<db?1:(da>db?-1:0); });
+  const PAGE=10; const total=rows.length;
+  if(state.rkOrderPage==null) state.rkOrderPage=0;
+  const maxPage=Math.max(0,Math.ceil(total/PAGE)-1);
+  if(state.rkOrderPage>maxPage) state.rkOrderPage=maxPage; if(state.rkOrderPage<0) state.rkOrderPage=0;
+  const pageRows=rows.slice(state.rkOrderPage*PAGE,(state.rkOrderPage+1)*PAGE);
+  const cardRows=rows.slice(0,(state.rkOrderPage+1)*PAGE);
+  const trs=pageRows.map(r=>{ const st=norm(r['Status Order'])||'pending';
+    return '<tr class="rk-orow" data-rkdetail="'+esc(r['ID Order'])+'" style="cursor:pointer">'+
+      '<td class="l">'+esc(r['ID Order']||'-')+'</td>'+
+      '<td class="l">'+esc(r['Cabang']||cabangOf(r)||'-')+'</td>'+
+      '<td class="c"><span class="badge b-'+st+'"><span class="d"></span>'+st+'</span></td>'+
+      '<td class="l">'+esc(r['Nama Customer']||'-')+'</td>'+
+      '<td class="l">'+esc(tglPanjangId(r['Tanggal Pengerjaan'])||'-')+'</td>'+
+      '<td class="money">'+rp(r['Total Akhir Setelah Diskon']||r['Total Akhir']||0)+'</td></tr>';
+  }).join('');
+  const tbl='<div class="tbl-wrap desk-only"><table class="ops-tbl"><thead><tr>'+
+    '<th class="l">ID Order</th><th class="l">Cabang</th><th class="c">Status</th><th class="l">Customer</th><th class="l">Tanggal Pengerjaan</th><th class="r">Total</th>'+
+    '</tr></thead><tbody>'+(trs||'<tr><td colspan="6" style="text-align:center;color:var(--faint);padding:14px">Tidak ada order</td></tr>')+'</tbody></table></div>';
+  const pager= total>PAGE ? '<div class="pager desk-only"><button class="btn btn-ghost btn-sm" id="rkPrev"'+(state.rkOrderPage<=0?' disabled':'')+'>‹ Sebelumnya</button>'+
+    '<span class="pager-info">'+(state.rkOrderPage*PAGE+1)+'–'+Math.min(total,(state.rkOrderPage+1)*PAGE)+' dari '+total+'</span>'+
+    '<button class="btn btn-ghost btn-sm" id="rkNext"'+(state.rkOrderPage>=maxPage?' disabled':'')+'>Selanjutnya ›</button></div>' : '';
+  const cards='<div class="card-list order-cards">'+cardRows.map(r=>{ const st=norm(r['Status Order'])||'pending';
+    return '<div class="ocard" data-rkdetail="'+esc(r['ID Order'])+'">'+
+      '<div class="ocard-top"><span class="ocard-name">'+esc(r['Nama Customer']||'-')+'</span>'+
+        '<span class="badge b-'+st+'"><span class="d"></span>'+st+'</span></div>'+
+      '<div class="ocard-meta">'+svg('result')+'<span>'+esc(tglHariId(r['Tanggal Pengerjaan']))+'</span>'+
+        (r['Cabang']?'<span class="pay-chip">'+esc(r['Cabang'])+'</span>':'')+'</div>'+
+      '<div class="ocard-meta sub"><span>'+esc(rp(r['Total Akhir Setelah Diskon']||r['Total Akhir']||0))+'</span>'+
+        '<span style="color:var(--faint)"> · '+esc(r['ID Order']||'')+'</span></div>'+
+    '</div>';
+  }).join('')+'</div>';
+  const more= cardRows.length<total ? '<button class="btn btn-ghost load-more" id="rkMore">Muat lebih banyak ('+cardRows.length+'/'+total+')</button>' : '';
+  box.innerHTML=tbl+pager+cards+more;
+  const p=$('#rkPrev'),n=$('#rkNext'),m=$('#rkMore');
+  if(p)p.addEventListener('click',()=>{state.rkOrderPage=Math.max(0,(state.rkOrderPage||0)-1);renderRkOrders();});
+  if(n)n.addEventListener('click',()=>{state.rkOrderPage=(state.rkOrderPage||0)+1;renderRkOrders();});
+  if(m)m.addEventListener('click',()=>{state.rkOrderPage=(state.rkOrderPage||0)+1;renderRkOrders();});
+  box.querySelectorAll('[data-rkdetail]').forEach(el=>el.addEventListener('click',()=>{
+    const o=state.rows.find(x=>String(x['ID Order'])===el.dataset.rkdetail); if(o) showOrderDetail(o);
+  }));
 }
 
 /* ---------- KPI CS ---------- */
@@ -3259,12 +3344,42 @@ function renderKpiCS(){
     '</div>';
   }).join('');
 
+  // Ringkasan otomatis per cabang (di atas kartu KPI): Cabang · Omzet · Target Nilai KPI · Total Nilai KPI
+  let sumObjs = cabs.map(cab=>{
+    const c = cfg[cab+'|'+ym] || {};
+    const omzet = kpiOmzet(cab, ym);
+    const tgtKpi = num(c['Target Nilai KPI']);
+    const total = kpiTotalFor(cab, ym);
+    return {cab, omzet, tgtKpi, total, below: tgtKpi>0 && total<tgtKpi};
+  });
+  if(state.kpiCsSort && state.kpiCsSort.col==='total'){
+    sumObjs.sort((a,b)=>(a.total-b.total)*state.kpiCsSort.dir);
+  }
+  const sumRows = sumObjs.map(o=>'<tr'+(o.below?' class="kpi-below"':'')+'>'+
+    '<td class="cab-cell l">'+esc(o.cab)+'</td>'+
+    '<td class="money">'+rp(o.omzet)+'</td>'+
+    '<td class="r">'+(o.tgtKpi>0?o.tgtKpi.toFixed(0)+'%':'—')+'</td>'+
+    '<td class="r"><b>'+o.total.toFixed(0)+'%</b></td></tr>').join('');
+  const sortCar = (state.kpiCsSort&&state.kpiCsSort.col==='total')?(state.kpiCsSort.dir>0?' ▲':' ▼'):' ⇅';
+  const summaryTable = '<div class="cap-card"><div class="cap-card-t">Ringkasan Nilai KPI per Cabang</div>'+
+    '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr>'+
+      '<th class="l">Cabang</th><th class="r">Omzet</th><th class="r">Target Nilai KPI</th>'+
+      '<th class="r rk-sort" data-kpicssort="total">Total Nilai KPI<span class="rk-car">'+sortCar+'</span></th>'+
+    '</tr></thead><tbody>'+(sumRows||'<tr><td colspan="4" style="text-align:center;color:var(--faint);padding:12px">Belum ada data</td></tr>')+'</tbody></table></div>'+
+    '<div class="kpi-legend"><span class="kpi-badge k-red">Merah</span> = cabang belum capai Target Nilai KPI · <span style="color:var(--faint)">klik "Total Nilai KPI" untuk urutkan</span></div>'+
+  '</div>';
+
   $('#panel').innerHTML =
+    summaryTable +
     '<div class="ops-note">Update KPI Oleh Operasional'+
       (isOps?' — bulan <b>'+esc(monthLbl)+'</b>. Nilai <b>Omzet</b> otomatis dari order; metrik lain & strategi diisi lewat tombol <b>Atur</b>.'
             :' — bulan <b>'+esc(monthLbl)+'</b>.')+'</div>'+
     (cards || emptyState('Belum ada cabang'));
   document.querySelectorAll('[data-kpiedit]').forEach(b=>b.addEventListener('click',()=>editKpiCS(b.dataset.kpiedit)));
+  document.querySelectorAll('[data-kpicssort]').forEach(t=>t.addEventListener('click',()=>{
+    const s=state.kpiCsSort||{}; state.kpiCsSort = (s.col==='total') ? {col:'total', dir:-s.dir} : {col:'total', dir:1};
+    renderKpiCS();
+  }));
   setCount(cabs.length,'cabang');
 }
 function editKpiCS(cab){
