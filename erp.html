@@ -840,6 +840,15 @@ td.c-green, td.c-red, td.c-orange, td.c-blue{font-weight:700}
 .det-tbl .detcell .dc-v{display:block;font-size:12px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--ink)}
 .det-tbl .detcell .dc-0{color:var(--faint)}
 .det-tbl .detcell.dc-total{background:var(--surface-2)}
+.cap-grow{margin-top:6px;display:flex;flex-wrap:wrap}
+.cap-grow .grow{white-space:normal;font-size:13px;line-height:1.35}
+.det-tbl td.dc-hiV{background:rgba(35,150,90,.13)}
+.det-tbl td.dc-loV{background:rgba(200,60,60,.11)}
+.dc-mk{font-size:9px;font-weight:800;vertical-align:middle}
+.dc-mk.up{color:var(--success)} .dc-mk.dn{color:var(--warn)}
+.det-legend{margin-top:10px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
+.dc-swatch{display:inline-block;width:13px;height:13px;border-radius:3px;vertical-align:middle}
+.dc-swatch.dc-hiV{background:rgba(35,150,90,.13)} .dc-swatch.dc-loV{background:rgba(200,60,60,.11)}
 .det-tbl .det-cabcol{position:sticky;left:0;z-index:1;background:var(--surface);box-shadow:1px 0 0 var(--line)}
 .det-tbl .ops-total .det-cabcol{background:var(--surface-2)}
 
@@ -3066,10 +3075,23 @@ function renderLaporanOmzet(){
   const colTot={}; detLays.forEach(l=>colTot[l]={n:0,val:0}); let grandN=0, grandVal=0;
   const detBodyRows=cabs.map(cab=>{
     let rowN=0, rowVal=0;
+    // max/min per baris (hanya layanan yang ada transaksinya)
+    const nz = detLays.map(l=>detMatrix[cab][l]).filter(Boolean);
+    const multi = nz.length>=2;
+    const maxN = multi?Math.max.apply(null,nz.map(c=>c.n)):-1;
+    const minN = multi?Math.min.apply(null,nz.map(c=>c.n)):-1;
+    const maxV = multi?Math.max.apply(null,nz.map(c=>c.val)):-1;
+    const minV = multi?Math.min.apply(null,nz.map(c=>c.val)):-1;
     const cells=detLays.map(l=>{
       const c=detMatrix[cab][l];
-      if(c){ rowN+=c.n; rowVal+=c.val; colTot[l].n+=c.n; colTot[l].val+=c.val; }
-      return '<td class="detcell">'+(c?('<span class="dc-n">'+c.n+' trx</span><span class="dc-v">'+rp(c.val)+'</span>'):'<span class="dc-0">—</span>')+'</td>';
+      if(!c) return '<td class="detcell"><span class="dc-0">—</span></td>';
+      rowN+=c.n; rowVal+=c.val; colTot[l].n+=c.n; colTot[l].val+=c.val;
+      let cls='detcell';
+      if(multi && c.val===maxV) cls+=' dc-hiV';
+      else if(multi && c.val===minV) cls+=' dc-loV';
+      const nMark = multi ? (c.n===maxN?' <span class="dc-mk up" title="Transaksi terbanyak">▲</span>'
+                          : (c.n===minN?' <span class="dc-mk dn" title="Transaksi tersedikit">▼</span>':'')) : '';
+      return '<td class="'+cls+'"><span class="dc-n">'+c.n+' trx'+nMark+'</span><span class="dc-v">'+rp(c.val)+'</span></td>';
     }).join('');
     grandN+=rowN; grandVal+=rowVal;
     return '<tr><td class="cab-cell l det-cabcol">'+esc(cab)+'</td>'+cells+
@@ -3082,10 +3104,15 @@ function renderLaporanOmzet(){
   const detLbl = useRange ? (tglPanjangId(dStart)+' – '+tglPanjangId(dEnd)) : periodeLbl;
 
   const stat=(l,val)=>'<div class="cap-stat"><div class="cap-stat-l">'+l+'</div><div class="cap-stat-v">'+val+'</div></div>';
+  // Jumlah order cancel pada periode & cabang terpilih (independen dari filter status)
+  const cancelCount = state.rows.filter(r=> cabs.indexOf(cabangOf(r))>-1
+      && norm(r['Status Order'])==='cancel'
+      && inRange(r['Tanggal Pengerjaan'],cur.start,cur.end)).length;
+  const growStat = '<div class="cap-stat"><div class="cap-stat-l">Growth vs periode lalu</div>'+
+    '<div class="cap-grow">'+growthHTML(totNow,totPrev)+'</div></div>';
   $('#panel').innerHTML =
     '<div class="ops-note">Periode: <b>'+esc(tglPanjangId(cur.start)+' – '+tglPanjangId(cur.end))+'</b> vs Periode Sebelumnya (−1 bulan): <b>'+esc(tglPanjangId(prev.start)+' – '+tglPanjangId(prev.end))+'</b><br>Berdasarkan Tanggal Pengerjaan · semua status kecuali cancel'+(state.filters['Status Order']?(' · filter: '+esc(state.filters['Status Order'])):'')+'</div>'+
-    '<div class="cap-stats">'+stat('Omzet Periode Ini',rp(totNow))+stat('Omzet Periode Lalu',rp(totPrev))+stat('Growth','')+'</div>'+
-    '<div class="grow-line">'+growthHTML(totNow,totPrev)+'</div>'+
+    '<div class="cap-stats cap-stats-4">'+stat('Omzet Periode Ini',rp(totNow))+stat('Omzet Periode Lalu',rp(totPrev))+growStat+stat('Jumlah Cancel',cancelCount+' order')+'</div>'+
     '<div class="cap-card"><div class="cap-card-t">Omzet per Cabang</div>'+
       '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr>'+
         '<th class="l">Cabang</th><th class="r">Periode Ini</th><th class="r">Periode Lalu</th><th class="l">Growth</th><th class="l">Terakhir Update</th><th class="r">Ads</th><th class="r">Organik</th><th class="r">Lama</th>'+
@@ -3100,7 +3127,11 @@ function renderLaporanOmzet(){
         '</tr></thead><tbody>'+detBodyRows+
           '<tr class="ops-total"><td class="l det-cabcol">TOTAL</td>'+detFootCols+
             '<td class="detcell dc-total"><span class="dc-n">'+grandN+' trx</span><span class="dc-v">'+rp(grandVal)+'</span></td></tr>'+
-        '</tbody></table></div>'
+        '</tbody></table></div>'+
+        '<div class="kpi-legend det-legend"><span class="dc-swatch dc-hiV"></span> Omzet tertinggi · '+
+          '<span class="dc-swatch dc-loV"></span> Omzet terendah · '+
+          '<span class="dc-mk up">▲</span> transaksi terbanyak · '+
+          '<span class="dc-mk dn">▼</span> transaksi tersedikit <span style="color:var(--faint)">(per cabang)</span></div>'
       : '<div class="cap-empty">Tidak ada transaksi pada periode ini.</div>')+
     '</div>';
   setCount(base.filter(r=>inRange(r['Tanggal Pengerjaan'],cur.start,cur.end)).length, 'order');
