@@ -2456,7 +2456,7 @@ function renderTable(){
   // Kartu ringkas untuk KARYAWAN (tampil di HP): nama, jabatan, status, cabang
   if(v.sheet==='KARYAWAN'){
     cardHtml='<div class="card-list kar-cards">'+rows.map(r=>{
-      const kid=v.idField?esc(r[v.idField]):('#'+state.rows.indexOf(r));
+      const kid=(v.idField && r[v.idField]!=null && String(r[v.idField]).trim()!=='')?esc(r[v.idField]):('#'+state.rows.indexOf(r));
       const foto=r['Foto Profil'];
       const av = foto ? '<img class="kar-ava" src="'+esc(foto)+'" alt="">'
                       : '<span class="kar-ava kar-ava-ph">'+esc(String(r['Nama Lengkap']||'?').trim().charAt(0).toUpperCase())+'</span>';
@@ -2465,6 +2465,7 @@ function renderTable(){
           '<div class="kar-info"><span class="ocard-name">'+esc(r['Nama Lengkap']||'-')+'</span>'+
             '<span class="kar-role">'+esc(r['Jabatan']||'-')+'</span></div>'+
           (v.canEdit?'<button class="act-ic" data-edit="'+kid+'" title="Edit">'+svg('edit')+'</button>':'')+
+          (v.canDelete?'<button class="act-ic" data-del="'+kid+'" title="Hapus" style="color:var(--danger)">✕</button>':'')+
         '</div>'+
         '<div class="kar-tags">'+
           (r['Status']?'<span class="kar-tag">'+esc(r['Status'])+'</span>':'')+
@@ -4655,6 +4656,10 @@ async function saveForm(){
   // CHAT_HARIAN: ID Laporan dibuat di sisi klien.
   if(v.sheet==='CHAT_HARIAN' && !state.editing && !String(data['ID Laporan']||'').trim()){
     data['ID Laporan']=genId('CH');
+  }
+  // KARYAWAN: ID Karyawan NOT NULL tanpa default → buat di sisi klien.
+  if(v.sheet==='KARYAWAN' && !state.editing && !String(data['ID Karyawan']||'').trim()){
+    data['ID Karyawan']=genId('KRY');
   }
   // Pastikan bonus selalu membawa Cleaner/Customer/Tanggal dari order (agar tampil & terhitung).
   if(v.sheet==='BONUS' && data['No Order']){
