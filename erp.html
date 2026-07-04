@@ -843,6 +843,12 @@ td.c-green, td.c-red, td.c-orange, td.c-blue{font-weight:700}
   font-size:12px;font-weight:800;color:var(--gold-deep);text-align:center;cursor:pointer;background:none}
 .ann-more:hover{text-decoration:underline}
 .ann-item.ann-hid{display:none}
+.ann-2col{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ann-link{display:inline-flex;align-items:center;gap:5px;margin-top:6px;padding:5px 11px;border-radius:9px;
+  background:var(--petrol);color:#fff;font-size:12px;font-weight:700;text-decoration:none}
+.ann-link:hover{opacity:.9}
+.ann-exp{display:block;margin-top:4px;font-size:10.5px;color:var(--faint)}
+.annpop-card .ann-link{margin-top:8px}
 
 /* Sembunyikan field tertentu pada form (nilai tetap tersimpan otomatis) */
 .field.form-hidden{display:none!important}
@@ -1884,6 +1890,7 @@ function enterApp(){
   startClock();
   loadKantor();
   initChat();
+  resolveNamaLengkap();
   runLoginPopups();
   document.body.classList.toggle('is-designer', s.role==='DESIGNER');
   if(!MENUS[s.role].length){ renderDesigner(); return; }
@@ -1967,13 +1974,30 @@ function renderShell(){
   buildToolbar();
 }
 function greetTime(){ const h=new Date().getHours(); return h<11?'pagi':h<15?'siang':h<18?'sore':'malam'; }
+async function resolveNamaLengkap(){
+  const s=state.session; if(!s) return;
+  try{
+    const r=await window.sb.from('KARYAWAN').select('*');
+    const rows=r.data||[];
+    const jab=norm(s.jabatan||s.role), cab=norm(s.cabang), st=norm(s.status);
+    const nm=k=>k['Nama Lengkap']||k['Nama']||k['Nama Karyawan']||'';
+    let m = rows.find(k=>norm(k['Jabatan'])===jab && norm(k['Cabang'])===cab && (st?norm(k['Status'])===st:true) && nm(k));
+    if(!m) m = rows.find(k=>norm(k['Jabatan'])===jab && norm(k['Cabang'])===cab && nm(k));
+    if(!m) m = rows.find(k=>norm(k['Jabatan'])===jab && nm(k));
+    if(m && nm(m)){
+      s.namaLengkap = nm(m);
+      try{ localStorage.setItem('klinklin_session', JSON.stringify(s)); }catch(e){}
+      const el=document.getElementById('greetName'); if(el) el.textContent=s.namaLengkap;
+    }
+  }catch(e){}
+}
 function greetingHTML(){
   const s=state.session||{};
   const bits=[s.jabatan||'', s.cabang||'', s.status||''].filter(Boolean).join(' · ');
   const td=ymd(new Date());
   return '<div class="greet">'+
     '<div class="greet-txt">'+
-      '<div class="greet-hi">Selamat '+greetTime()+', <b>'+esc(s.nama||'')+'</b></div>'+
+      '<div class="greet-hi">Selamat '+greetTime()+', <b id="greetName">'+esc(s.namaLengkap||s.nama||'')+'</b></div>'+
       (bits?'<div class="greet-sub">'+esc(bits)+'</div>':'')+
     '</div>'+
     '<div class="greet-date">'+
@@ -4474,7 +4498,7 @@ async function chatUpdateBadge(){
   if(!state._chatAll) await chatFetchAll();
   let n=chatConversations().reduce((s,c)=>s+c.unread,0);
   const seenAnn=annPopSeen();
-  n += (state._chatAll||[]).filter(m=>m.kind==='announce' && chatIsForMe(m) && (m.created_at||'')>seenAnn).length;
+  n += (state._chatAll||[]).filter(m=>m.kind==='announce' && chatIsForMe(m) && annActive(m) && (m.created_at||'')>seenAnn).length;
   const b=$('#chatBadge');
   if(b){ b.textContent=n>9?'9+':String(n); b.style.display=n>0?'grid':'none'; }
 }
@@ -4518,15 +4542,19 @@ function chatBarsToThread(){
   const inp=$('#chatInput'); if(inp) inp.style.display='';
 }
 function chatInboxHTML(){
-  const allAnns=(state._chatAll||[]).filter(m=>m.kind==='announce' && chatIsForMe(m))
+  const allAnns=(state._chatAll||[]).filter(m=>m.kind==='announce' && chatIsForMe(m) && annActive(m))
     .sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||'')); // terbaru di atas
   let annHtml='';
   if(allAnns.length){
     const expand=!!state._annExpand;
     const visN = expand ? allAnns.length : Math.min(2, allAnns.length);
-    const items=allAnns.map((a,i)=>'<div class="ann-item'+(i>=visN?' ann-hid':'')+'">'+
-      '<span class="ann-from">'+esc(chatName(a.from_role,a.from_cabang))+' · '+esc((a.created_at||'').replace('T',' ').slice(0,16))+'</span>'+
-      esc(a.message||'')+'</div>').join('');
+    const items=allAnns.map((a,i)=>{
+      const link = a.link_url ? '<a class="ann-link" href="'+esc(annLinkFix(a.link_url))+'" target="_blank" rel="noopener">'+esc(a.link_label||'Buka Link')+'</a>' : '';
+      const exp = a.end_at ? '<span class="ann-exp">s/d '+esc(String(a.end_at).replace('T',' ').slice(0,16))+'</span>' : '';
+      return '<div class="ann-item'+(i>=visN?' ann-hid':'')+'">'+
+        '<span class="ann-from">'+esc(chatName(a.from_role,a.from_cabang))+' · '+esc((a.created_at||'').replace('T',' ').slice(0,16))+'</span>'+
+        esc(a.message||'')+link+exp+'</div>';
+    }).join('');
     const moreBtn = allAnns.length>2
       ? '<button class="ann-more" id="annMoreBtn">'+(expand?'Sembunyikan':('Lihat '+(allAnns.length-2)+' pengumuman lainnya'))+'</button>'
       : '';
@@ -4593,17 +4621,41 @@ async function chatSend(){
   catch(e){ toast('Gagal kirim pesan: '+(e.message||e),'err'); }
 }
 /* Pengumuman */
+function localISO(d){ d=d||new Date(); const p=n=>String(n).padStart(2,'0');
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes()); }
+function annActive(m){
+  if(!m || m.kind!=='announce') return true;
+  const now=localISO();
+  if(m.start_at && now < String(m.start_at).slice(0,16)) return false;
+  if(m.end_at && now > String(m.end_at).slice(0,16)) return false;
+  return true;
+}
+function annLinkFix(u){ u=String(u||'').trim(); if(!u) return ''; return /^https?:\/\//i.test(u)?u:('https://'+u); }
+async function chatAnnCleanup(){
+  try{ await window.sb.from('CHAT').delete().eq('kind','announce').lt('end_at', localISO()); }catch(e){}
+}
 function chatOpenAnnounce(){
   const body=$('#chatBody'); if(!body) return;
   $('#chatInput').style.display='none';
   const roleOpts=['<option value="ALL">Semua Jabatan</option>']
     .concat(CHAT_ROLES.map(r=>'<option value="'+r+'">'+r+'</option>')).join('');
   const cabOpts=['<option value="">Semua CS</option>'].concat(CABANG.filter(c=>c!=='OFFICE').map(c=>'<option>'+c+'</option>')).join('');
+  const today=ymd(new Date());
   body.innerHTML='<div class="ann-form">'+
     '<div class="ann-form-t">📢 Buat Pengumuman</div>'+
     '<div class="field"><label>Tujuan</label><select id="annTarget">'+roleOpts+'</select></div>'+
     '<div class="field" id="annCabWrap" style="display:none"><label>CS Cabang</label><select id="annCab">'+cabOpts+'</select></div>'+
     '<div class="field"><label>Pesan</label><textarea id="annMsg" placeholder="Tulis pengumuman…"></textarea></div>'+
+    '<div class="ann-2col">'+
+      '<div class="field"><label>Tayang mulai</label><input type="date" id="annStartD" value="'+today+'"></div>'+
+      '<div class="field"><label>Jam mulai</label><input type="time" id="annStartT" value="00:00"></div>'+
+    '</div>'+
+    '<div class="ann-2col">'+
+      '<div class="field"><label>Berakhir tanggal</label><input type="date" id="annEndD" value="'+today+'"></div>'+
+      '<div class="field"><label>Jam berakhir</label><input type="time" id="annEndT" value="23:59"></div>'+
+    '</div>'+
+    '<div class="field"><label>Link (opsional)</label><input type="text" id="annLink" placeholder="https://…"></div>'+
+    '<div class="field"><label>Nama tombol link</label><input type="text" id="annLinkLabel" placeholder="mis. Buka Materi"></div>'+
     '<div class="ann-form-act"><button class="btn btn-ghost btn-sm" id="annCancel">Batal</button>'+
     '<button class="btn btn-primary btn-sm" id="annSend">Kirim</button></div></div>';
   const tgt=$('#annTarget');
@@ -4616,7 +4668,15 @@ async function chatSendAnnounce(){
   const me=chatMe(); const target=$('#annTarget').value; const msg=($('#annMsg').value||'').trim();
   if(!msg){ toast('Pesan kosong','err'); return; }
   const toCab = (target==='CS'||target==='ALL') ? String($('#annCab').value||'').toUpperCase() : '';
-  const rec={from_role:me, from_cabang:(me==='CS'?chatMyCab():''), to_role:target, to_cabang:toCab, message:msg, kind:'announce', read:false};
+  const sd=$('#annStartD').value, st=$('#annStartT').value||'00:00';
+  const ed=$('#annEndD').value, et=$('#annEndT').value||'23:59';
+  const start_at = sd ? (sd+'T'+st) : '';
+  const end_at   = ed ? (ed+'T'+et) : '';
+  if(start_at && end_at && end_at < start_at){ toast('Waktu berakhir lebih awal dari waktu mulai','err'); return; }
+  const link_url = annLinkFix($('#annLink').value);
+  const link_label = (($('#annLinkLabel').value||'').trim()) || (link_url?'Buka Link':'');
+  const rec={from_role:me, from_cabang:(me==='CS'?chatMyCab():''), to_role:target, to_cabang:toCab,
+    message:msg, kind:'announce', read:false, start_at, end_at, link_url, link_label};
   try{ await window.sb.from('CHAT').insert(rec); await chatFetchAll();
     toast('Pengumuman terkirim','ok'); $('#chatInput').style.display=''; chatRenderBody(); }
   catch(e){ toast('Gagal kirim: '+(e.message||e),'err'); }
@@ -4626,6 +4686,7 @@ function chatClose(){ const p=$('#chatPanel'); if(p) p.classList.remove('open');
 function initChat(){
   const me=chatMe(); if(!me) return;
   chatWeeklyCleanup();
+  chatAnnCleanup();
   const cabSel=$('#chatCabang');
   if(cabSel) cabSel.innerHTML='<option value="">Semua CS</option>'+CABANG.filter(c=>c!=='OFFICE').map(c=>'<option value="'+c+'">'+c+'</option>').join('');
   chatOptions();
@@ -4907,7 +4968,7 @@ async function annLoadPending(){
   if(!state._chatAll) await chatFetchAll();
   const seen=annPopSeen();
   state._annPending=(state._chatAll||[])
-    .filter(m=>m.kind==='announce' && chatIsForMe(m) && (m.created_at||'')>seen)
+    .filter(m=>m.kind==='announce' && chatIsForMe(m) && annActive(m) && (m.created_at||'')>seen)
     .sort((a,b)=>(a.created_at||'').localeCompare(b.created_at||''));
   return state._annPending;
 }
@@ -4915,8 +4976,10 @@ function annPopupHTML(list){
   const items=list.map(a=>{
     const who=a.from_role+(a.from_role==='CS'&&a.from_cabang?(' '+a.from_cabang):'');
     const t=(a.created_at||'').replace('T',' ').slice(0,16);
+    const link = a.link_url ? '<a class="ann-link" href="'+esc(annLinkFix(a.link_url))+'" target="_blank" rel="noopener">'+esc(a.link_label||'Buka Link')+'</a>' : '';
+    const exp = a.end_at ? '<div class="ann-exp">Tayang s/d '+esc(String(a.end_at).replace('T',' ').slice(0,16))+'</div>' : '';
     return '<div class="annpop-card"><div class="annpop-from"><span>'+esc(who)+'</span><span class="t">'+esc(t)+'</span></div>'+
-      '<div class="annpop-msg">'+esc(a.message||'')+'</div></div>';
+      '<div class="annpop-msg">'+esc(a.message||'')+'</div>'+link+exp+'</div>';
   }).join('');
   return '<div class="annpop-emoji">📢</div>'+
     '<div class="annpop-title">Pengumuman'+(list.length>1?'<span class="annpop-count">'+list.length+'</span>':'')+'</div>'+
