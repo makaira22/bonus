@@ -3726,7 +3726,7 @@ function invoiceWaText(o){
   const rp_=n=>'Rp '+Number(moneyDigits(n)||0).toLocaleString('id-ID');
   return 'Halo '+(o['Nama Customer']||'')+' 🙏\n\nBerikut invoice pesanan Anda:\nNo: '+(o['ID Order']||'')+
     '\nTanggal: '+tglPanjangId(o['Tanggal Pengerjaan'])+'\nTotal: '+rp_(o['Total Akhir Setelah Diskon']||o['Total Akhir'])+
-    '\n\nFile invoice (PDF) sudah kami unduh — mohon dilampirkan pada chat ini. Terima kasih telah memakai layanan KLINKLIN! ✨';
+    '\n\nNote : File ini berformat PDF gunakan aplikasi yang mendukung format tersebut';
 }
 function showCleanerPopup(anchor, names){
   closePickMenu();
