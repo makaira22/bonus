@@ -493,6 +493,12 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .rk-car{font-size:10px;opacity:.55;margin-left:3px}
 .ops-tbl tr.kpi-below td,.ops-tbl tr.kpi-below .cab-cell{color:var(--danger)}
 .ops-tbl tr.rk-orow:hover td{background:var(--surface-2)}
+.rk-filterbar{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.rk-filterbar .search.rk-search{flex:1 1 220px;min-width:170px}
+.rk-filterbar .fl{display:flex;flex-direction:column;gap:4px;min-width:132px}
+.rk-filterbar .fl .lbl{font-size:11px;font-weight:700;color:var(--muted)}
+.rk-filterbar .fl select,.rk-filterbar .fl input{padding:8px 10px;border:1px solid var(--line-2);border-radius:10px;background:var(--surface);font-weight:600;color:var(--ink);font-size:13px}
+.rk-filterbar .date-tabs{margin:0}
 .grow{font-size:12px;font-weight:700;white-space:nowrap}
 .g-up{color:var(--success)} .g-down{color:var(--danger)} .g-flat{color:var(--muted)}
 .kpi-badge{display:inline-block;font-weight:800;font-size:12.5px;padding:4px 11px;border-radius:16px;color:#fff}
@@ -2173,7 +2179,7 @@ async function loadList(force){
       }catch(e){ state.cache.karyawanMap={}; }
     }
     refreshDynFilters();
-    if(v.special==='reportKPI'){ await loadTargets(); state.rkSort=null; state.rkOrderPage=0; }
+    if(v.special==='reportKPI'){ await loadTargets(); state.rkSort=null; state.rkOrderPage=0; state.rkFilter={}; }
     if(v.special==='capaian') await loadTargets();
     if(v.special==='kpiCS' || v.special==='capaian') await loadKpiCfg();
     if(v.special==='kpiCS'){ await loadTargets(); state.kpiCsSort=null; }
@@ -3174,6 +3180,7 @@ function renderReportKPI(){
         '<span class="kpi-badge k-red">Merah</span> di bawah itu · <span style="color:var(--faint)">klik judul kolom untuk mengurutkan</span></div>'+
     '</div>'+
     '<div class="cap-card"><div class="cap-card-t">Semua Order (dibuat CS · semua cabang · semua status)</div>'+
+      rkFilterBarHTML()+
       '<div id="rkOrders"></div></div>';
   // handler sort kolom
   document.querySelectorAll('[data-rksort]').forEach(t=>t.addEventListener('click',()=>{
@@ -3181,13 +3188,68 @@ function renderReportKPI(){
     state.rkSort = (s.col===col) ? {col, dir:-s.dir} : {col, dir:-1}; // klik pertama: terbesar→terkecil
     renderReportKPI();
   }));
+  wireRkFilters();
   renderRkOrders();
   setCount(cabs.length, 'cabang');
+}
+/* Filter khusus daftar "Semua Order" (independen dari toolbar atas). */
+function rkFilterBarHTML(){
+  const f=state.rkFilter||{};
+  const cabOpts=CABANG.filter(c=>c!=='OFFICE').map(c=>'<option'+(f.cab===c?' selected':'')+'>'+esc(c)+'</option>').join('');
+  const stOpts=STATUS_ORDER.map(s=>'<option'+(f.status===s?' selected':'')+'>'+esc(s)+'</option>').join('');
+  const on=p=>((f.preset||'')===p?' on':'');
+  return '<div class="rk-filterbar">'+
+    '<div class="search rk-search">'+svg('search')+'<input id="rkQ" placeholder="Cari customer / ID / cleaner…" value="'+esc(f.q||'')+'"></div>'+
+    '<div class="date-tabs" id="rkTabs">'+
+      '<button class="dt'+on('')+'" data-rkday="">Semua</button>'+
+      '<button class="dt'+on('yesterday')+'" data-rkday="yesterday">Kemarin</button>'+
+      '<button class="dt'+on('today')+'" data-rkday="today">Hari ini</button>'+
+      '<button class="dt'+on('tomorrow')+'" data-rkday="tomorrow">Besok</button>'+
+    '</div>'+
+    '<div class="fl"><span class="lbl">Cabang</span><select id="rkCab"><option value="">Semua</option>'+cabOpts+'</select></div>'+
+    '<div class="fl"><span class="lbl">Status Order</span><select id="rkStatus"><option value="">Semua</option>'+stOpts+'</select></div>'+
+    '<div class="fl"><span class="lbl">Dari Tanggal</span><input type="date" id="rkFrom" value="'+esc(f.start||'')+'"></div>'+
+    '<div class="fl"><span class="lbl">Sampai Tanggal</span><input type="date" id="rkTo" value="'+esc(f.end||'')+'"></div>'+
+  '</div>';
+}
+function wireRkFilters(){
+  const f=()=>state.rkFilter||(state.rkFilter={});
+  const apply=()=>{ state.rkOrderPage=0; renderRkOrders(); };
+  const q=$('#rkQ'); if(q) q.addEventListener('input',e=>{ f().q=e.target.value; apply(); });
+  const cab=$('#rkCab'); if(cab) cab.addEventListener('change',e=>{ f().cab=e.target.value; apply(); });
+  const st=$('#rkStatus'); if(st) st.addEventListener('change',e=>{ f().status=e.target.value; apply(); });
+  const fr=$('#rkFrom'), to=$('#rkTo');
+  const setRange=()=>{ f().start=fr&&fr.value?fr.value:''; f().end=to&&to.value?to.value:''; f().preset='';
+    document.querySelectorAll('#rkTabs .dt').forEach(x=>x.classList.remove('on'));
+    const semua=document.querySelector('#rkTabs .dt[data-rkday=""]'); if(!f().start && !f().end && semua) semua.classList.add('on');
+    apply(); };
+  if(fr) fr.addEventListener('change', setRange);
+  if(to) to.addEventListener('change', setRange);
+  document.querySelectorAll('#rkTabs .dt').forEach(b=>b.addEventListener('click',()=>{
+    document.querySelectorAll('#rkTabs .dt').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+    const val=b.dataset.rkday, now=new Date();
+    if(val==='today'){ const t=ymd(now); f().start=t; f().end=t; }
+    else if(val==='yesterday'){ const y=new Date(now); y.setDate(y.getDate()-1); const t=ymd(y); f().start=t; f().end=t; }
+    else if(val==='tomorrow'){ const y=new Date(now); y.setDate(y.getDate()+1); const t=ymd(y); f().start=t; f().end=t; }
+    else { f().start=''; f().end=''; }
+    f().preset=val;
+    if(fr) fr.value=''; if(to) to.value='';
+    apply();
+  }));
 }
 /* Daftar semua order (semua cabang & status) di bawah Report KPI — hanya detail saat diklik. */
 function renderRkOrders(){
   const box=$('#rkOrders'); if(!box) return;
   let rows=state.rows.slice();
+  // Filter khusus daftar order (Search, preset hari, Cabang, Status, rentang tanggal)
+  const f=state.rkFilter||{};
+  if(f.cab){ const fc=String(f.cab).toUpperCase(); rows=rows.filter(r=>cabangOf(r)===fc || String(r['Cabang']||'').toUpperCase()===fc); }
+  if(f.status) rows=rows.filter(r=>norm(r['Status Order'])===norm(f.status));
+  if(f.start||f.end){ const s=f.start||f.end, e=f.end||f.start; const a=(s<=e?s:e), b=(s<=e?e:s);
+    rows=rows.filter(r=>inRange(r['Tanggal Pengerjaan'],a,b)); }
+  if(f.q){ const q=norm(f.q);
+    rows=rows.filter(r=>[r['Nama Customer'],r['ID Order'],r['No WA Customer'],r['Nama Cleaner'],r['Cabang']]
+      .some(x=>norm(x).indexOf(q)>-1)); }
   rows.sort((a,b)=>{ const da=parseAnyDate(a['Tanggal Pengerjaan'])||parseAnyDate(a['Tanggal Input'])||'';
     const db=parseAnyDate(b['Tanggal Pengerjaan'])||parseAnyDate(b['Tanggal Input'])||''; return da<db?1:(da>db?-1:0); });
   const PAGE=10; const total=rows.length;
@@ -4123,6 +4185,14 @@ function buildInvoiceHTML(o){
   if(!grand) grand = afterDisc + ppnNilai;
   if(!subtotal) subtotal = md(o['Total Akhir']) || grand || omzetOf_(o);
   if(!grand) grand = subtotal;
+
+  // Order lama tanpa rincian layanan (hanya total): tampilkan satu baris ringkas
+  // agar desain invoice konsisten untuk SEMUA order di database.
+  const hasNamed = items.some(it=>String(it.nama).trim());
+  if(!hasNamed){
+    const ring = (typeof layananRingkas==='function' ? layananRingkas(o) : '') || o['Keterangan Order'] || 'Layanan Kebersihan';
+    items = [{ nama: ring, qty:1, qtyText:'1', harga: subtotal }];
+  }
 
   const PET='#123A5E', GOLD='#3E86B5', LINE='#dfe7ee', MUT='#5E6F6C';
   const money=n=>'Rp '+Number(n||0).toLocaleString('id-ID');
