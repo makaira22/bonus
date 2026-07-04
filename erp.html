@@ -4065,14 +4065,14 @@ function buildInvoiceHTML(o){
           '<th style="padding:11px 14px;font-size:11px;text-align:right;letter-spacing:.04em;text-transform:uppercase">Harga</th>'+
         '</tr></thead><tbody>'+itemRows+'</tbody>'+
       '</table>'+
-      // totals box
-      '<table style="width:100%;border-collapse:collapse;margin-top:18px"><tr>'+
-        '<td style="width:52%;vertical-align:top">'+
+      // totals box (lebar tetap agar nilai tidak terpotong)
+      '<table style="width:100%;border-collapse:collapse;margin-top:18px;table-layout:fixed"><tr>'+
+        '<td style="vertical-align:top;padding-right:16px">'+
           '<div style="font-size:10px;font-weight:800;letter-spacing:.08em;color:'+MUT+';text-transform:uppercase;margin-bottom:7px">Transfer ke</div>'+
           bankRows+
         '</td>'+
-        '<td style="vertical-align:top;padding-left:14px">'+
-          '<table style="width:100%;border-collapse:collapse;background:'+PET+';border-radius:10px;overflow:hidden">'+
+        '<td style="vertical-align:top;width:280px">'+
+          '<table style="width:280px;border-collapse:collapse;background:'+PET+';border-radius:10px;overflow:hidden">'+
             totRow('Subtotal', money(subtotal))+
             totRow('Diskon', '- '+money(diskonNilai))+
             totRow('PPn ('+ppn+'%)', money(ppnNilai))+
@@ -4133,8 +4133,12 @@ function invoicePrintWindow(o, html){
   w.document.open();
   w.document.write('<!doctype html><html><head><meta charset="utf-8">'+
     '<title>Invoice '+String(o['ID Order']||'').replace(/[<>&"]/g,'')+'</title>'+
-    '<style>@page{size:A4;margin:0} body{margin:0;background:#fff;display:flex;justify-content:center}</style>'+
-    '</head><body onload="setTimeout(function(){window.focus();window.print();},250)">'+html+'</body></html>');
+    '<style>@page{size:A4;margin:0} html,body{margin:0;padding:0;background:#fff}'+
+    '.inv-fit{width:794px;transform-origin:top left}'+
+    '@media print{ .inv-fit{ transform:scale(0.985); } }'+
+    '</style>'+
+    '</head><body onload="setTimeout(function(){window.focus();window.print();},300)">'+
+    '<div class="inv-fit">'+html+'</div></body></html>');
   w.document.close();
   toast('Invoice siap — pilih "Simpan sebagai PDF" pada dialog cetak','ok');
 }
