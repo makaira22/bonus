@@ -1667,6 +1667,19 @@ VIEWS.kontenKelola = {
     f('Gambar','file',{accept:'image/*', full:true})
   ]
 };
+VIEWS.kelolaUpdateFitur = {
+  sheet:'UPDATE_FITUR', title:'Update Fitur', sub:'', inSettings:true, countTop:true, noSyncBtn:true,
+  idField:'id', canAdd:true, canEdit:true, canDelete:true,
+  table:['Judul','Tipe','Tujuan','Aktif'],
+  search:['Judul','Pesan'],
+  form:[
+    f('Judul','text',{req:true, full:true}),
+    f('Tipe','select',{opts:['Update Fitur','Problem','Sedang Perbaikan','Info'], req:true}),
+    f('Pesan','textarea',{req:true, full:true}),
+    f('Tujuan','select',{opts:['SEMUA','CS','OPERASIONAL','MARKETING','HRD','FINANCE','DESIGNER','CEO']}),
+    f('Aktif','check')
+  ]
+};
 
 /* ===== AGENDA (kalender) — CEO/MARKETING/HRD/OPERASIONAL/FINANCE ===== */
 VIEWS.agenda = {
@@ -3175,6 +3188,28 @@ async function loadTargets(){
   }catch(e){ state.cache.targets={}; return {}; }
 }
 
+/* Ringkasan Layanan per Cabang (diambil dari Detail Omzet per Layanan) — dipakai Operasional/Finance/CEO.
+   Header disingkat: Omzet ▲/▼ = layanan omzet tertinggi/terendah · Trx ▲/▼ = transaksi terbanyak/tersedikit. */
+function laytrxRingkasHTML(cabs, detM){
+  const has = cabs.some(cab=>Object.keys(detM[cab]||{}).length);
+  const rows=cabs.map(cab=>{
+    const entries=Object.keys(detM[cab]||{}).map(nm=>({nm, n:detM[cab][nm].n, val:detM[cab][nm].val}));
+    if(!entries.length) return '<tr><td class="cab-cell l det-cabcol">'+esc(cab)+'</td><td colspan="4" style="text-align:center;color:var(--faint)">—</td></tr>';
+    const byVal=entries.slice().sort((a,b)=>b.val-a.val);
+    const byN=entries.slice().sort((a,b)=>b.n-a.n);
+    const hiV=byVal[0], loV=byVal[byVal.length-1], hiN=byN[0], loN=byN[byN.length-1];
+    const cV=e=>'<div class="lt-cell"><span class="lt-lay">'+esc(e.nm)+'</span><span class="lt-num">'+rp(e.val)+'</span></div>';
+    const cN=e=>'<div class="lt-cell"><span class="lt-lay">'+esc(e.nm)+'</span><span class="lt-num">'+e.n+' trx</span></div>';
+    return '<tr><td class="cab-cell l det-cabcol">'+esc(cab)+'</td>'+
+      '<td>'+cV(hiV)+'</td><td>'+cV(loV)+'</td><td>'+cN(hiN)+'</td><td>'+cN(loN)+'</td></tr>';
+  }).join('');
+  return '<div class="cap-card"><div class="cap-card-t">Ringkasan Layanan per Cabang</div>'+
+    (has?'<div class="tbl-wrap freeze-cab"><table class="ops-tbl"><thead><tr>'+
+      '<th class="l det-cabcol">Cabang</th><th class="l">Omzet ▲</th><th class="l">Omzet ▼</th><th class="l">Trx ▲</th><th class="l">Trx ▼</th>'+
+      '</tr></thead><tbody>'+rows+'</tbody></table></div>'+
+      '<div class="kpi-legend"><b>Omzet ▲/▼</b> = layanan omzet tertinggi / terendah · <b>Trx ▲/▼</b> = layanan transaksi terbanyak / tersedikit (per cabang)</div>'
+     :'<div class="cap-empty">Belum ada data</div>')+'</div>';
+}
 function renderLaporanOmzet(){
   const base=opsBaseRows();
   const todayYmd = ymd(new Date());
@@ -3289,6 +3324,7 @@ function renderLaporanOmzet(){
       '<tr class="ops-total"><td>TOTAL</td><td class="money">'+rp(totNow)+'</td><td class="money">'+rp(totPrev)+'</td>'+
         '<td>'+growthHTML(totNow,totPrev)+'</td><td>—</td><td class="money">'+rp(totAds)+'</td><td class="money">'+rp(totOrg)+'</td><td class="money">'+rp(totLama)+'</td></tr>'+
       '</tbody></table></div></div>'+
+    laytrxRingkasHTML(cabs, detMatrix)+
     '<div class="cap-card"><div class="cap-card-t">Detail Omzet per Layanan <span class="cap-sub2">('+esc(detLbl)+')</span></div>'+
       (detLays.length ?
         '<div class="tbl-wrap"><table class="ops-tbl det-tbl"><thead><tr>'+
@@ -4024,22 +4060,8 @@ function dashTabOperasional(){
   const detCard='<div class="cap-card"><div class="cap-card-t">Detail Omzet per Layanan</div>'+
     (lays.length?'<div class="tbl-wrap freeze-cab"><table class="ops-tbl det-tbl"><thead><tr><th class="l det-cabcol">Cabang</th>'+detHead+'<th class="c">Total</th></tr></thead><tbody>'+detBody+'</tbody></table></div>':'<div class="cap-empty">Belum ada data</div>')+'</div>';
 
-  // Data Layanan & Transaksi (tertinggi/terendah per cabang)
-  const ltRows=cabs.map(cab=>{
-    const entries=Object.keys(detM[cab]).map(nm=>({nm, n:detM[cab][nm].n, val:detM[cab][nm].val}));
-    if(!entries.length) return '<tr><td class="cab-cell l det-cabcol">'+esc(cab)+'</td><td colspan="4" style="text-align:center;color:var(--faint)">—</td></tr>';
-    const byVal=entries.slice().sort((a,b)=>b.val-a.val);
-    const byN=entries.slice().sort((a,b)=>b.n-a.n);
-    const hiV=byVal[0], loV=byVal[byVal.length-1], hiN=byN[0], loN=byN[byN.length-1];
-    const cV=e=>'<div class="lt-cell"><span class="lt-lay">'+esc(e.nm)+'</span><span class="lt-num">'+rp(e.val)+'</span></div>';
-    const cN=e=>'<div class="lt-cell"><span class="lt-lay">'+esc(e.nm)+'</span><span class="lt-num">'+e.n+' trx</span></div>';
-    return '<tr><td class="cab-cell l det-cabcol">'+esc(cab)+'</td>'+
-      '<td>'+cV(hiV)+'</td><td>'+cV(loV)+'</td><td>'+cN(hiN)+'</td><td>'+cN(loN)+'</td></tr>';
-  }).join('');
-  const laytrxCard='<div class="cap-card"><div class="cap-card-t">Data Layanan & Transaksi</div>'+
-    (lays.length?'<div class="tbl-wrap freeze-cab"><table class="ops-tbl"><thead><tr>'+
-      '<th class="l det-cabcol">Cabang</th><th>Omzet Tertinggi</th><th>Omzet Terendah</th><th>Transaksi Tertinggi</th><th>Transaksi Terendah</th>'+
-      '</tr></thead><tbody>'+ltRows+'</tbody></table></div>':'<div class="cap-empty">Belum ada data</div>')+'</div>';
+  // Ringkasan Layanan per Cabang (tertinggi/terendah per cabang) — sama dgn Operasional/Finance
+  const laytrxCard = laytrxRingkasHTML(cabs, detM);
 
   return '<div class="dash-range">Periode: <b>'+esc(tglPanjangId(cur.s)+' – '+tglPanjangId(cur.e))+
     '</b> vs <b>'+esc(tglPanjangId(prev.s)+' – '+tglPanjangId(prev.e))+'</b> · Target aman: <b>'+safePct+'%</b></div>'+
@@ -4437,6 +4459,7 @@ function defaults(v){
   if(v.sheet==='TODO'){ d['Jabatan']=state.session.role; d['Tanggal']=today; d['Status']='Belum'; d['Warna']='Biru'; }
   if(v.sheet==='CHAT_HARIAN'){ d['Cabang']=state.session.cabang; d['Tanggal']=today; }
   if(v.sheet==='REMINDER'){ d['Aktif']=1; d['Tujuan']='SEMUA'; }
+  if(v.sheet==='UPDATE_FITUR'){ d['Aktif']=1; d['Tujuan']='SEMUA'; d['Tipe']='Update Fitur'; }
   return d;
 }
 function renderField(fd, val){
@@ -5329,6 +5352,7 @@ function renderSettings(){
   if(role==='MARKETING') entries.push(
     {key:'kontenKelola', label:'Kelola Konten CS', desc:'Atur gambar & teks Story, Promo, Follow Up untuk CS', icon:'inbox'},
     {key:'kelolaPengingat', label:'Kelola Pengingat', desc:'Buat/edit/hapus pemberitahuan & atur tayang ke jabatan tertentu', icon:'inbox'},
+    {key:'kelolaUpdateFitur', label:'Update Fitur', desc:'Info update fitur / problem / sedang perbaikan — tayang saat login ke jabatan yang dipilih', icon:'inbox'},
     {key:'formCsv', label:'Contoh Form (CSV)', desc:'Unduh template CSV semua form: header + 1 contoh data', icon:'file'});
   if(['CEO','FINANCE','MARKETING','DESIGNER','HRD'].indexOf(role)>=0) entries.push(
     {key:'todo', label:'To Do List', desc:'Daftar tugas & pengingat (muncul saat tanggalnya tiba)', icon:'audit'});
@@ -5896,6 +5920,7 @@ async function runLoginPopups(){
   if(AGENDA_ROLES.includes(role)) queue.push(cb=>agendaShowIfNeeded(cb));
   if(['CEO','FINANCE','MARKETING','DESIGNER','HRD'].indexOf(role)>=0) queue.push(cb=>todoShow(cb));
   queue.push(cb=>reminderShow(cb));   // pengingat custom dari MARKETING
+  queue.push(cb=>updateFiturShow(cb));   // update fitur / problem / perbaikan (dikelola MARKETING)
   queue.push(cb=>{ annShowPopup(cb); });   // pengumuman selalu jadi antrian terakhir
   runPopupQueue(queue,0);
 }
@@ -5941,8 +5966,33 @@ async function reminderShow(onClose){
   $('#remConfirm').style.display='none'; $('#remMain').style.display='';
   ov.classList.add('open');
 }
-async function todoShow(onClose){
+/* Update Fitur (dikelola MARKETING) — tayang saat login ke jabatan yang dipilih, mirip Pengumuman. */
+async function updateFiturShow(onClose){
   const role=state.session && state.session.role;
+  let data=[];
+  try{ const r=await window.sb.from('UPDATE_FITUR').select('*'); data=r.data||[]; }catch(e){ if(onClose) onClose(); return; }
+  const on=x=>{ const a=x['Aktif']; return a===true||norm(a)==='ya'||Number(moneyDigits(a))>0; };
+  const mine=data.filter(x=>on(x) && (norm(x['Tujuan'])==='semua'||norm(x['Tujuan'])===norm(role)||!String(x['Tujuan']||'').trim()));
+  if(!mine.length){ if(onClose) onClose(); return; }
+  const today=ymd(new Date()); const key='upd_'+today+'_'+mine.map(x=>x['id']).join('_');
+  if(localStorage.getItem(key)==='1'){ if(onClose) onClose(); return; }
+  localStorage.setItem(key,'1');
+  const ov=$('#remOverlay'); if(!ov){ if(onClose) onClose(); return; }
+  state._remMode='updatefitur'; state._remOnClose = onClose || null;
+  const tipeColor=t=>{ const n=norm(t);
+    return n==='problem'?'var(--danger)':(n==='sedang perbaikan'?'var(--warn)':(n==='info'?'var(--info)':'var(--success)')); };
+  const items=mine.map(x=>{
+    const t=x['Tipe']||'Update Fitur';
+    return '<div class="rem-item"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px">'+
+      '<span class="kpi-badge" style="background:'+tipeColor(t)+';color:#fff">'+esc(t)+'</span>'+
+      '<b>'+esc(x['Judul']||'')+'</b></div>'+
+      '<div style="margin-top:2px">'+esc(x['Pesan']||'')+'</div></div>'; }).join('');
+  $('#remBody').innerHTML='<div class="rem-emoji">🚀</div><div class="rem-title">Update Fitur</div><div class="rem-list">'+items+'</div>';
+  $('#remClose').style.display=''; $('#remClose').textContent='Oke';
+  $('#remConfirm').style.display='none'; $('#remMain').style.display='';
+  ov.classList.add('open');
+}
+async function todoShow(onClose){  const role=state.session && state.session.role;
   if(['CEO','FINANCE','MARKETING','DESIGNER','HRD'].indexOf(role)<0){ if(onClose) onClose(); return; }
   const today=ymd(new Date());
   let data=[];
