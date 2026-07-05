@@ -1525,11 +1525,23 @@ const VIEWS = {
     filters:['Status Order'],
     datePreset:true, dateFilterField:'Tanggal Pengerjaan'
   },
-  capaianFinance:{
-    sheet:'ORDER', title:'Capaian', sub:'', special:'capaian', countTop:true, noSyncBtn:true,
-    financePie:true,
-    filters:['Cabang','Status Order'],
-    datePreset:true, dateFilterField:'Tanggal Pengerjaan'
+  capaianFinance:{  // dibiarkan sbg alias (tidak dipakai langsung; menu membuka hub capfin)
+    sheet:'ORDER', title:'Capaian', sub:'', special:'capOmzet', hub:'capfin', countTop:true, noSyncBtn:true,
+    datePreset:true, dateRange:true, dateFilterField:'Tanggal Pengerjaan', filters:['Cabang','Status Order']
+  },
+  capOmzet:{  // TAB 1 — sama seperti Laporan Omzet (Operasional) + Top 5
+    sheet:'ORDER', title:'Capaian', sub:'', special:'capOmzet', hub:'capfin', countTop:true, noSyncBtn:true,
+    datePreset:true, dateRange:true, dateFilterField:'Tanggal Pengerjaan', filters:['Cabang','Status Order']
+  },
+  capKpi:{  // TAB 2 — Ringkasan Nilai KPI per Cabang + KPI Omzet per Cabang
+    sheet:'ORDER', title:'Capaian', sub:'', special:'capKpi', hub:'capfin', countTop:true, noSyncBtn:true,
+    monthFilter:true, monthField:'Tanggal Pengerjaan'
+  },
+  capMarketing:{  // TAB 3 — Spend Ads (sesuai isian Marketing)
+    sheet:'SPEND_ADS', title:'Capaian', sub:'', special:'spendAds', hub:'capfin', countTop:true, noSyncBtn:true,
+    monthFilter:true, monthField:'Periode', filters:['Cabang','Platform'],
+    table:['Periode','Cabang','Platform','Nominal'],
+    search:['Cabang','Platform']
   }
 };
 
@@ -2050,6 +2062,7 @@ function markActive(key){
 async function selectMenu(key){
   if(key==='__settings'){ renderSettings(); markActive('__settings'); return; }
   if(key==='audit'){ return openAuditTab(state.auditTab||'auditOrder'); }
+  if(key==='capaianFinance'){ return openCapTab(state.capTab||'capOmzet'); }
   state.view = VIEWS[key]; state.viewKey=key;
   state.filters={}; state.search=''; state.dateStart=''; state.dateEnd='';
   if(state.view && state.view.defaultMonth){ const b=calMonthBounds(ymd(new Date()).slice(0,7)); state.dateStart=b.start; state.dateEnd=b.end; }
@@ -2066,11 +2079,25 @@ async function selectMenu(key){
       .subscribe();
   }
 }
-async function openAuditTab(key){
-  state.auditTab=key;
+async function openAuditTab(key){  state.auditTab=key;
   state.view = VIEWS[key]; state.viewKey=key;
   state.filters={}; state.search=''; state.dateStart=''; state.dateEnd='';
   markActive('audit');
+  renderShell();
+  await loadList();
+  if(state._ch){ try{ window.sb.removeChannel(state._ch); }catch(e){} state._ch=null; }
+  if(state.view && state.view.sheet){
+    state._ch = window.sb.channel('rt-'+state.view.sheet)
+      .on('postgres_changes', {event:'*', schema:'public', table:state.view.sheet}, ()=>{ loadList(true); })
+      .subscribe();
+  }
+}
+async function openCapTab(key){
+  state.capTab=key;
+  state.view = VIEWS[key]; state.viewKey=key;
+  state.filters={}; state.search=''; state.dateStart=''; state.dateEnd='';
+  if(state.view && state.view.defaultMonth){ const b=calMonthBounds(ymd(new Date()).slice(0,7)); state.dateStart=b.start; state.dateEnd=b.end; }
+  markActive('capaianFinance');
   renderShell();
   await loadList();
   if(state._ch){ try{ window.sb.removeChannel(state._ch); }catch(e){} state._ch=null; }
@@ -2084,7 +2111,10 @@ function renderShell(){
   const v=state.view;
   const tabs = v.hub==='audit' ?
     '<div class="hub-tabs">'+[['auditOrder','Audit Order'],['hasilAudit','Hasil Audit'],['editOrder','Edit Order']]
-      .map(t=>'<button class="hub-tab'+(state.viewKey===t[0]?' active':'')+'" data-audittab="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>' : '';
+      .map(t=>'<button class="hub-tab'+(state.viewKey===t[0]?' active':'')+'" data-audittab="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>'
+    : v.hub==='capfin' ?
+    '<div class="hub-tabs">'+[['capOmzet','Omzet'],['capKpi','KPI'],['capMarketing','Marketing']]
+      .map(t=>'<button class="hub-tab'+(state.viewKey===t[0]?' active':'')+'" data-captab="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>' : '';
   $('#content').innerHTML =
     greetingHTML()+
     tabs+
@@ -2099,6 +2129,7 @@ function renderShell(){
     '<div class="panel" id="panel"></div>';
   if(v.canAdd) $('#btnAdd').addEventListener('click', ()=>openForm(null));
   document.querySelectorAll('[data-audittab]').forEach(b=>b.addEventListener('click',()=>openAuditTab(b.dataset.audittab)));
+  document.querySelectorAll('[data-captab]').forEach(b=>b.addEventListener('click',()=>openCapTab(b.dataset.captab)));
   const bk=$('#btnBackSet'); if(bk) bk.addEventListener('click', ()=>{ if(state.session && state.session.role==='DESIGNER') renderDesigner(); else renderSettings(); });
   buildToolbar();
 }
@@ -2287,6 +2318,8 @@ async function loadList(force){
     }
     refreshDynFilters();
     if(v.special==='reportKPI'){ await loadTargets(); state.rkSort=null; state.rkOrderPage=0; state.rkFilter={}; }
+    if(v.special==='capKpi'){ await loadTargets(); await loadKpiCfg(); }
+    if(v.special==='capOmzet'){ state.rkSort=null; }
     if(v.special==='capaian') await loadTargets();
     if(v.special==='kpiCS' || v.special==='capaian') await loadKpiCfg();
     if(v.special==='kpiCS'){ await loadTargets(); state.kpiCsSort=null; }
@@ -2426,6 +2459,8 @@ function renderView(){
   const v=state.view; if(!v) return;
   state.page=0;
   if(v.special==='capaian') renderCapaian();
+  else if(v.special==='capOmzet') renderCapOmzet();
+  else if(v.special==='capKpi') renderCapKpi();
   else if(v.special==='laporanOmzet') renderLaporanOmzet();
   else if(v.special==='reportKPI') renderReportKPI();
   else if(v.special==='kpiCS') renderKpiCS();
@@ -3271,32 +3306,18 @@ function renderLaporanOmzet(){
   setCount(base.filter(r=>inRange(r['Tanggal Pengerjaan'],cur.start,cur.end)).length, 'order');
 }
 
-function renderReportKPI(){
+function kpiOmzetCardHTML(cur){
   const base=opsBaseRows();
   const targets=state.cache.targets||{};
-  const todayYmd = ymd(new Date());
-  // Periode dari filter tanggal (rentang / hari / preset). Default: bulan berjalan tgl 1 s/d hari ini.
-  let cur;
-  if(state.dateStart || state.dateEnd){
-    const s = state.dateStart || state.dateEnd;
-    const e = state.dateEnd   || state.dateStart;
-    cur = { start:(s<=e?s:e), end:(s<=e?e:s) };
-  } else {
-    const cmb=calMonthBounds(todayYmd.slice(0,7));
-    cur = { start: cmb.start, end: todayYmd };
-  }
-  // Pembanding: rentang yang SAMA digeser mundur 1 bulan (mis. 1–10 Jul → 1–10 Jun)
   const backM=s=>{ const d=parseDate_(s); const lastPrev=new Date(d.getFullYear(), d.getMonth(), 0).getDate();
     return ymd(new Date(d.getFullYear(), d.getMonth()-1, Math.min(d.getDate(), lastPrev))); };
   const prev = { start: backM(cur.start), end: backM(cur.end) };
   const pStart=cur.start, pEnd=cur.end;
-  // "Target aman": proporsi lama rentang terhadap jumlah hari di bulan rentang tsb
   const dim = calMonthBounds(pStart.slice(0,7));
   const daysInMonth = Math.max(1,(new Date(dim.end)-new Date(dim.start))/86400000+1);
   const rangeDays = Math.max(1,(new Date(pEnd)-new Date(pStart))/86400000+1);
   const safePct = Math.min(100, Math.round(rangeDays/daysInMonth*100));
   const cabs=opsCabangList();
-
   let objs = cabs.map(cab=>{
     const rc=base.filter(r=>cabangOf(r)===cab);
     const ach=rc.filter(r=>inRange(r['Tanggal Pengerjaan'],pStart,pEnd)).reduce((s,r)=>s+omzetOf_(r),0);
@@ -3310,7 +3331,6 @@ function renderReportKPI(){
     const growth = pv>0 ? ((ach-pv)/pv*100) : (ach>0?100:0);
     return {cab, ach, pv, tgt, kpi, cls, growth, hasT:tgt>0};
   });
-  // Urutkan sesuai kolom yang diklik
   if(state.rkSort && state.rkSort.col){
     const c=state.rkSort.col, dir=state.rkSort.dir;
     objs.sort((a,b)=>(a[c]-b[c])*dir);
@@ -3325,15 +3345,13 @@ function renderReportKPI(){
       '<td class="money">'+rp(o.ach)+'</td>'+
       '<td class="money">'+rp(o.tgt)+'</td></tr>';
   }).join('');
-
   const th=(label,col,cls)=>{
     const s=state.rkSort||{}; const on=s.col===col;
     const car=on?(s.dir>0?' ▲':' ▼'):' ⇅';
     return '<th class="'+(cls||'')+' rk-sort" data-rksort="'+col+'">'+label+'<span class="rk-car">'+car+'</span></th>';
   };
   const hasTarget=Object.keys(targets).length>0;
-  $('#panel').innerHTML =
-    '<div class="ops-note">Periode: <b>'+esc(tglPanjangId(cur.start)+' – '+tglPanjangId(cur.end))+'</b> · Pembanding (−1 bulan): <b>'+esc(tglPanjangId(prev.start)+' – '+tglPanjangId(prev.end))+'</b> · Target aman: <b>'+safePct+'%</b>'+
+  return '<div class="ops-note">Periode: <b>'+esc(tglPanjangId(cur.start)+' – '+tglPanjangId(cur.end))+'</b> · Pembanding (−1 bulan): <b>'+esc(tglPanjangId(prev.start)+' – '+tglPanjangId(prev.end))+'</b> · Target aman: <b>'+safePct+'%</b>'+
       (hasTarget?'':' · <span style="color:var(--danger)">Target omzet belum diatur (Pengaturan → Target Omzet)</span>')+'</div>'+
     '<div class="cap-card"><div class="cap-card-t">KPI Omzet per Cabang</div>'+
       '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr>'+
@@ -3343,14 +3361,28 @@ function renderReportKPI(){
       '<div class="kpi-legend"><span class="kpi-badge k-green">Hijau</span> di atas target aman · '+
         '<span class="kpi-badge k-yellow">Kuning</span> kurang s/d 30% · '+
         '<span class="kpi-badge k-red">Merah</span> di bawah itu · <span style="color:var(--faint)">klik judul kolom untuk mengurutkan</span></div>'+
-    '</div>'+
+    '</div>';
+}
+function reportKpiCur(){
+  const todayYmd=ymd(new Date());
+  if(state.dateStart || state.dateEnd){
+    const s=state.dateStart||state.dateEnd, e=state.dateEnd||state.dateStart;
+    return { start:(s<=e?s:e), end:(s<=e?e:s) };
+  }
+  const cmb=calMonthBounds(todayYmd.slice(0,7));
+  return { start: cmb.start, end: todayYmd };
+}
+function renderReportKPI(){
+  const cur=reportKpiCur();
+  const cabs=opsCabangList();
+  $('#panel').innerHTML =
+    kpiOmzetCardHTML(cur)+
     '<div class="cap-card"><div class="cap-card-t">Semua Order (dibuat CS · semua cabang · semua status)</div>'+
       rkFilterBarHTML()+
       '<div id="rkOrders"></div></div>';
-  // handler sort kolom
   document.querySelectorAll('[data-rksort]').forEach(t=>t.addEventListener('click',()=>{
     const col=t.dataset.rksort; const s=state.rkSort||{};
-    state.rkSort = (s.col===col) ? {col, dir:-s.dir} : {col, dir:-1}; // klik pertama: terbesar→terkecil
+    state.rkSort = (s.col===col) ? {col, dir:-s.dir} : {col, dir:-1};
     renderReportKPI();
   }));
   wireRkFilters();
@@ -3571,12 +3603,29 @@ function renderKpiCS(){
     '</div>';
   }).join('');
 
-  // Ringkasan otomatis per cabang (di atas kartu KPI): Cabang · Omzet · Target Nilai KPI · Total Nilai KPI
+  const summaryTable = kpiSummaryCardHTML(ym);
+
+  $('#panel').innerHTML =
+    summaryTable +
+    '<div class="ops-note">Update KPI Oleh Operasional'+
+      (isOps?' — bulan <b>'+esc(monthLbl)+'</b>. Nilai <b>Omzet</b> otomatis dari order; metrik lain & strategi diisi lewat tombol <b>Atur</b>.'
+            :' — bulan <b>'+esc(monthLbl)+'</b>.')+'</div>'+
+    (cards || emptyState('Belum ada cabang'));
+  document.querySelectorAll('[data-kpiedit]').forEach(b=>b.addEventListener('click',()=>editKpiCS(b.dataset.kpiedit)));
+  document.querySelectorAll('[data-kpicssort]').forEach(t=>t.addEventListener('click',()=>{
+    const s=state.kpiCsSort||{}; state.kpiCsSort = (s.col==='total') ? {col:'total', dir:-s.dir} : {col:'total', dir:1};
+    renderKpiCS();
+  }));
+  setCount(cabs.length,'cabang');
+}
+/* Kartu "Ringkasan Nilai KPI per Cabang" (dipakai KPI CS & Capaian Finance). */
+function kpiSummaryCardHTML(ym){
+  const cabs=opsCabangList(); const cfg=state.cache.kpiCfg||{}; const num=v=>Number(moneyDigits(v))||0;
   let sumObjs = cabs.map(cab=>{
-    const c = cfg[cab+'|'+ym] || {};
-    const omzet = kpiOmzet(cab, ym);
-    const tgtKpi = num(c['Target Nilai KPI']);
-    const total = kpiTotalFor(cab, ym);
+    const c=cfg[cab+'|'+ym]||{};
+    const omzet=kpiOmzet(cab, ym);
+    const tgtKpi=num(c['Target Nilai KPI']);
+    const total=kpiTotalFor(cab, ym);
     return {cab, omzet, tgtKpi, total, below: tgtKpi>0 && total<tgtKpi};
   });
   if(state.kpiCsSort && state.kpiCsSort.col==='total'){
@@ -3594,7 +3643,7 @@ function renderKpiCS(){
     '<div class="kpi-mrow-sub"><span>Omzet: <b>'+rp(o.omzet)+'</b></span>'+
       '<span>Target KPI: <b>'+(o.tgtKpi>0?o.tgtKpi.toFixed(0)+'%':'—')+'</b></span></div>'+
   '</div>').join('');
-  const summaryTable = '<div class="cap-card"><div class="cap-card-t" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'+
+  return '<div class="cap-card"><div class="cap-card-t" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'+
       '<span>Ringkasan Nilai KPI per Cabang</span>'+
       '<button class="btn btn-ghost btn-sm" data-kpicssort="total">Urut Total'+sortCar+'</button></div>'+
     '<div class="tbl-wrap kpi-desk"><table class="ops-tbl"><thead><tr>'+
@@ -3604,19 +3653,6 @@ function renderKpiCS(){
     '<div class="kpi-mlist">'+(sumCards||'<div style="text-align:center;color:var(--faint);padding:10px">Belum ada data</div>')+'</div>'+
     '<div class="kpi-legend"><span class="kpi-badge k-red">Merah</span> = Belum Capai Minimal Target KPI</div>'+
   '</div>';
-
-  $('#panel').innerHTML =
-    summaryTable +
-    '<div class="ops-note">Update KPI Oleh Operasional'+
-      (isOps?' — bulan <b>'+esc(monthLbl)+'</b>. Nilai <b>Omzet</b> otomatis dari order; metrik lain & strategi diisi lewat tombol <b>Atur</b>.'
-            :' — bulan <b>'+esc(monthLbl)+'</b>.')+'</div>'+
-    (cards || emptyState('Belum ada cabang'));
-  document.querySelectorAll('[data-kpiedit]').forEach(b=>b.addEventListener('click',()=>editKpiCS(b.dataset.kpiedit)));
-  document.querySelectorAll('[data-kpicssort]').forEach(t=>t.addEventListener('click',()=>{
-    const s=state.kpiCsSort||{}; state.kpiCsSort = (s.col==='total') ? {col:'total', dir:-s.dir} : {col:'total', dir:1};
-    renderKpiCS();
-  }));
-  setCount(cabs.length,'cabang');
 }
 function editKpiCS(cab){
   const ym=state.kpiMonth||ymd(new Date()).slice(0,7);
@@ -3627,7 +3663,76 @@ function editKpiCS(cab){
   openForm(row);
 }
 
-/* ---------- MARKETING: Spend Ads (tabel + ringkasan pajak 12%) ---------- */
+/* ============================================================
+   FINANCE — Capaian (hub 3 tab: Omzet / KPI / Marketing)
+   ============================================================ */
+function capListCard(title,arr,fmt){
+  if(!arr.length) return '<div class="cap-card"><div class="cap-card-t">'+title+'</div><div class="cap-empty">Belum ada data</div></div>';
+  const max=arr[0].val||1;
+  const body=arr.map((it,i)=>'<div class="cap-row"><span class="cap-rank">'+(i+1)+'</span>'+
+    '<span class="cap-name" title="'+esc(it.k)+'">'+esc(it.k)+'</span>'+
+    '<span class="cap-bar"><span style="width:'+Math.max(5,Math.round(it.val/max*100))+'%"></span></span>'+
+    '<span class="cap-val">'+fmt(it.val)+'</span></div>').join('');
+  return '<div class="cap-card"><div class="cap-card-t">'+title+'</div>'+body+'</div>';
+}
+function capListCardAlmt(title,arr){
+  if(!arr.length) return '<div class="cap-card"><div class="cap-card-t">'+title+'</div><div class="cap-empty">Belum ada data</div></div>';
+  const max=arr[0].val||1;
+  const body=arr.map((it,i)=>{
+    const full=String(it.k||'').trim(); const words=full.split(/\s+/);
+    const shortTxt = words.length<=3 ? full : words.slice(0,3).join(' ');
+    const more = words.length>3 ? '<button class="lnk-more" data-fulltext="'+esc(full)+'" data-fulltitle="Alamat lengkap">…</button>' : '';
+    return '<div class="cap-row"><span class="cap-rank">'+(i+1)+'</span>'+
+      '<span class="cap-name">'+esc(shortTxt)+more+'</span>'+
+      '<span class="cap-bar"><span style="width:'+Math.max(5,Math.round(it.val/max*100))+'%"></span></span>'+
+      '<span class="cap-val">'+it.val+' order</span></div>';
+  }).join('');
+  return '<div class="cap-card"><div class="cap-card-t">'+title+'</div>'+body+'</div>';
+}
+/* TAB 1 — Omzet: persis Laporan Omzet (Operasional) + Top 5 di bawahnya */
+function renderCapOmzet(){
+  renderLaporanOmzet(); // menulis ke #panel: ringkasan + Omzet per Cabang + Detail Omzet per Layanan
+  const cur=reportKpiCur();
+  const base=opsBaseRows().filter(r=>inRange(r['Tanggal Pengerjaan'],cur.start,cur.end));
+  const byCab={}, byLay={};
+  base.forEach(r=>{ const o=omzetOf_(r);
+    const cab=cabangOf(r)||'-'; byCab[cab]=(byCab[cab]||0)+o;
+    [1,2,3].forEach(i=>{ const nm=String(r['Layanan '+i]||'').trim(); if(nm) byLay[nm]=(byLay[nm]||0)+(Number(moneyDigits(r['Harga '+i]))||0); });
+  });
+  const top=(obj,n)=>Object.keys(obj).map(k=>({k,val:obj[k]})).sort((a,b)=>b.val-a.val).slice(0,n);
+  const top5Cab=top(byCab,5), top5Lay=top(byLay,5);
+  const top10Alm=clusterByAlamat(base).slice(0,10);
+  const extra='<div class="cap-grid" style="margin-top:16px">'+
+    capListCard('Top 5 Cabang — omzet', top5Cab, rp)+
+    pieCard('Top 5 Layanan — omzet', top5Lay, rp)+
+    capListCardAlmt('Top 10 Alamat — jumlah order', top10Alm)+
+  '</div>';
+  const panel=$('#panel'); if(panel) panel.insertAdjacentHTML('beforeend', extra);
+  document.querySelectorAll('#panel [data-fulltext]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation();
+    showNamePopup(b, b.dataset.fulltitle||'', b.dataset.fulltext||''); }));
+}
+/* TAB 2 — KPI: Ringkasan Nilai KPI per Cabang + KPI Omzet per Cabang */
+function renderCapKpi(){
+  const ym = state.kpiMonth || ymd(new Date()).slice(0,7);
+  state.kpiMonth = ym;
+  const todayYmd=ymd(new Date());
+  const mb=calMonthBounds(ym);
+  const cur={ start:mb.start, end:(ym===todayYmd.slice(0,7)?todayYmd:mb.end) };
+  $('#panel').innerHTML =
+    kpiSummaryCardHTML(ym) +
+    kpiOmzetCardHTML(cur);
+  document.querySelectorAll('[data-kpicssort]').forEach(t=>t.addEventListener('click',()=>{
+    const s=state.kpiCsSort||{}; state.kpiCsSort=(s.col==='total')?{col:'total',dir:-s.dir}:{col:'total',dir:1};
+    renderCapKpi();
+  }));
+  document.querySelectorAll('[data-rksort]').forEach(t=>t.addEventListener('click',()=>{
+    const col=t.dataset.rksort; const s=state.rkSort||{};
+    state.rkSort=(s.col===col)?{col,dir:-s.dir}:{col,dir:-1};
+    renderCapKpi();
+  }));
+  setCount(opsCabangList().length,'cabang');
+}
+
 function renderSpendAds(){
   renderTable();
   const rows=applyClientFilters(state.rows);
