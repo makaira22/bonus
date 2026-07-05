@@ -504,6 +504,9 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .mc-wrap{display:flex;flex-wrap:wrap;gap:8px 14px;padding:4px 0}
 .mc-item{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:6px 11px}
 .mc-item input{margin:0}
+.fp-ol,.fp-ul{margin:4px 0;padding-left:20px;display:flex;flex-direction:column;gap:3px}
+.fp-ol li,.fp-ul li{font-size:13px;line-height:1.45}
+.fp-gap{height:6px}
 .pie-dot{width:11px;height:11px;border-radius:3px;flex:none}
 @media (max-width:900px){ .dash-cards{grid-template-columns:repeat(2,1fr)} }
 @media (max-width:560px){ .dash-cards{grid-template-columns:1fr 1fr} .dash-sel{flex:1;min-width:120px} }
@@ -1639,7 +1642,7 @@ VIEWS.todo = {
   search:['Tugas'],
   form:[
     f('Tanggal','date',{req:true}),
-    f('Jam','time'),
+    f('Jam','timesel'),
     f('Tugas','textarea',{req:true, full:true}),
     f('Status','select',{opts:['Belum','Proses','Selesai']}),
     f('Warna','select',{opts:['Biru','Hijau','Kuning','Merah','Ungu','Toska']})
@@ -1681,8 +1684,8 @@ VIEWS.kelolaUpdateFitur = {
     f('Pesan','textarea',{req:true, full:true}),
     f('Tujuan','multichk',{opts:['SEMUA','CS','OPERASIONAL','MARKETING','HRD','FINANCE','DESIGNER','CEO'], full:true}),
     {sec:'Jadwal Tayang (opsional)'},
-    f('Tanggal Mulai','date'), f('Jam Mulai','time'),
-    f('Tanggal Berakhir','date'), f('Jam Berakhir','time'),
+    f('Tanggal Mulai','date'), f('Jam Mulai','timesel'),
+    f('Tanggal Berakhir','date'), f('Jam Berakhir','timesel'),
     f('Aktif','check',{bool:true})
   ]
 };
@@ -4494,6 +4497,14 @@ function renderField(fd, val){
       '<label class="chk"><input type="checkbox" data-k="'+esc(fd.k)+'" data-check="'+dc+'"'+(on?' checked':'')+'> '+
       '<span class="chk-label">'+esc(fd.label||fd.k)+'</span></label></div>';
   }
+  if(fd.t==='timesel'){
+    const opts=[]; for(let h=0;h<24;h++){ for(const m of ['00','30']){ opts.push(String(h).padStart(2,'0')+':'+m); } }
+    const cur=String(val||'').slice(0,5);
+    inner = '<select data-k="'+esc(fd.k)+'"'+ro+'><option value="">— pilih jam —</option>'+
+      (cur && opts.indexOf(cur)<0?'<option selected>'+esc(cur)+'</option>':'')+
+      opts.map(o=>'<option'+(o===cur?' selected':'')+'>'+o+'</option>').join('')+'</select>';
+    return '<div class="field'+full+'"><label>'+esc(fd.k)+(fd.req?' <span class="req">*</span>':'')+'</label>'+inner+'</div>';
+  }
   if(fd.t==='select'){
     let opts=(fd.opts||[]).slice();
     // auto-baca nilai dari sheet meski beda huruf besar/kecil; jika tak ada, tampilkan apa adanya.
@@ -6025,13 +6036,27 @@ async function reminderShow(onClose){
   const ov=$('#remOverlay'); if(!ov){ if(onClose) onClose(); return; }
   state._remMode='reminder'; state._remOnClose = onClose || null;
   const items=mine.map(x=>{ const link=x['Link']?'<a class="ann-link" href="'+esc(annLinkFix(x['Link']))+'" target="_blank" rel="noopener">'+esc(x['Label Link']||'Buka')+'</a>':'';
-    return '<div class="rem-item"><b>'+esc(x['Judul']||'')+'</b><div style="margin-top:3px">'+esc(x['Pesan']||'')+'</div>'+link+'</div>'; }).join('');
+    return '<div class="rem-item"><b>'+esc(x['Judul']||'')+'</b><div style="margin-top:3px">'+formatPesan(x['Pesan'])+'</div>'+link+'</div>'; }).join('');
   $('#remBody').innerHTML='<div class="rem-emoji">🔔</div><div class="rem-title">Pengingat</div><div class="rem-list">'+items+'</div>';
   $('#remClose').style.display=''; $('#remClose').textContent='Oke';
   $('#remConfirm').style.display='none'; $('#remMain').style.display='';
   ov.classList.add('open');
 }
 /* Update Fitur (dikelola MARKETING) — tayang saat login ke jabatan yang dipilih, mirip Pengumuman. */
+function formatPesan(text){
+  const lines=String(text||'').split(/\r?\n/);
+  let html='', inList=false, lt='';
+  const flush=()=>{ if(inList){ html+='</'+lt+'>'; inList=false; } };
+  lines.forEach(ln=>{
+    const num=ln.match(/^\s*(\d+)[.)]\s+(.*)$/);
+    const bul=ln.match(/^\s*[-*•]\s+(.*)$/);
+    if(num){ if(!inList||lt!=='ol'){ flush(); html+='<ol class="fp-ol">'; inList=true; lt='ol'; } html+='<li>'+esc(num[2])+'</li>'; }
+    else if(bul){ if(!inList||lt!=='ul'){ flush(); html+='<ul class="fp-ul">'; inList=true; lt='ul'; } html+='<li>'+esc(bul[1])+'</li>'; }
+    else { flush(); if(ln.trim()) html+='<div>'+esc(ln)+'</div>'; else html+='<div class="fp-gap"></div>'; }
+  });
+  flush();
+  return html || esc(text||'');
+}
 async function updateFiturShow(onClose){
   const role=state.session && state.session.role;
   let data=[];
@@ -6059,7 +6084,7 @@ async function updateFiturShow(onClose){
     return '<div class="rem-item" style="border-left:4px solid #e0483d;padding-left:10px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px">'+
       '<span class="kpi-badge" style="background:'+tipeColor(t)+';color:#fff">'+esc(t)+'</span>'+
       '<b>'+esc(x['Judul']||'')+'</b></div>'+
-      '<div style="margin-top:2px">'+esc(x['Pesan']||'')+'</div>'+
+      '<div style="margin-top:2px">'+formatPesan(x['Pesan'])+'</div>'+
       (e?'<div class="ann-exp">Tayang s/d '+esc(e.replace('T',' '))+'</div>':'')+'</div>'; }).join('');
   $('#remBody').innerHTML='<div class="rem-emoji">🚀</div><div class="rem-title" style="color:#e0483d">Update Fitur</div><div class="rem-list">'+items+'</div>';
   $('#remClose').style.display=''; $('#remClose').textContent='Oke';
