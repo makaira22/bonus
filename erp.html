@@ -1771,13 +1771,12 @@ async function api(payload){
       let data=payload.data, tries=0;
       while(true){
         if(!data || Object.keys(data).length===0) return {ok:true, id:payload.id, skipped:true};
-        const {error}=await sb.from(payload.sheet).update(data).eq(idf, payload.id);
-        if(!error) break;
+        const {data:upd, error}=await sb.from(payload.sheet).update(data).eq(idf, payload.id).select();
+        if(!error) return {ok:true, id:payload.id, updated:(upd||[]).length};
         const col=missingColName(error);
         if(col && tries<15 && dataHasCol(data,col)){ data=dataStripCol(data,col); tries++; continue; }
         throw error;
       }
-      return {ok:true, id:payload.id};
     }
     if(a==='upsert'){
       let data=payload.data, tries=0;
@@ -2436,7 +2435,7 @@ function renderTable(){
       moreHtml='<button class="btn btn-ghost load-more" id="pgMore">Muat lebih banyak ('+cardRows.length+'/'+total+')</button>';
     }
   }
-  const showAct=v.canEdit||v.approve||v.invoice||v.wa||v.slip||v.canDelete;
+  const showAct=v.canEdit||v.approve||v.invoice||v.wa||v.slip||v.canDelete||v.revertPending;
   const chk=v.multiApprove;
   const tblClass = (v.sheet==='ORDER'||v.sheet==='GAJI'||v.sheet==='KARYAWAN'||v.sheet==='BONUS') ? 'tbl-wrap desk-only' : 'tbl-wrap';
   let html='<div class="'+tblClass+'"><table><thead><tr>'+
@@ -2598,14 +2597,23 @@ function wireRowHandlers(v){
     const oid=b.dataset.topending;
     setSync(true);
     try{
-      // 1) Status → pending (paling penting)
-      await api({action:'update', sheet:'ORDER', idField:'ID Order', id:oid, data:{'Status Order':'pending'}});
-      // 2) Kosongkan tiap kolom bukti SECARA TERPISAH (pakai null). Dipisah agar kolom yang
-      //    kebetulan belum ada di database tidak menggagalkan pengosongan kolom lain.
-      for(const col of ['Bukti Transfer','Bukti Transfer 2','Waktu Bukti Transfer']){
-        try{ await api({action:'update', sheet:'ORDER', idField:'ID Order', id:oid, data:{[col]: null}}); }catch(_){}
+      // Satu panggilan gabungan. Kolom yang belum ada di database (mis. "Bukti Transfer 2")
+      // otomatis dilepas oleh api() lalu dicoba ulang, jadi aman.
+      const res=await api({action:'update', sheet:'ORDER', idField:'ID Order', id:oid,
+        data:{'Status Order':'pending', 'Bukti Transfer':null, 'Bukti Transfer 2':null, 'Waktu Bukti Transfer':null}});
+      if(res && res.updated===0){
+        setSync(false);
+        toast('GAGAL: database menolak perubahan (0 baris berubah). Kemungkinan policy UPDATE tabel ORDER belum ada — jalankan SQL policy "order_all_auth" di Supabase.','err');
+        return;
       }
-      toast('Order → pending & bukti transfer dihapus','ok'); invalidateLists(); await loadList(true);
+      // Verifikasi hasil dengan membaca ulang barisnya
+      try{
+        const chk=await window.sb.from('ORDER').select('"Status Order","Bukti Transfer"').eq('ID Order', oid).single();
+        const st=norm(chk.data && chk.data['Status Order']);
+        if(st!=='pending'){ setSync(false); toast('GAGAL: status masih "'+st+'". Cek policy UPDATE tabel ORDER di Supabase.','err'); return; }
+      }catch(_){}
+      toast('Order → pending ✓ Bukti transfer dihapus. CS sudah bisa edit & upload ulang.','ok');
+      invalidateLists(); await loadList(true);
     }catch(err){ setSync(false); toast('Gagal: '+(err.message||err),'err'); }
   }));
   document.querySelectorAll('[data-cleaners]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation();
