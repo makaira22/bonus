@@ -486,6 +486,21 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .lt-cell{display:flex;flex-direction:column;gap:1px;line-height:1.3}
 .lt-lay{font-size:12px;font-weight:600;color:var(--ink)}
 .lt-num{font-size:11.5px;color:var(--petrol);font-weight:700;font-variant-numeric:tabular-nums}
+.todo-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+.todo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+.todo-card{display:flex;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.todo-accent{width:6px;background:var(--tc);flex:none}
+.todo-body{flex:1;min-width:0;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.todo-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.todo-date{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--muted);font-weight:600}
+.todo-date svg{width:13px;height:13px}
+.todo-task{font-size:13.5px;font-weight:600;color:var(--ink);line-height:1.45;white-space:pre-wrap;word-break:break-word}
+.todo-donec .todo-task{text-decoration:line-through;color:var(--muted)}
+.todo-st{font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.todo-st.st-todo{background:rgba(224,72,61,.12);color:#c0392b}
+.todo-st.st-proc{background:rgba(224,164,0,.15);color:#b07d00}
+.todo-st.st-done{background:rgba(31,157,87,.14);color:#1f9d57}
+.todo-act{display:flex;gap:6px;justify-content:flex-end;border-top:1px solid var(--line);padding-top:8px;margin-top:2px}
 .pie-dot{width:11px;height:11px;border-radius:3px;flex:none}
 @media (max-width:900px){ .dash-cards{grid-template-columns:repeat(2,1fr)} }
 @media (max-width:560px){ .dash-cards{grid-template-columns:1fr 1fr} .dash-sel{flex:1;min-width:120px} }
@@ -1380,7 +1395,7 @@ const VIEWS = {
   },
   gaji:{
     sheet:'GAJI', title:'Gaji Karyawan', sub:'', countTop:true, noSyncBtn:true,
-    idField:'ID Slip', canAdd:true, canEdit:true, canDelete:true, rowDetail:true, gajiSort:true, special:'gaji', slip:true,
+    idField:'ID Slip', canAdd:true, canEdit:true, canDelete:true, rowDetail:true, gajiSort:true, special:'gaji', slip:true, paged:true,
     table:['Periode Bulan','Nama Karyawan','Total Bonus','Total Potongan','Gaji Diterima','Take Home Pay'],
     colorMap:{'Total Bonus':'c-green','Total Potongan':'c-red','Gaji Diterima':'c-orange','Take Home Pay':'c-blue'},
     filters:['Cabang'], dynPeriode:true,
@@ -1520,7 +1535,7 @@ const VIEWS = {
 
 /* Gaji versi FINANCE: tampilannya sama persis dgn HRD, tapi hanya baca —
    tidak bisa tambah / edit (tombol Cetak Slip & PDF tetap ada). */
-VIEWS.gajiFinance = Object.assign({}, VIEWS.gaji, { canAdd:false, canEdit:false, readOnly:true });
+VIEWS.gajiFinance = Object.assign({}, VIEWS.gaji, { canAdd:false, canEdit:false, canDelete:false, readOnly:true });
 
 /* ===== OPERASIONAL ===== */
 VIEWS.laporanOmzet = {
@@ -1604,14 +1619,29 @@ VIEWS.konten = { sheet:null, title:'Konten', sub:'', special:'konten', noSyncBtn
 VIEWS.suratTDP = { sheet:null, title:'Surat TDP', sub:'', special:'suratTDP', noSyncBtn:true, inSettings:true };
 VIEWS.formCsv = { sheet:null, title:'Contoh Form (CSV)', sub:'', special:'formCsv', noSyncBtn:true, inSettings:true };
 VIEWS.todo = {
-  sheet:'TODO', title:'To Do List', sub:'', inSettings:true, countTop:true, noSyncBtn:true,
+  sheet:'TODO', title:'To Do List', sub:'', inSettings:true, countTop:true, noSyncBtn:true, special:'todo',
   idField:'id', roleLock:true, canAdd:true, canEdit:true, canDelete:true,
   table:['Tanggal','Tugas','Status'],
   search:['Tugas'],
   form:[
     f('Tanggal','date',{req:true}),
     f('Tugas','textarea',{req:true, full:true}),
-    f('Status','select',{opts:['Belum','Proses','Selesai']})
+    f('Status','select',{opts:['Belum','Proses','Selesai']}),
+    f('Warna','select',{opts:['Biru','Hijau','Kuning','Merah','Ungu','Toska']})
+  ]
+};
+VIEWS.kelolaPengingat = {
+  sheet:'REMINDER', title:'Kelola Pengingat', sub:'', inSettings:true, countTop:true, noSyncBtn:true,
+  idField:'id', canAdd:true, canEdit:true, canDelete:true,
+  table:['Judul','Tujuan','Aktif'],
+  search:['Judul','Pesan'],
+  form:[
+    f('Judul','text',{req:true, full:true}),
+    f('Pesan','textarea',{req:true, full:true}),
+    f('Tujuan','select',{opts:['SEMUA','CS','OPERASIONAL','MARKETING','HRD','FINANCE','DESIGNER','CEO']}),
+    f('Link','text',{full:true}),
+    f('Label Link','text'),
+    f('Aktif','check')
   ]
 };
 VIEWS.kontenKelola = {
@@ -1667,7 +1697,7 @@ VIEWS.chatHarian = {
   datePreset:true, dateFilterField:'Tanggal',
   form:[
     f('Tanggal','date',{req:true}),
-    f('Cabang','select',{opts:CABANG, req:true}),
+    f('Cabang','text',{ro:true}),
     {sec:'Customer Baru & Lama'},
     f('Cust Baru Organik','num'),
     f('Cust Baru Iklan','num'),
@@ -2402,6 +2432,7 @@ function renderView(){
   else if(v.special==='spendAds') renderSpendAds();
   else if(v.special==='dashboard') renderDashboard();
   else if(v.special==='grafik') renderGrafik();
+  else if(v.special==='todo') renderTodo();
   else if(v.special==='agenda') renderAgenda();
   else renderTable();
 }
@@ -4298,7 +4329,9 @@ function defaults(v){
     d['PPn']=0; }
   if(v.sheet==='BONUS'){ d['Tanggal Input']=today; }
   if(v.sheet==='GAJI'){ d['Tanggal Cetak']=today; }
-  if(v.sheet==='TODO'){ d['Jabatan']=state.session.role; d['Tanggal']=today; d['Status']='Belum'; }
+  if(v.sheet==='TODO'){ d['Jabatan']=state.session.role; d['Tanggal']=today; d['Status']='Belum'; d['Warna']='Biru'; }
+  if(v.sheet==='CHAT_HARIAN'){ d['Cabang']=state.session.cabang; d['Tanggal']=today; }
+  if(v.sheet==='REMINDER'){ d['Aktif']=1; d['Tujuan']='SEMUA'; }
   return d;
 }
 function renderField(fd, val){
@@ -5190,6 +5223,7 @@ function renderSettings(){
     {key:'suratTDP', label:'Surat TDP', desc:'Pembuatan Surat TDP (segera)', icon:'file'});
   if(role==='MARKETING') entries.push(
     {key:'kontenKelola', label:'Kelola Konten CS', desc:'Atur gambar & teks Story, Promo, Follow Up untuk CS', icon:'inbox'},
+    {key:'kelolaPengingat', label:'Kelola Pengingat', desc:'Buat/edit/hapus pemberitahuan & atur tayang ke jabatan tertentu', icon:'inbox'},
     {key:'formCsv', label:'Contoh Form (CSV)', desc:'Unduh template CSV semua form: header + 1 contoh data', icon:'file'});
   if(['CEO','FINANCE','MARKETING','DESIGNER','HRD'].indexOf(role)>=0) entries.push(
     {key:'todo', label:'To Do List', desc:'Daftar tugas & pengingat (muncul saat tanggalnya tiba)', icon:'audit'});
@@ -5637,6 +5671,39 @@ function renderSuratTDP(){
     '<div class="cap-card-t" style="justify-content:center">Surat TDP</div>'+
     '<div style="color:var(--muted);font-size:13px;margin-top:6px">Fitur pembuatan Surat TDP akan segera hadir.</div></div>';
 }
+async function renderTodo(){
+  const rows=(state.rows||[]).slice().sort((a,b)=>String(parseAnyDate(b['Tanggal'])).localeCompare(String(parseAnyDate(a['Tanggal']))));
+  const COL={Biru:'#2f6df6',Hijau:'#1f9d57',Kuning:'#e0a400',Merah:'#e0483d',Ungu:'#8257d1',Toska:'#159b8f'};
+  const stBadge=s=>{ const n=norm(s); const cls=n==='selesai'?'st-done':(n==='proses'?'st-proc':'st-todo'); return '<span class="todo-st '+cls+'">'+esc(s||'Belum')+'</span>'; };
+  const cards=rows.map(t=>{
+    const c=COL[t['Warna']]||COL.Biru; const done=norm(t['Status'])==='selesai';
+    return '<div class="todo-card'+(done?' todo-donec':'')+'" style="--tc:'+c+'">'+
+      '<div class="todo-accent"></div>'+
+      '<div class="todo-body">'+
+        '<div class="todo-top"><span class="todo-date">'+svg('audit')+' '+esc(tglHariId(t['Tanggal'])||'-')+'</span>'+stBadge(t['Status'])+'</div>'+
+        '<div class="todo-task">'+esc(t['Tugas']||'-')+'</div>'+
+        '<div class="todo-act">'+
+          '<button class="act-ic" data-tedit="'+esc(t['id'])+'" title="Edit">'+svg('edit')+'</button>'+
+          '<button class="act-ic" data-tdel="'+esc(t['id'])+'" title="Hapus" style="color:var(--danger)">✕</button>'+
+        '</div>'+
+      '</div></div>';
+  }).join('');
+  $('#panel').innerHTML=
+    '<div class="todo-head"><button class="btn btn-primary" id="todoAdd">'+svg('plus')+'Tambah Tugas</button>'+
+      '<span class="dash-hint">'+rows.length+' tugas</span></div>'+
+    (rows.length?'<div class="todo-grid">'+cards+'</div>':'<div class="cap-card"><div class="cap-empty">Belum ada tugas. Klik "Tambah Tugas".</div></div>');
+  const add=$('#todoAdd'); if(add) add.onclick=()=>openForm(null);
+  document.querySelectorAll('[data-tedit]').forEach(b=>b.onclick=()=>{ const r=state.rows.find(x=>String(x['id'])===b.dataset.tedit); if(r) openForm(r); });
+  document.querySelectorAll('[data-tdel]').forEach(b=>b.onclick=async()=>{
+    if(!confirm('Hapus tugas ini?')) return;
+    setSync(true);
+    try{ const res=await api({action:'delete', sheet:'TODO', idField:'id', id:b.dataset.tdel});
+      if(res&&res.deleted===0){ setSync(false); toast('Gagal hapus (cek policy DELETE tabel TODO).','err'); return; }
+      toast('Tugas dihapus','ok'); invalidateLists(); await loadList(true);
+    }catch(e){ setSync(false); toast('Gagal: '+(e.message||e),'err'); }
+  });
+  setCount(rows.length,'tugas');
+}
 async function renderKonten(){
   $('#panel').innerHTML='<div class="cap-empty">Memuat konten…</div>';
   let data=[];
@@ -5723,6 +5790,7 @@ async function runLoginPopups(){
   if(role==='CS') queue.push(cb=>showCsReminder(cb));
   if(AGENDA_ROLES.includes(role)) queue.push(cb=>agendaShowIfNeeded(cb));
   if(['CEO','FINANCE','MARKETING','DESIGNER','HRD'].indexOf(role)>=0) queue.push(cb=>todoShow(cb));
+  queue.push(cb=>reminderShow(cb));   // pengingat custom dari MARKETING
   queue.push(cb=>{ annShowPopup(cb); });   // pengumuman selalu jadi antrian terakhir
   runPopupQueue(queue,0);
 }
@@ -5749,6 +5817,25 @@ async function agendaShowIfNeeded(onClose){
 }
 /* dipertahankan untuk kompatibilitas pemanggilan lama */
 function agendaCheck(){ agendaShowIfNeeded(null); }
+async function reminderShow(onClose){
+  const role=state.session && state.session.role;
+  let data=[];
+  try{ const r=await window.sb.from('REMINDER').select('*'); data=r.data||[]; }catch(e){ if(onClose) onClose(); return; }
+  const on=x=>{ const a=x['Aktif']; return a===true||norm(a)==='ya'||Number(moneyDigits(a))>0; };
+  const mine=data.filter(x=>on(x) && (norm(x['Tujuan'])==='semua'||norm(x['Tujuan'])===norm(role)));
+  if(!mine.length){ if(onClose) onClose(); return; }
+  const today=ymd(new Date()); const key='rmd_'+today+'_'+mine.map(x=>x['id']).join('_');
+  if(localStorage.getItem(key)==='1'){ if(onClose) onClose(); return; }
+  localStorage.setItem(key,'1');
+  const ov=$('#remOverlay'); if(!ov){ if(onClose) onClose(); return; }
+  state._remMode='reminder'; state._remOnClose = onClose || null;
+  const items=mine.map(x=>{ const link=x['Link']?'<a class="ann-link" href="'+esc(annLinkFix(x['Link']))+'" target="_blank" rel="noopener">'+esc(x['Label Link']||'Buka')+'</a>':'';
+    return '<div class="rem-item"><b>'+esc(x['Judul']||'')+'</b><div style="margin-top:3px">'+esc(x['Pesan']||'')+'</div>'+link+'</div>'; }).join('');
+  $('#remBody').innerHTML='<div class="rem-emoji">🔔</div><div class="rem-title">Pengingat</div><div class="rem-list">'+items+'</div>';
+  $('#remClose').style.display=''; $('#remClose').textContent='Oke';
+  $('#remConfirm').style.display='none'; $('#remMain').style.display='';
+  ov.classList.add('open');
+}
 async function todoShow(onClose){
   const role=state.session && state.session.role;
   if(['CEO','FINANCE','MARKETING','DESIGNER','HRD'].indexOf(role)<0){ if(onClose) onClose(); return; }
