@@ -4346,8 +4346,8 @@ function buildInvoiceHTML(o){
     '<div style="font-size:11px;margin-bottom:3px;color:'+MUT+'"><b style="color:'+PET+'">'+esc(b.bank)+'</b> '+esc(b.no)+' · a.n. '+esc(b.an)+'</div>'
   )).join('');
   const trow=(l,v,strong)=>'<tr>'+
-    '<td style="width:150px;padding:7px 14px;font-size:'+(strong?'13px':'12px')+';color:'+(strong?'#ffffff':'#d7e2ee')+';'+(strong?'font-weight:800':'')+'">'+l+'</td>'+
-    '<td style="width:150px;padding:7px 14px;font-size:'+(strong?'14px':'12px')+';color:#ffffff;text-align:right;white-space:nowrap;'+(strong?'font-weight:800':'')+'">'+v+'</td></tr>';
+    '<td style="box-sizing:border-box;width:150px;padding:7px 14px;font-size:'+(strong?'13px':'12px')+';color:'+(strong?'#ffffff':'#d7e2ee')+';'+(strong?'font-weight:800':'')+'">'+l+'</td>'+
+    '<td style="box-sizing:border-box;width:150px;padding:7px 14px;font-size:'+(strong?'14px':'12px')+';color:#ffffff;text-align:right;white-space:nowrap;'+(strong?'font-weight:800':'')+'">'+v+'</td></tr>';
 
   return ''+
   '<div style="width:760px;box-sizing:border-box;background:#fff;position:relative;overflow:hidden;border:1px solid '+LINE+';border-radius:14px;font-family:Arial,Helvetica,sans-serif;color:#15211F">'+
@@ -4434,8 +4434,9 @@ async function invoiceToCanvas(o){
     window.scrollTo(0,0); // mulai dari atas agar capture tidak ikut tergeser
     if(document.fonts && document.fonts.ready){ try{ await Promise.race([document.fonts.ready, new Promise(r=>setTimeout(r,1200))]); }catch(e){} }
     await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
-    // tangkap SELURUH elemen: lebar & TINGGI penuh (penting di HP yg viewport-nya pendek)
-    const capW=Math.max(el.scrollWidth, el.offsetWidth, 760);
+    // Lebar TETAP = lebar kartu (760). Jangan pakai scrollWidth: watermark besar yang di-clip
+    // oleh overflow:hidden membuat scrollWidth membengkak → sisi kanan (nominal & tanda tangan) terpotong.
+    const capW=el.offsetWidth||760;
     const capH=Math.max(el.scrollHeight, el.offsetHeight);
     const opt={ scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false,
       width:capW, height:capH, windowWidth:capW, windowHeight:capH,
