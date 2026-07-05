@@ -4423,21 +4423,29 @@ async function invoiceToCanvas(o){
   if(!canRender) return null;
   const html=buildInvoiceHTML(o);
   const holder=document.createElement('div');
-  holder.style.cssText='position:fixed;left:0;top:0;width:760px;background:#fff;z-index:-1;opacity:1';
+  // ABSOLUTE (bukan fixed) di pojok kiri-atas DOKUMEN. Fixed membuat html2canvas menggeser
+  // hasil capture sebesar posisi scroll daftar → invoice makin ke bawah / kosong. Absolute menghindarinya.
+  holder.style.cssText='position:absolute;left:0;top:0;width:760px;background:#fff;z-index:-1;opacity:1';
   holder.innerHTML=html;
   document.body.appendChild(holder);
   const el=holder.firstElementChild;
+  const prevX=window.pageXOffset||0, prevY=window.pageYOffset||0;
   try{
+    window.scrollTo(0,0); // mulai dari atas agar capture tidak ikut tergeser
     if(document.fonts && document.fonts.ready){ try{ await Promise.race([document.fonts.ready, new Promise(r=>setTimeout(r,1200))]); }catch(e){} }
     await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
-    const capW=760;
-    const opt={ scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false, width:capW, windowWidth:capW };
+    // tangkap SELURUH elemen: lebar & TINGGI penuh (penting di HP yg viewport-nya pendek)
+    const capW=Math.max(el.scrollWidth, el.offsetWidth, 760);
+    const capH=Math.max(el.scrollHeight, el.offsetHeight);
+    const opt={ scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false,
+      width:capW, height:capH, windowWidth:capW, windowHeight:capH,
+      scrollX:0, scrollY:0, x:0, y:0 };
     let canvas;
     if(typeof window.html2canvas!=='undefined'){ canvas=await window.html2canvas(el, opt); }
     else { canvas=await html2pdf().set({html2canvas:opt}).from(el).toCanvas().get('canvas'); }
     return canvas;
   }catch(e){ return null; }
-  finally{ holder.remove(); }
+  finally{ holder.remove(); window.scrollTo(prevX, prevY); }
 }
 /* Cetak / preview memakai GAMBAR yang sama dengan unduhan → desain identik. */
 function printInvoiceImage(o, canvas){
