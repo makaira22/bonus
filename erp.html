@@ -4345,9 +4345,11 @@ function buildInvoiceHTML(o){
   const bankRows=INVOICE_BANK.map(b=>(
     '<div style="font-size:11px;margin-bottom:3px;color:'+MUT+'"><b style="color:'+PET+'">'+esc(b.bank)+'</b> '+esc(b.no)+' · a.n. '+esc(b.an)+'</div>'
   )).join('');
-  const trow=(l,v,strong)=>'<tr>'+
-    '<td style="box-sizing:border-box;width:150px;padding:7px 14px;font-size:'+(strong?'13px':'12px')+';color:'+(strong?'#ffffff':'#d7e2ee')+';'+(strong?'font-weight:800':'')+'">'+l+'</td>'+
-    '<td style="box-sizing:border-box;width:150px;padding:7px 14px;font-size:'+(strong?'14px':'12px')+';color:#ffffff;text-align:right;white-space:nowrap;'+(strong?'font-weight:800':'')+'">'+v+'</td></tr>';
+  // Baris total: DIV + nilai position:absolute (BUKAN tabel). html2canvas sering salah
+  // menghitung lebar sel tabel table-layout:fixed → nominal terpotong. Absolut = pixel-perfect.
+  const trow=(l,v,strong)=>'<div style="position:relative;height:'+(strong?'20px':'18px')+';padding:'+(strong?'9px':'7px')+' 14px">'+
+    '<span style="font-size:'+(strong?'13px':'12px')+';color:'+(strong?'#ffffff':'#d7e2ee')+';'+(strong?'font-weight:800;':'')+'line-height:'+(strong?'20px':'18px')+'">'+l+'</span>'+
+    '<span style="position:absolute;right:14px;top:'+(strong?'9px':'7px')+';font-size:'+(strong?'14px':'12px')+';color:#ffffff;white-space:nowrap;'+(strong?'font-weight:800;':'')+'line-height:'+(strong?'20px':'18px')+'">'+v+'</span></div>';
 
   return ''+
   '<div style="width:760px;box-sizing:border-box;background:#fff;position:relative;overflow:hidden;border:1px solid '+LINE+';border-radius:14px;font-family:Arial,Helvetica,sans-serif;color:#15211F">'+
@@ -4386,33 +4388,32 @@ function buildInvoiceHTML(o){
             '<th style="padding:10px 12px;font-size:11px;text-align:center;text-transform:uppercase;width:80px">Qty</th>'+
             '<th style="padding:10px 16px;font-size:11px;text-align:right;text-transform:uppercase;width:140px">Harga</th>'+
           '</tr></thead><tbody>'+itemRows+'</tbody></table>'+
-        // bank (kiri) + totals (kanan) — pakai TABEL table-layout:fixed (aman utk html2canvas, tidak seperti float)
-        '<table style="width:100%;table-layout:fixed;border-collapse:collapse;margin-top:18px"><tr>'+
-          '<td style="vertical-align:top;padding-right:18px">'+
+        // bank (kiri) + kotak total (kanan, position:absolute) — tanpa tabel & tanpa float,
+        // konstruksi paling aman untuk html2canvas sehingga nominal TIDAK mungkin terpotong.
+        '<div style="position:relative;margin-top:18px;min-height:142px">'+
+          '<div style="width:390px">'+
             '<div style="font-size:10px;font-weight:800;letter-spacing:.06em;color:'+MUT+';text-transform:uppercase;margin-bottom:6px">Transfer Ke</div>'+
             bankRows+
-          '</td>'+
-          '<td style="vertical-align:top;width:300px">'+
-            '<table style="width:300px;table-layout:fixed;border-collapse:collapse;background:'+PET+';border-radius:10px;overflow:hidden">'+
-              trow('Subtotal', money(subtotal))+
-              trow('Diskon', '- '+money(diskonNilai))+
-              trow('PPn ('+ppn+'%)', money(ppnNilai))+
-              '<tr><td colspan="2" style="padding:0 14px"><div style="height:1px;background:rgba(255,255,255,.25)"></div></td></tr>'+
-              trow('Total', money(grand), true)+
-            '</table>'+
-          '</td>'+
-        '</tr></table>'+
+          '</div>'+
+          '<div style="position:absolute;top:0;right:0;width:300px;background:'+PET+';border-radius:10px">'+
+            trow('Subtotal', money(subtotal))+
+            trow('Diskon', '- '+money(diskonNilai))+
+            trow('PPn ('+ppn+'%)', money(ppnNilai))+
+            '<div style="height:1px;background:rgba(255,255,255,.25);margin:0 14px"></div>'+
+            trow('Total', money(grand), true)+
+          '</div>'+
+        '</div>'+
         // terbilang
         '<div style="margin-top:16px;padding:10px 14px;background:#f4f7fa;border:1px solid '+LINE+';border-radius:8px;font-size:11.5px;color:#15211F">'+
           '<b>Terbilang:</b> <i>'+esc(terbilangRp(grand))+'</i></div>'+
-        // footer
-        '<table style="width:100%;border-collapse:collapse;margin-top:22px;border-top:1px solid '+LINE+'"><tr>'+
-          '<td style="vertical-align:bottom;padding-top:14px;font-size:11px;color:'+MUT+';width:58%">Terima kasih telah mempercayakan kebersihan Anda kepada KLINKLIN. Simpan invoice ini sebagai bukti transaksi.</td>'+
-          '<td style="vertical-align:bottom;padding-top:14px;text-align:center">'+
-            '<div style="font-size:11px;color:'+MUT+';margin-bottom:34px">Hormat kami,</div>'+
-            '<div style="font-size:12px;font-weight:800;border-top:1px solid #15211F;padding-top:5px;display:inline-block">'+esc(INVOICE_SIGNER)+'</div>'+
-          '</td>'+
-        '</tr></table>'+
+        // footer — juga tanpa tabel (div + absolut) agar tanda tangan tidak terpotong
+        '<div style="position:relative;margin-top:22px;border-top:1px solid '+LINE+';min-height:86px">'+
+          '<div style="position:absolute;left:0;bottom:0;width:420px;font-size:11px;color:'+MUT+';line-height:1.5">Terima kasih telah mempercayakan kebersihan Anda kepada KLINKLIN. Simpan invoice ini sebagai bukti transaksi.</div>'+
+          '<div style="position:absolute;right:20px;top:14px;width:220px;text-align:center">'+
+            '<div style="font-size:11px;color:'+MUT+'">Hormat kami,</div>'+
+            '<div style="margin-top:40px;border-top:1px solid #15211F;padding-top:5px;font-size:12px;font-weight:800">'+esc(INVOICE_SIGNER)+'</div>'+
+          '</div>'+
+        '</div>'+
       '</div>'+
     '</div>'+
   '</div>';
