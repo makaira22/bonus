@@ -1487,7 +1487,7 @@ const VIEWS = {
   },
   hasilAudit:{
     sheet:'ORDER', title:'Hasil Audit', sub:'', readOnly:true, countTop:true, hub:'audit',
-    idField:'ID Order', statusClient:['cancel','complete'], statusPrio:['cancel','complete'], paged:true,
+    idField:'ID Order', statusClient:['cancel','complete'], statusPrio:['cancel','complete'], paged:true, revertPending:true,
     statusBadge:true, invoice:true, rowDetail:true,
     table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Metode Pembayaran','Total Akhir Setelah Diskon','Waktu Approve'],
     filters:['Cabang','Status Order'],
@@ -2582,7 +2582,7 @@ function rowActions(v,r){
   if(v.bonusBtn && norm(r['Status Order'])!=='cancel'){
     act += '<button class="btn btn-ghost btn-sm" data-bonusfor="'+esc(oid)+'">'+svg('bonus')+'Input Bonus</button>';
   }
-  if(v.revertPending && norm(r['Status Order'])==='done' && state.session && state.session.role==='FINANCE'){
+  if(v.revertPending && ['done','complete'].indexOf(norm(r['Status Order']))>=0 && state.session && state.session.role==='FINANCE'){
     act += '<button class="btn btn-ghost btn-sm" data-topending="'+esc(oid)+'" title="Kembalikan ke pending & hapus bukti transfer agar CS bisa edit + upload ulang" style="color:var(--danger)">'+svg('edit')+'Reset ke Pending</button>';
   }
   if(v.canDelete){
@@ -2593,26 +2593,32 @@ function rowActions(v,r){
 }
 function wireRowHandlers(v){
   document.querySelectorAll('[data-topending]').forEach(b=>b.addEventListener('click',async e=>{ e.stopPropagation();
-    if(!confirm('Kembalikan order ini ke PENDING dan HAPUS bukti transfer?\nCS pembuat order bisa mengedit & mengupload bukti transfer lagi.')) return;
+    if(!confirm('Kembalikan order ini ke PENDING?\n\nYang akan dilakukan:\n• Status → pending (CS bisa edit SEMUA isian order lagi)\n• Bukti transfer & waktu bukti DIHAPUS (bisa upload ulang)\n• Waktu approve dikosongkan\n• SEMUA BONUS yang terhubung ke order ini DIHAPUS')) return;
     const oid=b.dataset.topending;
     setSync(true);
     try{
-      // Satu panggilan gabungan. Kolom yang belum ada di database (mis. "Bukti Transfer 2")
-      // otomatis dilepas oleh api() lalu dicoba ulang, jadi aman.
+      // Satu panggilan gabungan. Kolom yang belum ada di database otomatis dilepas oleh api().
       const res=await api({action:'update', sheet:'ORDER', idField:'ID Order', id:oid,
-        data:{'Status Order':'pending', 'Bukti Transfer':null, 'Bukti Transfer 2':null, 'Waktu Bukti Transfer':null}});
+        data:{'Status Order':'pending', 'Bukti Transfer':null, 'Bukti Transfer 2':null, 'Waktu Bukti Transfer':null, 'Waktu Approve':null}});
       if(res && res.updated===0){
         setSync(false);
         toast('GAGAL: database menolak perubahan (0 baris berubah). Kemungkinan policy UPDATE tabel ORDER belum ada — jalankan SQL policy "order_all_auth" di Supabase.','err');
         return;
       }
+      // Hapus semua bonus yang terhubung ke order ini
+      let bonusN=0;
+      try{
+        const del=await window.sb.from('BONUS').delete().eq('No Order', oid).select();
+        if(del.error) throw del.error;
+        bonusN=(del.data||[]).length;
+      }catch(be){ toast('Peringatan: bonus order ini gagal dihapus ('+(be.message||be)+'). Cek policy DELETE tabel BONUS.','err'); }
       // Verifikasi hasil dengan membaca ulang barisnya
       try{
         const chk=await window.sb.from('ORDER').select('"Status Order","Bukti Transfer"').eq('ID Order', oid).single();
         const st=norm(chk.data && chk.data['Status Order']);
         if(st!=='pending'){ setSync(false); toast('GAGAL: status masih "'+st+'". Cek policy UPDATE tabel ORDER di Supabase.','err'); return; }
       }catch(_){}
-      toast('Order → pending ✓ Bukti transfer dihapus. CS sudah bisa edit & upload ulang.','ok');
+      toast('Order → pending ✓ Bukti & waktu dikosongkan'+(bonusN?(' · '+bonusN+' bonus dihapus'):'')+'. CS bisa edit semua isian lagi.','ok');
       invalidateLists(); await loadList(true);
     }catch(err){ setSync(false); toast('Gagal: '+(err.message||err),'err'); }
   }));
