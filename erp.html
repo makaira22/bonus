@@ -467,6 +467,23 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 
 /* ---------- capaian dashboard ---------- */
 .cap-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px}
+.dash-filter{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.dash-filter.tabflt{padding:10px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px}
+.dash-sel{padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink);font-size:12.5px}
+.dash-cmp{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;cursor:pointer}
+.dash-hint{font-size:11px;color:var(--faint)}
+.dash-range{font-size:12px;color:var(--muted);margin-bottom:12px}
+.dash-cards{grid-template-columns:repeat(5,1fr)}
+.dash-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 14px;border-bottom:1px solid var(--line);padding-bottom:2px}
+.dtab{padding:8px 16px;border:none;background:none;font-size:13px;font-weight:700;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent}
+.dtab.on{color:var(--petrol);border-bottom-color:var(--petrol)}
+.pie-wrap{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.pie-svg{width:180px;height:180px;flex:none}
+.pie-legs{flex:1;min-width:160px;display:flex;flex-direction:column;gap:5px}
+.pie-leg{font-size:12px;display:flex;align-items:center;gap:7px}
+.pie-dot{width:11px;height:11px;border-radius:3px;flex:none}
+@media (max-width:900px){ .dash-cards{grid-template-columns:repeat(2,1fr)} }
+@media (max-width:560px){ .dash-cards{grid-template-columns:1fr 1fr} .dash-sel{flex:1;min-width:120px} }
 .cap-stats-4{grid-template-columns:repeat(4,1fr)}
 .cap-stat-btn{text-align:left;cursor:pointer;border:1px solid var(--gold);transition:.12s;width:100%}
 .cap-stat-btn:hover{background:var(--gold-soft)}
@@ -1300,6 +1317,7 @@ const MENUS = {
   ],
   CEO: [
     {key:'dashboard', label:'Dashboard', icon:'result'},
+    {key:'grafik', label:'Grafik', icon:'audit'},
     {key:'agenda', label:'Agenda', icon:'audit'},
     {key:'__settings', label:'Pengaturan', icon:'settings'}
   ],
@@ -1566,9 +1584,10 @@ VIEWS.progres = {
 
 /* ===== CEO ===== */
 VIEWS.dashboard = {
-  sheet:'ORDER', title:'Dashboard', sub:'', special:'dashboard', countTop:true, noSyncBtn:true,
-  filters:['Cabang','Status Order'],
-  datePreset:true, dateFilterField:'Tanggal Pengerjaan'
+  sheet:'ORDER', title:'Dashboard', sub:'', special:'dashboard', countTop:true, noSyncBtn:true
+};
+VIEWS.grafik = {
+  sheet:'ORDER', title:'Grafik', sub:'', special:'grafik', countTop:true, noSyncBtn:true
 };
 
 /* ===== CS: KPI (lihat saja) & Konten ===== */
@@ -2238,6 +2257,7 @@ async function loadList(force){
     if(v.special==='kpiCS' || v.special==='capaian') await loadKpiCfg();
     if(v.special==='kpiCS'){ await loadTargets(); state.kpiCsSort=null; }
     if(v.special==='dashboard') await loadDashData();
+    if(v.special==='grafik') await loadDashData();
     renderView();
     syncDone(state.rows.length);
   }catch(err){ setSync(false); toast(err.message,'err'); $('#panel').innerHTML=emptyState('Gagal memuat data'); }
@@ -2377,6 +2397,7 @@ function renderView(){
   else if(v.special==='kpiCS') renderKpiCS();
   else if(v.special==='spendAds') renderSpendAds();
   else if(v.special==='dashboard') renderDashboard();
+  else if(v.special==='grafik') renderGrafik();
   else if(v.special==='agenda') renderAgenda();
   else renderTable();
 }
@@ -3573,110 +3594,343 @@ function renderSpendAds(){
 
 /* ---------- CEO: Dashboard ---------- */
 async function loadDashData(){
-  try{ const k=await api({action:'list', sheet:'KARYAWAN'}); state.cache.karyawanAll=k.data||[]; }catch(e){ state.cache.karyawanAll=[]; }
-  try{ const s=await api({action:'list', sheet:'SPEND_ADS'}); state.cache.spendAll=s.data||[]; }catch(e){ state.cache.spendAll=[]; }
+  const g=async(sheet,key)=>{ try{ const r=await api({action:'list',sheet}); state.cache[key]=r.data||[]; }catch(e){ state.cache[key]=[]; } };
+  await g('KARYAWAN','karyawanAll');
+  await g('SPEND_ADS','spendAll');
+  await g('GAJI','gajiAll');
+  await g('BONUS','bonusAll');
+  await g('CHAT_HARIAN','chatHarianAll');
+  try{ await loadTargets(); }catch(e){}
+}
+function dashInit(){
+  if(!state.dash) state.dash={ cab:'',status:'',ds:'',de:'',preset:'',cmp:false,
+    tab:'operasional', tcab:'',tds:'',tde:'', finPage:0 };
+}
+function shiftDays_(ymdStr,n){ const d=parseDate_(ymdStr)||new Date(); d.setDate(d.getDate()+n); return ymd(d); }
+function backMonth_(x){ const d=parseDate_(x); const lp=new Date(d.getFullYear(),d.getMonth(),0).getDate();
+  return ymd(new Date(d.getFullYear(),d.getMonth()-1,Math.min(d.getDate(),lp))); }
+function dashRange(ds,de,preset){
+  const today=ymd(new Date());
+  if(preset==='kemarin'){ const y=shiftDays_(today,-1); return {s:y,e:y}; }
+  if(preset==='hariini'){ return {s:today,e:today}; }
+  if(preset==='besok'){ const t=shiftDays_(today,1); return {s:t,e:t}; }
+  if(ds||de){ const a=ds||de,b=de||ds; return {s:(a<=b?a:b),e:(a<=b?b:a)}; }
+  return {s:today.slice(0,7)+'-01', e:today};
+}
+function dashCmpRange(cur,preset){
+  const today=ymd(new Date());
+  if(preset==='kemarin'||preset==='hariini'){ const c=shiftDays_(cur.s,-1); return {s:c,e:c}; }
+  if(preset==='besok'){ return {s:today,e:today}; }
+  return { s:backMonth_(cur.s), e:backMonth_(cur.e) };
+}
+function dashOrders(range,cab,status){
+  return state.rows.filter(r=>{
+    if(cab && cabangOf(r)!==String(cab).toUpperCase()) return false;
+    const d=parseAnyDate(r['Tanggal Pengerjaan']); if(!d||d<range.s||d>range.e) return false;
+    if(status && norm(r['Status Order'])!==norm(status)) return false;
+    return true;
+  });
+}
+function dashMetrics(range,cab,status){
+  const ords=dashOrders(range,cab,status);
+  const nonCancel = status ? ords : ords.filter(r=>norm(r['Status Order'])!=='cancel');
+  const omzet=nonCancel.reduce((s,r)=>s+omzetOf_(r),0);
+  const cancel=dashOrders(range,cab,'cancel').length;
+  let kar=(state.cache.karyawanAll||[]).filter(k=>['freelance','vendor'].indexOf(norm(k['Status']))<0);
+  if(cab) kar=kar.filter(k=>String(k['Cabang']||'').toUpperCase()===String(cab).toUpperCase());
+  let totSpend=0;
+  (state.cache.spendAll||[]).forEach(sp=>{
+    if(cab && String(sp['Cabang']||'').toUpperCase()!==String(cab).toUpperCase()) return;
+    const pm=parseAnyMonth(sp['Periode']||sp['Periode Bulan']||sp['Tanggal']); if(!pm) return;
+    if(pm>=range.s.slice(0,7) && pm<=range.e.slice(0,7)) totSpend+=Number(moneyDigits(sp['Nominal']))||0;
+  });
+  return {omzet, cancel, karN:kar.length, totSpend};
+}
+function dashDeltaBadge(a,b){
+  if(b<=0 && a<=0) return '';
+  const pct = b>0 ? ((a-b)/b*100) : 100;
+  const up = a>=b;
+  return '<div class="cap-stat-s '+(up?'g-up':'g-down')+'">'+(up?'▲ ':'▼ ')+Math.abs(pct).toFixed(1)+'% vs pembanding</div>';
 }
 function renderDashboard(){
-  const num=v=>Number(moneyDigits(v))||0;
-  const rows=applyClientFilters(state.rows);           // ORDER: cabang + status + rentang tanggal
-  const fc=state.filters['Cabang'];
-  let omzet=0, omzetAdsTot=0; const byCab={}, byLay={}, byDay={};
-  rows.forEach(r=>{
-    const o=num(r['Total Akhir Setelah Diskon']||r['Total Akhir']); omzet+=o;
-    const cab=String(r['Cabang']||'-').toUpperCase(); byCab[cab]=(byCab[cab]||0)+o;
-    if(norm(r['Chat Dari'])==='iklan') omzetAdsTot+=o;
-    [1,2,3].forEach(i=>{ const nm=String(r['Layanan '+i]||'').trim(); if(nm) byLay[nm]=(byLay[nm]||0)+num(r['Harga '+i]); });
-    const d=String(r['Tanggal Pengerjaan']||'').slice(0,10); if(d) byDay[d]=(byDay[d]||0)+o;
-  });
-
-  // Karyawan
-  let kar=(state.cache.karyawanAll||[]).slice();
-  if(fc) kar=kar.filter(k=>String(k['Cabang']||'').toUpperCase()===String(fc).toUpperCase());
-  const totKar=kar.length;
-
-  // Spend iklan (per cabang) — hormati filter cabang
-  let spend=(state.cache.spendAll||[]).slice();
-  if(fc) spend=spend.filter(s=>String(s['Cabang']||'').toUpperCase()===String(fc).toUpperCase());
-  let totSpend=0; const spendByCab={};
-  spend.forEach(s=>{ const n=num(s['Nominal']); totSpend+=n; const c=String(s['Cabang']||'-').toUpperCase(); spendByCab[c]=(spendByCab[c]||0)+n; });
-
-  const stat=(l,val,s)=>'<div class="cap-stat"><div class="cap-stat-l">'+l+'</div><div class="cap-stat-v">'+val+'</div>'+(s?'<div class="cap-stat-s">'+s+'</div>':'')+'</div>';
-  const top=(obj,n)=>Object.keys(obj).map(k=>({k,val:obj[k]})).sort((a,b)=>b.val-a.val).slice(0,n);
-  const listCard=(title,arr,fmt)=>{
-    if(!arr.length) return '<div class="cap-card"><div class="cap-card-t">'+title+'</div><div class="cap-empty">Belum ada data</div></div>';
-    const max=arr[0].val||1;
-    return '<div class="cap-card"><div class="cap-card-t">'+title+'</div>'+arr.map((it,i)=>
-      '<div class="cap-row"><span class="cap-rank">'+(i+1)+'</span><span class="cap-name" title="'+esc(it.k)+'">'+esc(it.k)+'</span>'+
-      '<span class="cap-bar"><span style="width:'+Math.max(5,Math.round(it.val/max*100))+'%"></span></span>'+
-      '<span class="cap-val">'+fmt(it.val)+'</span></div>').join('')+'</div>';
-  };
-
-  // Detail karyawan per cabang & jabatan
-  const jabSet={}; kar.forEach(k=>{ const j=String(k['Jabatan']||'-').toUpperCase(); jabSet[j]=true; });
-  const jabs=JABATAN.map(j=>j.toUpperCase()).filter(j=>jabSet[j]);
-  const cabsK=[...new Set(kar.map(k=>String(k['Cabang']||'-').toUpperCase()))].sort();
-  const karHead='<th class="l">Cabang</th>'+jabs.map(j=>'<th class="c">'+esc(j)+'</th>').join('')+'<th class="r">Total</th>';
-  const karBody=cabsK.map(cab=>{
-    const rc=kar.filter(k=>String(k['Cabang']||'-').toUpperCase()===cab);
-    const cells=jabs.map(j=>'<td class="c">'+(rc.filter(k=>String(k['Jabatan']||'-').toUpperCase()===j).length||'')+'</td>').join('');
-    return '<tr><td class="cab-cell l">'+esc(cab)+'</td>'+cells+'<td class="r"><b>'+rc.length+'</b></td></tr>';
-  }).join('');
-
-  // Detail spend vs omzet ads
-  const cabsAll = fc ? [String(fc).toUpperCase()] : CABANG.filter(c=>c!=='OFFICE');
-  const spendRows=cabsAll.map(cab=>{
-    const sp=spendByCab[cab]||0;
-    const oa=rows.filter(r=>String(r['Cabang']||'').toUpperCase()===cab && norm(r['Chat Dari'])==='iklan')
-                 .reduce((s,r)=>s+num(r['Total Akhir Setelah Diskon']||r['Total Akhir']),0);
-    const pct = oa>0 ? (sp/oa*100) : 0;
-    const pcls = pct===0?'':(pct<=25?'g-up':(pct<=40?'':'g-down'));
-    return '<tr><td class="cab-cell l">'+esc(cab)+'</td><td class="money">'+rp(sp)+'</td>'+
-      '<td class="money">'+rp(oa)+'</td><td class="r '+pcls+'"><b>'+(oa>0?pct.toFixed(1)+'%':'—')+'</b></td></tr>';
-  }).join('');
-
-  // Grafik garis omzet harian
-  const days=Object.keys(byDay).sort();
-  let line;
-  if(days.length){
-    const maxD=Math.max.apply(null, days.map(d=>byDay[d]))||1;
-    const W=Math.max(days.length*44+40, 320), H=200, pad=28;
-    const X=i=>pad+i*((W-pad*2)/Math.max(1,days.length-1));
-    const Y=v=>H-pad-(v/maxD)*(H-pad*2);
-    const pts=days.map((d,i)=>X(i)+','+Y(byDay[d]).toFixed(1)).join(' ');
-    const dots=days.map((d,i)=>'<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(byDay[d]).toFixed(1)+'" r="3.2" fill="var(--petrol)"><title>'+d.slice(8,10)+'/'+d.slice(5,7)+': '+rp(byDay[d])+'</title></circle>').join('');
-    const labs=days.map((d,i)=> (days.length<=16||i%2===0) ? '<text x="'+X(i).toFixed(1)+'" y="'+(H-8)+'" text-anchor="middle" font-size="9" fill="var(--muted)">'+d.slice(8,10)+'/'+d.slice(5,7)+'</text>':'').join('');
-    line='<div class="cap-card"><div class="cap-card-t">Progres Omzet Harian</div><div class="cap-chart">'+
-      '<svg viewBox="0 0 '+W+' '+H+'" style="min-width:'+W+'px;height:'+H+'px">'+
-      '<polyline points="'+pts+'" fill="none" stroke="var(--petrol)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>'+
-      dots+labs+'</svg></div></div>';
-  } else line='<div class="cap-card"><div class="cap-card-t">Progres Omzet Harian</div><div class="cap-empty">Tidak ada data pada filter ini.</div></div>';
-
-  const top10Lay=top(byLay,10);
-  const top10Cab=Object.keys(byCab).map(k=>({k,val:byCab[k]})).sort((a,b)=>b.val-a.val);
-  const top10Alm=clusterByAlamat(rows).slice(0,10);
+  dashInit(); const D=state.dash;
+  const cur=dashRange(D.ds,D.de,D.preset);
+  const met=dashMetrics(cur,D.cab,D.status);
+  let cmp=null; if(D.cmp){ cmp=dashMetrics(dashCmpRange(cur,D.preset),D.cab,D.status); }
+  const cabOpts='<option value="">Semua Cabang</option>'+CABANG.map(c=>'<option'+(D.cab===c?' selected':'')+'>'+c+'</option>').join('');
+  const stOpts='<option value="">Semua Status</option>'+STATUS_ORDER.map(s=>'<option'+(D.status===s?' selected':'')+'>'+s+'</option>').join('');
+  const presetBtn=(k,l)=>'<button class="dt'+(D.preset===k?' on':'')+'" data-dpreset="'+k+'">'+l+'</button>';
+  const stat=(l,val,sub,extra)=>'<div class="cap-stat'+(extra||'')+'"><div class="cap-stat-l">'+l+'</div><div class="cap-stat-v">'+val+'</div>'+(sub||'')+'</div>';
+  const rangeLbl = tglPanjangId(cur.s)+' – '+tglPanjangId(cur.e);
 
   $('#panel').innerHTML =
-    '<div class="cap-stats">'+
-      stat('Total Omzet',rp(omzet))+
-      stat('Total Karyawan',totKar+'')+
-      stat('Total Spend Iklan',rp(totSpend))+
-      stat('Total Chat','—','segera')+
+    '<div class="dash-filter">'+
+      '<select id="dCab" class="dash-sel">'+cabOpts+'</select>'+
+      '<select id="dStatus" class="dash-sel">'+stOpts+'</select>'+
+      '<input type="date" id="dDs" class="dash-sel" value="'+esc(D.ds)+'">'+
+      '<input type="date" id="dDe" class="dash-sel" value="'+esc(D.de)+'">'+
+      '<div class="date-tabs">'+presetBtn('kemarin','Kemarin')+presetBtn('hariini','Hari ini')+presetBtn('besok','Besok')+
+        '<button class="dt'+(!D.preset?' on':'')+'" data-dpreset="">Reset</button></div>'+
+      '<label class="dash-cmp"><input type="checkbox" id="dCmp"'+(D.cmp?' checked':'')+'> Bandingkan</label>'+
     '</div>'+
-    '<div class="cap-card"><div class="cap-card-t">Omzet per Cabang (tertinggi → terendah)</div>'+
-      (top10Cab.length?'<div class="tbl-wrap"><table class="ops-tbl"><thead><tr><th class="l">Cabang</th><th class="r">Omzet</th></tr></thead><tbody>'+
-        top10Cab.map(c=>'<tr><td class="cab-cell l">'+esc(c.k)+'</td><td class="money">'+rp(c.val)+'</td></tr>').join('')+
-      '</tbody></table></div>':'<div class="cap-empty">Belum ada data</div>')+'</div>'+
-    '<div class="cap-card"><div class="cap-card-t">Detail Karyawan per Cabang & Jabatan</div>'+
-      (karBody?'<div class="tbl-wrap"><table class="ops-tbl"><thead><tr>'+karHead+'</tr></thead><tbody>'+karBody+'</tbody></table></div>':'<div class="cap-empty">Belum ada data karyawan</div>')+'</div>'+
-    '<div class="cap-card"><div class="cap-card-t">Spend Iklan vs Omzet (Ads) per Cabang</div>'+
-      '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr><th class="l">Cabang</th><th class="r">Spend Iklan</th><th class="r">Omzet Ads</th><th class="r">Spend/Omzet</th></tr></thead><tbody>'+spendRows+
-      '</tbody></table></div><div class="kpi-legend">Makin kecil % (spend ÷ omzet ads) makin efisien.</div></div>'+
-    line+
+    '<div class="dash-range">Periode: <b>'+esc(rangeLbl)+'</b></div>'+
+    '<div class="cap-stats dash-cards">'+
+      stat('Omzet', rp(met.omzet), (cmp?dashDeltaBadge(met.omzet,cmp.omzet):''))+
+      stat('Chat', '—', '<div class="cap-stat-s">segera</div>')+
+      stat('Order Cancel', met.cancel+'', (cmp?dashDeltaBadge(met.cancel,cmp.cancel):''))+
+      stat('Jumlah Karyawan', met.karN+'', '<div class="cap-stat-s">tanpa Freelance & Vendor</div>')+
+      stat('Total Spend Iklan', rp(met.totSpend), (cmp?dashDeltaBadge(met.totSpend,cmp.totSpend):''))+
+    '</div>'+
+    '<div class="dash-tabs">'+
+      ['operasional|Operasional','finance|Finance','hrd|HRD','marketing|Marketing'].map(t=>{
+        const k=t.split('|')[0], l=t.split('|')[1];
+        return '<button class="dtab'+(D.tab===k?' on':'')+'" data-dtab="'+k+'">'+l+'</button>';
+      }).join('')+
+    '</div>'+
+    '<div id="dashTabBody"></div>';
+
+  // wire top filters
+  const rerender=()=>renderDashboard();
+  const gv=id=>document.getElementById(id);
+  gv('dCab').onchange=e=>{ D.cab=e.target.value; rerender(); };
+  gv('dStatus').onchange=e=>{ D.status=e.target.value; rerender(); };
+  gv('dDs').onchange=e=>{ D.ds=e.target.value; D.preset=''; rerender(); };
+  gv('dDe').onchange=e=>{ D.de=e.target.value; D.preset=''; rerender(); };
+  gv('dCmp').onchange=e=>{ D.cmp=e.target.checked; rerender(); };
+  document.querySelectorAll('[data-dpreset]').forEach(b=>b.onclick=()=>{ D.preset=b.dataset.dpreset; D.ds=''; D.de=''; rerender(); });
+  document.querySelectorAll('[data-dtab]').forEach(b=>b.onclick=()=>{ D.tab=b.dataset.dtab; D.finPage=0; dashRenderTab(); });
+  dashRenderTab();
+  setCount(dashOrders(cur,D.cab,D.status).length,'order');
+}
+function dashTabFilterBar(){
+  const D=state.dash;
+  const cabOpts='<option value="">Semua Cabang</option>'+CABANG.map(c=>'<option'+(D.tcab===c?' selected':'')+'>'+c+'</option>').join('');
+  return '<div class="dash-filter tabflt">'+
+    '<select id="tCab" class="dash-sel">'+cabOpts+'</select>'+
+    '<input type="date" id="tDs" class="dash-sel" value="'+esc(D.tds)+'">'+
+    '<input type="date" id="tDe" class="dash-sel" value="'+esc(D.tde)+'">'+
+    '<span class="dash-hint">filter tab (terpisah dari atas)</span></div>';
+}
+function dashWireTabFilter(){
+  const D=state.dash; const gv=id=>document.getElementById(id);
+  if(gv('tCab')) gv('tCab').onchange=e=>{ D.tcab=e.target.value; D.finPage=0; dashRenderTab(); };
+  if(gv('tDs')) gv('tDs').onchange=e=>{ D.tds=e.target.value; D.finPage=0; dashRenderTab(); };
+  if(gv('tDe')) gv('tDe').onchange=e=>{ D.tde=e.target.value; D.finPage=0; dashRenderTab(); };
+}
+function dashTabRange(){ const D=state.dash;
+  if(D.tds||D.tde){ const a=D.tds||D.tde,b=D.tde||D.tds; return {s:(a<=b?a:b),e:(a<=b?b:a)}; }
+  const t=ymd(new Date()); return {s:t.slice(0,7)+'-01', e:t};
+}
+function dashRenderTab(){
+  const D=state.dash; const body=document.getElementById('dashTabBody'); if(!body) return;
+  if(D.tab==='operasional') body.innerHTML=dashTabFilterBar()+dashTabOperasional();
+  else if(D.tab==='finance') body.innerHTML=dashTabFilterBar()+dashTabFinance();
+  else if(D.tab==='hrd') body.innerHTML=dashTabFilterBar()+dashTabHRD();
+  else if(D.tab==='marketing') body.innerHTML=dashTabFilterBar()+dashTabMarketing();
+  dashWireTabFilter();
+  // finance pager
+  const pv=document.getElementById('finPrev'), nx=document.getElementById('finNext'), mo=document.getElementById('finMore');
+  if(pv) pv.onclick=()=>{ D.finPage=Math.max(0,D.finPage-1); dashRenderTab(); };
+  if(nx) nx.onclick=()=>{ D.finPage=D.finPage+1; dashRenderTab(); };
+  if(mo) mo.onclick=()=>{ D.finPage=D.finPage+1; dashRenderTab(); };
+}
+function dashTabOperasional(){
+  const D=state.dash; const cur=dashTabRange();
+  const prev={s:backMonth_(cur.s), e:backMonth_(cur.e)};
+  const cabs = D.tcab ? [String(D.tcab).toUpperCase()] : CABANG.filter(c=>c!=='OFFICE');
+  const targets=state.cache.targets||{};
+  const base=state.rows.filter(r=>norm(r['Status Order'])!=='cancel');
+  const dim=calMonthBounds(cur.s.slice(0,7));
+  const daysInMonth=Math.max(1,(new Date(dim.end)-new Date(dim.start))/86400000+1);
+  const rangeDays=Math.max(1,(new Date(cur.e)-new Date(cur.s))/86400000+1);
+  const safePct=Math.min(100,Math.round(rangeDays/daysInMonth*100));
+  let totNow=0,totPrev=0;
+  const rows=cabs.map(cab=>{
+    const rc=base.filter(r=>cabangOf(r)===cab);
+    const now=rc.filter(r=>inRange(r['Tanggal Pengerjaan'],cur.s,cur.e)).reduce((s,r)=>s+omzetOf_(r),0);
+    const pv=rc.filter(r=>inRange(r['Tanggal Pengerjaan'],prev.s,prev.e)).reduce((s,r)=>s+omzetOf_(r),0);
+    const tgt=targets[cab]||0; const kpi=tgt>0?(now/tgt*100):0;
+    let cls=tgt<=0?'k-none':(kpi>=safePct?'k-green':(kpi>=safePct-30?'k-yellow':'k-red'));
+    const gr=pv>0?((now-pv)/pv*100):(now>0?100:0);
+    totNow+=now; totPrev+=pv;
+    return {cab,now,pv,tgt,kpi,cls,gr,hasT:tgt>0};
+  });
+  const grAll=totPrev>0?((totNow-totPrev)/totPrev*100):(totNow>0?100:0);
+  const stat=(l,v,s)=>'<div class="cap-stat"><div class="cap-stat-l">'+l+'</div><div class="cap-stat-v">'+v+'</div>'+(s||'')+'</div>';
+  const body=rows.map(o=>'<tr class="'+(o.hasT&&o.kpi<safePct?'kpi-below':'')+'">'+
+    '<td class="cab-cell l">'+esc(o.cab)+'</td>'+
+    '<td class="money">'+rp(o.now)+'</td>'+
+    '<td class="money">'+rp(o.pv)+'</td>'+
+    '<td class="r '+(o.now-o.pv>=0?'g-up':'g-down')+'">'+(o.now-o.pv>=0?'+':'−')+Math.abs(o.gr).toFixed(1)+'%</td>'+
+    '<td class="c">'+safePct+'%</td>'+
+    '<td class="c"><span class="kpi-badge '+o.cls+'">'+(o.hasT?o.kpi.toFixed(1)+'%':'—')+'</span></td>'+
+    '<td class="money">'+rp(o.tgt)+'</td></tr>').join('');
+  return '<div class="dash-range">Bulan ini: <b>'+esc(tglPanjangId(cur.s)+' – '+tglPanjangId(cur.e))+
+    '</b> vs <b>'+esc(tglPanjangId(prev.s)+' – '+tglPanjangId(prev.e))+'</b></div>'+
+    '<div class="cap-stats">'+stat('Omzet Bulan Ini',rp(totNow))+stat('Omzet Bulan Lalu',rp(totPrev))+
+      stat('Growth','<span class="'+(grAll>=0?'g-up':'g-down')+'">'+(grAll>=0?'+':'−')+Math.abs(grAll).toFixed(1)+'%</span>')+'</div>'+
+    '<div class="cap-card"><div class="cap-card-t">Omzet & KPI per Cabang</div>'+
+    '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr>'+
+      '<th class="l">Cabang</th><th class="r">Bulan Ini</th><th class="r">Bulan Lalu</th><th class="r">Growth</th>'+
+      '<th class="c">Target Aman</th><th class="c">KPI Omzet</th><th class="r">Target</th></tr></thead>'+
+      '<tbody>'+body+'</tbody></table></div></div>';
+}
+function dashTabFinance(){
+  const D=state.dash; const cur=dashTabRange();
+  let ords=state.rows.filter(r=>{
+    if(D.tcab && cabangOf(r)!==String(D.tcab).toUpperCase()) return false;
+    const d=parseAnyDate(r['Tanggal Pengerjaan']); return d && d>=cur.s && d<=cur.e;
+  });
+  ords.sort((a,b)=>String(parseAnyDate(b['Tanggal Pengerjaan'])).localeCompare(String(parseAnyDate(a['Tanggal Pengerjaan']))));
+  const PAGE=15, total=ords.length, maxPage=Math.max(0,Math.ceil(total/PAGE)-1);
+  if(D.finPage>maxPage) D.finPage=maxPage;
+  const pageRows=ords.slice(D.finPage*PAGE,(D.finPage+1)*PAGE);
+  const cardRows=ords.slice(0,(D.finPage+1)*PAGE);
+  const cell=r=>[esc(r['ID Order']||'-'),esc(fmtTgl(r['Tanggal Pengerjaan'])),esc(r['Cabang']||'-'),
+    esc(r['Nama Customer']||'-'),'<span class="badge b-'+(norm(r['Status Order'])||'pending')+'">'+(norm(r['Status Order'])||'pending')+'</span>',
+    rp(r['Total Akhir Setelah Diskon']||r['Total Akhir']||0)];
+  const tblRows=pageRows.map(r=>'<tr>'+cell(r).map((c,i)=>'<td'+(i===5?' class="money"':(i===0?' class="l"':''))+'>'+c+'</td>').join('')+'</tr>').join('');
+  const cardHtml='<div class="card-list fin-cards">'+cardRows.map(r=>'<div class="ocard">'+
+    '<div class="ocard-top"><span class="ocard-name">'+esc(r['Nama Customer']||'-')+'</span>'+
+      '<span class="badge b-'+(norm(r['Status Order'])||'pending')+'">'+(norm(r['Status Order'])||'pending')+'</span></div>'+
+    '<div class="ocard-meta"><span>'+esc(r['ID Order']||'-')+' · '+esc(fmtTgl(r['Tanggal Pengerjaan']))+' · '+esc(r['Cabang']||'-')+'</span></div>'+
+    '<div class="ocard-meta sub"><span>'+rp(r['Total Akhir Setelah Diskon']||r['Total Akhir']||0)+'</span></div></div>').join('')+'</div>';
+  const pager= total>PAGE?'<div class="pager desk-only"><button class="btn btn-ghost btn-sm" id="finPrev"'+(D.finPage<=0?' disabled':'')+'>‹ Sebelumnya</button>'+
+    '<span class="pager-info">'+(D.finPage*PAGE+1)+'–'+Math.min(total,(D.finPage+1)*PAGE)+' dari '+total+'</span>'+
+    '<button class="btn btn-ghost btn-sm" id="finNext"'+(D.finPage>=maxPage?' disabled':'')+'>Selanjutnya ›</button></div>':'';
+  const more= cardRows.length<total?'<button class="btn btn-ghost load-more" id="finMore">Muat lebih banyak ('+cardRows.length+'/'+total+')</button>':'';
+  return '<div class="cap-card"><div class="cap-card-t">Semua Order ('+total+') — semua status</div>'+
+    '<div class="tbl-wrap desk-only"><table class="ops-tbl"><thead><tr><th class="l">ID Order</th><th>Tanggal</th><th>Cabang</th><th>Customer</th><th>Status</th><th class="r">Total</th></tr></thead>'+
+    '<tbody>'+tblRows+'</tbody></table></div>'+pager+cardHtml+more+'</div>';
+}
+function dashTabHRD(){
+  const D=state.dash; const cur=dashTabRange();
+  const inRangeP=v=>{ const m=parseAnyMonth(v); return m && m>=cur.s.slice(0,7) && m<=cur.e.slice(0,7); };
+  let gaji=(state.cache.gajiAll||[]).filter(g=> (!D.tcab||String(g['Cabang']||'').toUpperCase()===String(D.tcab).toUpperCase()));
+  let ins=(state.cache.bonusAll||[]).filter(b=>{ const d=parseAnyDate(b['Tanggal Pengerjaan']); return d && d>=cur.s && d<=cur.e; });
+  if(D.tcab) ins=ins.filter(b=>cabangOf(b)===String(D.tcab).toUpperCase());
+  const gajiRows=gaji.slice(0,200).map(g=>'<tr><td class="l">'+esc(g['Nama Karyawan']||'-')+'</td><td>'+esc(g['Cabang']||'-')+'</td>'+
+    '<td>'+esc(g['Periode Bulan']||'-')+'</td><td class="money">'+rp(g['Take Home Pay']||0)+'</td></tr>').join('');
+  const insRows=ins.slice(0,200).map(b=>'<tr><td class="l">'+esc(b['Nama Cleaner']||'-')+'</td><td>'+esc(b['Jenis']||'-')+'</td>'+
+    '<td>'+esc(b['Nama Customer']||'-')+'</td><td class="money">'+rp(b['Nominal']||0)+'</td></tr>').join('');
+  return '<div class="cap-card"><div class="cap-card-t">Gaji ('+gaji.length+')</div>'+
+    '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr><th class="l">Nama</th><th>Cabang</th><th>Periode</th><th class="r">Take Home Pay</th></tr></thead>'+
+    '<tbody>'+(gajiRows||'<tr><td colspan="4" class="cap-empty">Belum ada data</td></tr>')+'</tbody></table></div></div>'+
+    '<div class="cap-card"><div class="cap-card-t">Insentif ('+ins.length+')</div>'+
+    '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr><th class="l">Cleaner</th><th>Jenis</th><th>Customer</th><th class="r">Nominal</th></tr></thead>'+
+    '<tbody>'+(insRows||'<tr><td colspan="4" class="cap-empty">Belum ada data</td></tr>')+'</tbody></table></div></div>';
+}
+function dashTabMarketing(){
+  const D=state.dash; const cur=dashTabRange();
+  const cabs=D.tcab?[String(D.tcab).toUpperCase()]:CABANG.filter(c=>c!=='OFFICE');
+  const byCab={}; let tot=0;
+  (state.cache.spendAll||[]).forEach(sp=>{
+    const pm=parseAnyMonth(sp['Periode']||sp['Periode Bulan']||sp['Tanggal']); if(!pm) return;
+    if(pm<cur.s.slice(0,7)||pm>cur.e.slice(0,7)) return;
+    const c=String(sp['Cabang']||'-').toUpperCase(); const n=Number(moneyDigits(sp['Nominal']))||0;
+    byCab[c]=(byCab[c]||0)+n; tot+=n;
+  });
+  const rows=cabs.map(c=>'<tr><td class="cab-cell l">'+esc(c)+'</td><td class="money">'+rp(byCab[c]||0)+'</td></tr>').join('');
+  return '<div class="dash-range">Periode: <b>'+esc(cur.s.slice(0,7)+' s/d '+cur.e.slice(0,7))+'</b></div>'+
+    '<div class="cap-stats">'+'<div class="cap-stat"><div class="cap-stat-l">Total Spend Iklan</div><div class="cap-stat-v">'+rp(tot)+'</div></div></div>'+
+    '<div class="cap-card"><div class="cap-card-t">Spend Iklan per Cabang</div>'+
+    '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr><th class="l">Cabang</th><th class="r">Spend Iklan</th></tr></thead>'+
+    '<tbody>'+rows+'</tbody></table></div></div>';
+}
+function grafInit(){ if(!state.graf) state.graf={cab:'',ds:'',de:''}; }
+function grafRange(){ const G=state.graf;
+  if(G.ds||G.de){ const a=G.ds||G.de,b=G.de||G.ds; return {s:(a<=b?a:b),e:(a<=b?b:a)}; }
+  const t=ymd(new Date()); return {s:t.slice(0,7)+'-01', e:t}; }
+function grafBars(title, arr, fmt){
+  if(!arr.length) return '<div class="cap-card"><div class="cap-card-t">'+title+'</div><div class="cap-empty">Belum ada data</div></div>';
+  const max=arr[0].val||1;
+  return '<div class="cap-card"><div class="cap-card-t">'+title+'</div>'+arr.map((it,i)=>
+    '<div class="cap-row"><span class="cap-rank">'+(i+1)+'</span><span class="cap-name" title="'+esc(it.k)+'">'+esc(it.k)+'</span>'+
+    '<span class="cap-bar"><span style="width:'+Math.max(5,Math.round(it.val/max*100))+'%"></span></span>'+
+    '<span class="cap-val">'+fmt(it.val)+'</span></div>').join('')+'</div>';
+}
+function grafPie(title, arr){
+  const tot=arr.reduce((s,a)=>s+a.val,0);
+  if(!tot) return '<div class="cap-card"><div class="cap-card-t">'+title+'</div><div class="cap-empty">Belum ada data</div></div>';
+  const COL=['#123A5E','#3E86B5','#C2A567','#5E9E8E','#B5635A','#8E7CC3','#D08C42','#6FA8DC','#93C47D','#E06666'];
+  let a0=-Math.PI/2, segs='';
+  arr.forEach((it,idx)=>{ const frac=it.val/tot; const a1=a0+frac*2*Math.PI;
+    const x0=100+90*Math.cos(a0), y0=100+90*Math.sin(a0), x1=100+90*Math.cos(a1), y1=100+90*Math.sin(a1);
+    const large=frac>0.5?1:0;
+    segs+='<path d="M100,100 L'+x0.toFixed(1)+','+y0.toFixed(1)+' A90,90 0 '+large+' 1 '+x1.toFixed(1)+','+y1.toFixed(1)+' Z" fill="'+COL[idx%COL.length]+'"><title>'+esc(it.k)+': '+rp(it.val)+' ('+(frac*100).toFixed(1)+'%)</title></path>';
+    a0=a1; });
+  const legend=arr.map((it,idx)=>'<div class="pie-leg"><span class="pie-dot" style="background:'+COL[idx%COL.length]+'"></span>'+esc(it.k)+' · '+((it.val/tot)*100).toFixed(1)+'%</div>').join('');
+  return '<div class="cap-card"><div class="cap-card-t">'+title+'</div><div class="pie-wrap">'+
+    '<svg viewBox="0 0 200 200" class="pie-svg">'+segs+'<circle cx="100" cy="100" r="46" fill="var(--surface)"/></svg>'+
+    '<div class="pie-legs">'+legend+'</div></div></div>';
+}
+function grafLine(title, pairs, fmtV){
+  if(!pairs.length) return '<div class="cap-card"><div class="cap-card-t">'+title+'</div><div class="cap-empty">Belum ada data</div></div>';
+  const max=Math.max.apply(null,pairs.map(p=>p.v))||1;
+  const W=Math.max(pairs.length*44+40,320),H=200,pad=28;
+  const X=i=>pad+i*((W-pad*2)/Math.max(1,pairs.length-1));
+  const Y=v=>H-pad-(v/max)*(H-pad*2);
+  const pts=pairs.map((p,i)=>X(i)+','+Y(p.v).toFixed(1)).join(' ');
+  const dots=pairs.map((p,i)=>'<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(p.v).toFixed(1)+'" r="3.2" fill="var(--petrol)"><title>'+esc(p.k)+': '+fmtV(p.v)+'</title></circle>').join('');
+  const labs=pairs.map((p,i)=>(pairs.length<=16||i%2===0)?'<text x="'+X(i).toFixed(1)+'" y="'+(H-8)+'" text-anchor="middle" font-size="9" fill="var(--muted)">'+esc(p.k)+'</text>':'').join('');
+  return '<div class="cap-card"><div class="cap-card-t">'+title+'</div><div class="cap-chart">'+
+    '<svg viewBox="0 0 '+W+' '+H+'" style="min-width:'+W+'px;height:'+H+'px">'+
+    '<polyline points="'+pts+'" fill="none" stroke="var(--petrol)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>'+
+    dots+labs+'</svg></div></div>';
+}
+function renderGrafik(){
+  grafInit(); const G=state.graf; const range=grafRange();
+  const inRng=r=>{ const d=parseAnyDate(r['Tanggal Pengerjaan']); return d && d>=range.s && d<=range.e && (!G.cab||cabangOf(r)===String(G.cab).toUpperCase()); };
+  const ords=state.rows.filter(r=>inRng(r) && norm(r['Status Order'])!=='cancel');
+  const byLay={}, byCab={}, byDay={}, byJam={};
+  ords.forEach(r=>{ const o=omzetOf_(r);
+    byCab[cabangOf(r)||'-']=(byCab[cabangOf(r)||'-']||0)+o;
+    [1,2,3].forEach(i=>{ const nm=String(r['Layanan '+i]||'').trim(); if(nm) byLay[nm]=(byLay[nm]||0)+(Number(moneyDigits(r['Harga '+i]))||0); });
+    const d=parseAnyDate(r['Tanggal Pengerjaan']); if(d) byDay[d]=(byDay[d]||0)+1;
+    const j=String(r['Waktu Pengerjaan']||'').trim(); if(j) byJam[j]=(byJam[j]||0)+1;
+  });
+  // top karyawan by bonus
+  const byCleaner={};
+  (state.cache.bonusAll||[]).forEach(b=>{ const d=parseAnyDate(b['Tanggal Pengerjaan']);
+    if(d && d>=range.s && d<=range.e && (!G.cab||cabangOf(b)===String(G.cab).toUpperCase())){
+      String(b['Nama Cleaner']||'').split(',').map(x=>x.trim()).filter(Boolean).forEach(nm=>{ byCleaner[nm]=(byCleaner[nm]||0)+(Number(moneyDigits(b['Nominal']))||0); });
+    }});
+  // chat harian
+  const chatDay={};
+  (state.cache.chatHarianAll||[]).forEach(c=>{ const d=parseAnyDate(c['Tanggal']);
+    if(d && d>=range.s && d<=range.e && (!G.cab||String(c['Cabang']||'').toUpperCase()===String(G.cab).toUpperCase())){
+      const tot=['Cust Baru Organik','Cust Baru Iklan','Cust Lama'].reduce((s,k)=>s+(Number(moneyDigits(c[k]))||0),0);
+      chatDay[d]=(chatDay[d]||0)+tot;
+    }});
+  const top=(obj,n)=>Object.keys(obj).map(k=>({k,val:obj[k]})).sort((a,b)=>b.val-a.val).slice(0,n);
+  const dayPairs=Object.keys(byDay).sort().map(d=>({k:d.slice(8,10)+'/'+d.slice(5,7), v:byDay[d]}));
+  const chatPairs=Object.keys(chatDay).sort().map(d=>({k:d.slice(8,10)+'/'+d.slice(5,7), v:chatDay[d]}));
+  const jamArr=top(byJam,10);
+  const cabOpts='<option value="">Semua Cabang</option>'+CABANG.map(c=>'<option'+(G.cab===c?' selected':'')+'>'+c+'</option>').join('');
+
+  $('#panel').innerHTML=
+    '<div class="dash-filter">'+
+      '<select id="gCab" class="dash-sel">'+cabOpts+'</select>'+
+      '<input type="date" id="gDs" class="dash-sel" value="'+esc(G.ds)+'">'+
+      '<input type="date" id="gDe" class="dash-sel" value="'+esc(G.de)+'">'+
+      '<span class="dash-hint">'+esc(tglPanjangId(range.s)+' – '+tglPanjangId(range.e))+'</span>'+
+    '</div>'+
+    grafPie('Komposisi Omzet per Cabang', top(byCab,10))+
+    grafLine('Order Harian', dayPairs, v=>v+' order')+
+    grafLine('Chat Harian (customer masuk)', chatPairs, v=>v+' chat')+
     '<div class="cap-grid">'+
-      listCard('Top 10 Layanan — omzet', top10Lay, rp)+
-      listCard('Top 10 Alamat — jumlah order', top10Alm, x=>x+' order')+
+      grafBars('Top 10 Layanan — omzet', top(byLay,10), rp)+
+      grafBars('Top 10 Alamat — jumlah order', clusterByAlamat(ords).slice(0,10), x=>x+' order')+
+    '</div>'+
+    '<div class="cap-grid">'+
+      grafBars('Top 10 Karyawan — bonus tertinggi', top(byCleaner,10), rp)+
+      grafBars('Jam Pengerjaan Tersibuk', jamArr, x=>x+' order')+
     '</div>';
-  setCount(rows.length,'order');
+  const gv=id=>document.getElementById(id);
+  gv('gCab').onchange=e=>{ G.cab=e.target.value; renderGrafik(); };
+  gv('gDs').onchange=e=>{ G.ds=e.target.value; renderGrafik(); };
+  gv('gDe').onchange=e=>{ G.de=e.target.value; renderGrafik(); };
+  setCount(ords.length,'order');
 }
 function openWa(num, text, who){
   const n=waNum(num);
