@@ -3759,6 +3759,39 @@ function dashRenderTab(){
   });
   // fokus kembali ke kotak cari
   const sb=document.getElementById('tSearch'); if(sb && D.tsearch){ sb.focus(); sb.setSelectionRange(sb.value.length,sb.value.length); }
+  // klik baris → detail
+  document.querySelectorAll('#dashTabBody [data-doid]').forEach(el=>el.addEventListener('click',()=>{
+    const o=state.rows.find(x=>String(x['ID Order'])===el.dataset.doid); if(o) showOrderDetail(o);
+  }));
+  document.querySelectorAll('#dashTabBody [data-dgid]').forEach(el=>el.addEventListener('click',()=>{
+    const g=(state.cache.gajiAll||[]).find(x=>String(x['ID Slip'])===el.dataset.dgid); if(g) showGajiDetail(g);
+  }));
+  document.querySelectorAll('#dashTabBody [data-dcleaner]').forEach(el=>el.addEventListener('click',()=>{
+    showCleanerBonusPopup(el.dataset.dcleaner);
+  }));
+}
+function showCleanerBonusPopup(name){
+  const cur=dashTabRange(); const D=state.dash;
+  const list=(state.cache.bonusAll||[]).filter(b=>{
+    const has=String(b['Nama Cleaner']||'').split(',').map(x=>x.trim()).indexOf(name)>=0; if(!has) return false;
+    if(D.tperiode){ if(parseAnyMonth(b['Tanggal Pengerjaan'])!==D.tperiode) return false; }
+    else { const d=parseAnyDate(b['Tanggal Pengerjaan']); if(!(d && d>=cur.s && d<=cur.e)) return false; }
+    if(D.tcab && cabangOf(b)!==String(D.tcab).toUpperCase()) return false;
+    return true;
+  });
+  const tot=list.reduce((s,b)=>s+(Number(moneyDigits(b['Nominal']))||0),0);
+  $('#modalTitle').textContent='Bonus — '+name;
+  const row=(l,v)=>'<div class="dt-row"><span class="dt-l">'+esc(l)+'</span><span class="dt-v">'+v+'</span></div>';
+  let h='<div class="detail">';
+  h+=row('Total Bonus','<b>'+rp(tot)+'</b>');
+  h+=row('Jumlah',list.length+' bonus');
+  h+='<div class="dt-sec">Rincian</div>';
+  h+=list.map(b=>'<div class="dt-bonus-row"><span>'+esc(fmtTgl(b['Tanggal Pengerjaan']))+' · '+esc(b['Jenis']||'-')+(b['Nama Customer']?(' · '+esc(b['Nama Customer'])):'')+'</span><b>'+rp(b['Nominal']||0)+'</b></div>').join('');
+  h+='</div>';
+  $('#modalBody').innerHTML=h;
+  const sv=$('#modalSave'); if(sv) sv.style.display='none';
+  const cc=$('#modalCancel'); if(cc){ cc.textContent='Tutup'; cc.classList.add('btn-danger'); }
+  openOverlay();
 }
 function dashTabOperasional(){
   const D=state.dash; const cur=dashTabRange();
@@ -3770,32 +3803,57 @@ function dashTabOperasional(){
   const daysInMonth=Math.max(1,(new Date(dim.end)-new Date(dim.start))/86400000+1);
   const rangeDays=Math.max(1,(new Date(cur.e)-new Date(cur.s))/86400000+1);
   const safePct=Math.min(100,Math.round(rangeDays/daysInMonth*100));
-  let totNow=0,totPrev=0;
+  const chan=r=>{ const c=norm(r['Chat Dari']); if(c==='iklan'||c==='ads') return 'ads'; if(c==='organik'||c==='organic') return 'org'; if(c==='lama'||c==='repeat') return 'lama'; return ''; };
+  let totNow=0,totPrev=0,totAds=0,totOrg=0,totLama=0;
   let objs=cabs.map(cab=>{
     const rc=base.filter(r=>cabangOf(r)===cab);
-    const now=rc.filter(r=>inRange(r['Tanggal Pengerjaan'],cur.s,cur.e)).reduce((s,r)=>s+omzetOf_(r),0);
+    const nowR=rc.filter(r=>inRange(r['Tanggal Pengerjaan'],cur.s,cur.e));
+    const now=nowR.reduce((s,r)=>s+omzetOf_(r),0);
     const pv=rc.filter(r=>inRange(r['Tanggal Pengerjaan'],prev.s,prev.e)).reduce((s,r)=>s+omzetOf_(r),0);
+    let ads=0,org=0,lama=0,last='';
+    nowR.forEach(r=>{ const o=omzetOf_(r); const ch=chan(r); if(ch==='ads')ads+=o; else if(ch==='org')org+=o; else if(ch==='lama')lama+=o;
+      const d=parseAnyDate(r['Tanggal Pengerjaan']); if(d>last) last=d; });
     const tgt=targets[cab]||0; const kpi=tgt>0?(now/tgt*100):0;
     let cls=tgt<=0?'k-none':(kpi>=safePct?'k-green':(kpi>=safePct-30?'k-yellow':'k-red'));
     const gr=pv>0?((now-pv)/pv*100):(now>0?100:0);
-    totNow+=now; totPrev+=pv;
-    return {cab,now,pv,tgt,kpi,cls,gr,diff:now-pv,hasT:tgt>0};
+    totNow+=now; totPrev+=pv; totAds+=ads; totOrg+=org; totLama+=lama;
+    return {cab,now,pv,tgt,kpi,cls,gr,diff:now-pv,ads,org,lama,last,hasT:tgt>0};
   });
   if(D.opSort && D.opSort.col){ const c=D.opSort.col, dir=D.opSort.dir; objs.sort((a,b)=>(a[c]-b[c])*dir); }
   const grAll=totPrev>0?((totNow-totPrev)/totPrev*100):(totNow>0?100:0);
-  const stat=(l,v,s)=>'<div class="cap-stat"><div class="cap-stat-l">'+l+'</div><div class="cap-stat-v">'+v+'</div>'+(s||'')+'</div>';
+  const growthTxt=(a,b)=>{ const g=b>0?((a-b)/b*100):(a>0?100:0); return '<span class="'+(a-b>=0?'g-up':'g-down')+'">'+(a-b>=0?'+':'−')+Math.abs(g).toFixed(1)+'%</span>'; };
   const oh=(label,col,cls)=>{ const s=D.opSort||{}; const on=s.col===col; const car=on?(s.dir>0?' ▲':' ▼'):' ⇅';
     return '<th class="'+(cls||'')+' rk-sort" data-opsort="'+col+'">'+label+'<span class="rk-car">'+car+'</span></th>'; };
-  const body=objs.map(o=>'<tr class="'+(o.hasT&&o.kpi<safePct?'kpi-below':'')+'">'+
+  const stat=(l,v,ss)=>'<div class="cap-stat"><div class="cap-stat-l">'+l+'</div><div class="cap-stat-v">'+v+'</div>'+(ss||'')+'</div>';
+
+  // 1) KPI Omzet per Cabang
+  const kpiRows=objs.map(o=>'<tr class="'+(o.hasT&&o.kpi<safePct?'kpi-below':'')+'">'+
     '<td class="cab-cell l det-cabcol">'+esc(o.cab)+'</td>'+
-    '<td class="money">'+rp(o.now)+'</td>'+
-    '<td class="money">'+rp(o.pv)+'</td>'+
-    '<td class="r '+(o.diff>=0?'g-up':'g-down')+'">'+(o.diff>=0?'+':'−')+Math.abs(o.gr).toFixed(1)+'%</td>'+
     '<td class="c">'+safePct+'%</td>'+
     '<td class="c"><span class="kpi-badge '+o.cls+'">'+(o.hasT?o.kpi.toFixed(1)+'%':'—')+'</span></td>'+
-    '<td class="money">'+rp(o.tgt)+'</td></tr>').join('');
+    '<td class="c">'+growthTxt(o.now,o.pv)+'</td>'+
+    '<td class="money">'+rp(o.now)+'</td><td class="money">'+rp(o.tgt)+'</td></tr>').join('');
+  const kpiCard='<div class="cap-card"><div class="cap-card-t">KPI Omzet per Cabang</div>'+
+    '<div class="tbl-wrap freeze-cab"><table class="ops-tbl"><thead><tr>'+
+      '<th class="l det-cabcol">Cabang</th><th class="c">Target Aman</th>'+oh('KPI Omzet','kpi','c')+oh('Growth','gr','c')+oh('Omzet Dicapai','now','r')+oh('Target Omzet','tgt','r')+
+    '</tr></thead><tbody>'+kpiRows+'</tbody></table></div>'+
+    '<div class="kpi-legend"><span class="kpi-badge k-green">Hijau</span> di atas target aman · <span class="kpi-badge k-yellow">Kuning</span> kurang s/d 30% · <span class="kpi-badge k-red">Merah</span> di bawah itu · klik judul kolom untuk mengurutkan</div></div>';
 
-  // Detail Omzet per Layanan (matriks Cabang × Layanan)
+  // 2) Omzet per Cabang
+  const omzRows=objs.map(o=>'<tr>'+
+    '<td class="cab-cell l det-cabcol">'+esc(o.cab)+'</td>'+
+    '<td class="money">'+rp(o.now)+'</td><td class="money">'+rp(o.pv)+'</td>'+
+    '<td>'+growthTxt(o.now,o.pv)+'</td>'+
+    '<td>'+(o.last?esc(fmtTgl(o.last)):'—')+'</td>'+
+    '<td class="money">'+rp(o.ads)+'</td><td class="money">'+rp(o.org)+'</td><td class="money">'+rp(o.lama)+'</td></tr>').join('');
+  const omzCard='<div class="cap-card"><div class="cap-card-t">Omzet per Cabang</div>'+
+    '<div class="tbl-wrap freeze-cab"><table class="ops-tbl"><thead><tr>'+
+      '<th class="l det-cabcol">Cabang</th>'+oh('Periode Ini','now','r')+oh('Periode Lalu','pv','r')+'<th>Growth</th><th>Terakhir Update</th>'+oh('Ads','ads','r')+oh('Organik','org','r')+oh('Lama','lama','r')+
+    '</tr></thead><tbody>'+omzRows+
+    '<tr class="ops-total"><td class="cab-cell l det-cabcol">TOTAL</td><td class="money">'+rp(totNow)+'</td><td class="money">'+rp(totPrev)+'</td><td>'+growthTxt(totNow,totPrev)+'</td><td>—</td><td class="money">'+rp(totAds)+'</td><td class="money">'+rp(totOrg)+'</td><td class="money">'+rp(totLama)+'</td></tr>'+
+    '</tbody></table></div></div>';
+
+  // 3) Detail Omzet per Layanan (matriks Cabang × Layanan)
   const detM={}; const laySet=new Set();
   cabs.forEach(cab=>{ detM[cab]={};
     base.filter(r=>cabangOf(r)===cab && inRange(r['Tanggal Pengerjaan'],cur.s,cur.e)).forEach(r=>{
@@ -3810,18 +3868,14 @@ function dashTabOperasional(){
       rn+=c.n; rv+=c.val; return '<td class="detcell"><span class="dc-n">'+c.n+' trx</span><span class="dc-v">'+rp(c.val)+'</span></td>'; }).join('');
     return '<tr><td class="cab-cell l det-cabcol">'+esc(cab)+'</td>'+cells+'<td class="detcell dc-total"><span class="dc-n">'+rn+' trx</span><span class="dc-v">'+rp(rv)+'</span></td></tr>';
   }).join('');
+  const detCard='<div class="cap-card"><div class="cap-card-t">Detail Omzet per Layanan</div>'+
+    (lays.length?'<div class="tbl-wrap freeze-cab"><table class="ops-tbl det-tbl"><thead><tr><th class="l det-cabcol">Cabang</th>'+detHead+'<th class="c">Total</th></tr></thead><tbody>'+detBody+'</tbody></table></div>':'<div class="cap-empty">Belum ada data</div>')+'</div>';
 
-  return '<div class="dash-range">Bulan ini: <b>'+esc(tglPanjangId(cur.s)+' – '+tglPanjangId(cur.e))+
-    '</b> vs <b>'+esc(tglPanjangId(prev.s)+' – '+tglPanjangId(prev.e))+'</b></div>'+
+  return '<div class="dash-range">Periode: <b>'+esc(tglPanjangId(cur.s)+' – '+tglPanjangId(cur.e))+
+    '</b> vs <b>'+esc(tglPanjangId(prev.s)+' – '+tglPanjangId(prev.e))+'</b> · Target aman: <b>'+safePct+'%</b></div>'+
     '<div class="cap-stats">'+stat('Omzet Bulan Ini',rp(totNow))+stat('Omzet Bulan Lalu',rp(totPrev))+
       stat('Growth','<span class="'+(grAll>=0?'g-up':'g-down')+'">'+(grAll>=0?'+':'−')+Math.abs(grAll).toFixed(1)+'%</span>')+'</div>'+
-    '<div class="cap-card"><div class="cap-card-t">Omzet & KPI per Cabang</div>'+
-      '<div class="tbl-wrap freeze-cab"><table class="ops-tbl"><thead><tr>'+
-        '<th class="l det-cabcol">Cabang</th>'+oh('Bulan Ini','now','r')+oh('Bulan Lalu','pv','r')+oh('Growth','gr','r')+
-        '<th class="c">Target Aman</th>'+oh('KPI Omzet','kpi','c')+oh('Target','tgt','r')+
-      '</tr></thead><tbody>'+body+'</tbody></table></div></div>'+
-    '<div class="cap-card"><div class="cap-card-t">Detail Omzet per Layanan</div>'+
-      (lays.length?'<div class="tbl-wrap freeze-cab"><table class="ops-tbl det-tbl"><thead><tr><th class="l det-cabcol">Cabang</th>'+detHead+'<th class="c">Total</th></tr></thead><tbody>'+detBody+'</tbody></table></div>':'<div class="cap-empty">Belum ada data</div>')+'</div>';
+    kpiCard + omzCard + detCard;
 }
 function dashTabFinance(){
   const D=state.dash; const cur=dashTabRange();
@@ -3837,21 +3891,21 @@ function dashTabFinance(){
   if(D.finPage>maxPage) D.finPage=maxPage;
   const pageRows=ords.slice(D.finPage*PAGE,(D.finPage+1)*PAGE);
   const cardRows=ords.slice(0,(D.finPage+1)*PAGE);
-  const cell=r=>[esc(r['ID Order']||'-'),esc(fmtTgl(r['Tanggal Pengerjaan'])),esc(r['Cabang']||'-'),
-    esc(r['Nama Customer']||'-'),'<span class="badge b-'+(norm(r['Status Order'])||'pending')+'">'+(norm(r['Status Order'])||'pending')+'</span>',
-    rp(r['Total Akhir Setelah Diskon']||r['Total Akhir']||0)];
-  const tblRows=pageRows.map(r=>'<tr>'+cell(r).map((c,i)=>'<td'+(i===5?' class="money"':(i===0?' class="l"':''))+'>'+c+'</td>').join('')+'</tr>').join('');
-  const cardHtml='<div class="card-list fin-cards">'+cardRows.map(r=>'<div class="ocard">'+
+  const cell=r=>[esc(r['Cabang']||'-'),esc(r['Nama Customer']||'-'),esc(fmtTgl(r['Tanggal Pengerjaan'])),
+    rp(r['Total Akhir Setelah Diskon']||r['Total Akhir']||0),
+    '<span class="badge b-'+(norm(r['Status Order'])||'pending')+'">'+(norm(r['Status Order'])||'pending')+'</span>'];
+  const tblRows=pageRows.map(r=>'<tr class="rowclick" data-doid="'+esc(r['ID Order'])+'">'+cell(r).map((c,i)=>'<td'+(i===3?' class="money"':(i===0?' class="l"':''))+'>'+c+'</td>').join('')+'</tr>').join('');
+  const cardHtml='<div class="card-list fin-cards">'+cardRows.map(r=>'<div class="ocard" data-doid="'+esc(r['ID Order'])+'">'+
     '<div class="ocard-top"><span class="ocard-name">'+esc(r['Nama Customer']||'-')+'</span>'+
       '<span class="badge b-'+(norm(r['Status Order'])||'pending')+'">'+(norm(r['Status Order'])||'pending')+'</span></div>'+
-    '<div class="ocard-meta"><span>'+esc(r['ID Order']||'-')+' · '+esc(fmtTgl(r['Tanggal Pengerjaan']))+' · '+esc(r['Cabang']||'-')+'</span></div>'+
+    '<div class="ocard-meta"><span>'+esc(r['Cabang']||'-')+' · '+esc(fmtTgl(r['Tanggal Pengerjaan']))+'</span></div>'+
     '<div class="ocard-meta sub"><span>'+rp(r['Total Akhir Setelah Diskon']||r['Total Akhir']||0)+'</span></div></div>').join('')+'</div>';
   const pager= total>PAGE?'<div class="pager desk-only"><button class="btn btn-ghost btn-sm" id="finPrev"'+(D.finPage<=0?' disabled':'')+'>‹ Sebelumnya</button>'+
     '<span class="pager-info">'+(D.finPage*PAGE+1)+'–'+Math.min(total,(D.finPage+1)*PAGE)+' dari '+total+'</span>'+
     '<button class="btn btn-ghost btn-sm" id="finNext"'+(D.finPage>=maxPage?' disabled':'')+'>Selanjutnya ›</button></div>':'';
   const more= cardRows.length<total?'<button class="btn btn-ghost load-more" id="finMore">Muat lebih banyak ('+cardRows.length+'/'+total+')</button>':'';
-  return '<div class="cap-card"><div class="cap-card-t">Semua Order ('+total+') — semua status</div>'+
-    '<div class="tbl-wrap desk-only"><table class="ops-tbl"><thead><tr><th class="l">ID Order</th><th>Tanggal</th><th>Cabang</th><th>Customer</th><th>Status</th><th class="r">Total</th></tr></thead>'+
+  return '<div class="cap-card"><div class="cap-card-t">Semua Order ('+total+') — klik untuk detail</div>'+
+    '<div class="tbl-wrap desk-only"><table class="ops-tbl"><thead><tr><th class="l">Cabang</th><th>Nama Customer</th><th>Tanggal Pengerjaan</th><th class="r">Total</th><th>Status</th></tr></thead>'+
     '<tbody>'+tblRows+'</tbody></table></div>'+pager+cardHtml+more+'</div>';
 }
 function dashTabHRD(){
@@ -3878,20 +3932,24 @@ function dashTabHRD(){
   const PAGE=15;
   const pg=(arr,page)=>{ const mx=Math.max(0,Math.ceil(arr.length/PAGE)-1); const p=Math.min(page,mx); return {rows:arr.slice(p*PAGE,(p+1)*PAGE), p, mx, total:arr.length}; };
   const gP=pg(gaji,D.hrdGajiPage||0); D.hrdGajiPage=gP.p;
-  const iP=pg(ins,D.hrdInsPage||0); D.hrdInsPage=iP.p;
+  // Insentif diringkas per cleaner (nama + total bonus)
+  const clMap={};
+  ins.forEach(b=>{ String(b['Nama Cleaner']||'-').split(',').map(x=>x.trim()).filter(Boolean).forEach(nm=>{
+    if(!clMap[nm]) clMap[nm]={n:0,val:0}; clMap[nm].n++; clMap[nm].val+=Number(moneyDigits(b['Nominal']))||0; }); });
+  let clArr=Object.keys(clMap).map(k=>({k, n:clMap[k].n, val:clMap[k].val})).sort((a,b)=>b.val-a.val);
+  const cP=pg(clArr,D.hrdInsPage||0); D.hrdInsPage=cP.p;
   const pager=(id,P)=> P.total>PAGE?'<div class="pager"><button class="btn btn-ghost btn-sm" id="'+id+'Prev"'+(P.p<=0?' disabled':'')+'>‹ Sebelumnya</button>'+
     '<span class="pager-info">'+(P.p*PAGE+1)+'–'+Math.min(P.total,(P.p+1)*PAGE)+' dari '+P.total+'</span>'+
     '<button class="btn btn-ghost btn-sm" id="'+id+'Next"'+(P.p>=P.mx?' disabled':'')+'>Selanjutnya ›</button></div>':'';
-  const gajiRows=gP.rows.map(g=>'<tr><td class="l">'+esc(g['Nama Karyawan']||'-')+'</td><td>'+esc(g['Cabang']||'-')+'</td>'+
+  const gajiRows=gP.rows.map(g=>'<tr class="rowclick" data-dgid="'+esc(g['ID Slip']||'')+'"><td class="l">'+esc(g['Nama Karyawan']||'-')+'</td><td>'+esc(g['Cabang']||'-')+'</td>'+
     '<td>'+esc(g['Periode Bulan']||'-')+'</td><td class="money">'+rp(g['Take Home Pay']||0)+'</td></tr>').join('');
-  const insRows=iP.rows.map(b=>'<tr><td class="l">'+esc(b['Nama Cleaner']||'-')+'</td><td>'+esc(b['Jenis']||'-')+'</td>'+
-    '<td>'+esc(b['Nama Customer']||'-')+'</td><td class="money">'+rp(b['Nominal']||0)+'</td></tr>').join('');
-  return '<div class="cap-card"><div class="cap-card-t">Gaji ('+gP.total+')</div>'+
+  const insRows=cP.rows.map(c=>'<tr class="rowclick" data-dcleaner="'+esc(c.k)+'"><td class="l">'+esc(c.k)+'</td><td class="c">'+c.n+'</td><td class="money">'+rp(c.val)+'</td></tr>').join('');
+  return '<div class="cap-card"><div class="cap-card-t">Gaji ('+gP.total+') — klik untuk detail</div>'+
     '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr><th class="l">Nama</th><th>Cabang</th><th>Periode</th><th class="r">Take Home Pay</th></tr></thead>'+
     '<tbody>'+(gajiRows||'<tr><td colspan="4" class="cap-empty">Belum ada data</td></tr>')+'</tbody></table></div>'+pager('gj',gP)+'</div>'+
-    '<div class="cap-card"><div class="cap-card-t">Insentif / Bonus ('+iP.total+')</div>'+
-    '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr><th class="l">Cleaner</th><th>Jenis</th><th>Customer</th><th class="r">Nominal</th></tr></thead>'+
-    '<tbody>'+(insRows||'<tr><td colspan="4" class="cap-empty">Belum ada data</td></tr>')+'</tbody></table></div>'+pager('in',iP)+'</div>';
+    '<div class="cap-card"><div class="cap-card-t">Insentif / Bonus per Cleaner ('+cP.total+') — klik untuk detail</div>'+
+    '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr><th class="l">Nama Cleaner</th><th class="c">Jml Bonus</th><th class="r">Total Bonus</th></tr></thead>'+
+    '<tbody>'+(insRows||'<tr><td colspan="3" class="cap-empty">Belum ada data</td></tr>')+'</tbody></table></div>'+pager('in',cP)+'</div>';
 }
 function dashTabMarketing(){
   const D=state.dash; const cur=dashTabRange();
