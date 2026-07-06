@@ -1400,7 +1400,7 @@ const VIEWS = {
     ]
   },
   gaji:{
-    sheet:'GAJI', title:'Gaji Karyawan', sub:'', countTop:true, noSyncBtn:true,
+    sheet:'GAJI', title:'Gaji Karyawan', sub:'', countTop:true, noSyncBtn:true, hub:'gaji', gajiTipe:'Bulanan',
     idField:'ID Slip', canAdd:true, canEdit:true, canDelete:true, rowDetail:true, gajiSort:true, special:'gaji', slip:true, paged:true,
     table:['Periode Bulan','Nama Karyawan','Total Bonus','Total Potongan','Gaji Diterima','Take Home Pay'],
     colorMap:{'Total Bonus':'c-green','Total Potongan':'c-red','Gaji Diterima':'c-orange','Take Home Pay':'c-blue'},
@@ -1410,6 +1410,42 @@ const VIEWS = {
       {sec:'Identitas Slip'},
       f('Tanggal Cetak','date',{ro:true}), f('Periode Bulan','month'),
       f('Awal Periode','date',{ro:true}), f('Akhir Periode','date',{ro:true}),
+      f('Cabang','select',{opts:CABANG, req:true}),
+      f('ID Karyawan','kselect',{req:true, list:'karyawan'}),
+      f('Nama Karyawan','text',{ro:true}),
+      f('Jabatan','text',{ro:true}), f('Status','text',{ro:true}),
+      {sec:'Pendapatan'},
+      f('Gaji Pokok','money'),
+      f('Bonus Bulanan','money'), f('Bonus Review','money'), f('Bonus Tanggal Merah','money'),
+      f('Total Kilometer','money'), f('Total DeepClean','money'),
+      f('Total Salon','money'), f('Total Tips','money'),
+      f('Total Parkir','money'), f('Total Lembur','money'),
+      f('Total Uang Makan','money'), f('Total Bonus Lainnya','money'),
+      f('Tunjangan Kos','money'), f('Tunjangan Kerja','money'),
+      f('Premi BPJS','check',{label:'Premi BPJS aktif (+Rp 35.000)'}),
+      f('Total Bonus','money',{computed:true}),
+      {sec:'Potongan'},
+      f('Cashbon','money'), f('Potongan Tidak Absen','money'),
+      f('Potongan Keterlambatan','money'), f('Potongan Absen','money'),
+      f('BPJS Ketenagakerjaan','money'), f('Potongan Lainnya','money'),
+      f('Keterangan Potongan Lainnya','text',{full:true}),
+      f('Total Potongan','money',{computed:true}),
+      {sec:'Hasil'},
+      f('Take Home Pay','money',{computed:true}), f('Gaji Diterima','money',{computed:true}),
+      f('Saldo JHT','money')
+    ]
+  },
+  gajiHarian:{
+    sheet:'GAJI', title:'Gaji Harian', sub:'', countTop:true, noSyncBtn:true, hub:'gaji', gajiTipe:'Harian',
+    idField:'ID Slip', canAdd:true, canEdit:true, canDelete:true, rowDetail:true, gajiSort:true, special:'gaji', slip:true, paged:true,
+    table:['Awal Periode','Akhir Periode','Nama Karyawan','Total Bonus','Total Potongan','Take Home Pay'],
+    colorMap:{'Total Bonus':'c-green','Total Potongan':'c-red','Take Home Pay':'c-blue'},
+    filters:['Cabang'],
+    search:['Nama Karyawan','ID Slip'],
+    form:[
+      {sec:'Identitas Slip'},
+      f('Tanggal Cetak','date',{ro:true}),
+      f('Awal Periode','date',{req:true}), f('Akhir Periode','date',{req:true}),
       f('Cabang','select',{opts:CABANG, req:true}),
       f('ID Karyawan','kselect',{req:true, list:'karyawan'}),
       f('Nama Karyawan','text',{ro:true}),
@@ -1453,7 +1489,7 @@ const VIEWS = {
     sheet:'GAJI_POKOK', title:'Gaji Pokok', sub:'', countTop:true, noSyncBtn:true, inSettings:true,
     special:'gajiPokok', keyFields:['Cabang','Jabatan','Status'], canAdd:true, canEdit:true,
     sortBy:['Cabang','Jabatan','Status'],
-    table:['Cabang','Jabatan','Status','Gaji Pokok','Bonus Bulanan','Tunjangan Kos','Tunjangan Kerja','Premi BPJS'],
+    table:['Cabang','Jabatan','Status','Gaji Pokok','Gaji Pokok Harian','Bonus Bulanan','Tunjangan Kos','Tunjangan Kerja','Premi BPJS'],
     filters:['Cabang','Jabatan'],
     search:['Cabang','Jabatan','Status'],
     form:[
@@ -1464,6 +1500,7 @@ const VIEWS = {
       f('Bonus Bulanan','money'),
       f('Tunjangan Kos','money'),
       f('Tunjangan Kerja','money'),
+      f('Gaji Pokok Harian','money'),
       f('Premi BPJS','money')
     ]
   },
@@ -1913,9 +1950,10 @@ async function api(payload){
       const cab=n(payload.cabang), jab=n(payload.jabatan), sta=n(payload.status);
       let hit=(rows||[]).find(r=>n(r.Cabang)===cab&&n(r.Jabatan)===jab&&n(r.Status)===sta)
            || (rows||[]).find(r=>n(r.Cabang)===cab&&n(r.Status)===sta);
-      if(!hit) return {ok:true, found:false, gajiPokok:0, bonusBulanan:0, tunjanganKos:0, tunjanganKerja:0, premiBpjs:35000};
+      if(!hit) return {ok:true, found:false, gajiPokok:0, gajiPokokHarian:0, bonusBulanan:0, tunjanganKos:0, tunjanganKerja:0, premiBpjs:35000};
       return {ok:true, found:true,
-        gajiPokok:Number(hit['Gaji Pokok']||0), bonusBulanan:Number(hit['Bonus Bulanan']||0),
+        gajiPokok:Number(hit['Gaji Pokok']||0), gajiPokokHarian:Number(hit['Gaji Pokok Harian']||0),
+        bonusBulanan:Number(hit['Bonus Bulanan']||0),
         tunjanganKos:Number(hit['Tunjangan Kos']||0), tunjanganKerja:Number(hit['Tunjangan Kerja']||0),
         premiBpjs:Number(hit['Premi BPJS']||0)||35000};
     }
@@ -2084,6 +2122,7 @@ function markActive(key){
 async function selectMenu(key){
   if(key==='__settings'){ renderSettings(); markActive('__settings'); return; }
   if(key==='audit'){ return openAuditTab(state.auditTab||'auditOrder'); }
+  if(key==='gaji'){ return openGajiTab(state.gajiTab||'gaji'); }
   if(key==='capaianFinance'){ return openCapTab(state.capTab||'capOmzet'); }
   state.view = VIEWS[key]; state.viewKey=key;
   state.filters={}; state.search=''; state.dateStart=''; state.dateEnd='';
@@ -2105,6 +2144,20 @@ async function openAuditTab(key){  state.auditTab=key;
   state.view = VIEWS[key]; state.viewKey=key;
   state.filters={}; state.search=''; state.dateStart=''; state.dateEnd='';
   markActive('audit');
+  renderShell();
+  await loadList();
+  if(state._ch){ try{ window.sb.removeChannel(state._ch); }catch(e){} state._ch=null; }
+  if(state.view && state.view.sheet){
+    state._ch = window.sb.channel('rt-'+state.view.sheet)
+      .on('postgres_changes', {event:'*', schema:'public', table:state.view.sheet}, ()=>{ loadList(true); })
+      .subscribe();
+  }
+}
+async function openGajiTab(key){
+  state.gajiTab=key;
+  state.view = VIEWS[key]; state.viewKey=key;
+  state.filters={}; state.search=''; state.dateStart=''; state.dateEnd='';
+  markActive('gaji');
   renderShell();
   await loadList();
   if(state._ch){ try{ window.sb.removeChannel(state._ch); }catch(e){} state._ch=null; }
@@ -2136,7 +2189,10 @@ function renderShell(){
       .map(t=>'<button class="hub-tab'+(state.viewKey===t[0]?' active':'')+'" data-audittab="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>'
     : v.hub==='capfin' ?
     '<div class="hub-tabs">'+[['capOmzet','Omzet'],['capKpi','KPI'],['capMarketing','Marketing']]
-      .map(t=>'<button class="hub-tab'+(state.viewKey===t[0]?' active':'')+'" data-captab="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>' : '';
+      .map(t=>'<button class="hub-tab'+(state.viewKey===t[0]?' active':'')+'" data-captab="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>'
+    : v.hub==='gaji' ?
+    '<div class="hub-tabs">'+[['gaji','Bulanan'],['gajiHarian','Harian']]
+      .map(t=>'<button class="hub-tab'+(state.viewKey===t[0]?' active':'')+'" data-gajitab="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>' : '';
   $('#content').innerHTML =
     greetingHTML()+
     tabs+
@@ -2152,6 +2208,7 @@ function renderShell(){
   if(v.canAdd) $('#btnAdd').addEventListener('click', ()=>openForm(null));
   document.querySelectorAll('[data-audittab]').forEach(b=>b.addEventListener('click',()=>openAuditTab(b.dataset.audittab)));
   document.querySelectorAll('[data-captab]').forEach(b=>b.addEventListener('click',()=>openCapTab(b.dataset.captab)));
+  document.querySelectorAll('[data-gajitab]').forEach(b=>b.addEventListener('click',()=>openGajiTab(b.dataset.gajitab)));
   const bk=$('#btnBackSet'); if(bk) bk.addEventListener('click', ()=>{ if(state.session && state.session.role==='DESIGNER') renderDesigner(); else renderSettings(); });
   buildToolbar();
 }
@@ -2428,6 +2485,8 @@ function applyClientFilters(rows){
     const b=calMonthBounds(ymd(new Date()).slice(0,7));
     out = out.filter(r=>{ const d=parseAnyDate(r[v.dateFilterField]); return d && d>=b.start && d<=b.end; });
   }
+  if(v.gajiTipe==='Bulanan') out = out.filter(r=>String(r['Periode Bulan']||'').trim()!=='');
+  else if(v.gajiTipe==='Harian') out = out.filter(r=>!String(r['Periode Bulan']||'').trim());
   if(state.search && v.search){
     out = out.filter(r=> v.search.some(k=>String(r[k]||'').toLowerCase().indexOf(state.search)>-1));
   }
@@ -4802,14 +4861,15 @@ async function onPickKaryawan(){
   try{
     const gp=await api({action:'gajiPokok', cabang:emp['Cabang'], jabatan:emp['Jabatan'], status:emp['Status']});
     if(gp.found){
-      setVal('Gaji Pokok', gp.gajiPokok);
+      const harian = state.view && state.view.gajiTipe==='Harian';
+      setVal('Gaji Pokok', harian ? gp.gajiPokokHarian : gp.gajiPokok);
       setVal('Bonus Bulanan', gp.bonusBulanan);
       setVal('Tunjangan Kos', gp.tunjanganKos);
       setVal('Tunjangan Kerja', gp.tunjanganKerja);
     }
     setPremiBpjs(gp.premiBpjs || 35000, true);
   }catch(e){}
-  await onPickPeriode();
+  if(!(state.view && state.view.gajiTipe==='Harian')) await onPickPeriode();
 }
 /* Atur nominal & status checkbox Premi BPJS. */
 function setPremiBpjs(nominal, aktif){
