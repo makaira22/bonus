@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- KLINKLIN-BUILD: GAJI-HUB-HARIAN-v3 (tab Bulanan/Harian + Gaji Pokok Harian) -->
 <html lang="id">
 <head>
 <meta charset="UTF-8" />
@@ -2154,6 +2155,7 @@ async function openAuditTab(key){  state.auditTab=key;
   }
 }
 async function openGajiTab(key){
+  console.log('KLINKLIN build: GAJI-HUB-HARIAN-v3 · tab=', key);
   state.gajiTab=key;
   state.view = VIEWS[key]; state.viewKey=key;
   state.filters={}; state.search=''; state.dateStart=''; state.dateEnd='';
