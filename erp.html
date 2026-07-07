@@ -295,6 +295,19 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 #sync.done .s{display:none}
 #sync.done{background:var(--success)}
 @media (max-width:880px){ #sync{bottom:78px} }
+.fin-notif{position:fixed;top:70px;right:16px;z-index:80;max-width:330px;display:none;
+  align-items:flex-start;gap:11px;background:var(--surface);border:1px solid var(--line);
+  border-left:5px solid var(--gold);border-radius:13px;padding:13px 14px;box-shadow:0 12px 34px -10px rgba(10,43,42,.45);
+  animation:finPop .25s ease}
+.fin-notif.show{display:flex}
+@keyframes finPop{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+.fin-notif-ic{font-size:20px;line-height:1;flex:none;margin-top:1px}
+.fin-notif-body{font-size:13px;line-height:1.5;color:var(--ink);flex:1;min-width:0}
+.fin-notif-body b{color:var(--petrol)}
+.fin-notif-body .fn-big{font-size:17px;color:var(--danger);font-weight:800}
+.fin-notif-x{flex:none;border:none;background:none;color:var(--muted);font-size:15px;cursor:pointer;padding:2px 4px;line-height:1}
+.fin-notif-x:hover{color:var(--ink)}
+@media (max-width:880px){ .fin-notif{top:62px;right:8px;left:8px;max-width:none} }
 
 /* ---------- IMAGE POPUP ---------- */
 #imgPop{position:fixed;inset:0;z-index:95;display:none;align-items:center;justify-content:center;
@@ -2074,6 +2087,8 @@ async function logout(){
   if(state._ch){ try{ window.sb.removeChannel(state._ch); }catch(e){} state._ch=null; }
   if(state._chatCh){ try{ window.sb.removeChannel(state._chatCh); }catch(e){} state._chatCh=null; }
   if(window._flyIdle){ clearInterval(window._flyIdle); window._flyIdle=null; }
+  if(state._finTimer){ clearInterval(state._finTimer); state._finTimer=null; }
+  { const fn=document.getElementById('finNotif'); if(fn) fn.classList.remove('show'); }
   const cp=$('#chatPanel'); if(cp) cp.classList.remove('open');
   const cb=$('#chatBadge'); if(cb) cb.style.display='none';
   document.body.classList.remove('is-designer');
@@ -2104,6 +2119,7 @@ function enterApp(){
   loadKantor();
   initChat();
   resolveNamaLengkap();
+  initFinanceNotif();
   runLoginPopups();
   document.body.classList.toggle('is-designer', s.role==='DESIGNER');
   if(!MENUS[s.role].length){ renderDesigner(); return; }
@@ -6048,6 +6064,48 @@ function csReminderCheck(){
     const slot=a[0], mins=a[1];
     if(hm>=mins && !done[slot]){ done[slot]=1; localStorage.setItem(key,JSON.stringify(done)); showCsReminder(); }
   });
+}
+async function finDoneCount(){
+  try{ const r=await window.sb.from('ORDER').select('*',{count:'exact',head:true}).ilike('Status Order','done');
+    return typeof r.count==='number' ? r.count : 0;
+  }catch(e){ return null; }
+}
+function showFinNotif(count){
+  if(!(count>0)) return;
+  let el=document.getElementById('finNotif');
+  if(!el){ el=document.createElement('div'); el.id='finNotif'; el.className='fin-notif'; document.body.appendChild(el); }
+  el.innerHTML='<div class="fin-notif-ic">🔔</div>'+
+    '<div class="fin-notif-body">Ada <span class="fn-big" id="finNotifCount">'+count+'</span> order berstatus <b>Done</b> yang harus segera di-<b>approve</b>.</div>'+
+    '<button class="fin-notif-x" id="finNotifX" title="Tutup">✕</button>';
+  el.classList.add('show');
+  document.getElementById('finNotifX').onclick=()=>{ el.classList.remove('show'); };
+}
+async function finNotifTick(){
+  if(!state.session || state.session.role!=='FINANCE') return;
+  const count=await finDoneCount();
+  if(count==null) return;
+  const now=new Date(), today=ymd(now);
+  // Jadwal tayang: 11:00 & 14:00 (muncul di 2 menit pertama jam tsb, sekali per hari per slot)
+  [['11',11],['14',14]].forEach(s=>{
+    if(now.getHours()===s[1] && now.getMinutes()<2){
+      const key='finnotif_'+today+'_'+s[0];
+      if(!localStorage.getItem(key)){ localStorage.setItem(key,'1'); showFinNotif(count); }
+    }
+  });
+  // Muncul saat ada order Done BARU dari kondisi 0 → >0
+  if(state._finPrevDone===0 && count>0){ showFinNotif(count); }
+  state._finPrevDone=count;
+  // Perbarui angka jika notif sedang tampil
+  const c=document.getElementById('finNotifCount'); if(c) c.textContent=count;
+  const el=document.getElementById('finNotif');
+  if(el && el.classList.contains('show') && count<=0) el.classList.remove('show');
+}
+function initFinanceNotif(){
+  if(!state.session || state.session.role!=='FINANCE') return;
+  state._finPrevDone=null;
+  clearInterval(state._finTimer);
+  finNotifTick();                                   // cek awal (isi angka & transisi)
+  state._finTimer=setInterval(finNotifTick, 45*1000); // cek tiap 45 detik
 }
 function initCsReminder(){
   if(state.session && state.session.role==='CS'){
