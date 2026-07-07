@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- KLINKLIN-BUILD: GAJI-HUB-HARIAN-v3 (tab Bulanan/Harian + Gaji Pokok Harian) -->
+<!-- KLINKLIN-BUILD: GAJI-HUB-HARIAN-v3 + WANUM-INTL-v2 + FIN-NOTIF -->
 <html lang="id">
 <head>
 <meta charset="UTF-8" />
@@ -4355,6 +4355,7 @@ function renderGrafik(){
 }
 function openWa(num, text, who){
   const n=waNum(num);
+  console.log('[KLINKLIN waNum v2] input:', JSON.stringify(num), '→ wa.me/'+n);
   if(!n){ toast('Nomor WA '+(who?('"'+who+'" '):'')+'tidak ditemukan','err'); return; }
   window.open('https://wa.me/'+n+'?text='+encodeURIComponent(text), '_blank');
 }
