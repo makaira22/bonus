@@ -5078,7 +5078,8 @@ function buildInvoiceHTML(o){
           '<div style="position:absolute;left:0;bottom:0;width:420px;font-size:11px;color:'+MUT+';line-height:1.5">Terima kasih telah mempercayakan kebersihan Anda kepada KLINKLIN. Simpan invoice ini sebagai bukti transaksi.</div>'+
           '<div style="position:absolute;right:20px;top:14px;width:220px;text-align:center">'+
             '<div style="font-size:11px;color:'+MUT+'">Hormat kami,</div>'+
-            '<div style="margin-top:40px;border-top:1px solid #15211F;padding-top:5px;font-size:12px;font-weight:800">'+esc(INVOICE_SIGNER)+'</div>'+
+            '<img src="https://klinklin.online/Screenshot_2026-07-07_095820-removebg-preview.png" alt="Tanda Tangan" crossorigin="anonymous" style="display:block;margin:2px auto 0;height:46px;object-fit:contain">'+
+            '<div style="margin-top:0;border-top:1px solid #15211F;padding-top:5px;font-size:12px;font-weight:800">'+esc(INVOICE_SIGNER)+'</div>'+
           '</div>'+
         '</div>'+
       '</div>'+
@@ -5101,6 +5102,9 @@ async function invoiceToCanvas(o){
   try{
     window.scrollTo(0,0); // mulai dari atas agar capture tidak ikut tergeser
     if(document.fonts && document.fonts.ready){ try{ await Promise.race([document.fonts.ready, new Promise(r=>setTimeout(r,1200))]); }catch(e){} }
+    // tunggu gambar (tanda tangan) selesai dimuat agar tidak kosong saat di-capture
+    try{ await Promise.all(Array.from(el.querySelectorAll('img')).map(img=> (img.complete && img.naturalWidth) ? Promise.resolve()
+      : new Promise(res=>{ img.addEventListener('load',res,{once:true}); img.addEventListener('error',res,{once:true}); setTimeout(res,2500); }))); }catch(e){}
     await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
     // Lebar TETAP = lebar kartu (760). Jangan pakai scrollWidth: watermark besar yang di-clip
     // oleh overflow:hidden membuat scrollWidth membengkak → sisi kanan (nominal & tanda tangan) terpotong.
