@@ -1207,9 +1207,20 @@ function orderItemsText(o){
     if(nm||q) lines.push(lines.length+1+'. '+(nm||'-')+(q?(' : '+q):'')); });
   return lines.length? lines.join('\n') : '-';
 }
-/* Normalisasi nomor ke format wa.me (62...). */
-function waNum(p){ let d=String(p||'').replace(/[^0-9]/g,''); if(!d) return '';
-  if(d[0]==='0') d='62'+d.slice(1); else if(d.slice(0,2)!=='62') d='62'+d; return d; }
+/* Normalisasi nomor ke format wa.me. Nomor dengan awalan '+' (internasional) dipertahankan
+   apa adanya; nomor lokal (0.../8...) diubah ke 62. */
+function waNum(p){
+  const raw=String(p||'').trim();
+  const d=raw.replace(/[^0-9]/g,''); if(!d) return '';
+  // Sudah internasional (diawali + atau 00) → pakai kode negara aslinya.
+  if(/^\s*\+/.test(raw)) return d;
+  if(raw.replace(/[^0-9+]/g,'').startsWith('00')) return d.replace(/^0+/,'');
+  // Lokal Indonesia
+  if(d[0]==='0') return '62'+d.slice(1);
+  if(d.slice(0,2)==='62') return d;
+  // Angka telanjang tanpa awalan jelas → asumsikan Indonesia.
+  return '62'+d;
+}
 function bankLines(){ return INVOICE_BANK.map(b=>b.bank.replace('Bank ','')+' '+b.no).join('\n'); }
 
 function waCustomerText(o){
