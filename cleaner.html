@@ -478,7 +478,6 @@ async function reverseGeocode(lat,lng){
   const parts=[j.locality, j.city, j.principalSubdivision].filter(Boolean);
   return [...new Set(parts)].join(', ');
 }
-}
 function takeShot(){
   const v=$('#cam'); if(!v||!v.videoWidth){ toast('Kamera belum siap'); return; }
   const c=document.createElement('canvas'); c.width=v.videoWidth; c.height=v.videoHeight;
