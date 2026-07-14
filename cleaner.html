@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<!-- KLINKLIN CLEANER PORTAL v1 -->
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+<meta name="theme-color" content="#0E3B3A" />
+<title>KLINKLIN · Cleaner</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL      = 'https://hmykvvtzmeogptswhhql.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhteWt2dnR6bWVvZ3B0c3doaHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4NTY5MjEsImV4cCI6MjA5ODQzMjkyMX0.9T4BuyVQBe8g8Xjxa0GJgK5aRDrtrU78eEreQgOSLHQ';
+  window.sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth:{ persistSession:true, autoRefreshToken:true } });
+</script>
+<style>
+:root{
+  --bg:#EEF2F1;--surface:#fff;--surface-2:#F7FAF9;--ink:#15211F;--muted:#5E6F6C;--faint:#8A9A97;
+  --line:#E2E8E6;--petrol:#0E3B3A;--petrol-2:#17524F;--gold:#C2A567;--danger:#B23A3A;--success:#1F7A5E;--warn:#B9842B;
+  --radius:16px;--shadow:0 8px 28px -14px rgba(15,40,38,.28);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);
+  padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+.hide{display:none!important}
+button{font-family:inherit;cursor:pointer}
+.btn{border:none;border-radius:12px;padding:13px 16px;font-size:15px;font-weight:700;background:var(--petrol);color:#fff;width:100%}
+.btn:active{opacity:.9}
+.btn-gold{background:var(--gold);color:#3a2f13}
+.btn-ghost{background:var(--surface-2);color:var(--ink);border:1px solid var(--line)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:15px;box-shadow:var(--shadow);margin-bottom:12px}
+.muted{color:var(--muted)} .small{font-size:12.5px}
+.chip{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:800}
+.c-pending{background:rgba(185,132,43,.15);color:#8a6118} .c-done{background:rgba(47,111,143,.15);color:#245b76}
+.c-complete{background:rgba(31,122,94,.15);color:#1f7a5e} .c-cancel{background:rgba(178,58,58,.14);color:#a23}
+
+/* Login */
+#login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:22px;
+  background:linear-gradient(160deg,#0E3B3A,#17524F)}
+.login-card{background:#fff;border-radius:22px;padding:26px 22px;width:100%;max-width:380px;box-shadow:0 20px 60px -20px rgba(0,0,0,.5)}
+.brand{font-size:26px;font-weight:800;letter-spacing:.5px;text-align:center;margin-bottom:2px}
+.brand b{color:var(--gold)}
+.login-sub{text-align:center;color:var(--muted);font-size:13px;margin-bottom:20px}
+.fld{margin-bottom:13px}
+.fld label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:5px}
+.fld input{width:100%;padding:13px 14px;border:1px solid var(--line);border-radius:12px;font-size:16px;background:var(--surface-2)}
+#loginErr{color:var(--danger);font-size:13px;min-height:18px;margin:4px 0 8px;text-align:center}
+
+/* Topbar */
+.topbar{position:sticky;top:0;z-index:20;background:var(--petrol);color:#fff;display:flex;align-items:center;gap:12px;
+  padding:14px 16px calc(14px);box-shadow:0 2px 16px -6px rgba(10,43,42,.6)}
+.topbar .av{width:38px;height:38px;border-radius:50%;background:var(--gold);color:#3a2f13;display:flex;align-items:center;justify-content:center;font-weight:800;flex:none}
+.topbar .nm{font-weight:800;font-size:15px;line-height:1.2}
+.topbar .sb{font-size:11.5px;opacity:.85}
+.topbar .out{margin-left:auto;background:rgba(255,255,255,.14);border:none;color:#fff;border-radius:10px;padding:8px 12px;font-size:12.5px;font-weight:700}
+
+.wrap{padding:16px;max-width:640px;margin:0 auto}
+.h-title{font-size:20px;font-weight:800;margin:2px 0 14px}
+.stat{background:linear-gradient(135deg,var(--petrol),var(--petrol-2));color:#fff;border-radius:18px;padding:20px;margin-bottom:14px}
+.stat .l{font-size:12.5px;opacity:.85} .stat .v{font-size:30px;font-weight:800;margin-top:4px}
+.row{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+.row:last-child{border-bottom:none}
+.empty{text-align:center;color:var(--faint);padding:28px 10px;font-size:13.5px}
+
+/* Bottom nav */
+.nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--surface);border-top:1px solid var(--line);
+  display:flex;padding:6px 4px calc(6px + env(safe-area-inset-bottom));box-shadow:0 -6px 24px -14px rgba(0,0,0,.25)}
+.nav button{flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;color:var(--faint);font-size:10.5px;font-weight:700}
+.nav button.on{color:var(--petrol)}
+.nav .ic{font-size:19px;line-height:1}
+
+/* Absen */
+.cam-wrap{position:relative;border-radius:16px;overflow:hidden;background:#000;aspect-ratio:3/4;margin-bottom:12px}
+.cam-wrap video,.cam-wrap canvas,.cam-wrap img{width:100%;height:100%;object-fit:cover;display:block}
+.gps{font-size:12.5px;color:var(--muted);margin:8px 0 12px;display:flex;align-items:center;gap:6px}
+.gps b{color:var(--ink)}
+.toast{position:fixed;left:50%;bottom:88px;transform:translateX(-50%);background:#15211F;color:#fff;padding:11px 16px;border-radius:12px;
+  font-size:13px;z-index:50;opacity:0;transition:.2s;max-width:90%;text-align:center}
+.toast.show{opacity:1}
+.seg{display:flex;gap:6px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:5px;margin-bottom:14px}
+.seg button{flex:1;border:none;background:none;padding:8px;border-radius:9px;font-weight:700;font-size:13px;color:var(--muted)}
+.seg button.on{background:var(--petrol);color:#fff}
+textarea,select,input.f{width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;font-size:15px;background:var(--surface-2);font-family:inherit}
+label.fl{display:block;font-size:12px;font-weight:700;color:var(--muted);margin:10px 0 5px}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login">
+  <div class="login-card">
+    <div class="brand">KLIN<b>KLIN</b></div>
+    <div class="login-sub">Portal Cleaner</div>
+    <div class="fld"><label>Email</label><input id="email" type="email" autocomplete="username" placeholder="email kamu"></div>
+    <div class="fld"><label>PIN</label><input id="pin" type="password" autocomplete="current-password" inputmode="numeric" placeholder="PIN"></div>
+    <div id="loginErr"></div>
+    <button class="btn" id="btnLogin">Masuk</button>
+    <div class="small muted" style="text-align:center;margin-top:14px">Gunakan email & PIN yang didaftarkan HRD.</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="hide">
+  <div class="topbar">
+    <div class="av" id="avatar">C</div>
+    <div><div class="nm" id="tName">-</div><div class="sb" id="tSub">-</div></div>
+    <button class="out" id="btnOut">Keluar</button>
+  </div>
+  <div class="wrap" id="view"></div>
+  <div class="nav">
+    <button data-tab="overview" class="on"><span class="ic">🏠</span>Overview</button>
+    <button data-tab="kerja"><span class="ic">🧹</span>Kerja</button>
+    <button data-tab="absen"><span class="ic">📸</span>Absen</button>
+    <button data-tab="ajuan"><span class="ic">📝</span>Ajuan</button>
+    <button data-tab="bonus"><span class="ic">💰</span>Bonus</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const rp=n=>'Rp '+(Number(String(n==null?0:n).replace(/[^0-9-]/g,''))||0).toLocaleString('id-ID');
+const norm=s=>String(s==null?'':s).trim().toLowerCase();
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const md=n=>Number(String(n==null?'':n).replace(/[^0-9-]/g,''))||0;
+function ymd(d){d=d||new Date();const p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
+function fmtTgl(s){ s=String(s||''); const m=s.match(/^(\d{4})-(\d{2})-(\d{2})/); if(!m) return s||'-';
+  const BL=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  return (+m[3])+' '+BL[(+m[2])-1]+' '+m[1]; }
+function toast(t){ const el=$('#toast'); el.textContent=t; el.classList.add('show'); clearTimeout(window._tt); window._tt=setTimeout(()=>el.classList.remove('show'),2600); }
+
+let ME=null;         // { id, nama, cabang, email, jabatan, status }
+let TAB='overview';
+let CAM=null, SHOT=null, GPS=null;
+
+/* ---------- AUTH ---------- */
+async function ensureAuth(){
+  try{ const s=await window.sb.auth.getSession(); if(s.data.session) return true; }catch(e){}
+  try{ const r=await window.sb.auth.signInAnonymously(); if(!r.error) return true; }catch(e){}
+  return false;
+}
+async function doLogin(){
+  const email=$('#email').value.trim(); const pin=$('#pin').value.trim();
+  $('#loginErr').textContent='';
+  if(!email||!pin){ $('#loginErr').textContent='Isi email & PIN.'; return; }
+  $('#btnLogin').textContent='Memproses…'; $('#btnLogin').disabled=true;
+  try{
+    await ensureAuth();
+    const r=await window.sb.from('KARYAWAN').select('*');
+    if(r.error) throw r.error;
+    const rows=r.data||[];
+    const getEmail=k=>k['Email']||k['email']||'';
+    const getPin=k=>String(k['PIN']||k['pin']||'').trim();
+    const hit=rows.find(k=> norm(getEmail(k))===norm(email) && getPin(k)===pin);
+    if(!hit){ $('#loginErr').textContent='Email atau PIN salah.'; return; }
+    ME={ id:hit['ID Karyawan']||hit['id'], nama:hit['Nama Lengkap']||hit['Nama']||email,
+         cabang:hit['Cabang']||'', email:getEmail(hit)||email, jabatan:hit['Jabatan']||'', status:hit['Status']||'' };
+    localStorage.setItem('klinklin_cleaner', JSON.stringify(ME));
+    enterApp();
+  }catch(err){ $('#loginErr').textContent='Gagal: '+(err.message||err); }
+  finally{ $('#btnLogin').textContent='Masuk'; $('#btnLogin').disabled=false; }
+}
+function logout(){ localStorage.removeItem('klinklin_cleaner'); ME=null; stopCam();
+  $('#app').classList.add('hide'); $('#login').classList.remove('hide'); $('#pin').value=''; }
+
+function enterApp(){
+  $('#login').classList.add('hide'); $('#app').classList.remove('hide');
+  $('#tName').textContent=ME.nama;
+  $('#tSub').textContent=(ME.jabatan||'Cleaner')+(ME.cabang?(' · '+ME.cabang):'');
+  $('#avatar').textContent=(ME.nama||'C').charAt(0).toUpperCase();
+  switchTab('overview');
+}
+
+/* ---------- DATA ---------- */
+async function myBonus(){
+  try{ const r=await window.sb.from('BONUS').select('*'); const all=r.data||[];
+    return all.filter(b=>String(b['Nama Cleaner']||'').split(',').map(x=>norm(x.trim())).indexOf(norm(ME.nama))>=0);
+  }catch(e){ return []; }
+}
+async function myOrders(){
+  try{ const r=await window.sb.from('ORDER').select('*'); const all=r.data||[];
+    return all.filter(o=>String(o['Nama Cleaner']||'').split(',').map(x=>norm(x.trim())).indexOf(norm(ME.nama))>=0
+      && norm(o['Status Order'])!=='cancel');
+  }catch(e){ return []; }
+}
+async function myAgenda(){
+  try{ const r=await window.sb.from('AGENDA').select('*'); const all=r.data||[];
+    return all.filter(a=>{ const j=norm(a['Jabatan']); return j==='cleaner'||j===norm(ME.jabatan)||!j; }).slice(0,20);
+  }catch(e){ return []; }
+}
+
+/* ---------- TABS ---------- */
+function switchTab(t){ TAB=t; if(t!=='absen') stopCam();
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on', b.dataset.tab===t));
+  const v=$('#view'); v.innerHTML='<div class="empty">Memuat…</div>';
+  ({overview:renderOverview,kerja:renderKerja,absen:renderAbsen,ajuan:renderAjuan,bonus:renderBonus}[t]||renderOverview)();
+}
+
+async function renderOverview(){
+  const [bonus, agenda] = await Promise.all([myBonus(), myAgenda()]);
+  const now=new Date(); const ym=ymd(now).slice(0,7);
+  const total=bonus.reduce((s,b)=>s+md(b['Nominal']),0);
+  const totalBln=bonus.filter(b=>String(b['Tanggal Pengerjaan']||'').slice(0,7)===ym).reduce((s,b)=>s+md(b['Nominal']),0);
+  let h='<div class="h-title">Halo, '+esc(ME.nama.split(' ')[0])+' 👋</div>';
+  h+='<div class="stat"><div class="l">Total Bonus (semua)</div><div class="v">'+rp(total)+'</div>'+
+     '<div class="l" style="margin-top:8px">Bulan ini: <b>'+rp(totalBln)+'</b> · '+bonus.length+' bonus</div></div>';
+  h+='<div class="card"><div style="font-weight:800;margin-bottom:8px">📅 Agenda</div>';
+  if(agenda.length){ h+=agenda.map(a=>'<div class="row"><span>'+esc(a['Agenda']||a['Judul']||'-')+'</span><span class="muted small">'+esc(fmtTgl(a['Tanggal']))+'</span></div>').join(''); }
+  else h+='<div class="empty">Belum ada agenda.</div>';
+  h+='</div>';
+  $('#view').innerHTML=h;
+}
+
+async function renderKerja(){
+  const orders=await myOrders();
+  orders.sort((a,b)=>String(b['Tanggal Pengerjaan']||'').localeCompare(String(a['Tanggal Pengerjaan']||'')));
+  let h='<div class="h-title">Pekerjaan Saya</div>';
+  if(!orders.length){ h+='<div class="empty">Belum ada pekerjaan yang ditugaskan.</div>'; $('#view').innerHTML=h; return; }
+  h+=orders.map(o=>{ const st=norm(o['Status Order'])||'pending';
+    const lay=[1,2,3].map(i=>o['Layanan '+i]).filter(Boolean).join(', ')||o['Keterangan Order']||'-';
+    return '<div class="card"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:6px">'+
+      '<b>'+esc(o['Nama Customer']||'-')+'</b><span class="chip c-'+st+'">'+st+'</span></div>'+
+      '<div class="small muted" style="margin-bottom:6px">'+esc(fmtTgl(o['Tanggal Pengerjaan']))+(o['Waktu Pengerjaan']?(' · '+esc(o['Waktu Pengerjaan'])):'')+' · '+esc(o['Cabang']||'')+'</div>'+
+      '<div style="font-size:14px;margin-bottom:6px">'+esc(lay)+'</div>'+
+      '<div class="small">📍 '+esc(o['Alamat']||'-')+'</div>'+
+      (o['No WA Customer']?'<a class="btn btn-ghost" style="margin-top:10px;text-align:center;text-decoration:none;display:block" href="https://wa.me/'+waNum(o['No WA Customer'])+'" target="_blank">Chat Customer</a>':'')+
+    '</div>';
+  }).join('');
+  $('#view').innerHTML=h;
+}
+function waNum(p){ const raw=String(p||'').trim(); const d=raw.replace(/[^0-9]/g,''); if(!d) return '';
+  if(/^\s*\+/.test(raw)) return d; if(d[0]==='0') return '62'+d.slice(1); if(d.slice(0,2)==='62') return d; return '62'+d; }
+
+/* ---------- ABSEN ---------- */
+async function renderAbsen(){
+  SHOT=null; GPS=null;
+  $('#view').innerHTML=
+    '<div class="h-title">Absen Selfie</div>'+
+    '<div class="seg"><button class="on" data-absen="Masuk">Masuk</button><button data-absen="Pulang">Pulang</button></div>'+
+    '<div class="cam-wrap" id="camWrap"><video id="cam" autoplay playsinline muted></video></div>'+
+    '<div class="gps" id="gpsInfo">📍 Mengambil lokasi GPS…</div>'+
+    '<button class="btn btn-gold" id="btnShot">📸 Ambil Foto</button>'+
+    '<button class="btn hide" id="btnRetake" style="margin-top:8px">Ulangi Foto</button>'+
+    '<button class="btn hide" id="btnKirim" style="margin-top:8px">Kirim Absen</button>';
+  let tipe='Masuk';
+  document.querySelectorAll('[data-absen]').forEach(b=>b.onclick=()=>{ tipe=b.dataset.absen;
+    document.querySelectorAll('[data-absen]').forEach(x=>x.classList.toggle('on',x===b)); });
+  $('#btnShot').onclick=takeShot;
+  $('#btnRetake').onclick=()=>renderAbsen();
+  $('#btnKirim').onclick=()=>kirimAbsen(tipe);
+  startCam();
+  getGps();
+}
+async function startCam(){
+  try{ CAM=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});
+    const v=$('#cam'); if(v){ v.srcObject=CAM; } }
+  catch(e){ $('#camWrap').innerHTML='<div class="empty" style="color:#fff">Kamera tidak bisa diakses.<br>Izinkan kamera di browser.</div>'; }
+}
+function stopCam(){ if(CAM){ CAM.getTracks().forEach(t=>t.stop()); CAM=null; } }
+function getGps(){
+  if(!navigator.geolocation){ $('#gpsInfo').innerHTML='📍 GPS tidak didukung perangkat.'; return; }
+  navigator.geolocation.getCurrentPosition(
+    pos=>{ GPS={lat:pos.coords.latitude,lng:pos.coords.longitude};
+      $('#gpsInfo').innerHTML='📍 Lokasi terkunci: <b>'+GPS.lat.toFixed(5)+', '+GPS.lng.toFixed(5)+'</b>'; },
+    err=>{ $('#gpsInfo').innerHTML='📍 <span style="color:#B23A3A">Gagal ambil GPS ('+esc(err.message)+'). Izinkan lokasi.</span>'; },
+    {enableHighAccuracy:true,timeout:10000});
+}
+function takeShot(){
+  const v=$('#cam'); if(!v||!v.videoWidth){ toast('Kamera belum siap'); return; }
+  const c=document.createElement('canvas'); c.width=v.videoWidth; c.height=v.videoHeight;
+  c.getContext('2d').drawImage(v,0,0,c.width,c.height);
+  SHOT=c.toDataURL('image/jpeg',0.85);
+  stopCam();
+  const wrap=$('#camWrap'); wrap.innerHTML='<img src="'+SHOT+'">';
+  $('#btnShot').classList.add('hide'); $('#btnRetake').classList.remove('hide'); $('#btnKirim').classList.remove('hide');
+}
+async function kirimAbsen(tipe){
+  if(!SHOT){ toast('Ambil foto dulu'); return; }
+  $('#btnKirim').textContent='Mengirim…'; $('#btnKirim').disabled=true;
+  try{
+    // upload foto
+    let foto='';
+    try{
+      const blob=await (await fetch(SHOT)).blob();
+      const path='absen/'+ymd()+'-'+(ME.id||'x')+'-'+Date.now()+'.jpg';
+      const up=await window.sb.storage.from('bukti').upload(path, blob, {contentType:'image/jpeg'});
+      if(!up.error){ foto=window.sb.storage.from('bukti').getPublicUrl(path).data.publicUrl; }
+    }catch(e){}
+    const now=new Date();
+    const rec={ 'ID Karyawan':ME.id, 'Nama':ME.nama, 'Cabang':ME.cabang, email:ME.email,
+      'Tanggal':ymd(now), 'Jam':String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0'),
+      'Tipe':tipe, foto:foto, lat:GPS?GPS.lat:null, lng:GPS?GPS.lng:null };
+    const r=await window.sb.from('ABSEN').insert(rec);
+    if(r.error) throw r.error;
+    toast('Absen '+tipe+' berhasil ✓');
+    renderAbsen();
+  }catch(err){ toast('Gagal: '+(err.message||err)); $('#btnKirim').textContent='Kirim Absen'; $('#btnKirim').disabled=false; }
+}
+
+/* ---------- AJUAN ---------- */
+async function renderAjuan(){
+  let h='<div class="h-title">Ajuan</div>'+
+    '<div class="card">'+
+      '<label class="fl">Jenis Ajuan</label>'+
+      '<select id="ajJenis"><option>Izin</option><option>Cuti</option><option>Sakit</option><option>Perlengkapan</option><option>Keluhan</option><option>Lainnya</option></select>'+
+      '<label class="fl">Tanggal</label><input class="f" type="date" id="ajTgl" value="'+ymd()+'">'+
+      '<label class="fl">Pesan / Keterangan</label><textarea id="ajPesan" rows="4" placeholder="Tulis ajuan kamu…"></textarea>'+
+      '<button class="btn" id="btnAjuan" style="margin-top:12px">Kirim Ajuan</button>'+
+    '</div>'+
+    '<div style="font-weight:800;margin:6px 2px 8px">Riwayat Ajuan</div><div id="ajList"><div class="empty">Memuat…</div></div>';
+  $('#view').innerHTML=h;
+  $('#btnAjuan').onclick=kirimAjuan;
+  loadAjuan();
+}
+async function loadAjuan(){
+  try{ const r=await window.sb.from('AJUAN').select('*').ilike('email', ME.email);
+    const rows=(r.data||[]).sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')));
+    $('#ajList').innerHTML = rows.length ? rows.map(a=>'<div class="card"><div style="display:flex;justify-content:space-between"><b>'+esc(a['Jenis']||'-')+'</b><span class="chip c-pending">'+esc(a['Status']||'Baru')+'</span></div>'+
+      '<div class="small muted" style="margin:4px 0">'+esc(fmtTgl(a['Tanggal']))+'</div><div>'+esc(a['Pesan']||'')+'</div></div>').join('')
+      : '<div class="empty">Belum ada ajuan.</div>';
+  }catch(e){ $('#ajList').innerHTML='<div class="empty">Belum ada ajuan.</div>'; }
+}
+async function kirimAjuan(){
+  const jenis=$('#ajJenis').value, tgl=$('#ajTgl').value, pesan=$('#ajPesan').value.trim();
+  if(!pesan){ toast('Isi pesan ajuan'); return; }
+  $('#btnAjuan').textContent='Mengirim…'; $('#btnAjuan').disabled=true;
+  try{
+    const r=await window.sb.from('AJUAN').insert({ 'Nama':ME.nama,'Cabang':ME.cabang,email:ME.email,'Jenis':jenis,'Pesan':pesan,'Tanggal':tgl,'Status':'Baru' });
+    if(r.error) throw r.error;
+    toast('Ajuan terkirim ✓'); $('#ajPesan').value=''; loadAjuan();
+  }catch(err){ toast('Gagal: '+(err.message||err)); }
+  finally{ $('#btnAjuan').textContent='Kirim Ajuan'; $('#btnAjuan').disabled=false; }
+}
+
+/* ---------- BONUS ---------- */
+async function renderBonus(){
+  const bonus=await myBonus();
+  bonus.sort((a,b)=>String(b['Tanggal Pengerjaan']||'').localeCompare(String(a['Tanggal Pengerjaan']||'')));
+  const total=bonus.reduce((s,b)=>s+md(b['Nominal']),0);
+  let h='<div class="h-title">Bonus / Insentif</div>';
+  h+='<div class="stat"><div class="l">Total Bonus</div><div class="v">'+rp(total)+'</div><div class="l" style="margin-top:6px">'+bonus.length+' bonus</div></div>';
+  if(!bonus.length){ h+='<div class="empty">Belum ada bonus.</div>'; $('#view').innerHTML=h; return; }
+  h+=bonus.map(b=>'<div class="card"><div style="display:flex;justify-content:space-between;align-items:center">'+
+    '<b>'+esc(b['Jenis']||'Bonus')+'</b><b style="color:var(--success)">'+rp(b['Nominal'])+'</b></div>'+
+    '<div class="small muted" style="margin-top:4px">'+esc(fmtTgl(b['Tanggal Pengerjaan']))+(b['Nama Customer']?(' · '+esc(b['Nama Customer'])):'')+(b['No Order']?(' · '+esc(b['No Order'])):'')+'</div></div>').join('');
+  $('#view').innerHTML=h;
+}
+
+/* ---------- INIT ---------- */
+$('#btnLogin').addEventListener('click', doLogin);
+$('#pin').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+$('#btnOut').addEventListener('click', logout);
+document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
+
+(async function restore(){
+  await ensureAuth();
+  const saved=localStorage.getItem('klinklin_cleaner');
+  if(saved){ try{ ME=JSON.parse(saved); enterApp(); return; }catch(e){} }
+})();
+</script>
+</body>
+</html>
