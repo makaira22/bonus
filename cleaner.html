@@ -180,6 +180,11 @@ function payCycle(now){ now=now||new Date();
                                   : new Date(now.getFullYear(),now.getMonth()-1,28);
   return { start:ymd(start), end:ymd(now) }; }
 function dayOffset(n){ const d=new Date(); d.setDate(d.getDate()+n); return ymd(d); }
+// Absen telat: DENPASAR/TABANAN batas 09:16, cabang lain 08:16 (jam segitu ke atas = telat)
+function jamToMin(s){ const m=String(s||'').match(/(\d{1,2})[:.](\d{2})/); return m ? (+m[1])*60+(+m[2]) : -1; }
+function batasTelatMin(){ const c=norm(ME&&ME.cabang); return (c==='denpasar'||c==='tabanan') ? 9*60+16 : 8*60+16; }
+function isTelat(jam){ const j=jamToMin(jam); return j>=0 && j>=batasTelatMin(); }
+function batasTelatStr(){ const m=batasTelatMin(); return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'); }
 function inRange(d,start,end){ d=String(d||'').slice(0,10); if(!d) return false;
   if(start && d<start) return false; if(end && d>end) return false; return true; }
 // modal
@@ -283,12 +288,35 @@ function paintOverview(){
   // total bonus
   h+='<div class="stat"><div class="l">Total Bonus'+(R.label?(' · '+esc(R.label)):'')+'</div><div class="v">'+rp(total)+'</div>'+
      '<div class="l" style="margin-top:8px">'+fb.length+' bonus'+(R.start?(' · '+esc(fmtTgl(R.start))+' – '+esc(fmtTgl(R.end))):'')+'</div></div>';
-  // rincian absen
-  h+='<div class="card"><div style="font-weight:800;margin-bottom:8px">🗓️ Rincian Absen · '+hariMasuk+' hari masuk</div>';
-  if(fa.length){
-    h+=fa.slice(0,30).map(a=>{ const t=norm(a['Tipe']); const warna=t==='masuk'?'c-complete':'c-done';
-      return '<div class="row"><span>'+esc(fmtTgl(a['Tanggal']))+' · <b>'+esc(a['Jam']||'-')+'</b></span>'+
-        '<span class="chip '+warna+'">'+esc(a['Tipe']||'-')+'</span></div>'; }).join('');
+  // rincian absen — dikelompokkan per hari
+  const byDay={};
+  fa.forEach(a=>{ const d=a['Tanggal']; if(!d) return; (byDay[d]=byDay[d]||[]).push(a); });
+  const days=Object.keys(byDay).sort().reverse();
+  h+='<div class="card"><div style="font-weight:800;margin-bottom:10px">🗓️ Rincian Absen · '+hariMasuk+' hari masuk</div>';
+  if(days.length){
+    h+=days.slice(0,31).map(d=>{
+      const recs=byDay[d];
+      const masuk =recs.filter(r=>norm(r['Tipe'])==='masuk' ).sort((a,b)=>jamToMin(a['Jam'])-jamToMin(b['Jam']))[0];
+      const pulang=recs.filter(r=>norm(r['Tipe'])==='pulang').sort((a,b)=>jamToMin(b['Jam'])-jamToMin(a['Jam']))[0];
+      let masukLine, pulangLine;
+      if(masuk){
+        const telat=isTelat(masuk['Jam']);
+        masukLine='<span>Masuk <b>'+esc(masuk['Jam']||'-')+'</b></span>'+
+          '<span class="chip '+(telat?'c-cancel':'c-complete')+'">'+(telat?'Terlambat':'Tepat waktu')+'</span>';
+      } else {
+        masukLine='<span class="muted">Absen masuk</span><span class="chip c-cancel">Tidak absen masuk</span>';
+      }
+      if(pulang){
+        pulangLine='<span>Pulang <b>'+esc(pulang['Jam']||'-')+'</b></span><span class="chip c-done">Selesai</span>';
+      } else if(masuk){
+        pulangLine='<span class="muted">Absen pulang</span><span class="chip c-pending">Belum absen pulang</span>';
+      } else { pulangLine=''; }
+      return '<div style="padding:10px 0;border-bottom:1px solid var(--line)">'+
+        '<div style="font-weight:700;margin-bottom:6px">'+esc(hariTgl(d))+'</div>'+
+        '<div class="row" style="border:none;padding:3px 0">'+masukLine+'</div>'+
+        (pulangLine?'<div class="row" style="border:none;padding:3px 0">'+pulangLine+'</div>':'')+
+      '</div>';
+    }).join('');
   } else h+='<div class="empty">Belum ada absen pada periode ini.</div>';
   h+='</div>';
 
@@ -387,9 +415,28 @@ async function renderAbsen(){
       '<div class="small muted" style="margin-top:6px">Absen masuk otomatis mulai <b>jam 5 pagi</b>.</div></div>';
     return;
   }
-  const info = tipe==='Masuk'
-    ? '🌅 Mode <b>Absen Masuk</b> (otomatis, sebelum jam 12 siang)'
-    : '🌇 Mode <b>Absen Pulang</b> (otomatis, setelah jam 12 siang)';
+  // Aturan: hanya SEKALI masuk & SEKALI pulang per hari
+  $('#view').innerHTML='<div class="empty">Memuat…</div>';
+  const today=ymd();
+  const todays=(await myAbsen()).filter(a=>a['Tanggal']===today);
+  const sudahMasuk =todays.some(a=>norm(a['Tipe'])==='masuk');
+  const sudahPulang=todays.some(a=>norm(a['Tipe'])==='pulang');
+  if((tipe==='Masuk'&&sudahMasuk) || (tipe==='Pulang'&&sudahPulang)){
+    $('#view').innerHTML='<div class="h-title">Absen</div>'+
+      '<div class="card" style="text-align:center;padding:26px 16px">✅<div style="font-weight:800;margin-top:8px">Absen '+tipe+' hari ini sudah tercatat</div>'+
+      '<div class="small muted" style="margin-top:6px">Absen '+esc(tipe)+' hanya bisa sekali dalam sehari.</div></div>';
+    return;
+  }
+
+  const now=new Date(); const jamNow=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  let info;
+  if(tipe==='Masuk'){
+    info = isTelat(jamNow)
+      ? '⚠️ <b>Absen Masuk · Terlambat</b><div class="small muted" style="margin-top:4px">Batas tepat waktu '+batasTelatStr()+'. Sekarang '+jamNow+'.</div>'
+      : '🌅 <b>Absen Masuk · Tepat waktu</b><div class="small muted" style="margin-top:4px">Batas tepat waktu '+batasTelatStr()+'.</div>';
+  } else {
+    info = '🌇 <b>Absen Pulang</b><div class="small muted" style="margin-top:4px">Otomatis, setelah jam 12 siang.</div>';
+  }
   $('#view').innerHTML=
     '<div class="h-title">Absen Selfie</div>'+
     '<div class="card" style="padding:12px 14px;margin-bottom:12px">'+info+'</div>'+
@@ -413,10 +460,24 @@ function stopCam(){ if(CAM){ CAM.getTracks().forEach(t=>t.stop()); CAM=null; } }
 function getGps(){
   if(!navigator.geolocation){ $('#gpsInfo').innerHTML='📍 GPS tidak didukung perangkat.'; return; }
   navigator.geolocation.getCurrentPosition(
-    pos=>{ GPS={lat:pos.coords.latitude,lng:pos.coords.longitude};
-      $('#gpsInfo').innerHTML='📍 Lokasi terkunci: <b>'+GPS.lat.toFixed(5)+', '+GPS.lng.toFixed(5)+'</b>'; },
+    async pos=>{ GPS={lat:pos.coords.latitude,lng:pos.coords.longitude,place:''};
+      const koord=GPS.lat.toFixed(5)+', '+GPS.lng.toFixed(5);
+      $('#gpsInfo').innerHTML='📍 Lokasi terkunci · <span class="small muted">mencari nama tempat…</span>';
+      try{
+        const nm=await reverseGeocode(GPS.lat,GPS.lng);
+        GPS.place=nm||'';
+        $('#gpsInfo').innerHTML='📍 <b>'+esc(nm||'Lokasi tidak dikenal')+'</b><br><span class="small muted">'+koord+'</span>';
+      }catch(e){ $('#gpsInfo').innerHTML='📍 <b>'+koord+'</b>'; }
+    },
     err=>{ $('#gpsInfo').innerHTML='📍 <span style="color:#B23A3A">Gagal ambil GPS ('+esc(err.message)+'). Izinkan lokasi.</span>'; },
     {enableHighAccuracy:true,timeout:10000});
+}
+async function reverseGeocode(lat,lng){
+  const url='https://api.bigdatacloud.net/data/reverse-geocode-client?latitude='+lat+'&longitude='+lng+'&localityLanguage=id';
+  const r=await fetch(url); const j=await r.json();
+  const parts=[j.locality, j.city, j.principalSubdivision].filter(Boolean);
+  return [...new Set(parts)].join(', ');
+}
 }
 function takeShot(){
   const v=$('#cam'); if(!v||!v.videoWidth){ toast('Kamera belum siap'); return; }
