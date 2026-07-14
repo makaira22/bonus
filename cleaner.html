@@ -126,7 +126,7 @@ label.fl{display:block;font-size:12px;font-weight:700;color:var(--muted);margin:
 
     <div class="in-group">
       <span class="in-ic">✉️</span>
-      <input id="email" type="email" autocomplete="username" placeholder="Email kamu" />
+      <input id="email" type="email" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Email kamu" />
     </div>
     <div class="in-group">
       <span class="in-ic">🔒</span>
@@ -204,17 +204,24 @@ async function doLogin(){
   if(!email||!pin){ $('#loginErr').textContent='Isi email & PIN.'; return; }
   $('#btnLogin').textContent='Memproses…'; $('#btnLogin').disabled=true;
   try{
-    await ensureAuth();
+    const authed=await ensureAuth();
     const r=await window.sb.from('KARYAWAN').select('*');
     if(r.error) throw r.error;
     const rows=r.data||[];
+    if(!rows.length){
+      // Data tidak terbaca — hampir selalu sesi/penyimpanan diblokir (browser dalam-aplikasi / incognito)
+      $('#loginErr').innerHTML = !authed
+        ? 'Sesi gagal dibuat. Buka lewat <b>Chrome/Safari</b> (bukan di dalam WhatsApp) & jangan mode incognito.'
+        : 'Data tidak terbaca. Cek koneksi, atau buka lewat <b>Chrome/Safari</b> (bukan di dalam aplikasi).';
+      return;
+    }
     const getEmail=k=>k['Email']||k['email']||'';
     const getPin=k=>String(k['PIN']||k['pin']||'').trim();
     const hit=rows.find(k=> norm(getEmail(k))===norm(email) && getPin(k)===pin);
     if(!hit){ $('#loginErr').textContent='Email atau PIN salah.'; return; }
     ME={ id:hit['ID Karyawan']||hit['id'], nama:hit['Nama Lengkap']||hit['Nama']||email,
          cabang:hit['Cabang']||'', email:getEmail(hit)||email, jabatan:hit['Jabatan']||'', status:hit['Status']||'' };
-    localStorage.setItem('klinklin_cleaner', JSON.stringify(ME));
+    try{ localStorage.setItem('klinklin_cleaner', JSON.stringify(ME)); }catch(e){}
     enterApp();
   }catch(err){ $('#loginErr').textContent='Gagal: '+(err.message||err); }
   finally{ $('#btnLogin').textContent='Masuk'; $('#btnLogin').disabled=false; }
