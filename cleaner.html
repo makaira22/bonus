@@ -60,6 +60,7 @@ button{font-family:inherit;cursor:pointer}
 .fchips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
 .fchip{padding:7px 14px;border-radius:999px;border:1px solid var(--line);background:#fff;color:var(--muted);font-weight:700;font-size:12.5px}
 .fchip.on{background:var(--petrol);color:#fff;border-color:transparent}
+.btn-more{width:100%;padding:12px;border:1px solid var(--line);background:#fff;color:var(--petrol);border-radius:12px;font-weight:800;font-size:13.5px;margin-top:2px}
 .frange{display:flex;gap:8px;margin-bottom:12px}
 .frange input,.fsel{flex:1;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);font-size:13px;font-family:inherit}
 .fsel{width:100%;margin-bottom:12px}
@@ -327,7 +328,7 @@ function paintOverview(){
   if(e) e.onchange=()=>{ ovEnd=e.value; paintOverview(); };
 }
 
-let kerjaMode='today';
+let kerjaMode='today', kerjaLimit=15;
 async function renderKerja(){
   window._orders = await myOrders();
   paintKerja();
@@ -356,8 +357,9 @@ function paintKerja(){
      '<button class="fchip'+(kerjaMode==='all'?' on':'')+'" data-kj="all">Semua</button>'+
    '</div>';
 
+  const shown = orders.slice(0, kerjaLimit);
   if(!orders.length){ h+='<div class="empty">Tidak ada pekerjaan untuk '+esc(R.label.toLowerCase())+'.</div>'; }
-  else h+=orders.map((o,i)=>{ const st=norm(o['Status Order'])||'pending';
+  else h+=shown.map((o,i)=>{ const st=norm(o['Status Order'])||'pending';
     return '<div class="card ocard" data-detail="'+i+'">'+
       '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:6px">'+
         '<b>'+esc(o['Nama Customer']||'-')+'</b><span class="chip c-'+st+'">'+st+'</span></div>'+
@@ -368,11 +370,13 @@ function paintKerja(){
       '<button class="btn btn-soon" data-map="'+i+'">🗺️ Buka Map (Segera)</button>'+
     '</div>';
   }).join('');
+  if(orders.length>shown.length) h+='<button class="btn-more" id="kerjaMore">Muat lebih banyak ('+(orders.length-shown.length)+' lagi)</button>';
 
   $('#view').innerHTML=h;
-  document.querySelectorAll('[data-kj]').forEach(b=>b.onclick=()=>{ kerjaMode=b.dataset.kj; paintKerja(); });
-  // urutan sesuai orders yg sudah difilter
-  window._kerjaShown=orders;
+  document.querySelectorAll('[data-kj]').forEach(b=>b.onclick=()=>{ kerjaMode=b.dataset.kj; kerjaLimit=15; paintKerja(); });
+  const km=$('#kerjaMore'); if(km) km.onclick=()=>{ kerjaLimit+=15; paintKerja(); };
+  // detail memakai indeks pada daftar yang DITAMPILKAN
+  window._kerjaShown=shown;
   document.querySelectorAll('.ocard[data-detail]').forEach(c=>c.onclick=e=>{
     if(e.target.closest('[data-map]')) return;
     showKerjaDetail(window._kerjaShown[+c.dataset.detail]);
@@ -480,7 +484,7 @@ async function reverseGeocode(lat,lng){
     if(r.ok){
       const j=await r.json(); const a=j.address||{};
       const parts=[
-        [a.road, a.house_number].filter(Boolean).join(' '),
+        [a.road, a.house_number?('No. '+a.house_number):''].filter(Boolean).join(' '),
         a.neighbourhood||a.quarter||a.hamlet,     // sering memuat RT/RW / nama lingkungan
         a.suburb||a.village||a.town,              // kelurahan/desa
         a.city_district,                          // kecamatan
@@ -569,7 +573,7 @@ async function kirimAjuan(){
 }
 
 /* ---------- BONUS ---------- */
-let bMode='cycle', bJenis='', bStart='', bEnd='';
+let bMode='cycle', bJenis='', bStart='', bEnd='', bLimit=15;
 async function renderBonus(){
   window._bonus = await myBonus();
   paintBonus();
@@ -604,17 +608,20 @@ function paintBonus(){
   h+='<select class="fsel" id="bJ"><option value="">Semua jenis bonus</option>'+
      jenisList.map(j=>'<option'+(norm(j)===norm(bJenis)?' selected':'')+'>'+esc(j)+'</option>').join('')+'</select>';
   h+='<div class="stat"><div class="l">Total Bonus</div><div class="v">'+rp(total)+'</div><div class="l" style="margin-top:6px">'+bonus.length+' bonus</div></div>';
+  const shown = bonus.slice(0, bLimit);
   if(!bonus.length){ h+='<div class="empty">Tidak ada bonus untuk filter ini.</div>'; }
-  else h+=bonus.map(b=>'<div class="card"><div style="display:flex;justify-content:space-between;align-items:center">'+
+  else h+=shown.map(b=>'<div class="card"><div style="display:flex;justify-content:space-between;align-items:center">'+
     '<b>'+esc(b['Jenis']||'Bonus')+'</b><b style="color:var(--success)">'+rp(b['Nominal'])+'</b></div>'+
-    '<div class="small muted" style="margin-top:4px">'+esc(hariTgl(b['Tanggal Pengerjaan']))+(b['Jam']?(' · '+esc(b['Jam'])):'')+(b['Nama Customer']?(' · '+esc(b['Nama Customer'])):'')+(b['No Order']?(' · '+esc(b['No Order'])):'')+'</div></div>').join('');
+    '<div class="small muted" style="margin-top:4px">'+esc(hariTgl(b['Tanggal Pengerjaan']))+(b['Jam']?(' · '+esc(b['Jam'])):'')+(b['Nama Customer']?(' · '+esc(b['Nama Customer'])):'')+'</div></div>').join('');
+  if(bonus.length>shown.length) h+='<button class="btn-more" id="bonusMore">Muat lebih banyak ('+(bonus.length-shown.length)+' lagi)</button>';
 
   $('#view').innerHTML=h;
-  document.querySelectorAll('[data-b]').forEach(x=>x.onclick=()=>{ bMode=x.dataset.b; paintBonus(); });
+  document.querySelectorAll('[data-b]').forEach(x=>x.onclick=()=>{ bMode=x.dataset.b; bLimit=15; paintBonus(); });
+  const bm=$('#bonusMore'); if(bm) bm.onclick=()=>{ bLimit+=15; paintBonus(); };
   const s=$('#bS'), e=$('#bE'), j=$('#bJ');
-  if(s) s.onchange=()=>{ bStart=s.value; paintBonus(); };
-  if(e) e.onchange=()=>{ bEnd=e.value; paintBonus(); };
-  if(j) j.onchange=()=>{ bJenis=j.value; paintBonus(); };
+  if(s) s.onchange=()=>{ bStart=s.value; bLimit=15; paintBonus(); };
+  if(e) e.onchange=()=>{ bEnd=e.value; bLimit=15; paintBonus(); };
+  if(j) j.onchange=()=>{ bJenis=j.value; bLimit=15; paintBonus(); };
 }
 
 /* ---------- INIT ---------- */
