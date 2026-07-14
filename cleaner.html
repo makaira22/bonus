@@ -278,7 +278,7 @@ function paintOverview(){
   let h='<div class="h-title">Halo, '+esc((ME.nama||'').split(' ')[0])+' 👋</div>';
   // filter
   h+='<div class="fchips">'+
-     '<button class="fchip'+(ovMode==='cycle'?' on':'')+'" data-ov="cycle">Periode Gaji</button>'+
+     '<button class="fchip'+(ovMode==='cycle'?' on':'')+'" data-ov="cycle">Periode</button>'+
      '<button class="fchip'+(ovMode==='today'?' on':'')+'" data-ov="today">Hari ini</button>'+
      '<button class="fchip'+(ovMode==='yesterday'?' on':'')+'" data-ov="yesterday">Kemarin</button>'+
      '<button class="fchip'+(ovMode==='range'?' on':'')+'" data-ov="range">Rentang</button>'+
@@ -627,6 +627,15 @@ function paintBonus(){
   h+='<select class="fsel" id="bJ"><option value="">Semua jenis bonus</option>'+
      jenisList.map(j=>'<option'+(norm(j)===norm(bJenis)?' selected':'')+'>'+esc(j)+'</option>').join('')+'</select>';
   h+='<div class="stat"><div class="l">Total Bonus</div><div class="v">'+rp(total)+'</div><div class="l" style="margin-top:6px">'+bonus.length+' bonus</div></div>';
+  // rincian subtotal per jenis (urut: Kilometer, Deep Clean, Salon, lalu lainnya)
+  if(bonus.length){
+    const byJenis={};
+    bonus.forEach(b=>{ const j=(String(b['Jenis']||'').trim()||'Lainnya'); byJenis[j]=(byJenis[j]||0)+md(b['Nominal']); });
+    const rank=j=>{ const n=norm(j); if(n.includes('kilometer'))return 0; if(n.includes('deep'))return 1; if(n.includes('salon'))return 2; return 3; };
+    const keys=Object.keys(byJenis).sort((a,b)=>{ const ra=rank(a),rb=rank(b); if(ra!==rb) return ra-rb; return a.localeCompare(b,'id'); });
+    h+='<div class="card"><div style="font-weight:800;margin-bottom:6px">Rincian per Jenis</div>'+
+       keys.map(k=>'<div class="row"><span>'+esc(k)+'</span><b style="color:var(--success)">'+rp(byJenis[k])+'</b></div>').join('')+'</div>';
+  }
   const shown = bonus.slice(0, bLimit);
   if(!bonus.length){ h+='<div class="empty">Tidak ada bonus untuk filter ini.</div>'; }
   else h+=shown.map(b=>'<div class="card"><div style="display:flex;justify-content:space-between;align-items:center">'+
