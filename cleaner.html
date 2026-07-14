@@ -271,7 +271,7 @@ function ovRange(){
   if(ovMode==='today')      return { start:dayOffset(0),  end:dayOffset(0),  label:'Hari ini' };
   if(ovMode==='yesterday')  return { start:dayOffset(-1), end:dayOffset(-1), label:'Kemarin' };
   if(ovMode==='range')      return { start:ovStart||'',   end:ovEnd||'',     label:'Rentang tanggal' };
-  const c=payCycle(new Date()); return { start:c.start, end:c.end, label:'Periode gaji (28→27)' };
+  const c=payCycle(new Date()); return { start:c.start, end:c.end, label:'' };
 }
 function paintOverview(){
   const bonus=window._ovBonus||[], absen=window._ovAbsen||[];
@@ -294,7 +294,7 @@ function paintOverview(){
     h+='<div class="frange"><input type="date" id="ovS" value="'+esc(ovStart)+'"><input type="date" id="ovE" value="'+esc(ovEnd)+'"></div>';
   }
   // total bonus
-  h+='<div class="stat"><div class="l">Total Bonus · '+esc(R.label)+'</div><div class="v">'+rp(total)+'</div>'+
+  h+='<div class="stat"><div class="l">Total Bonus'+(R.label?(' · '+esc(R.label)):'')+'</div><div class="v">'+rp(total)+'</div>'+
      '<div class="l" style="margin-top:8px">'+fb.length+' bonus'+(R.start?(' · '+esc(fmtTgl(R.start))+' – '+esc(fmtTgl(R.end))):'')+'</div></div>';
   // rincian absen
   h+='<div class="card"><div style="font-weight:800;margin-bottom:8px">🗓️ Rincian Absen · '+hariMasuk+' hari masuk</div>';
@@ -325,6 +325,8 @@ function kerjaRange(){
 }
 function layananText(o){ return [1,2,3].map(i=>{ const n=o['Layanan '+i]; if(!n) return '';
   const q=String(o['Qty '+i]||'').trim(); return n+(q&&q!=='1'?(' ×'+q):''); }).filter(Boolean).join(', ') || o['Keterangan Order'] || '-'; }
+function coworkers(o){ return String(o['Nama Cleaner']||'').split(',').map(s=>s.trim())
+  .filter(n=>n && norm(n)!==norm(ME.nama)); }
 function paintKerja(){
   const R=kerjaRange();
   let orders=(window._orders||[]).slice();
@@ -346,6 +348,7 @@ function paintKerja(){
         '<b>'+esc(o['Nama Customer']||'-')+'</b><span class="chip c-'+st+'">'+st+'</span></div>'+
       '<div class="small muted" style="margin-bottom:6px">'+esc(hariTgl(o['Tanggal Pengerjaan']))+(o['Waktu Pengerjaan']?(' · '+esc(o['Waktu Pengerjaan'])):'')+'</div>'+
       '<div style="font-size:14px;margin-bottom:6px">🧴 '+esc(layananText(o))+'</div>'+
+      (coworkers(o).length?'<div class="small" style="margin-bottom:6px">👥 Bareng: '+esc(coworkers(o).join(', '))+'</div>':'')+
       '<div class="small" style="margin-bottom:10px">📍 '+esc(o['Alamat']||'-')+'</div>'+
       '<button class="btn btn-soon" data-map="'+i+'">🗺️ Buka Map (Segera)</button>'+
     '</div>';
@@ -372,6 +375,7 @@ function showKerjaDetail(o){
     ['Jam', esc(o['Waktu Pengerjaan']||'-')],
     ['Alamat', esc(o['Alamat']||'-')],
     ['Layanan', esc(layananText(o))],
+    ['Bareng', coworkers(o).length?esc(coworkers(o).join(', ')):'—'],
     ['Metode', esc(o['Metode Pembayaran']||'-')],
     ['Cabang', esc(o['Cabang']||'-')],
     ['Catatan', esc(o['Keterangan Order']||'-')],
@@ -495,7 +499,7 @@ async function kirimAjuan(){
 }
 
 /* ---------- BONUS ---------- */
-let bMode='all', bJenis='', bStart='', bEnd='';
+let bMode='cycle', bJenis='', bStart='', bEnd='';
 async function renderBonus(){
   window._bonus = await myBonus();
   paintBonus();
@@ -504,20 +508,21 @@ function bRange(){
   if(bMode==='today')     return { start:dayOffset(0),  end:dayOffset(0) };
   if(bMode==='yesterday') return { start:dayOffset(-1), end:dayOffset(-1) };
   if(bMode==='range')     return { start:bStart||'',    end:bEnd||'' };
-  return { start:'', end:'' };
+  if(bMode==='all')       return { start:'', end:'' };
+  const c=payCycle(new Date()); return { start:c.start, end:c.end };   // 'cycle' = 28 bln lalu → hari ini
 }
 function paintBonus(){
   const all=(window._bonus||[]).slice();
   const jenisList=[...new Set(all.map(b=>String(b['Jenis']||'').trim()).filter(Boolean))].sort();
   const R=bRange();
-  let bonus=all.filter(b=>inRange(b['Tanggal Pengerjaan'],R.start,R.end) || (!R.start&&!R.end));
-  if(R.start||R.end) bonus=all.filter(b=>inRange(b['Tanggal Pengerjaan'],R.start,R.end));
+  let bonus = (R.start||R.end) ? all.filter(b=>inRange(b['Tanggal Pengerjaan'],R.start,R.end)) : all.slice();
   if(bJenis) bonus=bonus.filter(b=>norm(b['Jenis'])===norm(bJenis));
   bonus.sort((a,b)=>String(b['Tanggal Pengerjaan']||'').localeCompare(String(a['Tanggal Pengerjaan']||'')));
   const total=bonus.reduce((s,b)=>s+md(b['Nominal']),0);
 
   let h='<div class="h-title">Bonus / Insentif</div>';
   h+='<div class="fchips">'+
+     '<button class="fchip'+(bMode==='cycle'?' on':'')+'" data-b="cycle">Periode</button>'+
      '<button class="fchip'+(bMode==='all'?' on':'')+'" data-b="all">Semua</button>'+
      '<button class="fchip'+(bMode==='today'?' on':'')+'" data-b="today">Hari ini</button>'+
      '<button class="fchip'+(bMode==='yesterday'?' on':'')+'" data-b="yesterday">Kemarin</button>'+
