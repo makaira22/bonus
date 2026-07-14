@@ -542,30 +542,49 @@ async function renderAjuan(){
   let h='<div class="h-title">Ajuan</div>'+
     '<div class="card">'+
       '<label class="fl">Jenis Ajuan</label>'+
-      '<select id="ajJenis"><option>Izin</option><option>Cuti</option><option>Sakit</option><option>Perlengkapan</option><option>Keluhan</option><option>Lainnya</option></select>'+
+      '<select id="ajJenis"><option>Izin</option><option>Cuti</option><option>Sakit</option><option>Tukar Libur</option></select>'+
+      '<div id="ajTukarWrap" class="hide"><label class="fl">Tukar libur dengan</label>'+
+        '<select id="ajCleaner" class="fsel"><option value="">Pilih cleaner…</option></select></div>'+
       '<label class="fl">Tanggal</label><input class="f" type="date" id="ajTgl" value="'+ymd()+'">'+
       '<label class="fl">Pesan / Keterangan</label><textarea id="ajPesan" rows="4" placeholder="Tulis ajuan kamu…"></textarea>'+
       '<button class="btn" id="btnAjuan" style="margin-top:12px">Kirim Ajuan</button>'+
     '</div>'+
     '<div style="font-weight:800;margin:6px 2px 8px">Riwayat Ajuan</div><div id="ajList"><div class="empty">Memuat…</div></div>';
   $('#view').innerHTML=h;
+  $('#ajJenis').onchange=()=>{ const tk=$('#ajJenis').value==='Tukar Libur';
+    $('#ajTukarWrap').classList.toggle('hide', !tk);
+    if(tk && $('#ajCleaner').options.length<=1) loadCleanerOpts();
+  };
   $('#btnAjuan').onclick=kirimAjuan;
   loadAjuan();
+}
+async function loadCleanerOpts(){
+  const sel=$('#ajCleaner'); if(!sel) return;
+  sel.innerHTML='<option value="">Memuat…</option>';
+  try{ const r=await window.sb.rpc('cleaners_by_cabang',{ p_cabang:ME.cabang });
+    const names=(r.data||[]).map(x=>x['Nama Lengkap']).filter(n=>n && norm(n)!==norm(ME.nama));
+    sel.innerHTML='<option value="">Pilih cleaner…</option>'+names.map(n=>'<option>'+esc(n)+'</option>').join('');
+  }catch(e){ sel.innerHTML='<option value="">Gagal memuat daftar</option>'; }
 }
 async function loadAjuan(){
   try{ const r=await window.sb.rpc('my_ajuan', { p_email:ME.email });
     const rows=(r.data||[]).sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')));
     $('#ajList').innerHTML = rows.length ? rows.map(a=>'<div class="card"><div style="display:flex;justify-content:space-between"><b>'+esc(a['Jenis']||'-')+'</b><span class="chip c-pending">'+esc(a['Status']||'Baru')+'</span></div>'+
-      '<div class="small muted" style="margin:4px 0">'+esc(fmtTgl(a['Tanggal']))+'</div><div>'+esc(a['Pesan']||'')+'</div></div>').join('')
+      '<div class="small muted" style="margin:4px 0">'+esc(fmtTgl(a['Tanggal']))+'</div>'+(a['Nama Cleaner']?'<div class="small" style="margin-bottom:4px">🔄 Tukar dengan: <b>'+esc(a['Nama Cleaner'])+'</b></div>':'')+'<div>'+esc(a['Pesan']||'')+'</div></div>').join('')
       : '<div class="empty">Belum ada ajuan.</div>';
   }catch(e){ $('#ajList').innerHTML='<div class="empty">Belum ada ajuan.</div>'; }
 }
 async function kirimAjuan(){
   const jenis=$('#ajJenis').value, tgl=$('#ajTgl').value, pesan=$('#ajPesan').value.trim();
+  const tukar = jenis==='Tukar Libur';
+  const cleaner = tukar && $('#ajCleaner') ? $('#ajCleaner').value : '';
   if(!pesan){ toast('Isi pesan ajuan'); return; }
+  if(tukar && !cleaner){ toast('Pilih cleaner untuk tukar libur'); return; }
   $('#btnAjuan').textContent='Mengirim…'; $('#btnAjuan').disabled=true;
   try{
-    const r=await window.sb.from('AJUAN').insert({ 'Nama':ME.nama,'Cabang':ME.cabang,email:ME.email,'Jenis':jenis,'Pesan':pesan,'Tanggal':tgl,'Status':'Baru' });
+    const rec={ 'Nama':ME.nama,'Cabang':ME.cabang,email:ME.email,'Jenis':jenis,'Pesan':pesan,'Tanggal':tgl,'Status':'Baru' };
+    if(tukar) rec['Nama Cleaner']=cleaner;
+    const r=await window.sb.from('AJUAN').insert(rec);
     if(r.error) throw r.error;
     toast('Ajuan terkirim ✓'); $('#ajPesan').value=''; loadAjuan();
   }catch(err){ toast('Gagal: '+(err.message||err)); }
