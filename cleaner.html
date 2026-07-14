@@ -473,16 +473,39 @@ function getGps(){
     {enableHighAccuracy:true,timeout:10000});
 }
 async function reverseGeocode(lat,lng){
-  const url='https://api.bigdatacloud.net/data/reverse-geocode-client?latitude='+lat+'&longitude='+lng+'&localityLanguage=id';
-  const r=await fetch(url); const j=await r.json();
-  const parts=[j.locality, j.city, j.principalSubdivision].filter(Boolean);
-  return [...new Set(parts)].join(', ');
+  // Utama: Nominatim (OpenStreetMap) — detail sampai nama jalan / lingkungan (RT/RW bila ada di peta)
+  try{
+    const u='https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&zoom=18&lat='+lat+'&lon='+lng;
+    const r=await fetch(u,{headers:{'Accept-Language':'id'}});
+    if(r.ok){
+      const j=await r.json(); const a=j.address||{};
+      const parts=[
+        [a.road, a.house_number].filter(Boolean).join(' '),
+        a.neighbourhood||a.quarter||a.hamlet,     // sering memuat RT/RW / nama lingkungan
+        a.suburb||a.village||a.town,              // kelurahan/desa
+        a.city_district,                          // kecamatan
+        a.city||a.county||a.municipality,         // kota/kabupaten
+      ].filter(Boolean);
+      const uniq=[...new Set(parts)];
+      if(uniq.length) return uniq.join(', ');
+      if(j.display_name) return j.display_name;
+    }
+  }catch(e){}
+  // Cadangan: BigDataCloud (kalau Nominatim gagal)
+  try{
+    const u2='https://api.bigdatacloud.net/data/reverse-geocode-client?latitude='+lat+'&longitude='+lng+'&localityLanguage=id';
+    const r2=await fetch(u2); const j2=await r2.json();
+    return [...new Set([j2.locality,j2.city,j2.principalSubdivision].filter(Boolean))].join(', ');
+  }catch(e){ return ''; }
 }
 function takeShot(){
   const v=$('#cam'); if(!v||!v.videoWidth){ toast('Kamera belum siap'); return; }
-  const c=document.createElement('canvas'); c.width=v.videoWidth; c.height=v.videoHeight;
-  c.getContext('2d').drawImage(v,0,0,c.width,c.height);
-  SHOT=c.toDataURL('image/jpeg',0.85);
+  const maxW=640;                                   // kecilkan resolusi (cukup untuk verifikasi wajah)
+  const scale=Math.min(1, maxW/v.videoWidth);
+  const w=Math.round(v.videoWidth*scale), hh=Math.round(v.videoHeight*scale);
+  const c=document.createElement('canvas'); c.width=w; c.height=hh;
+  c.getContext('2d').drawImage(v,0,0,w,hh);
+  SHOT=c.toDataURL('image/jpeg',0.5);               // kompres kuat, ukuran file kecil
   stopCam();
   const wrap=$('#camWrap'); wrap.innerHTML='<img src="'+SHOT+'">';
   $('#btnShot').classList.add('hide'); $('#btnRetake').classList.remove('hide'); $('#btnKirim').classList.remove('hide');
@@ -584,7 +607,7 @@ function paintBonus(){
   if(!bonus.length){ h+='<div class="empty">Tidak ada bonus untuk filter ini.</div>'; }
   else h+=bonus.map(b=>'<div class="card"><div style="display:flex;justify-content:space-between;align-items:center">'+
     '<b>'+esc(b['Jenis']||'Bonus')+'</b><b style="color:var(--success)">'+rp(b['Nominal'])+'</b></div>'+
-    '<div class="small muted" style="margin-top:4px">'+esc(fmtTgl(b['Tanggal Pengerjaan']))+(b['Nama Customer']?(' · '+esc(b['Nama Customer'])):'')+(b['No Order']?(' · '+esc(b['No Order'])):'')+'</div></div>').join('');
+    '<div class="small muted" style="margin-top:4px">'+esc(hariTgl(b['Tanggal Pengerjaan']))+(b['Jam']?(' · '+esc(b['Jam'])):'')+(b['Nama Customer']?(' · '+esc(b['Nama Customer'])):'')+(b['No Order']?(' · '+esc(b['No Order'])):'')+'</div></div>').join('');
 
   $('#view').innerHTML=h;
   document.querySelectorAll('[data-b]').forEach(x=>x.onclick=()=>{ bMode=x.dataset.b; paintBonus(); });
