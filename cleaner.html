@@ -204,23 +204,13 @@ async function doLogin(){
   if(!email||!pin){ $('#loginErr').textContent='Isi email & PIN.'; return; }
   $('#btnLogin').textContent='Memproses…'; $('#btnLogin').disabled=true;
   try{
-    const authed=await ensureAuth();
-    const r=await window.sb.from('KARYAWAN').select('*');
+    ensureAuth();  // untuk upload foto absen (opsional, tidak wajib untuk login)
+    const r=await window.sb.rpc('cleaner_login', { p_email:email, p_pin:pin });
     if(r.error) throw r.error;
-    const rows=r.data||[];
-    if(!rows.length){
-      // Data tidak terbaca — hampir selalu sesi/penyimpanan diblokir (browser dalam-aplikasi / incognito)
-      $('#loginErr').innerHTML = !authed
-        ? 'Sesi gagal dibuat. Buka lewat <b>Chrome/Safari</b> (bukan di dalam WhatsApp) & jangan mode incognito.'
-        : 'Data tidak terbaca. Cek koneksi, atau buka lewat <b>Chrome/Safari</b> (bukan di dalam aplikasi).';
-      return;
-    }
-    const getEmail=k=>k['Email']||k['email']||'';
-    const getPin=k=>String(k['PIN']||k['pin']||'').trim();
-    const hit=rows.find(k=> norm(getEmail(k))===norm(email) && getPin(k)===pin);
+    const hit=(r.data||[])[0];
     if(!hit){ $('#loginErr').textContent='Email atau PIN salah.'; return; }
-    ME={ id:hit['ID Karyawan']||hit['id'], nama:hit['Nama Lengkap']||hit['Nama']||email,
-         cabang:hit['Cabang']||'', email:getEmail(hit)||email, jabatan:hit['Jabatan']||'', status:hit['Status']||'' };
+    ME={ id:hit['ID Karyawan'], nama:hit['Nama Lengkap']||email, cabang:hit['Cabang']||'',
+         email:hit['Email']||email, jabatan:hit['Jabatan']||'', status:hit['Status']||'' };
     try{ localStorage.setItem('klinklin_cleaner', JSON.stringify(ME)); }catch(e){}
     enterApp();
   }catch(err){ $('#loginErr').textContent='Gagal: '+(err.message||err); }
@@ -239,26 +229,16 @@ function enterApp(){
 
 /* ---------- DATA ---------- */
 async function myBonus(){
-  try{ const r=await window.sb.from('BONUS').select('*'); const all=r.data||[];
-    return all.filter(b=>String(b['Nama Cleaner']||'').split(',').map(x=>norm(x.trim())).indexOf(norm(ME.nama))>=0);
-  }catch(e){ return []; }
+  try{ const r=await window.sb.rpc('my_bonus', { p_nama:ME.nama }); return r.data||[]; }
+  catch(e){ return []; }
 }
 async function myOrders(){
-  try{ const r=await window.sb.from('ORDER').select('*'); const all=r.data||[];
-    return all.filter(o=>String(o['Nama Cleaner']||'').split(',').map(x=>norm(x.trim())).indexOf(norm(ME.nama))>=0
-      && norm(o['Status Order'])!=='cancel');
-  }catch(e){ return []; }
+  try{ const r=await window.sb.rpc('my_orders', { p_nama:ME.nama }); return r.data||[]; }
+  catch(e){ return []; }
 }
-async function myAgenda(){
-  try{ const r=await window.sb.from('AGENDA').select('*'); const all=r.data||[];
-    return all.filter(a=>{ const j=norm(a['Jabatan']); return j==='cleaner'||j===norm(ME.jabatan)||!j; }).slice(0,20);
-  }catch(e){ return []; }
-}
-
 async function myAbsen(){
-  try{ const r=await window.sb.from('ABSEN').select('*'); const all=r.data||[];
-    return all.filter(a=> norm(a.email)===norm(ME.email) || norm(a['Nama'])===norm(ME.nama));
-  }catch(e){ return []; }
+  try{ const r=await window.sb.rpc('my_absen', { p_email:ME.email, p_nama:ME.nama }); return r.data||[]; }
+  catch(e){ return []; }
 }
 
 /* ---------- TABS ---------- */
@@ -486,7 +466,7 @@ async function renderAjuan(){
   loadAjuan();
 }
 async function loadAjuan(){
-  try{ const r=await window.sb.from('AJUAN').select('*').ilike('email', ME.email);
+  try{ const r=await window.sb.rpc('my_ajuan', { p_email:ME.email });
     const rows=(r.data||[]).sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')));
     $('#ajList').innerHTML = rows.length ? rows.map(a=>'<div class="card"><div style="display:flex;justify-content:space-between"><b>'+esc(a['Jenis']||'-')+'</b><span class="chip c-pending">'+esc(a['Status']||'Baru')+'</span></div>'+
       '<div class="small muted" style="margin:4px 0">'+esc(fmtTgl(a['Tanggal']))+'</div><div>'+esc(a['Pesan']||'')+'</div></div>').join('')
