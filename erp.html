@@ -1615,6 +1615,7 @@ const VIEWS = {
 /* Gaji versi FINANCE: tampilannya sama persis dgn HRD, tapi hanya baca —
    tidak bisa tambah / edit (tombol Cetak Slip & PDF tetap ada). */
 VIEWS.gajiFinance = Object.assign({}, VIEWS.gaji, { canAdd:false, canEdit:false, canDelete:false, readOnly:true });
+VIEWS.gajiHarianFinance = Object.assign({}, VIEWS.gajiHarian, { canAdd:false, canEdit:false, canDelete:false, readOnly:true });
 
 /* ===== OPERASIONAL ===== */
 VIEWS.laporanOmzet = {
@@ -2186,7 +2187,7 @@ async function openGajiTab(key){
   state.gajiTab=key;
   state.view = VIEWS[key]; state.viewKey=key;
   state.filters={}; state.search=''; state.dateStart=''; state.dateEnd='';
-  markActive('gaji');
+  markActive((key==='gajiFinance'||key==='gajiHarianFinance')?'gajiFinance':'gaji');
   renderShell();
   await loadList();
   if(state._ch){ try{ window.sb.removeChannel(state._ch); }catch(e){} state._ch=null; }
@@ -2220,8 +2221,10 @@ function renderShell(){
     '<div class="hub-tabs">'+[['capOmzet','Omzet'],['capKpi','KPI'],['capMarketing','Marketing']]
       .map(t=>'<button class="hub-tab'+(state.viewKey===t[0]?' active':'')+'" data-captab="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>'
     : v.hub==='gaji' ?
-    '<div class="hub-tabs">'+[['gaji','Bulanan'],['gajiHarian','Harian']]
-      .map(t=>'<button class="hub-tab'+(state.viewKey===t[0]?' active':'')+'" data-gajitab="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>' : '';
+    (function(){ const fin = state.viewKey==='gajiFinance'||state.viewKey==='gajiHarianFinance';
+      const pairs = fin ? [['gajiFinance','Bulanan'],['gajiHarianFinance','Harian']] : [['gaji','Bulanan'],['gajiHarian','Harian']];
+      return '<div class="hub-tabs">'+pairs.map(t=>'<button class="hub-tab'+(state.viewKey===t[0]?' active':'')+'" data-gajitab="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>';
+    })() : '';
   $('#content').innerHTML =
     greetingHTML()+
     tabs+
@@ -2294,10 +2297,10 @@ function buildToolbar(){
     let opts = FILTER_OPTS[fld] || [];
     if(fld==='Status Order' && v.statusClient) opts = v.statusClient.slice();
     if(fld==='Periode Bulan'){
-      pf += '<div class="fl"><span class="lbl">'+fld+'</span><input type="month" data-filter="'+fld+'"></div>';
+      pf += '<div class="fl"><span class="lbl">'+fld+'</span><input type="month" data-filter="'+fld+'" value="'+esc(state.filters[fld]||'')+'"></div>';
     }else{
       pf += '<div class="fl"><span class="lbl">'+fld+'</span><select data-filter="'+fld+'"><option value="">Semua</option>'+
-        opts.map(o=>'<option>'+o+'</option>').join('')+'</select></div>';
+        opts.map(o=>'<option'+((state.filters[fld]||'')===o?' selected':'')+'>'+o+'</option>').join('')+'</select></div>';
     }
   });
   if(v.monthFilter){
@@ -2322,12 +2325,15 @@ function buildToolbar(){
 
   let quick='';
   if(v.datePreset){
-    quick = '<div class="date-tabs" id="dateTabs">'+
-      '<button class="dt on" data-day="">Semua</button>'+
-      '<button class="dt" data-day="yesterday">Kemarin</button>'+
-      '<button class="dt" data-day="today">Hari ini</button>'+
-      '<button class="dt" data-day="tomorrow">Besok</button>'+
-    '</div>';
+    const _n=new Date(), _t=ymd(_n);
+    const _y=ymd(new Date(_n.getFullYear(),_n.getMonth(),_n.getDate()-1));
+    const _tm=ymd(new Date(_n.getFullYear(),_n.getMonth(),_n.getDate()+1));
+    let ad='';
+    if(state.dateStart && state.dateStart===state.dateEnd){
+      ad = state.dateStart===_t?'today' : state.dateStart===_y?'yesterday' : state.dateStart===_tm?'tomorrow' : '__x';
+    } else if(state.dateStart||state.dateEnd){ ad='__x'; }
+    const dt=(val,lbl)=>'<button class="dt'+(ad===val?' on':'')+'" data-day="'+val+'">'+lbl+'</button>';
+    quick = '<div class="date-tabs" id="dateTabs">'+dt('','Semua')+dt('yesterday','Kemarin')+dt('today','Hari ini')+dt('tomorrow','Besok')+'</div>';
   }
   $('#toolbar').innerHTML = row + quick + (pf ? '<div class="filter-panel" id="filterPanel">'+pf+'</div>' : '');
 
@@ -3461,7 +3467,7 @@ function kpiOmzetCardHTML(cur){
     let cls='k-red';
     if(tgt<=0) cls='k-none';
     else if(kpi>=safePct) cls='k-green';
-    else if(kpi>=safePct-30) cls='k-yellow';
+    else if(kpi>=safePct*0.7) cls='k-yellow';
     const growth = pv>0 ? ((ach-pv)/pv*100) : (ach>0?100:0);
     return {cab, ach, pv, tgt, kpi, cls, growth, hasT:tgt>0};
   });
@@ -4101,7 +4107,7 @@ function dashTabOperasional(){
     nowR.forEach(r=>{ const o=omzetOf_(r); const ch=chan(r); if(ch==='ads')ads+=o; else if(ch==='org')org+=o; else if(ch==='lama')lama+=o;
       const d=parseAnyDate(r['Tanggal Pengerjaan']); if(d>last) last=d; });
     const tgt=targets[cab]||0; const kpi=tgt>0?(now/tgt*100):0;
-    let cls=tgt<=0?'k-none':(kpi>=safePct?'k-green':(kpi>=safePct-30?'k-yellow':'k-red'));
+    let cls=tgt<=0?'k-none':(kpi>=safePct?'k-green':(kpi>=safePct*0.7?'k-yellow':'k-red'));
     const gr=pv>0?((now-pv)/pv*100):(now>0?100:0);
     totNow+=now; totPrev+=pv; totAds+=ads; totOrg+=org; totLama+=lama;
     return {cab,now,pv,tgt,kpi,cls,gr,diff:now-pv,ads,org,lama,last,hasT:tgt>0};
@@ -4794,6 +4800,9 @@ function wireFields(v){
     });
     const idk=getEl('ID Karyawan'); if(idk) idk.addEventListener('change', onPickKaryawan);
     const per=getEl('Periode Bulan'); if(per) per.addEventListener('change', onPickPeriode);
+    if(v.gajiTipe==='Harian'){
+      ['Awal Periode','Akhir Periode'].forEach(k=>{ const el=getEl(k); if(el) el.addEventListener('change', onPickPeriodeHarian); });
+    }
     const cab=getEl('Cabang'); if(cab) cab.addEventListener('change', populateKselect);
   }
   if(v.special==='bonus'){
@@ -4875,12 +4884,20 @@ function recomputeGaji(){
   let bonus=0; GAJI_BONUS_FIELDS.forEach(k=>bonus+=numVal(k));
   let pot=0; GAJI_POTONGAN_FIELDS.forEach(k=>pot+=numVal(k));
   let tun=0; GAJI_TUNJANGAN_FIELDS.forEach(k=>tun+=numVal(k));
-  const pokok=numVal('Gaji Pokok');
+  const harian = !!(state.view && state.view.gajiTipe==='Harian');
+  const hari = harian ? hariHarianCount() : 1;
+  const pokok = numVal('Gaji Pokok') * hari;   // Harian: gaji pokok harian × jumlah hari
   const thp = pokok + bonus + tun - pot;
   setVal('Total Bonus', bonus);
   setVal('Total Potongan', pot);
   setVal('Take Home Pay', thp);
   setVal('Gaji Diterima', thp);
+}
+function hariHarianCount(){
+  const s=getVal('Awal Periode'), e=getVal('Akhir Periode');
+  if(!s||!e) return 1;
+  const n=Math.round((new Date(e)-new Date(s))/86400000)+1;
+  return n>0 ? n : 1;
 }
 async function onPickKaryawan(){
   const id=getVal('ID Karyawan');
@@ -4893,13 +4910,28 @@ async function onPickKaryawan(){
     if(gp.found){
       const harian = state.view && state.view.gajiTipe==='Harian';
       setVal('Gaji Pokok', harian ? gp.gajiPokokHarian : gp.gajiPokok);
-      setVal('Bonus Bulanan', gp.bonusBulanan);
+      setVal('Bonus Bulanan', harian ? 0 : gp.bonusBulanan);   // Harian: bonus bulanan 0
       setVal('Tunjangan Kos', gp.tunjanganKos);
       setVal('Tunjangan Kerja', gp.tunjanganKerja);
     }
-    setPremiBpjs(gp.premiBpjs || 35000, true);
+    const harian2 = state.view && state.view.gajiTipe==='Harian';
+    setPremiBpjs(gp.premiBpjs || 35000, harian2 ? false : true);  // Harian: premi default TIDAK dicentang
   }catch(e){}
-  if(!(state.view && state.view.gajiTipe==='Harian')) await onPickPeriode();
+  if(state.view && state.view.gajiTipe==='Harian') await onPickPeriodeHarian();
+  else await onPickPeriode();
+}
+/* Gaji Harian: isi otomatis bonus dari tabel BONUS pada rentang Awal–Akhir Periode. */
+async function onPickPeriodeHarian(){
+  const nama=getVal('Nama Karyawan');
+  const start=getVal('Awal Periode'), end=getVal('Akhir Periode');
+  setVal('Bonus Bulanan', 0);
+  if(nama && start && end){
+    try{
+      const r=await api({action:'bonusSummary', namaCleaner:nama, start, end});
+      Object.keys(r.totals||{}).forEach(k=>setVal(k, r.totals[k]));
+    }catch(e){}
+  }
+  recomputeGaji();
 }
 /* Atur nominal & status checkbox Premi BPJS. */
 function setPremiBpjs(nominal, aktif){
