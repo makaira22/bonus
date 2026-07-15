@@ -771,6 +771,14 @@ tr.rowclick:hover td{background:var(--surface-2)}
 .load-more{display:block;width:100%;margin-top:12px}
 @media (max-width:1100px){ .pager.desk-only{display:none} }
 @media (min-width:1101px){ .load-more{display:none} }
+/* Absensi HRD */
+.abs-seg{margin:2px 0 14px}
+.abs-stats{margin-bottom:12px}
+.abs-b{display:inline-block;font-size:11px;font-weight:800;padding:3px 9px;border-radius:20px;white-space:nowrap}
+.abs-b-ok{background:rgba(31,122,94,.14);color:#1F7A5E}
+.abs-b-in{background:rgba(201,154,40,.16);color:#9a7415}
+.abs-b-late{background:rgba(178,58,58,.14);color:var(--danger)}
+.abs-b-off{background:var(--surface-2);color:var(--muted)}
 .ocard-svc{font-size:12.5px;color:var(--gold-deep);font-weight:600}
 .ocard{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:14px 16px;
   box-shadow:var(--shadow-sm);cursor:pointer;transition:.12s}
@@ -1086,6 +1094,9 @@ const CABANG = ['SURABAYA','MALANG','GRESIK','KEDIRI','BOJONEGORO',
                 'SAMARINDA','BALIKPAPAN','DENPASAR','TABANAN','MAKASSAR','OFFICE'];
 const JABATAN = ['CEO','MARKETING','CLEANER','CS','OPERASIONAL','FINANCE','HRD','DESIGNER'];
 const STATUS_KARYAWAN = ['TETAP','SEMI','TETAP KOOR','FREELANCE','VENDOR'];
+/* Batas jam masuk ("HH:MM"). Absen "Masuk" LEBIH dari jam ini = TELAT
+   (dipakai menu Absensi HRD). Ubah sesuai kebijakan perusahaan. */
+const JAM_MASUK_BATAS = '08:00';
 const STATUS_ORDER = ['pending','done','complete','cancel'];
 const CHAT_DARI = ['Iklan','Organik','Lama'];
 const AD_PLATFORM = ['Google','Meta','TikTok'];
@@ -1186,6 +1197,13 @@ function calMonthBounds(ym){ const m=String(ym||'').match(/^(\d{4})-(\d{2})/); i
 function hariId(s){ const d=parseDate_(s); return d? HARI_ID[d.getDay()] : ''; }
 function tglPanjangId(s){ const d=parseDate_(s); return d? (d.getDate()+' '+BULAN_ID[d.getMonth()]+' '+d.getFullYear()) : String(s||''); }
 function tglHariId(s){ const h=hariId(s); const t=tglPanjangId(s); return (h? (h+', '):'')+t; }
+/* Jumlah hari Awal s/d Akhir periode (inklusif). 0 bila tanggal tidak valid. */
+function periodeHari(awal, akhir){
+  const a=parseAnyDate(awal), b=parseAnyDate(akhir);
+  if(!a || !b) return 0;
+  const d=Math.round((new Date(b+'T00:00:00') - new Date(a+'T00:00:00'))/86400000)+1;
+  return d>0 ? d : 0;
+}
 function layananRingkas(r){
   const arr=[];
   for(let i=1;i<=3;i++){ const nm=String(r['Layanan '+i]||'').trim();
@@ -1335,6 +1353,7 @@ const MARK = '<svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000
 const MENUS = {
   HRD: [
     {key:'gaji', label:'Gaji', icon:'salary'},
+    {key:'absensi', label:'Absensi', icon:'users'},
     {key:'insentif', label:'Insentif', icon:'gift'},
     {key:'agenda', label:'Agenda', icon:'audit'},
     {key:'__settings', label:'Pengaturan', icon:'settings'}
@@ -1463,7 +1482,7 @@ const VIEWS = {
   gajiHarian:{
     sheet:'GAJI', title:'Gaji Harian', sub:'', countTop:true, noSyncBtn:true, hub:'gaji', gajiTipe:'Harian',
     idField:'ID Slip', canAdd:true, canEdit:true, canDelete:true, rowDetail:true, gajiSort:true, special:'gaji', slip:true, paged:true,
-    table:['Awal Periode','Akhir Periode','Nama Karyawan','Total Bonus','Total Potongan','Take Home Pay'],
+    table:['Awal Periode','Akhir Periode','Jumlah Hari','Nama Karyawan','Total Bonus','Total Potongan','Take Home Pay'],
     colorMap:{'Total Bonus':'c-green','Total Potongan':'c-red','Take Home Pay':'c-blue'},
     filters:['Cabang'],
     search:['Nama Karyawan','ID Slip'],
@@ -1615,7 +1634,16 @@ const VIEWS = {
 /* Gaji versi FINANCE: tampilannya sama persis dgn HRD, tapi hanya baca —
    tidak bisa tambah / edit (tombol Cetak Slip & PDF tetap ada). */
 VIEWS.gajiFinance = Object.assign({}, VIEWS.gaji, { canAdd:false, canEdit:false, canDelete:false, readOnly:true });
+/* Gaji Harian versi FINANCE — sama seperti HRD tetapi hanya baca. */
 VIEWS.gajiHarianFinance = Object.assign({}, VIEWS.gajiHarian, { canAdd:false, canEdit:false, canDelete:false, readOnly:true });
+
+/* ===== ABSENSI (HRD) — rekap kehadiran cleaner dari tabel ABSEN ===== */
+VIEWS.absensi = {
+  sheet:'ABSEN', title:'Absensi Cleaner', sub:'', special:'absensi', countTop:true, noSyncBtn:true,
+  datePreset:true, dateFilterField:'Tanggal',
+  filters:['Cabang'],
+  search:['Nama']
+};
 
 /* ===== OPERASIONAL ===== */
 VIEWS.laporanOmzet = {
@@ -1865,15 +1893,17 @@ async function api(payload){
       // Hanya untuk tabel yang PK-nya diketahui (mis. ORDER) — tabel konfigurasi
       // kecil (<1000 baris) tetap tanpa order agar tidak menyentuh kolom yg mungkin tak ada.
       const _orderCol = TABLE_ID[payload.sheet] || '';
+      let _useOrder = !!_orderCol;
       while(true){
         let q = sb.from(payload.sheet).select('*');
-        if(_orderCol) q = q.order(_orderCol, {ascending:true});
+        if(_useOrder) q = q.order(_orderCol, {ascending:true});
         q = q.range(from, from+PAGE-1);
         for(const k in f){ if(f[k]!=='' && f[k]!=null) q=q.eq(k, f[k]); }
         if(payload.statusIn && payload.statusField) q=q.in(payload.statusField, payload.statusIn);
         if(payload.dateField && payload.dateStart)  q=q.gte(payload.dateField, payload.dateStart);
         if(payload.dateField && payload.dateEnd)    q=q.lte(payload.dateField, payload.dateEnd);
-        const {data,error}=await q; if(error) throw error;
+        const {data,error}=await q;
+        if(error){ if(_useOrder){ _useOrder=false; continue; } throw error; }
         all = all.concat(data||[]);
         if(!data || data.length<PAGE) break;
         from += PAGE;
@@ -2152,10 +2182,12 @@ async function selectMenu(key){
   if(key==='__settings'){ renderSettings(); markActive('__settings'); return; }
   if(key==='audit'){ return openAuditTab(state.auditTab||'auditOrder'); }
   if(key==='gaji'){ return openGajiTab(state.gajiTab||'gaji'); }
+  if(key==='gajiFinance'){ return openGajiTab(/Finance$/.test(state.gajiTab||'') ? state.gajiTab : 'gajiFinance'); }
   if(key==='capaianFinance'){ return openCapTab(state.capTab||'capOmzet'); }
   state.view = VIEWS[key]; state.viewKey=key;
   state.filters={}; state.search=''; state.dateStart=''; state.dateEnd='';
   if(state.view && state.view.defaultMonth){ const b=calMonthBounds(ymd(new Date()).slice(0,7)); state.dateStart=b.start; state.dateEnd=b.end; }
+  if(state.view && state.view.special==='absensi'){ const t=ymd(new Date()); state.dateStart=t; state.dateEnd=t; state.absStatus=''; }
   markActive(key);
   renderShell();
   if(state.view && state.view.special==='konten'){ renderKonten(); return; }
@@ -2187,7 +2219,7 @@ async function openGajiTab(key){
   state.gajiTab=key;
   state.view = VIEWS[key]; state.viewKey=key;
   state.filters={}; state.search=''; state.dateStart=''; state.dateEnd='';
-  markActive((key==='gajiFinance'||key==='gajiHarianFinance')?'gajiFinance':'gaji');
+  markActive((state.session && state.session.role==='FINANCE') ? 'gajiFinance' : 'gaji');
   renderShell();
   await loadList();
   if(state._ch){ try{ window.sb.removeChannel(state._ch); }catch(e){} state._ch=null; }
@@ -2221,10 +2253,10 @@ function renderShell(){
     '<div class="hub-tabs">'+[['capOmzet','Omzet'],['capKpi','KPI'],['capMarketing','Marketing']]
       .map(t=>'<button class="hub-tab'+(state.viewKey===t[0]?' active':'')+'" data-captab="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>'
     : v.hub==='gaji' ?
-    (function(){ const fin = state.viewKey==='gajiFinance'||state.viewKey==='gajiHarianFinance';
-      const pairs = fin ? [['gajiFinance','Bulanan'],['gajiHarianFinance','Harian']] : [['gaji','Bulanan'],['gajiHarian','Harian']];
-      return '<div class="hub-tabs">'+pairs.map(t=>'<button class="hub-tab'+(state.viewKey===t[0]?' active':'')+'" data-gajitab="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>';
-    })() : '';
+    '<div class="hub-tabs">'+((state.session && state.session.role==='FINANCE')
+        ? [['gajiFinance','Bulanan'],['gajiHarianFinance','Harian']]
+        : [['gaji','Bulanan'],['gajiHarian','Harian']])
+      .map(t=>'<button class="hub-tab'+(state.viewKey===t[0]?' active':'')+'" data-gajitab="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>' : '';
   $('#content').innerHTML =
     greetingHTML()+
     tabs+
@@ -2297,10 +2329,10 @@ function buildToolbar(){
     let opts = FILTER_OPTS[fld] || [];
     if(fld==='Status Order' && v.statusClient) opts = v.statusClient.slice();
     if(fld==='Periode Bulan'){
-      pf += '<div class="fl"><span class="lbl">'+fld+'</span><input type="month" data-filter="'+fld+'" value="'+esc(state.filters[fld]||'')+'"></div>';
+      pf += '<div class="fl"><span class="lbl">'+fld+'</span><input type="month" data-filter="'+fld+'"></div>';
     }else{
       pf += '<div class="fl"><span class="lbl">'+fld+'</span><select data-filter="'+fld+'"><option value="">Semua</option>'+
-        opts.map(o=>'<option'+((state.filters[fld]||'')===o?' selected':'')+'>'+o+'</option>').join('')+'</select></div>';
+        opts.map(o=>'<option>'+o+'</option>').join('')+'</select></div>';
     }
   });
   if(v.monthFilter){
@@ -2325,15 +2357,12 @@ function buildToolbar(){
 
   let quick='';
   if(v.datePreset){
-    const _n=new Date(), _t=ymd(_n);
-    const _y=ymd(new Date(_n.getFullYear(),_n.getMonth(),_n.getDate()-1));
-    const _tm=ymd(new Date(_n.getFullYear(),_n.getMonth(),_n.getDate()+1));
-    let ad='';
-    if(state.dateStart && state.dateStart===state.dateEnd){
-      ad = state.dateStart===_t?'today' : state.dateStart===_y?'yesterday' : state.dateStart===_tm?'tomorrow' : '__x';
-    } else if(state.dateStart||state.dateEnd){ ad='__x'; }
-    const dt=(val,lbl)=>'<button class="dt'+(ad===val?' on':'')+'" data-day="'+val+'">'+lbl+'</button>';
-    quick = '<div class="date-tabs" id="dateTabs">'+dt('','Semua')+dt('yesterday','Kemarin')+dt('today','Hari ini')+dt('tomorrow','Besok')+'</div>';
+    quick = '<div class="date-tabs" id="dateTabs">'+
+      '<button class="dt on" data-day="">Semua</button>'+
+      '<button class="dt" data-day="yesterday">Kemarin</button>'+
+      '<button class="dt" data-day="today">Hari ini</button>'+
+      '<button class="dt" data-day="tomorrow">Besok</button>'+
+    '</div>';
   }
   $('#toolbar').innerHTML = row + quick + (pf ? '<div class="filter-panel" id="filterPanel">'+pf+'</div>' : '');
 
@@ -2439,6 +2468,7 @@ async function loadList(force){
     if(v.special==='kpiCS'){ await loadTargets(); state.kpiCsSort=null; }
     if(v.special==='dashboard') await loadDashData();
     if(v.special==='grafik') await loadDashData();
+    if(v.special==='absensi') await loadCleanerList();
     renderView();
     syncDone(state.rows.length);
   }catch(err){ setSync(false); toast(err.message,'err'); $('#panel').innerHTML=emptyState('Gagal memuat data'); }
@@ -2585,6 +2615,7 @@ function renderView(){
   else if(v.special==='grafik') renderGrafik();
   else if(v.special==='todo') renderTodo();
   else if(v.special==='insentifSum') renderInsentifSum();
+  else if(v.special==='absensi') renderAbsensi();
   else if(v.special==='agenda') renderAgenda();
   else renderTable();
 }
@@ -2703,12 +2734,21 @@ function renderTable(){
       '<div class="card-list bonus-cards bonus-mob">'+cardRows.map(bonusCard).join('')+'</div>';
   }
   if(v.sheet==='GAJI'){
-    cardHtml='<div class="card-list gaji-cards">'+rows.map(r=>{
+    const isHarian = v.gajiTipe==='Harian';
+    cardHtml='<div class="card-list gaji-cards">'+cardRows.map(r=>{
       const sid=v.idField?esc(r[v.idField]):('#'+state.rows.indexOf(r));
-      const per=/^\d{4}-\d{2}/.test(String(r['Periode Bulan']||'')) ? monthLabel(String(r['Periode Bulan']).slice(0,7)) : (r['Periode Bulan']||'-');
+      const _hari = periodeHari(r['Awal Periode'], r['Akhir Periode']);
+      // Bulanan → chip nama bulan · Harian → chip jumlah hari
+      const per = isHarian
+        ? (_hari>0 ? _hari+' hari' : 'Harian')
+        : (/^\d{4}-\d{2}/.test(String(r['Periode Bulan']||'')) ? monthLabel(String(r['Periode Bulan']).slice(0,7)) : (r['Periode Bulan']||'-'));
+      const _rentang = (isHarian && (r['Awal Periode']||r['Akhir Periode']))
+        ? '<div class="ocard-meta">'+svg('result')+'<span>'+esc(tglPanjangId(r['Awal Periode'])+' – '+tglPanjangId(r['Akhir Periode']))+'</span></div>'
+        : '';
       return '<div class="ocard" data-detailgaji="'+sid+'">'+
         '<div class="ocard-top"><span class="ocard-name">'+esc(r['Nama Karyawan']||'-')+'</span>'+
           '<span class="pay-chip">'+esc(per)+'</span></div>'+
+        _rentang+
         '<div class="gaji-thp"><span class="gt-l">Take Home Pay</span>'+
           '<span class="gt-v">'+esc(rp(r['Take Home Pay']||0))+'</span></div>'+
         '<div class="ocard-act">'+
@@ -2980,7 +3020,12 @@ function showGajiDetail(g){
   h+=row('Nama', esc(g['Nama Karyawan']||'-'));
   h+=row('Cabang', esc(g['Cabang']||'-'));
   h+=row('Periode', esc(per));
-  if(g['Awal Periode']||g['Akhir Periode']) h+=row('Rentang', esc(fmtTgl(g['Awal Periode'])+' – '+fmtTgl(g['Akhir Periode'])));
+  if(g['Awal Periode']||g['Akhir Periode']){
+    h+=row('Awal Periode', esc(tglPanjangId(g['Awal Periode'])||'-'));
+    h+=row('Akhir Periode', esc(tglPanjangId(g['Akhir Periode'])||'-'));
+    const _n=periodeHari(g['Awal Periode'], g['Akhir Periode']);
+    if(_n>0) h+=row('Jumlah Hari', '<b>'+_n+' hari</b>');
+  }
   h+='<div class="dt-sec">Rincian</div>';
   h+=row('Gaji Pokok', rp(md(g['Gaji Pokok'])));
   GAJI_TUNJANGAN_FIELDS.forEach(k=>{ const val=md(g[k]); if(val) h+=row(k, rp(val)); });
@@ -3467,7 +3512,7 @@ function kpiOmzetCardHTML(cur){
     let cls='k-red';
     if(tgt<=0) cls='k-none';
     else if(kpi>=safePct) cls='k-green';
-    else if(kpi>=safePct*0.7) cls='k-yellow';
+    else if(kpi>=safePct-30) cls='k-yellow';
     const growth = pv>0 ? ((ach-pv)/pv*100) : (ach>0?100:0);
     return {cab, ach, pv, tgt, kpi, cls, growth, hasT:tgt>0};
   });
@@ -4107,7 +4152,7 @@ function dashTabOperasional(){
     nowR.forEach(r=>{ const o=omzetOf_(r); const ch=chan(r); if(ch==='ads')ads+=o; else if(ch==='org')org+=o; else if(ch==='lama')lama+=o;
       const d=parseAnyDate(r['Tanggal Pengerjaan']); if(d>last) last=d; });
     const tgt=targets[cab]||0; const kpi=tgt>0?(now/tgt*100):0;
-    let cls=tgt<=0?'k-none':(kpi>=safePct?'k-green':(kpi>=safePct*0.7?'k-yellow':'k-red'));
+    let cls=tgt<=0?'k-none':(kpi>=safePct?'k-green':(kpi>=safePct-30?'k-yellow':'k-red'));
     const gr=pv>0?((now-pv)/pv*100):(now>0?100:0);
     totNow+=now; totPrev+=pv; totAds+=ads; totOrg+=org; totLama+=lama;
     return {cab,now,pv,tgt,kpi,cls,gr,diff:now-pv,ads,org,lama,last,hasT:tgt>0};
@@ -4492,6 +4537,14 @@ function cell(v,c,r){
     const ym=String(val||'').slice(0,7);
     return /^\d{4}-\d{2}$/.test(ym) ? esc(monthLabel(ym)) : (val!=null&&val!==''?esc(val):'<span style="color:var(--faint)">—</span>');
   }
+  if(c==='Awal Periode' || c==='Akhir Periode'){
+    // "tanggal nama-bulan tahun" — mis. 5 Januari 2026
+    return val!=null && val!=='' ? esc(tglPanjangId(val)) : '<span style="color:var(--faint)">—</span>';
+  }
+  if(c==='Jumlah Hari'){
+    const n=periodeHari(r['Awal Periode'], r['Akhir Periode']);
+    return n>0 ? '<b>'+esc(n+' hari')+'</b>' : '<span style="color:var(--faint)">—</span>';
+  }
   if(c==='PPn'){
     return Number(moneyDigits(val))>0 ? '11%' : '<span style="color:var(--faint)">—</span>';
   }
@@ -4800,9 +4853,6 @@ function wireFields(v){
     });
     const idk=getEl('ID Karyawan'); if(idk) idk.addEventListener('change', onPickKaryawan);
     const per=getEl('Periode Bulan'); if(per) per.addEventListener('change', onPickPeriode);
-    if(v.gajiTipe==='Harian'){
-      ['Awal Periode','Akhir Periode'].forEach(k=>{ const el=getEl(k); if(el) el.addEventListener('change', onPickPeriodeHarian); });
-    }
     const cab=getEl('Cabang'); if(cab) cab.addEventListener('change', populateKselect);
   }
   if(v.special==='bonus'){
@@ -4884,20 +4934,12 @@ function recomputeGaji(){
   let bonus=0; GAJI_BONUS_FIELDS.forEach(k=>bonus+=numVal(k));
   let pot=0; GAJI_POTONGAN_FIELDS.forEach(k=>pot+=numVal(k));
   let tun=0; GAJI_TUNJANGAN_FIELDS.forEach(k=>tun+=numVal(k));
-  const harian = !!(state.view && state.view.gajiTipe==='Harian');
-  const hari = harian ? hariHarianCount() : 1;
-  const pokok = numVal('Gaji Pokok') * hari;   // Harian: gaji pokok harian × jumlah hari
+  const pokok=numVal('Gaji Pokok');
   const thp = pokok + bonus + tun - pot;
   setVal('Total Bonus', bonus);
   setVal('Total Potongan', pot);
   setVal('Take Home Pay', thp);
   setVal('Gaji Diterima', thp);
-}
-function hariHarianCount(){
-  const s=getVal('Awal Periode'), e=getVal('Akhir Periode');
-  if(!s||!e) return 1;
-  const n=Math.round((new Date(e)-new Date(s))/86400000)+1;
-  return n>0 ? n : 1;
 }
 async function onPickKaryawan(){
   const id=getVal('ID Karyawan');
@@ -4910,28 +4952,13 @@ async function onPickKaryawan(){
     if(gp.found){
       const harian = state.view && state.view.gajiTipe==='Harian';
       setVal('Gaji Pokok', harian ? gp.gajiPokokHarian : gp.gajiPokok);
-      setVal('Bonus Bulanan', harian ? 0 : gp.bonusBulanan);   // Harian: bonus bulanan 0
+      setVal('Bonus Bulanan', gp.bonusBulanan);
       setVal('Tunjangan Kos', gp.tunjanganKos);
       setVal('Tunjangan Kerja', gp.tunjanganKerja);
     }
-    const harian2 = state.view && state.view.gajiTipe==='Harian';
-    setPremiBpjs(gp.premiBpjs || 35000, harian2 ? false : true);  // Harian: premi default TIDAK dicentang
+    setPremiBpjs(gp.premiBpjs || 35000, true);
   }catch(e){}
-  if(state.view && state.view.gajiTipe==='Harian') await onPickPeriodeHarian();
-  else await onPickPeriode();
-}
-/* Gaji Harian: isi otomatis bonus dari tabel BONUS pada rentang Awal–Akhir Periode. */
-async function onPickPeriodeHarian(){
-  const nama=getVal('Nama Karyawan');
-  const start=getVal('Awal Periode'), end=getVal('Akhir Periode');
-  setVal('Bonus Bulanan', 0);
-  if(nama && start && end){
-    try{
-      const r=await api({action:'bonusSummary', namaCleaner:nama, start, end});
-      Object.keys(r.totals||{}).forEach(k=>setVal(k, r.totals[k]));
-    }catch(e){}
-  }
-  recomputeGaji();
+  if(!(state.view && state.view.gajiTipe==='Harian')) await onPickPeriode();
 }
 /* Atur nominal & status checkbox Premi BPJS. */
 function setPremiBpjs(nominal, aktif){
@@ -6000,6 +6027,197 @@ function showCleanerInsentif(name){
   const cc=$('#modalCancel'); if(cc){ cc.textContent='Tutup'; cc.classList.add('btn-danger'); }
   openOverlay();
 }
+/* ============================================================
+   ABSENSI (HRD) — rekap kehadiran cleaner dari tabel ABSEN.
+   Kolom ABSEN: "ID Karyawan","Nama","Cabang",email,"Tanggal",
+                "Jam","Tipe"(Masuk/Pulang),foto,lat,lng
+   ============================================================ */
+function jamToMin(s){ const m=String(s||'').match(/(\d{1,2})[:.](\d{2})/); return m ? (+m[1])*60+(+m[2]) : null; }
+function absenTelat(jamMasuk){ const a=jamToMin(jamMasuk), b=jamToMin(JAM_MASUK_BATAS); return a!=null && b!=null && a>b; }
+function jamShort(s){ const m=String(s||'').match(/(\d{1,2}[:.]\d{2})/); return m ? m[1].replace('.',':') : (s||''); }
+
+/* Daftar cleaner (tabel KARYAWAN) untuk mendeteksi yang "tidak absen". */
+async function loadCleanerList(){
+  if(state.cache.cleanerList) return;
+  try{
+    const k=trimKeys((await api({action:'list', sheet:'KARYAWAN'})).data||[]);
+    state.cache.cleanerList = k.filter(e=>norm(e['Jabatan'])==='cleaner');
+  }catch(e){ state.cache.cleanerList=[]; }
+}
+
+/* Gabungkan baris ABSEN → satu baris per (cleaner + tanggal). */
+function absenGroups(rows){
+  const map={};
+  (rows||[]).forEach(r=>{
+    const nm=String(r['Nama']||'').trim(); if(!nm) return;
+    const tgl=parseAnyDate(r['Tanggal'])||String(r['Tanggal']||'');
+    const idk=String(r['ID Karyawan']||nm);
+    const key=idk+'|'+tgl;
+    if(!map[key]) map[key]={ nama:nm, idkar:r['ID Karyawan']||'', cabang:r['Cabang']||'',
+      tanggal:tgl, masuk:null, pulang:null, absent:false };
+    const g=map[key];
+    if(!g.cabang && r['Cabang']) g.cabang=r['Cabang'];
+    const tipe=norm(r['Tipe']);
+    if(tipe==='masuk'){ if(!g.masuk || String(r['Jam'])<String(g.masuk['Jam'])) g.masuk=r; }
+    else if(tipe==='pulang'){ if(!g.pulang || String(r['Jam'])>String(g.pulang['Jam'])) g.pulang=r; }
+  });
+  const arr=Object.keys(map).map(k=>map[k]);
+  arr.forEach(g=>{ g.telat = g.masuk ? absenTelat(g.masuk['Jam']) : false; });
+  return arr;
+}
+
+function absenBadge(g){
+  if(g.absent)              return '<span class="abs-b abs-b-off">Tidak Absen</span>';
+  if(g.telat)               return '<span class="abs-b abs-b-late">Telat</span>';
+  if(g.masuk && !g.pulang)  return '<span class="abs-b abs-b-in">Belum Pulang</span>';
+  if(g.masuk && g.pulang)   return '<span class="abs-b abs-b-ok">Tepat Waktu</span>';
+  if(!g.masuk && g.pulang)  return '<span class="abs-b abs-b-off">Tanpa Absen Masuk</span>';
+  return '<span class="abs-b abs-b-off">—</span>';
+}
+
+function renderAbsensi(){
+  const status = state.absStatus||'';
+  const rows   = applyClientFilters(state.rows);   // filter Cabang + tanggal + cari nama
+  const groups = absenGroups(rows);
+
+  /* Cleaner yang TIDAK absen pada rentang terpilih. */
+  const cabFilter=state.filters['Cabang']||'';
+  const clList=(state.cache.cleanerList||[]).filter(c=>!cabFilter || norm(c['Cabang'])===norm(cabFilter));
+  const hadir=new Set(); groups.forEach(g=>{ if(g.idkar) hadir.add(norm(g.idkar)); if(g.nama) hadir.add(norm(g.nama)); });
+  const tidakAbsen=[];
+  clList.forEach(c=>{
+    const idk=norm(c['ID Karyawan']||''); const nm=c['Nama Lengkap']||c['Nama']||'';
+    if((idk && hadir.has(idk)) || (nm && hadir.has(norm(nm)))) return;
+    if(state.search && String(nm).toLowerCase().indexOf(state.search)<0) return;
+    tidakAbsen.push({ nama:nm, idkar:c['ID Karyawan']||'', cabang:c['Cabang']||'',
+      tanggal:(state.dateStart||''), masuk:null, pulang:null, telat:false, absent:true });
+  });
+
+  const sMasuk=groups.filter(g=>g.masuk).length;
+  const sPulang=groups.filter(g=>g.pulang).length;
+  const sTelat=groups.filter(g=>g.telat).length;
+  const sTidak=tidakAbsen.length;
+
+  let list;
+  if(status==='masuk')            list=groups.filter(g=>g.masuk);
+  else if(status==='pulang')      list=groups.filter(g=>g.pulang);
+  else if(status==='telat')       list=groups.filter(g=>g.telat);
+  else if(status==='tidakabsen')  list=tidakAbsen;
+  else                            list=groups.concat(tidakAbsen);
+  list=list.slice().sort((a,b)=> String(b.tanggal).localeCompare(String(a.tanggal))
+      || String(a.cabang).localeCompare(String(b.cabang),'id')
+      || String(a.nama).localeCompare(String(b.nama),'id'));
+  state._absList=list;
+
+  const segs=[['','Semua'],['masuk','Absen Masuk'],['pulang','Absen Keluar'],['telat','Telat'],['tidakabsen','Tidak Absen']];
+  const seg='<div class="date-tabs abs-seg" id="absSeg">'+segs.map(s=>
+      '<button class="dt'+(status===s[0]?' on':'')+'" data-absst="'+s[0]+'">'+s[1]+'</button>').join('')+'</div>';
+
+  const stats='<div class="cap-stats abs-stats">'+
+    '<div class="cap-stat"><div class="cap-stat-l">Absen Masuk</div><div class="cap-stat-v">'+sMasuk+'</div></div>'+
+    '<div class="cap-stat"><div class="cap-stat-l">Absen Keluar</div><div class="cap-stat-v">'+sPulang+'</div></div>'+
+    '<div class="cap-stat"><div class="cap-stat-l">Telat</div><div class="cap-stat-v" style="color:var(--danger)">'+sTelat+'</div></div>'+
+    '<div class="cap-stat"><div class="cap-stat-l">Tidak Absen</div><div class="cap-stat-v" style="color:var(--muted)">'+sTidak+'</div></div>'+
+  '</div>';
+
+  /* Paginasi: desktop 15/halaman (Sebelumnya/Selanjutnya) · HP kumulatif + Muat lebih banyak. */
+  const PAGE=15, total=list.length;
+  if(state.page==null) state.page=0;
+  const maxPage=Math.max(0, Math.ceil(total/PAGE)-1);
+  if(state.page>maxPage) state.page=maxPage; if(state.page<0) state.page=0;
+  const pageRows=list.slice(state.page*PAGE,(state.page+1)*PAGE);
+  const cardRows=list.slice(0,(state.page+1)*PAGE);
+  let pagerHtml='', moreHtml='';
+  if(total>PAGE){
+    pagerHtml='<div class="pager desk-only"><button class="btn btn-ghost btn-sm" id="absPrev"'+(state.page<=0?' disabled':'')+'>‹ Sebelumnya</button>'+
+      '<span class="pager-info">'+(state.page*PAGE+1)+'–'+Math.min(total,(state.page+1)*PAGE)+' dari '+total+'</span>'+
+      '<button class="btn btn-ghost btn-sm" id="absNext"'+(state.page>=maxPage?' disabled':'')+'>Selanjutnya ›</button></div>';
+  }
+  if(cardRows.length<total){
+    moreHtml='<button class="btn btn-ghost load-more" id="absMore">Muat lebih banyak ('+cardRows.length+'/'+total+')</button>';
+  }
+
+  const idxOf=g=>state._absList.indexOf(g);
+  const trows=pageRows.map(g=>'<tr class="rowclick" data-absrow="'+idxOf(g)+'">'+
+      '<td class="l">'+esc(tglPanjangId(g.tanggal)||'-')+'</td>'+
+      '<td>'+esc(g.nama||'-')+'</td>'+
+      '<td>'+esc(g.cabang||'-')+'</td>'+
+      '<td class="c">'+(g.masuk?esc(jamShort(g.masuk['Jam'])):'<span style="color:var(--faint)">—</span>')+'</td>'+
+      '<td class="c">'+(g.pulang?esc(jamShort(g.pulang['Jam'])):'<span style="color:var(--faint)">—</span>')+'</td>'+
+      '<td class="c">'+absenBadge(g)+'</td></tr>').join('');
+
+  const cards=cardRows.map(g=>'<div class="ocard" data-absrow="'+idxOf(g)+'">'+
+      '<div class="ocard-top"><span class="ocard-name">'+esc(g.nama||'-')+'</span>'+absenBadge(g)+'</div>'+
+      '<div class="ocard-meta">'+svg('result')+'<span>'+esc(tglPanjangId(g.tanggal)||'-')+
+        (g.cabang?(' · '+esc(g.cabang)):'')+'</span></div>'+
+      '<div class="ocard-meta sub"><span>Masuk: '+(g.masuk?esc(jamShort(g.masuk['Jam'])):'—')+
+        ' · Keluar: '+(g.pulang?esc(jamShort(g.pulang['Jam'])):'—')+'</span></div>'+
+    '</div>').join('');
+
+  $('#panel').innerHTML=
+    stats+seg+
+    '<div class="cap-card"><div class="cap-card-t">Kehadiran — ketuk nama untuk rincian</div>'+
+      '<div class="tbl-wrap desk-only"><table class="ops-tbl"><thead><tr>'+
+        '<th class="l">Tanggal</th><th>Nama Cleaner</th><th>Cabang</th><th class="c">Masuk</th><th class="c">Keluar</th><th class="c">Status</th>'+
+      '</tr></thead><tbody>'+(trows||'<tr><td colspan="6" class="cap-empty">Tidak ada data</td></tr>')+'</tbody></table></div>'+
+      (cardRows.length?'<div class="card-list cards-always">'+cards+'</div>':'')+
+      pagerHtml+moreHtml+
+    '</div>';
+
+  document.querySelectorAll('[data-absrow]').forEach(el=>el.addEventListener('click',()=>{
+    const g=state._absList[+el.dataset.absrow]; if(g) showAbsenDetail(g);
+  }));
+  const p=$('#absPrev'), n=$('#absNext'), m=$('#absMore');
+  if(p) p.onclick=()=>{ state.page=Math.max(0,(state.page||0)-1); renderAbsensi(); };
+  if(n) n.onclick=()=>{ state.page=(state.page||0)+1; renderAbsensi(); };
+  if(m) m.onclick=()=>{ state.page=(state.page||0)+1; renderAbsensi(); };
+  document.querySelectorAll('#absSeg [data-absst]').forEach(b=>b.addEventListener('click',()=>{
+    state.absStatus=b.dataset.absst; state.page=0; renderAbsensi();
+  }));
+  setCount(list.length,'data');
+}
+
+/* Rincian satu cleaner + riwayat absennya. */
+function showAbsenDetail(g){
+  state.editing=null; state.files={};
+  $('#modalTitle').textContent='Absensi — '+(g.nama||'-');
+  const row=(l,val)=>'<div class="dt-row"><span class="dt-l">'+esc(l)+'</span><span class="dt-v">'+val+'</span></div>';
+  const fotoLink=r=> (r && r['foto']) ? ' · <a class="flink" data-img="'+esc(r['foto'])+'" style="cursor:zoom-in;color:var(--petrol);font-weight:700">foto</a>' : '';
+  const gpsLink=r=>{ if(!r || r['lat']==null || r['lng']==null || r['lat']==='') return '';
+    return ' · <a class="flink" href="https://maps.google.com/?q='+encodeURIComponent(r['lat']+','+r['lng'])+'" target="_blank" rel="noopener" style="color:var(--petrol);font-weight:700">lokasi</a>'; };
+
+  let h='<div class="detail">';
+  h+=row('Nama', esc(g.nama||'-'));
+  h+=row('Cabang', esc(g.cabang||'-'));
+  h+=row('Tanggal', esc(tglHariId(g.tanggal)||'-'));
+  h+=row('Status', absenBadge(g));
+  h+='<div class="dt-sec">Kehadiran</div>';
+  h+=row('Jam Masuk', g.masuk ? (esc(jamShort(g.masuk['Jam']))+(g.telat?' <span class="abs-b abs-b-late">Telat</span>':'')+fotoLink(g.masuk)+gpsLink(g.masuk))
+                              : '<span style="color:var(--faint)">Tidak absen masuk</span>');
+  h+=row('Jam Keluar', g.pulang ? (esc(jamShort(g.pulang['Jam']))+fotoLink(g.pulang)+gpsLink(g.pulang))
+                                : '<span style="color:var(--faint)">Belum absen keluar</span>');
+  if(g.masuk && g.pulang){
+    const dur=jamToMin(g.pulang['Jam'])-jamToMin(g.masuk['Jam']);
+    if(dur>0) h+=row('Durasi Kerja', Math.floor(dur/60)+' jam '+(dur%60)+' menit');
+  }
+  h+=row('Batas Masuk', esc(JAM_MASUK_BATAS)+' <span style="color:var(--faint)">(lebih dari ini = telat)</span>');
+
+  const idk=norm(g.idkar||''), nm=norm(g.nama||'');
+  const hist=absenGroups((state.rows||[]).filter(r=> (idk && norm(r['ID Karyawan'])===idk) || norm(r['Nama'])===nm))
+    .sort((a,b)=>String(b.tanggal).localeCompare(String(a.tanggal))).slice(0,30);
+  h+='<div class="dt-sec">Riwayat Absen ('+hist.length+' hari)</div>';
+  if(!hist.length){ h+='<span style="color:var(--faint)">Belum ada riwayat pada rentang tanggal ini.</span>'; }
+  else h+=hist.map(x=>'<div class="dt-bonus-row"><span>'+esc(tglPanjangId(x.tanggal))+
+      ' · Masuk '+(x.masuk?esc(jamShort(x.masuk['Jam'])):'—')+
+      ' · Keluar '+(x.pulang?esc(jamShort(x.pulang['Jam'])):'—')+'</span>'+absenBadge(x)+'</div>').join('');
+  h+='</div>';
+
+  $('#modalBody').innerHTML=h;
+  const sv=$('#modalSave'); if(sv) sv.style.display='none';
+  const cc=$('#modalCancel'); if(cc){ cc.textContent='Tutup'; cc.classList.add('btn-danger'); }
+  openOverlay();
+}
+
 async function renderTodo(){
   const rows=(state.rows||[]).slice().sort((a,b)=>String(parseAnyDate(b['Tanggal'])).localeCompare(String(parseAnyDate(a['Tanggal']))));
   const COL={Biru:'#2f6df6',Hijau:'#1f9d57',Kuning:'#e0a400',Merah:'#e0483d',Ungu:'#8257d1',Toska:'#159b8f'};
