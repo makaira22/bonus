@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -596,11 +597,14 @@
 
   <div class="dash-body">
     <div class="maintenance-card" style="background: var(--white); border-radius: 16px; border: 1px solid var(--gray-200); padding: 48px 24px; text-align: center; box-shadow: 0 4px 24px rgba(30,64,175,0.08); margin-top: -44px; position: relative; z-index: 2;">
-      <div style="font-size: 48px; margin-bottom: 16px;">🚧</div>
-      <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 18px; font-weight: 700; color: var(--gray-900); margin-bottom: 8px;">Sedang Dalam Perbaikan</div>
-      <div style="font-size: 14px; color: var(--gray-500); line-height: 1.5;">
-        Mohon maaf, aplikasi saat ini dalam masa perbaikan.<br>
-        Maksimal tanggal <strong>15 Juli 2026</strong> bisa digunakan kembali.
+      <div style="font-size: 48px; margin-bottom: 16px;">📢</div>
+      <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 18px; font-weight: 700; color: var(--gray-900); margin-bottom: 8px;">Pemberitahuan Aplikasi Terbaru</div>
+      <div style="font-size: 14px; color: var(--gray-500); line-height: 1.5; margin-bottom: 20px;">
+        Untuk aplikasi terbaru melihat data bonus dan lain-lain, silakan kunjungi:
+      </div>
+      <a href="https://klinklin.online/cleaner" style="display: inline-block; background: var(--blue-600); color: white; text-decoration: none; padding: 12px 24px; border-radius: 10px; font-weight: 600; font-family: 'Inter', sans-serif; margin-bottom: 16px;">klinklin.online/cleaner</a>
+      <div style="font-size: 13px; color: var(--red-500); font-weight: 500; background: #FEF2F2; padding: 8px 12px; border-radius: 8px; border: 1px solid #FECACA; display: inline-block;">
+        *Gunakan email dan PIN yang disetorkan ke HRD
       </div>
     </div>
   </div>
@@ -743,7 +747,7 @@ function doLogin() {
 
   currentUser = karyawan;
   renderHero();
-  // Bypass pengambilan insentif dan langsung tampilkan dashboard maintenance
+  // Bypass pengambilan insentif dan langsung tampilkan dashboard pengumuman
   showScreen('dashScreen');
 
   function showErr(msg) {
