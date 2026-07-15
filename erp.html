@@ -2537,6 +2537,7 @@ async function loadList(force){
     if(v.special==='dashboard') await loadDashData();
     if(v.special==='grafik') await loadDashData();
     if(v.special==='absensi'){ await loadCleanerList(); await loadAturanAbsen(); }
+    if(v.special==='gaji') await loadHrdNama();
     renderView();
     syncDone(state.rows.length);
   }catch(err){ setSync(false); toast(err.message,'err'); $('#panel').innerHTML=emptyState('Gagal memuat data'); }
@@ -2811,7 +2812,7 @@ function renderTable(){
       // Bulanan → chip nama bulan · Harian → chip jumlah hari
       const per = isHarian
         ? (_hari>0 ? _hari+' hari' : 'Harian')
-        : (/^\d{4}-\d{2}/.test(String(r['Periode Bulan']||'')) ? monthLabel(String(r['Periode Bulan']).slice(0,7)) : (r['Periode Bulan']||'-'));
+        : ((parseAnyMonth(r['Periode Bulan']) ? monthLabel(parseAnyMonth(r['Periode Bulan'])) : (r['Periode Bulan']||'-')));
       const _rentang = (isHarian && (r['Awal Periode']||r['Akhir Periode']))
         ? '<div class="ocard-meta">'+svg('result')+'<span>'+esc(tglPanjangId(r['Awal Periode'])+' – '+tglPanjangId(r['Akhir Periode']))+'</span></div>'
         : '';
@@ -4614,8 +4615,8 @@ function cell(v,c,r){
     return val!=null && val!=='' ? esc(tglPanjangId(val)) : '<span style="color:var(--faint)">—</span>';
   }
   if(c==='Periode Bulan'){
-    const ym=String(val||'').slice(0,7);
-    return /^\d{4}-\d{2}$/.test(ym) ? esc(monthLabel(ym)) : (val!=null&&val!==''?esc(val):'<span style="color:var(--faint)">—</span>');
+    const ym=parseAnyMonth(val);
+    return ym ? esc(monthLabel(ym)) : (val!=null&&val!==''?esc(val):'<span style="color:var(--faint)">—</span>');
   }
   if(c==='Awal Periode' || c==='Akhir Periode'){
     // "tanggal nama-bulan tahun" — mis. 5 Januari 2026
@@ -5459,10 +5460,28 @@ function invoicePrintWindow(o, html){
 /* ============================================================
    SLIP GAJI
    ============================================================ */
-/* Nama pada tanda tangan slip gaji: HRD yang mencetak (atau SLIP_SIGNER bila diisi). */
+/* Nama pada tanda tangan slip gaji.
+   Urutan: SLIP_SIGNER (bila diisi) → nama karyawan berjabatan HRD → nama yang login. */
 function slipSigner(){
+  if(SLIP_SIGNER) return SLIP_SIGNER;
+  if(state.cache.hrdNama) return state.cache.hrdNama;
   const s=state.session||{};
-  return SLIP_SIGNER || s.nama || '';
+  return s.nama||'';
+}
+/* Cari nama lengkap HRD dari tabel KARYAWAN (Jabatan = HRD). */
+async function loadHrdNama(){
+  if(state.cache.hrdNama!==undefined) return;
+  state.cache.hrdNama=null;
+  try{
+    const rows=trimKeys((await api({action:'list', sheet:'KARYAWAN'})).data||[]);
+    const hrd=rows.filter(k=>norm(k['Jabatan'])==='hrd' && String(k['Nama Lengkap']||'').trim());
+    if(hrd.length){
+      // Bila ada lebih dari satu HRD, utamakan yang sama dengan akun yang login.
+      const me=norm((state.session||{}).nama);
+      const hit=hrd.find(k=>norm(k['Nama Lengkap'])===me) || hrd[0];
+      state.cache.hrdNama=String(hit['Nama Lengkap']).trim();
+    }
+  }catch(e){}
 }
 function buildSlipHTML(g){
   g=g||{};
@@ -5475,9 +5494,13 @@ function buildSlipHTML(g){
   const pokokTotal = (isHarian && hari>0) ? pokokRate*hari : pokokRate;
   const pokokLabel = (isHarian && hari>0)
     ? 'Gaji Pokok ('+hari+' hari × '+rp_(pokokRate)+')' : 'Gaji Pokok';
+  // "Periode Bulan" bisa tersimpan sebagai "2026-05" atau teks seperti "May 2026".
+  // Diparse dulu supaya tidak terpotong (dulu di-slice(0,7) → "May 202").
+  const pbRaw = String(g['Periode Bulan']||'').trim();
+  const pbIso = parseAnyMonth(pbRaw);
   const judulPeriode = isHarian
     ? (hari>0 ? hari+' Hari' : 'Harian')
-    : (monthLabel(String(g['Periode Bulan']||'').slice(0,7))||g['Periode Bulan']||'');
+    : (pbIso ? monthLabel(pbIso) : pbRaw);
   const pendapatan=[
     [pokokLabel, pokokTotal],
     ['Bonus Bulanan', g['Bonus Bulanan']],
@@ -5693,7 +5716,7 @@ async function saveForm(){
     }
     closeOverlay();
     state.cache[ {ORDER:'order', KARYAWAN:'karyawan'}[v.sheet] ] = undefined; // refresh caches
-    if(v.sheet==='KARYAWAN'){ state.cache.cleaner=undefined; state.cache.karyawanMap=undefined; }
+    if(v.sheet==='KARYAWAN'){ state.cache.cleaner=undefined; state.cache.karyawanMap=undefined; state.cache.hrdNama=undefined; }
     invalidateLists();
     await loadList(true);
   }catch(err){ setSync(false); toast(err.message,'err'); }
