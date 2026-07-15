@@ -1171,6 +1171,10 @@ const INVOICE_BANK = [
   { bank:'Bank BCA',     no:'8640679949',    an:'KlinKlin Indonesia Group' }
 ];
 const INVOICE_SIGNER = 'M. Aminuddin Ghufron';
+/* Penanda tangan SLIP GAJI (bagian "Hormat kami").
+   Kosong  → memakai nama lengkap orang yang sedang login (HRD yang mencetak).
+   Diisi   → nama itu yang selalu dipakai, siapa pun yang mencetak. */
+const SLIP_SIGNER = '';
 
 /* Field penampil untuk dropdown dinamis (dynselect). */
 const DYN_FIELD = { cleaner:'Nama Lengkap', layanan:'Nama Layanan' };
@@ -5455,12 +5459,27 @@ function invoicePrintWindow(o, html){
 /* ============================================================
    SLIP GAJI
    ============================================================ */
+/* Nama pada tanda tangan slip gaji: HRD yang mencetak (atau SLIP_SIGNER bila diisi). */
+function slipSigner(){
+  const s=state.session||{};
+  return SLIP_SIGNER || s.nama || '';
+}
 function buildSlipHTML(g){
   g=g||{};
   const info=branchInfo(g['Cabang']);
   const rp_=n=>'Rp '+Number(moneyDigits(n)||0).toLocaleString('id-ID');
+  // Slip harian tidak punya "Periode Bulan"; gaji pokoknya adalah tarif PER HARI.
+  const isHarian = !String(g['Periode Bulan']||'').trim();
+  const hari     = periodeHari(g['Awal Periode'], g['Akhir Periode']);
+  const pokokRate  = Number(moneyDigits(g['Gaji Pokok']))||0;
+  const pokokTotal = (isHarian && hari>0) ? pokokRate*hari : pokokRate;
+  const pokokLabel = (isHarian && hari>0)
+    ? 'Gaji Pokok ('+hari+' hari × '+rp_(pokokRate)+')' : 'Gaji Pokok';
+  const judulPeriode = isHarian
+    ? (hari>0 ? hari+' Hari' : 'Harian')
+    : (monthLabel(String(g['Periode Bulan']||'').slice(0,7))||g['Periode Bulan']||'');
   const pendapatan=[
-    ['Gaji Pokok', g['Gaji Pokok']],
+    [pokokLabel, pokokTotal],
     ['Bonus Bulanan', g['Bonus Bulanan']],
     ['Bonus Review', g['Bonus Review']],
     ['Bonus Tanggal Merah', g['Bonus Tanggal Merah']],
@@ -5486,7 +5505,9 @@ function buildSlipHTML(g){
   ].filter(x=>Number(moneyDigits(x[1]))>0);
   const totPend = pendapatan.reduce((s,x)=>s+Number(moneyDigits(x[1])),0);
   const totPot  = potongan.reduce((s,x)=>s+Number(moneyDigits(x[1])),0);
-  const thp = totPend - totPot;
+  // Pakai Take Home Pay yang tersimpan bila ada; bila kosong, hitung dari rincian.
+  const thpSimpan = Number(moneyDigits(g['Take Home Pay']))||0;
+  const thp = thpSimpan>0 ? thpSimpan : (totPend - totPot);
   const line=(l,val)=>'<tr><td style="padding:3px 0;font-size:12px">'+esc(l)+'</td>'+
     '<td style="padding:3px 0;font-size:12px;text-align:right;font-variant-numeric:tabular-nums">'+rp_(val)+'</td></tr>';
   const idRow=(l,val)=>'<tr><td style="padding:2px 0;font-size:11.5px;color:#555;width:42%">'+esc(l)+'</td>'+
@@ -5497,18 +5518,18 @@ function buildSlipHTML(g){
     '<table style="width:100%;border-collapse:collapse;border-bottom:3px solid #14264A;padding-bottom:8px"><tr>'+
       '<td style="vertical-align:middle"><div style="font-weight:800;font-size:22px;letter-spacing:-.5px">'+
         (logoUrl()?'<img src="'+esc(logoUrl())+'" crossorigin="anonymous" style="height:30px;width:auto;max-width:130px;object-fit:contain;display:block;margin-bottom:6px">':'')+
-        '<span style="background:#14264A;color:#fff;padding:2px 7px;border-radius:5px">K</span>linKlin '+esc(info.cabang)+'</div>'+
-        '<div style="font-size:11px;color:#555;margin-top:2px">PT KlinKlin Indonesia Group</div></td>'+
-      '<td style="text-align:right;vertical-align:middle"><div style="font-weight:800;font-size:20px;color:#14264A;letter-spacing:1px">SLIP GAJI</div>'+
-        '<div style="font-size:12px;color:#C9A961;font-weight:700">'+esc(monthLabel(String(g['Periode Bulan']||'').slice(0,7))||g['Periode Bulan']||'')+'</div></td>'+
+        '<span style="background:#14264A;color:#fff;padding:2px 7px;border-radius:5px">K</span>linKlin '+esc(info.cabang)+'</div></td>'+
+      '<td style="text-align:right;vertical-align:middle;white-space:nowrap;width:210px"><div style="font-weight:800;font-size:20px;color:#14264A;letter-spacing:1px;white-space:nowrap">SLIP GAJI</div>'+
+        '<div style="font-size:12px;color:#C9A961;font-weight:700;white-space:nowrap">'+esc(judulPeriode)+'</div></td>'+
     '</tr></table>'+
     '<div style="height:14px"></div>'+
     '<table style="width:100%;border-collapse:collapse"><tr>'+
       '<td style="width:50%;vertical-align:top"><table style="width:100%;border-collapse:collapse">'+
-        idRow('Nama', g['Nama Karyawan'])+idRow('ID Karyawan', g['ID Karyawan'])+idRow('Jabatan', g['Jabatan'])+'</table></td>'+
+        idRow('Nama', g['Nama Karyawan'])+idRow('Jabatan', g['Jabatan'])+idRow('Status', g['Status'])+'</table></td>'+
       '<td style="width:50%;vertical-align:top"><table style="width:100%;border-collapse:collapse">'+
-        idRow('Status', g['Status'])+idRow('Cabang', g['Cabang'])+
-        idRow('Periode', fmtTgl(g['Awal Periode'])+' s/d '+fmtTgl(g['Akhir Periode']))+'</table></td>'+
+        idRow('Cabang', g['Cabang'])+
+        idRow('Periode', fmtTgl(g['Awal Periode'])+' s/d '+fmtTgl(g['Akhir Periode']))+
+        (isHarian && hari>0 ? idRow('Jumlah Hari', hari+' hari') : '')+'</table></td>'+
     '</tr></table>'+
     '<div style="height:16px"></div>'+
     '<table style="width:100%;border-collapse:collapse"><tr>'+
@@ -5534,7 +5555,7 @@ function buildSlipHTML(g){
       '<td style="font-size:11px;color:#777;vertical-align:bottom">Dicetak: '+fmtTgl(g['Tanggal Cetak'])+'</td>'+
       '<td style="text-align:center;vertical-align:bottom">'+
         '<div style="font-size:11px;margin-bottom:42px">Hormat kami,</div>'+
-        '<div style="font-size:12px;font-weight:bold;border-top:1px solid #111;display:inline-block;padding-top:4px">KLINKLIN '+esc(info.cabang)+'</div></td>'+
+        '<div style="font-size:12px;font-weight:bold;border-top:1px solid #111;display:inline-block;padding-top:4px">'+esc(slipSigner())+'</div></td>'+
     '</tr></table>'+
   '</div>';
 }
