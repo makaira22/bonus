@@ -104,7 +104,10 @@ button{font-family:inherit;cursor:pointer}
 /* Absen */
 .cam-wrap{position:relative;border-radius:16px;overflow:hidden;background:#000;aspect-ratio:3/4;margin-bottom:12px}
 .cam-wrap video,.cam-wrap canvas,.cam-wrap img{width:100%;height:100%;object-fit:cover;display:block}
-.gps{font-size:12.5px;color:var(--muted);margin:8px 0 12px;display:flex;align-items:center;gap:6px}
+.gps{font-size:12.5px;color:var(--muted);margin:8px 0 12px;display:block;line-height:1.5}
+.gps-ok,.gps-bad{margin-top:8px;padding:9px 11px;border-radius:10px;font-size:12.5px;line-height:1.45}
+.gps-ok{background:rgba(31,122,94,.12);color:#1F7A5E}
+.gps-bad{background:rgba(178,58,58,.12);color:#B23A3A}
 .gps b{color:var(--ink)}
 .toast{position:fixed;left:50%;bottom:88px;transform:translateX(-50%);background:#15211F;color:#fff;padding:11px 16px;border-radius:12px;
   font-size:13px;z-index:50;opacity:0;transition:.2s;max-width:90%;text-align:center}
@@ -183,9 +186,53 @@ function payCycle(now){ now=now||new Date();
 function dayOffset(n){ const d=new Date(); d.setDate(d.getDate()+n); return ymd(d); }
 // Absen telat: DENPASAR/TABANAN batas 09:16, cabang lain 08:16 (jam segitu ke atas = telat)
 function jamToMin(s){ const m=String(s||'').match(/(\d{1,2})[:.](\d{2})/); return m ? (+m[1])*60+(+m[2]) : -1; }
-function batasTelatMin(){ const c=norm(ME&&ME.cabang); return (c==='denpasar'||c==='tabanan') ? 9*60+16 : 8*60+16; }
-function isTelat(jam){ const j=jamToMin(jam); return j>=0 && j>=batasTelatMin(); }
+
+/* ---------- ATURAN ABSEN (diatur HRD di ERP → Pengaturan → Aturan Absensi) ----------
+   Kolom ABSEN_ATURAN: Cabang, Jam Masuk, Toleransi Telat, Jam Pulang,
+                       Latitude, Longitude, Radius (meter).
+   Bila cabang belum diatur → pakai aturan cadangan seperti sebelumnya.        */
+let ATURAN=null;
+const RADIUS_DEFAULT=5;   // meter — dipakai bila HRD belum mengisi Radius
+async function loadAturan(){
+  try{
+    const r=await window.sb.from('ABSEN_ATURAN').select('*').eq('Cabang', ME.cabang);
+    ATURAN=(r.data||[])[0]||null;
+  }catch(e){ ATURAN=null; }
+  return ATURAN;
+}
+function aturNum(k, dflt){
+  const raw=String((ATURAN&&ATURAN[k])||'').trim();
+  if(!raw) return dflt;
+  const n=Number(raw.replace(/[^0-9.\-]/g,''));
+  return isFinite(n) ? n : dflt;
+}
+/* Batas absen masuk (menit) = Jam Masuk + Toleransi Telat. Lewat ini = telat. */
+function batasTelatMin(){
+  if(ATURAN && String(ATURAN['Jam Masuk']||'').trim()){
+    const m=jamToMin(ATURAN['Jam Masuk']);
+    if(m>=0) return m + aturNum('Toleransi Telat',0);
+  }
+  const c=norm(ME&&ME.cabang);                       // cadangan: aturan lama
+  return (c==='denpasar'||c==='tabanan') ? 9*60+15 : 8*60+15;
+}
+function isTelat(jam){ const j=jamToMin(jam); return j>=0 && j>batasTelatMin(); }
 function batasTelatStr(){ const m=batasTelatMin(); return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'); }
+/* Titik kantor + radius izin absen. */
+function titikKantor(){
+  if(!ATURAN) return null;
+  const la=Number(String(ATURAN['Latitude']||'').trim()), ln=Number(String(ATURAN['Longitude']||'').trim());
+  if(!isFinite(la) || !isFinite(ln) || (la===0 && ln===0)) return null;
+  return { lat:la, lng:ln, radius: Math.max(1, aturNum('Radius', RADIUS_DEFAULT)) };
+}
+/* Jarak dua titik GPS dalam meter (rumus Haversine). */
+function jarakMeter(lat1,lng1,lat2,lng2){
+  const R=6371000, rad=x=>x*Math.PI/180;
+  const dLat=rad(lat2-lat1), dLng=rad(lng2-lng1);
+  const a=Math.sin(dLat/2)*Math.sin(dLat/2)+
+          Math.cos(rad(lat1))*Math.cos(rad(lat2))*Math.sin(dLng/2)*Math.sin(dLng/2);
+  return 2*R*Math.asin(Math.min(1,Math.sqrt(a)));
+}
+function fmtJarak(m){ return m>=1000 ? (m/1000).toFixed(2)+' km' : Math.round(m)+' m'; }
 function inRange(d,start,end){ d=String(d||'').slice(0,10); if(!d) return false;
   if(start && d<start) return false; if(end && d>end) return false; return true; }
 // modal
@@ -230,6 +277,7 @@ function enterApp(){
   $('#tName').textContent=ME.nama;
   $('#tSub').textContent=(ME.jabatan||'Cleaner')+(ME.cabang?(' · '+ME.cabang):'');
   $('#avatar').textContent=(ME.nama||'C').charAt(0).toUpperCase();
+  loadAturan().then(()=>{ if(TAB==='overview') renderOverview(); });  // aturan telat dari HRD
   switchTab('overview');
 }
 
@@ -421,6 +469,7 @@ async function renderAbsen(){
   }
   // Aturan: hanya SEKALI masuk & SEKALI pulang per hari
   $('#view').innerHTML='<div class="empty">Memuat…</div>';
+  await loadAturan();                       // aturan terbaru dari HRD
   const today=ymd();
   const todays=(await myAbsen()).filter(a=>a['Tanggal']===today);
   const sudahMasuk =todays.some(a=>norm(a['Tipe'])==='masuk');
@@ -433,27 +482,45 @@ async function renderAbsen(){
   }
 
   const now=new Date(); const jamNow=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  const K=titikKantor();
   let info;
   if(tipe==='Masuk'){
     info = isTelat(jamNow)
       ? '⚠️ <b>Absen Masuk · Terlambat</b><div class="small muted" style="margin-top:4px">Batas tepat waktu '+batasTelatStr()+'. Sekarang '+jamNow+'.</div>'
       : '🌅 <b>Absen Masuk · Tepat waktu</b><div class="small muted" style="margin-top:4px">Batas tepat waktu '+batasTelatStr()+'.</div>';
   } else {
-    info = '🌇 <b>Absen Pulang</b><div class="small muted" style="margin-top:4px">Otomatis, setelah jam 12 siang.</div>';
+    const jp = ATURAN && String(ATURAN['Jam Pulang']||'').trim();
+    info = '🌇 <b>Absen Pulang</b><div class="small muted" style="margin-top:4px">'+
+           (jp ? ('Jam pulang '+esc(String(jp).slice(0,5))+'.') : 'Otomatis, setelah jam 12 siang.')+'</div>';
   }
+  const aturanInfo = K
+    ? '<div class="small muted" style="margin-top:6px">📌 Harus berada maksimal <b>'+K.radius+' m</b> dari titik kantor '+esc(ME.cabang||'')+'.</div>'
+    : '<div class="small muted" style="margin-top:6px">📌 Titik kantor belum diatur HRD — absen tidak dibatasi jarak.</div>';
+
   $('#view').innerHTML=
     '<div class="h-title">Absen Selfie</div>'+
-    '<div class="card" style="padding:12px 14px;margin-bottom:12px">'+info+'</div>'+
+    '<div class="card" style="padding:12px 14px;margin-bottom:12px">'+info+aturanInfo+'</div>'+
     '<div class="cam-wrap" id="camWrap"><video id="cam" autoplay playsinline muted></video></div>'+
     '<div class="gps" id="gpsInfo">📍 Mengambil lokasi GPS…</div>'+
     '<button class="btn btn-gold" id="btnShot">📸 Ambil Foto</button>'+
     '<button class="btn hide" id="btnRetake" style="margin-top:8px">Ulangi Foto</button>'+
-    '<button class="btn hide" id="btnKirim" style="margin-top:8px">Kirim Absen '+tipe+'</button>';
+    '<button class="btn hide" id="btnKirim" style="margin-top:8px">Kirim Absen '+tipe+'</button>'+
+    '<button class="btn btn-ghost hide" id="btnUlangGps" style="margin-top:8px">🔄 Cek Ulang Lokasi</button>';
   $('#btnShot').onclick=takeShot;
   $('#btnRetake').onclick=()=>renderAbsen();
   $('#btnKirim').onclick=()=>kirimAbsen(tipe);
+  $('#btnUlangGps').onclick=()=>{ GPS=null; $('#gpsInfo').innerHTML='📍 Mengambil lokasi GPS…'; getGps(); };
   startCam();
   getGps();
+}
+/* Kunci tombol Kirim bila di luar radius kantor / GPS belum siap. */
+function updateAbsenGate(){
+  const btn=$('#btnKirim'); if(!btn) return;
+  const K=titikKantor();
+  if(!K){ btn.disabled=false; return; }          // titik belum diatur → tidak dibatasi
+  const boleh = !!(GPS && GPS.ok);
+  btn.disabled = !boleh;
+  btn.style.opacity = boleh ? '' : '.5';
 }
 async function startCam(){
   try{ CAM=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});
@@ -464,17 +531,39 @@ function stopCam(){ if(CAM){ CAM.getTracks().forEach(t=>t.stop()); CAM=null; } }
 function getGps(){
   if(!navigator.geolocation){ $('#gpsInfo').innerHTML='📍 GPS tidak didukung perangkat.'; return; }
   navigator.geolocation.getCurrentPosition(
-    async pos=>{ GPS={lat:pos.coords.latitude,lng:pos.coords.longitude,place:''};
-      const koord=GPS.lat.toFixed(5)+', '+GPS.lng.toFixed(5);
-      $('#gpsInfo').innerHTML='📍 Lokasi terkunci · <span class="small muted">mencari nama tempat…</span>';
-      try{
-        const nm=await reverseGeocode(GPS.lat,GPS.lng);
-        GPS.place=nm||'';
-        $('#gpsInfo').innerHTML='📍 <b>'+esc(nm||'Lokasi tidak dikenal')+'</b><br><span class="small muted">'+koord+'</span>';
-      }catch(e){ $('#gpsInfo').innerHTML='📍 <b>'+koord+'</b>'; }
+    async pos=>{
+      GPS={ lat:pos.coords.latitude, lng:pos.coords.longitude, acc:pos.coords.accuracy||null, place:'', dist:null, ok:true };
+      const K=titikKantor();
+      if(K){
+        GPS.dist = jarakMeter(GPS.lat, GPS.lng, K.lat, K.lng);
+        GPS.ok   = GPS.dist <= K.radius;
+      }
+      paintGps();                       // tampil cepat dulu (tanpa nama tempat)
+      updateAbsenGate();
+      const ug=$('#btnUlangGps'); if(ug) ug.classList.remove('hide');
+      try{ GPS.place=(await reverseGeocode(GPS.lat, GPS.lng))||''; paintGps(); }catch(e){}
     },
-    err=>{ $('#gpsInfo').innerHTML='📍 <span style="color:#B23A3A">Gagal ambil GPS ('+esc(err.message)+'). Izinkan lokasi.</span>'; },
-    {enableHighAccuracy:true,timeout:10000});
+    err=>{ GPS=null; updateAbsenGate();
+      $('#gpsInfo').innerHTML='📍 <span style="color:#B23A3A">Gagal ambil GPS ('+esc(err.message)+'). Izinkan lokasi.</span>';
+      const ug=$('#btnUlangGps'); if(ug) ug.classList.remove('hide');
+    },
+    {enableHighAccuracy:true, timeout:15000, maximumAge:0});
+}
+/* Gambar kotak info GPS: nama tempat, koordinat, akurasi, dan jarak ke kantor. */
+function paintGps(){
+  const box=$('#gpsInfo'); if(!box || !GPS) return;
+  const K=titikKantor();
+  const koord=GPS.lat.toFixed(5)+', '+GPS.lng.toFixed(5);
+  const akur=GPS.acc!=null ? (' · akurasi ±'+Math.round(GPS.acc)+' m') : '';
+  let h='📍 <b>'+esc(GPS.place||'Mencari nama tempat…')+'</b>'+
+        '<br><span class="small muted">'+koord+akur+'</span>';
+  if(K && GPS.dist!=null){
+    h += GPS.ok
+      ? '<div class="gps-ok">✅ <b>'+fmtJarak(GPS.dist)+'</b> dari kantor — dalam batas '+K.radius+' m.</div>'
+      : '<div class="gps-bad">⛔ <b>'+fmtJarak(GPS.dist)+'</b> dari kantor — maksimal <b>'+K.radius+' m</b>.'+
+        '<br><span class="small">Mendekat ke titik kantor lalu tekan “Cek Ulang Lokasi”.</span></div>';
+  }
+  box.innerHTML=h;
 }
 async function reverseGeocode(lat,lng){
   // Utama: Nominatim (OpenStreetMap) — detail sampai nama jalan / lingkungan (RT/RW bila ada di peta)
@@ -513,9 +602,16 @@ function takeShot(){
   stopCam();
   const wrap=$('#camWrap'); wrap.innerHTML='<img src="'+SHOT+'">';
   $('#btnShot').classList.add('hide'); $('#btnRetake').classList.remove('hide'); $('#btnKirim').classList.remove('hide');
+  updateAbsenGate();
 }
 async function kirimAbsen(tipe){
   if(!SHOT){ toast('Ambil foto dulu'); return; }
+  // Pemeriksaan terakhir: harus di dalam radius titik kantor (bila HRD sudah mengaturnya).
+  const K=titikKantor();
+  if(K){
+    if(!GPS){ toast('Lokasi GPS belum didapat. Tekan “Cek Ulang Lokasi”.'); return; }
+    if(!GPS.ok){ toast('Terlalu jauh dari kantor ('+fmtJarak(GPS.dist)+'). Maksimal '+K.radius+' m.'); return; }
+  }
   $('#btnKirim').textContent='Mengirim…'; $('#btnKirim').disabled=true;
   try{
     // upload foto
