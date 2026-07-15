@@ -666,15 +666,26 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .rem-actions{display:flex;flex-direction:column;gap:10px}
 .rem-actions .btn{width:100%}
 .konten-row{text-decoration:none}
-.kontn-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.chat-pre{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;
+  font-family:inherit;font-size:13px;line-height:1.6;white-space:pre-wrap;margin:0 0 12px}
+.kontn-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
 .kontn-item{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface);display:flex;flex-direction:column}
 .kontn-img{width:100%;aspect-ratio:1/1;object-fit:cover;cursor:zoom-in;background:var(--surface-2)}
 .kontn-noimg{width:100%;aspect-ratio:1/1;display:grid;place-items:center;color:var(--faint);font-size:12px;background:var(--surface-2)}
 .kontn-vid{width:100%;aspect-ratio:1/1;object-fit:cover;background:#000;display:block}
 .kontn-judul{padding:9px 10px 0;font-size:13px;font-weight:800;color:var(--petrol);line-height:1.35}
 .kontn-teks{padding:8px 10px;font-size:12.5px;color:var(--ink);white-space:pre-wrap;flex:1}
-.kontn-act{display:flex;gap:6px;padding:8px 10px;border-top:1px solid var(--line)}
-.kontn-act .btn{flex:1;justify-content:center}
+.kontn-act{display:flex;flex-direction:column;gap:7px;padding:10px;border-top:1px solid var(--line)}
+.kontn-act .btn{width:100%;justify-content:center;white-space:nowrap;padding:10px 12px;font-size:13px}
+.kontn-act .btn svg{flex:none}
+/* Tab konten */
+.kontn-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.kontn-tab{padding:9px 16px;border-radius:999px;border:1px solid var(--line);background:var(--surface);
+  color:var(--muted);font-weight:700;font-size:13px;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:7px}
+.kontn-tab:hover{border-color:var(--petrol)}
+.kontn-tab.on{background:var(--petrol);color:#fff;border-color:transparent}
+.kontn-tab .cnt{font-size:11px;font-weight:800;background:rgba(0,0,0,.10);padding:1px 7px;border-radius:20px}
+.kontn-tab.on .cnt{background:rgba(255,255,255,.22)}
 .csv-list{display:flex;flex-direction:column;gap:8px}
 .csv-row{display:flex;align-items:center;gap:14px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
 .csv-row .set-txt{flex:1;min-width:0}
@@ -1860,7 +1871,7 @@ VIEWS.aturanAbsen = {
 VIEWS.chatHarian = {
   sheet:'CHAT_HARIAN', title:'Chat Harian', sub:'', inSettings:true, countTop:true, noSyncBtn:true,
   idField:'ID Laporan', canAdd:true, canEdit:true, canDelete:true,
-  sortBy:['Tanggal'],
+  sortBy:['Tanggal'], sortDesc:true, paged:true, chatSum:true,
   table:['Tanggal','Cabang','Cust Baru Organik','Cust Baru Iklan','Cust Lama','Jumlah Orderan','Telp','SDM'],
   search:['Cabang','SDM'],
   filters:['Cabang'],
@@ -2643,10 +2654,11 @@ function applyClientFilters(rows){
       return String(a['Nama Karyawan']||'').localeCompare(String(b['Nama Karyawan']||''),'id');
     });
   } else if(v.sortBy && v.sortBy.length){
+    const dir = v.sortDesc ? -1 : 1;      // sortDesc → data terbaru di paling atas
     out.sort((a,b)=>{
       for(const k of v.sortBy){
         const x=String(a[k]==null?'':a[k]), y=String(b[k]==null?'':b[k]);
-        const c=x.localeCompare(y,'id',{numeric:true}); if(c) return c;
+        const c=x.localeCompare(y,'id',{numeric:true}); if(c) return c*dir;
       }
       return 0;
     });
@@ -2682,7 +2694,8 @@ function renderTable(){
   const v=state.view;
   let rows=applyClientFilters(state.rows);
   if(v.sheet==='BONUS') rows=rows.slice().sort((a,b)=>String(a['Tanggal Pengerjaan']||'').localeCompare(String(b['Tanggal Pengerjaan']||'')));
-  const summary=(v.sheet==='BONUS' && state.filters['Nama Cleaner']) ? bonusSummaryCard(rows, state.filters['Nama Cleaner']) : '';
+  let summary=(v.sheet==='BONUS' && state.filters['Nama Cleaner']) ? bonusSummaryCard(rows, state.filters['Nama Cleaner']) : '';
+  if(v.chatSum) summary += chatBulananCard(rows);
   if(!rows.length){ $('#panel').innerHTML=summary+emptyState('Belum ada data'); setCount(0,countNoun()); wireSummary(); return; }
   const cols=v.table.filter(c=>HIDDEN_COLS.indexOf(c)<0);
   const PAGE=15; const total=rows.length;
@@ -5646,6 +5659,8 @@ async function saveForm(){
     }else{
       await api({action:'create', sheet:v.sheet, data});
       toast('Data ditambahkan','ok');
+      // Chat Harian: langsung buka WhatsApp berisi laporan hari itu.
+      if(v.sheet==='CHAT_HARIAN'){ closeOverlay(); kirimChatHarianWa(data); invalidateLists(); await loadList(true); return; }
       if(v.keepOpen && !state.editing){
         // Simpan & lanjut: biarkan pop up terbuka, kosongkan field bonus untuk input berikutnya
         ['Jenis','Nominal','Nama Cleaner'].forEach(k=>{ const el=getEl(k); if(el){ el.value=''; } });
@@ -6734,43 +6749,124 @@ async function renderTodo(){
   });
   setCount(rows.length,'tugas');
 }
+const KONTEN_TIPE=[['Konten Story','Jadikan Story'],['Promo','Kirim Promo'],['Konten Follow Up','Kirim Follow Up']];
 async function renderKonten(){
   $('#panel').innerHTML='<div class="cap-empty">Memuat konten…</div>';
   let data=[];
   try{ const r=await window.sb.from('KONTEN').select('*').order('created_at',{ascending:false}); data=r.data||[]; }
   catch(e){ data=[]; }
-  const types=[['Konten Story','Buat Story'],['Promo','Buat Promo'],['Konten Follow Up','Buat Follow Up']];
-  const grp = data.reduce((m,x)=>{ (m[x['Tipe']]=m[x['Tipe']]||[]).push(x); return m; },{});
-  let html='';
-  types.forEach(t=>{
-    const tipe=t[0], btnLabel=t[1]; const items=grp[tipe]||[];
-    html+='<div class="cap-card"><div class="cap-card-t">'+esc(tipe)+'</div>';
-    if(!items.length){ html+='<div class="cap-empty">Belum ada konten. Minta tim Marketing menambahkan.</div>'; }
-    else{
-      html+='<div class="kontn-grid">'+items.map(it=>{
-        const img=it['Gambar'], vid=it['Video'];
-        const media = vid
-          ? '<video class="kontn-vid" src="'+esc(vid)+'" controls preload="metadata" playsinline></video>'
-          : (img?'<img class="kontn-img" src="'+esc(img)+'" data-img="'+esc(img)+'" alt="">':'<div class="kontn-noimg">Tanpa gambar</div>');
-        return '<div class="kontn-item">'+
-          media+
-          (it['Judul']?'<div class="kontn-judul">'+esc(it['Judul'])+'</div>':'')+
-          (it['Teks']?'<div class="kontn-teks">'+esc(it['Teks'])+'</div>':'')+
-          '<div class="kontn-act">'+
-            (img?'<a class="btn btn-ghost btn-sm" href="'+esc(img)+'" target="_blank" download>'+svg('file')+'Gambar</a>':'')+
-            (vid?'<a class="btn btn-ghost btn-sm" href="'+esc(vid)+'" target="_blank" download>'+svg('file')+'Video</a>':'')+
-            '<button class="btn btn-primary btn-sm" data-kirim="'+esc(it['Teks']||'')+'">'+svg('wa')+esc(btnLabel)+'</button>'+
-          '</div></div>';
-      }).join('')+'</div>';
-    }
-    html+='</div>';
-  });
+  state.cache.konten=data;
+  if(!state.kontenTab) state.kontenTab=KONTEN_TIPE[0][0];
+  paintKonten();
+}
+function paintKonten(){
+  const data=state.cache.konten||[];
+  const grp=data.reduce((m,x)=>{ (m[x['Tipe']]=m[x['Tipe']]||[]).push(x); return m; },{});
+  const tipe=state.kontenTab, btnLabel=(KONTEN_TIPE.find(t=>t[0]===tipe)||[])[1]||'Kirim';
+  const items=grp[tipe]||[];
+
+  const tabs='<div class="kontn-tabs">'+KONTEN_TIPE.map(t=>
+    '<button class="kontn-tab'+(tipe===t[0]?' on':'')+'" data-ktab="'+esc(t[0])+'">'+esc(t[0])+
+    '<span class="cnt">'+((grp[t[0]]||[]).length)+'</span></button>').join('')+'</div>';
+
+  let html='<div class="cap-card"><div class="cap-card-t">'+esc(tipe)+'</div>';
+  if(!items.length){ html+='<div class="cap-empty">Belum ada konten. Minta tim Marketing menambahkan.</div>'; }
+  else{
+    html+='<div class="kontn-grid">'+items.map(it=>{
+      const img=it['Gambar'], vid=it['Video'];
+      const media = vid
+        ? '<video class="kontn-vid" src="'+esc(vid)+'" controls preload="metadata" playsinline></video>'
+        : (img?'<img class="kontn-img" src="'+esc(img)+'" data-img="'+esc(img)+'" alt="">':'<div class="kontn-noimg">Tanpa gambar</div>');
+      return '<div class="kontn-item">'+
+        media+
+        (it['Judul']?'<div class="kontn-judul">'+esc(it['Judul'])+'</div>':'')+
+        (it['Teks']?'<div class="kontn-teks">'+esc(it['Teks'])+'</div>':'')+
+        '<div class="kontn-act">'+
+          (img?'<a class="btn btn-ghost" href="'+esc(img)+'" target="_blank" download>'+svg('file')+'Unduh Gambar</a>':'')+
+          (vid?'<a class="btn btn-ghost" href="'+esc(vid)+'" target="_blank" download>'+svg('file')+'Unduh Video</a>':'')+
+          '<button class="btn btn-primary" data-kirim="'+esc(it['Teks']||'')+'">'+svg('wa')+esc(btnLabel)+'</button>'+
+        '</div></div>';
+    }).join('')+'</div>';
+  }
+  html+='</div>';
+
   $('#panel').innerHTML =
-    '<div class="ops-note">Unduh <b>gambar/video</b>-nya, lalu klik tombol untuk mengirim <b>teks</b>-nya ke WhatsApp (pilih diri sendiri / Status). Judul hanya penanda, tidak ikut terkirim. Konten diisi oleh tim Marketing.</div>'+html;
+    '<div class="ops-note">Unduh <b>gambar/video</b>-nya, lalu klik tombol untuk mengirim <b>teks</b>-nya ke WhatsApp (pilih diri sendiri / Status). Judul hanya penanda, tidak ikut terkirim. Konten diisi oleh tim Marketing.</div>'+
+    tabs+html;
+  document.querySelectorAll('[data-ktab]').forEach(b=>b.addEventListener('click',()=>{
+    state.kontenTab=b.dataset.ktab; paintKonten();
+  }));
   document.querySelectorAll('[data-kirim]').forEach(b=>b.addEventListener('click',()=>{
     window.open('https://wa.me/?text='+encodeURIComponent(b.dataset.kirim||''),'_blank');
   }));
   document.querySelectorAll('#panel [data-img]').forEach(b=>b.addEventListener('click',()=>openImg(b.dataset.img)));
+}
+
+/* Rekap Chat Harian per bulan (mengikuti filter yang aktif). */
+function chatBulananCard(rows){
+  if(!rows || rows.length<=15) return '';        // tampil bila data lebih dari 15
+  const N=v=>Number(String(v==null?'':v).replace(/[^0-9-]/g,''))||0;
+  const per={};
+  rows.forEach(r=>{
+    const ym=String(parseAnyDate(r['Tanggal'])||'').slice(0,7); if(!ym) return;
+    const o=per[ym]||(per[ym]={hari:0,bo:0,bi:0,lama:0,cbo:0,cbi:0,clama:0,ord:0,telp:0});
+    o.hari++; o.bo+=N(r['Cust Baru Organik']); o.bi+=N(r['Cust Baru Iklan']); o.lama+=N(r['Cust Lama']);
+    o.cbo+=N(r['Closing Cust Baru Organik']); o.cbi+=N(r['Closing Cust Baru Iklan']); o.clama+=N(r['Closing Cust Lama']);
+    o.ord+=N(r['Jumlah Orderan']); o.telp+=N(r['Telp']);
+  });
+  const keys=Object.keys(per).sort().reverse();  // bulan terbaru dulu
+  if(!keys.length) return '';
+  const tr=keys.map(k=>{ const o=per[k];
+    const chat=o.bo+o.bi+o.lama, clos=o.cbo+o.cbi+o.clama;
+    const rate=chat?Math.round(clos/chat*100):0;
+    return '<tr><td class="l"><b>'+esc(monthLabel(k))+'</b><div class="cs-sub">'+o.hari+' hari</div></td>'+
+      '<td class="c">'+o.bo+'</td><td class="c">'+o.bi+'</td><td class="c">'+o.lama+'</td>'+
+      '<td class="c"><b>'+chat+'</b></td>'+
+      '<td class="c">'+o.cbo+'</td><td class="c">'+o.cbi+'</td><td class="c">'+o.clama+'</td>'+
+      '<td class="c"><b>'+clos+'</b></td>'+
+      '<td class="c">'+rate+'%</td><td class="c"><b>'+o.ord+'</b></td><td class="c">'+o.telp+'</td></tr>';
+  }).join('');
+  return '<div class="cap-card"><div class="cap-card-t">Rekap per Bulan — '+keys.length+' bulan · '+rows.length+' laporan</div>'+
+    '<div class="tbl-wrap"><table class="ops-tbl"><thead>'+
+      '<tr><th class="l" rowspan="2">Bulan</th><th class="c" colspan="4">Customer Chat</th>'+
+      '<th class="c" colspan="4">Closing</th><th class="c" rowspan="2">Rate</th>'+
+      '<th class="c" rowspan="2">Orderan</th><th class="c" rowspan="2">Telp</th></tr>'+
+      '<tr><th class="c">Organik</th><th class="c">Iklan</th><th class="c">Lama</th><th class="c">Total</th>'+
+      '<th class="c">Organik</th><th class="c">Iklan</th><th class="c">Lama</th><th class="c">Total</th></tr>'+
+    '</thead><tbody>'+tr+'</tbody></table></div>'+
+    '<div class="ops-note" style="margin:10px 0 0">Rekap mengikuti filter di atas. Daftar harian di bawah dibatasi 15 baris per halaman.</div></div>';
+}
+
+/* Teks laporan Chat Harian untuk dikirim ke WhatsApp. */
+function chatHarianWaText(d){
+  // Angka 0 / kosong sengaja ditampilkan kosong, sesuai format laporan.
+  const n=v=>{ const s=String(v==null?'':v).replace(/[^0-9-]/g,''); return (s===''||s==='0')?'':s; };
+  const t=String(d['SDM']||'').trim();
+  return 'KlinKlin ('+String(d['Cabang']||'').trim()+')\n\n'+
+    tglHariId(d['Tanggal'])+'\n\n'+
+    'Cust Baru Organik : '+n(d['Cust Baru Organik'])+'\n'+
+    'Cust Baru Iklan : '+n(d['Cust Baru Iklan'])+'\n'+
+    'Cust Lama : '+n(d['Cust Lama'])+'\n\n'+
+    'Closing Cust Baru Organik : '+n(d['Closing Cust Baru Organik'])+'\n'+
+    'Closing Cust Baru Iklan : '+n(d['Closing Cust Baru Iklan'])+'\n'+
+    'Closing Cust Lama : '+n(d['Closing Cust Lama'])+'\n\n'+
+    'Jumlah Orderan Hari ini : '+n(d['Jumlah Orderan'])+'\n'+
+    'Telepon : '+n(d['Telp'])+'\n'+
+    'SDM : '+t;
+}
+/* Buka WhatsApp berisi laporan. Bila pop-up diblokir browser → tampilkan tombol. */
+function kirimChatHarianWa(d){
+  const teks=chatHarianWaText(d);
+  const url='https://wa.me/?text='+encodeURIComponent(teks);
+  let w=null; try{ w=window.open(url,'_blank'); }catch(e){}
+  if(w) return;
+  $('#modalTitle').textContent='Kirim Laporan ke WhatsApp';
+  $('#modalBody').innerHTML='<div class="ops-note" style="margin-top:0">Laporan tersimpan. Browser memblokir pembukaan otomatis — tekan tombol di bawah untuk mengirim.</div>'+
+    '<pre class="chat-pre">'+esc(teks)+'</pre>'+
+    '<a class="btn btn-primary" style="width:100%;justify-content:center" href="'+esc(url)+'" target="_blank" rel="noopener">'+svg('wa')+'Kirim ke WhatsApp</a>';
+  const sv=$('#modalSave'); if(sv) sv.style.display='none';
+  const cc=$('#modalCancel'); if(cc){ cc.textContent='Tutup'; cc.classList.add('btn-danger'); }
+  openOverlay();
 }
 
 function csReminderHTML(){
