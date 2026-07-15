@@ -1336,7 +1336,8 @@ const IC = {
   upload:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>',
   inbox:'<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
   wa:'<path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.38 8.38 0 0 1-4-1L3 21l2-5.5a8.38 8.38 0 0 1-1-4A8.5 8.5 0 0 1 21 11.5z"/>',
-  refresh:'<path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>'
+  refresh:'<path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>',
+  map:'<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>'
 };
 function svg(name, cls){
   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '+
@@ -1570,6 +1571,7 @@ const VIEWS = {
     form:[
       f('No Order','ordersearch',{list:'order', req:true, full:true}),
       f('Nama Customer','text',{ro:true}), f('Tanggal Pengerjaan','date',{ro:true}),
+      {btn:'mapCust'},
       f('Jenis','select',{opts:JENIS_BONUS, req:true}), f('Nominal','money',{req:true}),
       f('Keterangan','text',{full:true}),
       f('Nama Cleaner','multidyn',{full:true}),
@@ -1810,6 +1812,25 @@ VIEWS.kantor = {
     f('Harga Sewa','money',{help:'Kosongkan bila status Aset'}),
     f('Awal Sewa','date'),
     f('Akhir Sewa','date')
+  ]
+};
+/* ===== ATURAN ABSENSI (HRD) — acuan absen portal cleaner, per cabang ===== */
+VIEWS.aturanAbsen = {
+  sheet:'ABSEN_ATURAN', title:'Aturan Absensi', sub:'', inSettings:true, countTop:true, noSyncBtn:true,
+  idField:'Cabang', keyFields:['Cabang'], canAdd:true, canEdit:true, canDelete:true,
+  sortBy:['Cabang'],
+  table:['Cabang','Jam Masuk','Batas Telat','Jam Pulang','Latitude','Longitude','Radius'],
+  search:['Cabang'],
+  form:[
+    f('Cabang','select',{opts:CABANG, req:true}),
+    {sec:'Jam Kerja'},
+    f('Jam Masuk','time',{req:true, help:'Jam mulai kerja, mis. 08:00'}),
+    f('Toleransi Telat','num',{help:'Menit keterlambatan yang masih dimaafkan. Isi 15 → absen di atas jam masuk + 15 menit dihitung TELAT. Kosong/0 = telat begitu lewat jam masuk.'}),
+    f('Jam Pulang','time',{help:'Jam pulang kerja, mis. 17:00'}),
+    {sec:'Titik Lokasi Kantor (acuan absen)'},
+    f('Latitude','text',{help:'Contoh: -7.2575. Ambil dari Google Maps: klik kanan titik kantor → angka pertama.'}),
+    f('Longitude','text',{help:'Contoh: 112.7521. Angka kedua dari Google Maps.'}),
+    f('Radius','num',{help:'Jarak maksimal absen dari kantor, dalam meter. Mis. 100 = cleaner harus dalam 100 m dari titik di atas. Kosong = tidak dibatasi.'})
   ]
 };
 VIEWS.chatHarian = {
@@ -2468,7 +2489,7 @@ async function loadList(force){
     if(v.special==='kpiCS'){ await loadTargets(); state.kpiCsSort=null; }
     if(v.special==='dashboard') await loadDashData();
     if(v.special==='grafik') await loadDashData();
-    if(v.special==='absensi') await loadCleanerList();
+    if(v.special==='absensi'){ await loadCleanerList(); await loadAturanAbsen(); }
     renderView();
     syncDone(state.rows.length);
   }catch(err){ setSync(false); toast(err.message,'err'); $('#panel').innerHTML=emptyState('Gagal memuat data'); }
@@ -4545,6 +4566,29 @@ function cell(v,c,r){
     const n=periodeHari(r['Awal Periode'], r['Akhir Periode']);
     return n>0 ? '<b>'+esc(n+' hari')+'</b>' : '<span style="color:var(--faint)">—</span>';
   }
+  if(c==='Batas Telat'){
+    // Kolom hitung pada Aturan Absensi: Jam Masuk + Toleransi Telat.
+    const jm=jamToMin(r['Jam Masuk']);
+    if(jm==null) return '<span style="color:var(--faint)">—</span>';
+    const tol=Number(String(r['Toleransi Telat']||'').replace(/[^0-9]/g,''))||0;
+    return '<b>'+esc(minToJam(jm+tol))+'</b>'+(tol?' <span style="color:var(--faint)">(+'+tol+'m)</span>':'');
+  }
+  if(c==='Jam Masuk' || c==='Jam Pulang'){
+    return val!=null && val!=='' ? esc(jamShort(val)) : '<span style="color:var(--faint)">—</span>';
+  }
+  if(c==='Latitude' || c==='Longitude'){
+    if(val==null || val==='') return '<span style="color:var(--faint)">—</span>';
+    // Longitude sekaligus jadi tautan cek titik di Google Maps.
+    if(c==='Longitude' && r['Latitude']){
+      return '<a class="flink" href="https://www.google.com/maps/search/?api=1&query='+
+        encodeURIComponent(r['Latitude']+','+val)+'" target="_blank" rel="noopener" title="Cek titik di peta">'+esc(val)+'</a>';
+    }
+    return esc(val);
+  }
+  if(c==='Radius'){
+    const n=Number(String(val||'').replace(/[^0-9]/g,''))||0;
+    return n>0 ? esc(n+' m') : '<span style="color:var(--faint)">tanpa batas</span>';
+  }
   if(c==='PPn'){
     return Number(moneyDigits(val))>0 ? '11%' : '<span style="color:var(--faint)">—</span>';
   }
@@ -4605,6 +4649,11 @@ async function openForm(row, pre){
   wireFields(v);
   if(v.special==='gaji'){ populateKselect(); recomputeGaji(); }
   if(v.special==='order'){ recomputeOrder(); wireSvcRows(); if(row && row['Bukti Transfer']) showInvoiceBtn(); }
+  if(v.special==='bonus'){
+    // Aktifkan tombol Map bila No Order sudah terisi (mis. dibuka dari tombol "Input Bonus" di baris order).
+    const _id=data['No Order'];
+    if(_id){ const _o=(state.cache.order||[]).find(x=>String(x['ID Order'])===String(_id)); if(_o) setMapCust(_o); }
+  }
   openOverlay();
 }
 function defaults(v){
@@ -4623,6 +4672,12 @@ function defaults(v){
 function renderField(fd, val){
   if(fd.btn==='addSvc'){
     return '<div class="field full"><button type="button" class="btn btn-ghost btn-sm" id="addSvcBtn">'+svg('plus')+'Tambah layanan</button></div>';
+  }
+  if(fd.btn==='mapCust'){
+    // Tombol peta alamat customer (Input Bonus). Aktif setelah No Order dipilih.
+    return '<div class="field full"><button type="button" class="btn btn-ghost btn-sm" id="btnMapCust" disabled>'+
+      svg('map')+'Buka Map Alamat</button>'+
+      '<div class="bs-sub" id="mapCustAddr" style="margin-top:6px">Pilih No Order dulu untuk memuat alamat.</div></div>';
   }
   const id='fld_'+fd.k.replace(/[^a-z0-9]/gi,'_');
   const full = fd.full || fd.t==='textarea' ? ' full':'';
@@ -4702,13 +4757,15 @@ function renderField(fd, val){
   } else if(fd.t==='money'){
     inner = '<input type="text" inputmode="numeric" data-k="'+esc(fd.k)+'" data-money="1"'+ro+' value="'+esc(fmtRp(val))+'">';
   } else {
-    let type = fd.t==='num'?'number': fd.t==='date'?'date': fd.t==='month'?'month':'text';
+    let type = fd.t==='num'?'number': fd.t==='date'?'date': fd.t==='month'?'month': fd.t==='time'?'time':'text';
     let ival = val;
     if(fd.t==='date') ival = parseAnyDate(val)||'';
     else if(fd.t==='month') ival = parseAnyMonth(val)||'';
+    else if(fd.t==='time') ival = String(val||'').slice(0,5);
     inner = '<input type="'+type+'" data-k="'+esc(fd.k)+'"'+ro+' value="'+esc(ival)+'">';
   }
-  return '<div class="field'+full+comp+svc+hidden+'"><label>'+esc(fd.k)+(fd.req?' <span class="req">*</span>':'')+'</label>'+inner+'</div>';
+  const helpHtml = fd.help ? '<div class="bs-sub" style="margin-top:5px">'+esc(fd.help)+'</div>' : '';
+  return '<div class="field'+full+comp+svc+hidden+'"><label>'+esc(fd.label||fd.k)+(fd.req?' <span class="req">*</span>':'')+'</label>'+inner+helpHtml+'</div>';
 }
 
 /* prefetch datalist sources */
@@ -5001,6 +5058,25 @@ function onPickOrder(){
   setVal('Nama Customer', o['Nama Customer']);
   setVal('Tanggal Pengerjaan', o['Tanggal Pengerjaan']);
   setBonusCleanerChips(o['Nama Cleaner']);
+  setMapCust(o);
+}
+/* Aktifkan tombol "Buka Map Alamat" sesuai alamat customer pada order terpilih. */
+function setMapCust(o){
+  const btn=$('#btnMapCust'), info=$('#mapCustAddr');
+  if(!btn) return;
+  const alamat=String((o&&o['Alamat'])||'').trim();
+  const nama=String((o&&o['Nama Customer'])||'').trim();
+  if(!alamat){
+    btn.disabled=true;
+    if(info) info.textContent = o ? 'Order ini belum punya alamat.' : 'Pilih No Order dulu untuk memuat alamat.';
+    return;
+  }
+  btn.disabled=false;
+  if(info) info.textContent = (nama?(nama+' — '):'')+alamat;
+  btn.onclick=()=>{
+    // Buka Google Maps di tab baru sesuai alamat customer.
+    window.open('https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(alamat), '_blank', 'noopener');
+  };
 }
 /* Bangun chip cleaner pada form Input Bonus dari cleaner order terpilih
    (semua tercentang; CS bisa pilih 1, beberapa, atau semua). */
@@ -5524,6 +5600,7 @@ function renderSettings(){
   const entries=[];
   if(role==='HRD') entries.push(
     {key:'karyawan', label:'Karyawan', desc:'Data seluruh karyawan & profil', icon:'users'},
+    {key:'aturanAbsen', label:'Aturan Absensi', desc:'Jam masuk, toleransi telat, jam pulang & titik lokasi kantor tiap cabang — acuan absen portal cleaner', icon:'map'},
     {key:'layanan', label:'Layanan', desc:'Daftar layanan untuk pilihan order', icon:'inbox'},
     {key:'gajiPokok', label:'Gaji Pokok', desc:'Setting gaji pokok, bonus & premi per cabang/jabatan/status', icon:'salary'});
   if(role==='OPERASIONAL') entries.push(
@@ -6033,8 +6110,32 @@ function showCleanerInsentif(name){
                 "Jam","Tipe"(Masuk/Pulang),foto,lat,lng
    ============================================================ */
 function jamToMin(s){ const m=String(s||'').match(/(\d{1,2})[:.](\d{2})/); return m ? (+m[1])*60+(+m[2]) : null; }
-function absenTelat(jamMasuk){ const a=jamToMin(jamMasuk), b=jamToMin(JAM_MASUK_BATAS); return a!=null && b!=null && a>b; }
+function minToJam(m){ if(m==null) return ''; m=((m%1440)+1440)%1440; return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'); }
 function jamShort(s){ const m=String(s||'').match(/(\d{1,2}[:.]\d{2})/); return m ? m[1].replace('.',':') : (s||''); }
+
+/* Aturan absensi per cabang (tabel ABSEN_ATURAN, diatur HRD di Pengaturan).
+   Bila cabang belum diatur → pakai JAM_MASUK_BATAS sebagai cadangan. */
+async function loadAturanAbsen(){
+  try{
+    const rows=trimKeys((await api({action:'list', sheet:'ABSEN_ATURAN'})).data||[]);
+    const map={}; rows.forEach(x=>{ if(x['Cabang']) map[norm(x['Cabang'])]=x; });
+    state.cache.absenAturan=map;
+  }catch(e){ state.cache.absenAturan={}; }
+}
+function aturanCabang(cab){ return (state.cache.absenAturan||{})[norm(cab)] || null; }
+function tolMenit(a){ return a ? (Number(String(a['Toleransi Telat']||'').replace(/[^0-9]/g,''))||0) : 0; }
+/* Batas absen masuk (menit) = Jam Masuk + Toleransi Telat. */
+function batasMasukMin(cab){
+  const a=aturanCabang(cab);
+  const jam=(a && a['Jam Masuk']) ? a['Jam Masuk'] : JAM_MASUK_BATAS;
+  const m=jamToMin(jam);
+  return m==null ? null : m + tolMenit(a);
+}
+function batasMasukStr(cab){ return minToJam(batasMasukMin(cab)); }
+function absenTelat(jamMasuk, cab){
+  const a=jamToMin(jamMasuk), b=batasMasukMin(cab);
+  return a!=null && b!=null && a>b;
+}
 
 /* Daftar cleaner (tabel KARYAWAN) untuk mendeteksi yang "tidak absen". */
 async function loadCleanerList(){
@@ -6062,7 +6163,7 @@ function absenGroups(rows){
     else if(tipe==='pulang'){ if(!g.pulang || String(r['Jam'])>String(g.pulang['Jam'])) g.pulang=r; }
   });
   const arr=Object.keys(map).map(k=>map[k]);
-  arr.forEach(g=>{ g.telat = g.masuk ? absenTelat(g.masuk['Jam']) : false; });
+  arr.forEach(g=>{ g.telat = g.masuk ? absenTelat(g.masuk['Jam'], g.cabang) : false; });
   return arr;
 }
 
@@ -6200,7 +6301,16 @@ function showAbsenDetail(g){
     const dur=jamToMin(g.pulang['Jam'])-jamToMin(g.masuk['Jam']);
     if(dur>0) h+=row('Durasi Kerja', Math.floor(dur/60)+' jam '+(dur%60)+' menit');
   }
-  h+=row('Batas Masuk', esc(JAM_MASUK_BATAS)+' <span style="color:var(--faint)">(lebih dari ini = telat)</span>');
+  { const a=aturanCabang(g.cabang), tol=tolMenit(a);
+    h+='<div class="dt-sec">Aturan Cabang '+esc(g.cabang||'-')+'</div>';
+    if(a){
+      h+=row('Jam Masuk', esc(jamShort(a['Jam Masuk'])||'-')+(tol?(' <span style="color:var(--faint)">+ toleransi '+tol+' menit</span>'):''));
+      h+=row('Batas Telat', '<b>'+esc(batasMasukStr(g.cabang))+'</b> <span style="color:var(--faint)">(lewat ini = telat)</span>');
+      if(a['Jam Pulang']) h+=row('Jam Pulang', esc(jamShort(a['Jam Pulang'])));
+    } else {
+      h+=row('Batas Telat', '<b>'+esc(batasMasukStr(g.cabang))+'</b> <span style="color:var(--faint)">(bawaan — cabang ini belum diatur di Pengaturan → Aturan Absensi)</span>');
+    }
+  }
 
   const idk=norm(g.idkar||''), nm=norm(g.nama||'');
   const hist=absenGroups((state.rows||[]).filter(r=> (idk && norm(r['ID Karyawan'])===idk) || norm(r['Nama'])===nm))
