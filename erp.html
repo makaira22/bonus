@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- KLINKLIN-BUILD: KONTEN-JUDUL-VIDEO + NUM-NULL-FIX + NAVY-PREMIUM-v1 -->
+<!-- KLINKLIN-BUILD: KONTEN-RELATION-FIX + KONTEN-JUDUL-VIDEO + NUM-NULL-FIX -->
 <html lang="id">
 <head>
 <meta charset="UTF-8" />
@@ -2236,7 +2236,10 @@ async function selectMenu(key){
   if(state.view && state.view.special==='absensi'){ const t=ymd(new Date()); state.dateStart=t; state.dateEnd=t; state.absStatus=''; }
   markActive(key);
   renderShell();
-  if(state.view && state.view.special==='konten'){ renderKonten(); return; }
+  if(state.view && state.view.special==='konten'){
+    if(state._ch){ try{ window.sb.removeChannel(state._ch); }catch(e){} state._ch=null; }
+    renderKonten(); return;
+  }
   await loadList();
   // REALTIME: begitu ada perubahan di tabel ini, muat ulang otomatis
   if(state._ch){ try{ window.sb.removeChannel(state._ch); }catch(e){} state._ch=null; }
@@ -2480,6 +2483,10 @@ function updateFbadge(){
 
 async function loadList(force){
   const v=state.view, key=state.viewKey;
+  // View khusus (Konten, Logo, Download Data, dll) tidak punya tabel. Tanpa penjaga ini,
+  // sb.from(null) → "Invalid relation name: relation must be a non-empty string".
+  // Bisa terpicu dari langganan realtime menu sebelumnya atau tombol Sinkronkan.
+  if(!v || !v.sheet){ setSync(false); return; }
   // Pakai data hasil sinkron sebelumnya saat pindah menu (tanpa minta server lagi),
   // kecuali dipaksa (force) — yang terjadi setelah tambah/edit/approve atau tombol Sinkronkan.
   if(!force && key && state.listCache[key]){
@@ -5751,6 +5758,9 @@ async function openSettingsView(key){
   state.filters={}; state.search=''; state.dateStart=''; state.dateEnd='';
   markActive('__settings');
   renderShell();
+  // Hentikan langganan realtime menu sebelumnya. Bila tidak, callback-nya memanggil
+  // loadList() padahal view sekarang tanpa tabel → error "Invalid relation name".
+  if(state.view.special){ if(state._ch){ try{ window.sb.removeChannel(state._ch); }catch(e){} state._ch=null; } }
   if(state.view.special==='konten'){ renderKonten(); return; }
   if(state.view.special==='suratTDP'){ renderSuratTDP(); return; }
   if(state.view.special==='formCsv'){ renderFormCsv(); return; }
