@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- KLINKLIN-BUILD: GAJI-HUB-HARIAN-v3 + WANUM-INTL-v2 + FIN-NOTIF -->
+<!-- KLINKLIN-BUILD: DOWNLOAD-DATA-v1 + GAJI-HUB-HARIAN-v3 + WANUM-INTL-v2 + FIN-NOTIF -->
 <html lang="id">
 <head>
 <meta charset="UTF-8" />
@@ -1728,6 +1728,7 @@ VIEWS.kpiCSView = {
 VIEWS.konten = { sheet:null, title:'Konten', sub:'', special:'konten', noSyncBtn:true, inSettings:true };
 VIEWS.suratTDP = { sheet:null, title:'Surat TDP', sub:'', special:'suratTDP', noSyncBtn:true, inSettings:true };
 VIEWS.formCsv = { sheet:null, title:'Contoh Form (CSV)', sub:'', special:'formCsv', noSyncBtn:true, inSettings:true };
+VIEWS.downloadData = { sheet:null, title:'Download Data', sub:'', special:'downloadData', noSyncBtn:true, inSettings:true };
 VIEWS.todo = {
   sheet:'TODO', title:'To Do List', sub:'', inSettings:true, countTop:true, noSyncBtn:true, special:'todo',
   idField:'id', roleLock:true, canAdd:true, canEdit:true, canDelete:true,
@@ -5615,6 +5616,8 @@ function renderSettings(){
     {key:'kelolaPengingat', label:'Kelola Pengingat', desc:'Buat/edit/hapus pemberitahuan & atur tayang ke jabatan tertentu', icon:'inbox'},
     {key:'kelolaUpdateFitur', label:'Update Fitur', desc:'Info update fitur / problem / sedang perbaikan — tayang saat login ke jabatan yang dipilih', icon:'inbox'},
     {key:'formCsv', label:'Contoh Form (CSV)', desc:'Unduh template CSV semua form: header + 1 contoh data', icon:'file'});
+  if(role==='FINANCE') entries.push(
+    {key:'downloadData', label:'Download Data', desc:'Unduh data ORDER & GAJI per bulan / per cabang dalam bentuk Excel atau CSV', icon:'file'});
   if(['CEO','FINANCE','MARKETING','DESIGNER','HRD'].indexOf(role)>=0) entries.push(
     {key:'todo', label:'To Do List', desc:'Daftar tugas & pengingat (muncul saat tanggalnya tiba)', icon:'audit'});
   const entriesHtml = entries.map(e=>
@@ -5644,6 +5647,7 @@ async function openSettingsView(key){
   if(state.view.special==='konten'){ renderKonten(); return; }
   if(state.view.special==='suratTDP'){ renderSuratTDP(); return; }
   if(state.view.special==='formCsv'){ renderFormCsv(); return; }
+  if(state.view.special==='downloadData'){ renderDownloadData(); return; }
   await loadList();
   if(state._ch){ try{ window.sb.removeChannel(state._ch); }catch(e){} state._ch=null; }
   if(state.view && state.view.sheet){
@@ -6038,6 +6042,142 @@ function csvFormList(){
     f('Jabatan','select',{opts:AGENDA_ROLES}), f('Tanggal','date'), f('Tipe','select',{opts:['Bulanan','Tahunan']}),
     f('Agenda','text'), f('Status','select',{opts:['Rencana','Berjalan','Selesai']}), f('Keterangan','text')]});
   return list;
+}
+/* ============================================================
+   FINANCE — DOWNLOAD DATA (ORDER & GAJI) per bulan / per cabang
+   ============================================================ */
+const DL_COLS = {
+  ORDER: ['Nama Hari','Tanggal Pengerjaan','Nama Cleaner','Jam Pengerjaan','Nama Customer',
+          'Alamat Customer','Nomor WA Customer','Layanan Yang Dipesan','Nominal Total Akhir',
+          'Metode Pembayaran','Status Order'],
+  GAJI:  ['Nama Cleaner','Take Home Pay','Total Bonus','Total Potongan']
+};
+function dlLayananOf(r){
+  return [1,2,3].map(i=>{
+    const nm=String(r['Layanan '+i]||'').trim(); if(!nm) return '';
+    const q=String(r['Qty '+i]||'').trim();
+    return nm + (q && q!=='1' ? ' ('+q+')' : '');
+  }).filter(Boolean).join(', ');
+}
+/* Ambil baris siap-ekspor sesuai tabel + bulan + cabang */
+function dlBuildRows(sheet, ym, cab){
+  const b=calMonthBounds(ym); if(!b) return [];
+  const cabU=String(cab||'').toUpperCase();
+  const all=(state.cache['dl_'+sheet]||[]);
+  if(sheet==='ORDER'){
+    return all.filter(r=>{
+      const d=parseAnyDate(r['Tanggal Pengerjaan']);
+      if(!(d && d>=b.start && d<=b.end)) return false;
+      if(cabU && cabangOf(r)!==cabU) return false;
+      return true;
+    }).sort((x,y)=>String(parseAnyDate(x['Tanggal Pengerjaan'])).localeCompare(String(parseAnyDate(y['Tanggal Pengerjaan']))))
+    .map(r=>[
+      hariId(r['Tanggal Pengerjaan'])||'',
+      tglPanjangId(r['Tanggal Pengerjaan'])||'',
+      r['Nama Cleaner']||'',
+      r['Waktu Pengerjaan']||'',
+      r['Nama Customer']||'',
+      r['Alamat']||'',
+      r['No WA Customer']||'',
+      dlLayananOf(r),
+      omzetOf_(r),
+      r['Metode Pembayaran']||'',
+      r['Status Order']||''
+    ]);
+  }
+  if(sheet==='GAJI'){
+    return all.filter(g=>{
+      // Bulanan: cocokkan Periode Bulan. Harian: pakai Awal Periode (tanpa Periode Bulan).
+      const pm=parseAnyMonth(g['Periode Bulan']);
+      let ok = pm ? (pm===ym) : false;
+      if(!ok){ const aw=parseAnyDate(g['Awal Periode']||g['Tanggal Cetak']);
+        ok = !!(aw && aw>=b.start && aw<=b.end); }
+      if(!ok) return false;
+      if(cabU && String(g['Cabang']||'').toUpperCase()!==cabU) return false;
+      return true;
+    }).sort((x,y)=>String(x['Nama Karyawan']||'').localeCompare(String(y['Nama Karyawan']||''),'id'))
+    .map(g=>[
+      g['Nama Karyawan']||'',
+      Number(moneyDigits(g['Take Home Pay']))||0,
+      Number(moneyDigits(g['Total Bonus']))||0,
+      Number(moneyDigits(g['Total Potongan']))||0
+    ]);
+  }
+  return [];
+}
+/* Excel (.xls) tanpa library: tabel HTML dengan mime Excel — dibuka native oleh Excel */
+function downloadXls(name, cols, rows, judul){
+  const th=cols.map(c=>'<th style="background:#0E3B3A;color:#fff;font-weight:bold;border:1px solid #999">'+esc(c)+'</th>').join('');
+  const tr=rows.map(r=>'<tr>'+r.map(v=>{
+    const num = typeof v==='number';
+    return '<td style="border:1px solid #ccc'+(num?';mso-number-format:\\#\\,\\#\\#0':'')+'">'+esc(String(v==null?'':v))+'</td>';
+  }).join('')+'</tr>').join('');
+  const html='<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8">'+
+    '<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>'+
+    '<x:Name>Data</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>'+
+    '</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body>'+
+    (judul?'<h3>'+esc(judul)+'</h3>':'')+
+    '<table border="1"><thead><tr>'+th+'</tr></thead><tbody>'+tr+'</tbody></table></body></html>';
+  const blob=new Blob(['\ufeff'+html],{type:'application/vnd.ms-excel;charset=utf-8'});
+  const url=URL.createObjectURL(blob); const a=document.createElement('a');
+  a.href=url; a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 120);
+}
+function dlToCsv(cols, rows){
+  return [cols.map(csvEsc).join(',')].concat(rows.map(r=>r.map(csvEsc).join(','))).join('\r\n');
+}
+async function renderDownloadData(force){
+  if(!state.dl) state.dl={ sheet:'ORDER', ym:ymd(new Date()).slice(0,7), cab:'' };
+  $('#panel').innerHTML='<div class="cap-empty">Memuat data…</div>';
+  if(force){ state.cache.dl_ORDER=null; state.cache.dl_GAJI=null; }
+  try{
+    if(!state.cache.dl_ORDER){ const r=await api({action:'list', sheet:'ORDER'}); state.cache.dl_ORDER=r.data||[]; }
+    if(!state.cache.dl_GAJI){ const r=await api({action:'list', sheet:'GAJI'}); state.cache.dl_GAJI=r.data||[]; }
+  }catch(e){ $('#panel').innerHTML='<div class="cap-card"><div class="cap-empty">Gagal memuat data: '+esc(e.message||e)+'</div></div>'; return; }
+  dlPaint();
+}
+function dlPaint(){
+  const D=state.dl;
+  const rows=dlBuildRows(D.sheet, D.ym, D.cab);
+  const cols=DL_COLS[D.sheet];
+  const cabOpts='<option value="">Semua Cabang</option>'+
+    CABANG.filter(c=>c!=='OFFICE').map(c=>'<option'+(D.cab===c?' selected':'')+'>'+c+'</option>').join('');
+  const tabs=[['ORDER','Order'],['GAJI','Gaji']].map(t=>
+    '<button class="hub-tab'+(D.sheet===t[0]?' active':'')+'" data-dlsheet="'+t[0]+'">'+t[1]+'</button>').join('');
+  // pratinjau 8 baris pertama
+  const prevHead=cols.map(c=>'<th>'+esc(c)+'</th>').join('');
+  const prevBody=rows.slice(0,8).map(r=>'<tr>'+r.map(v=>'<td>'+esc(typeof v==='number'?rp(v):String(v==null?'':v))+'</td>').join('')+'</tr>').join('');
+  $('#panel').innerHTML=
+    '<div class="hub-tabs">'+tabs+'</div>'+
+    '<div class="cap-card">'+
+      '<div class="cap-card-t">Pilih data yang diunduh</div>'+
+      '<div class="dash-filter">'+
+        '<input type="month" id="dlMonth" class="dash-sel" value="'+esc(D.ym)+'">'+
+        '<select id="dlCab" class="dash-sel">'+cabOpts+'</select>'+
+      '</div>'+
+      '<div class="ops-note" style="margin-top:10px">Data <b>'+esc(D.sheet)+'</b> · periode <b>'+esc(monthLabel(D.ym))+'</b> (1 bulan penuh) · '+
+        'cabang <b>'+esc(D.cab||'Semua Cabang')+'</b> · ditemukan <b>'+rows.length+'</b> baris · '+cols.length+' kolom.</div>'+
+      '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">'+
+        '<button class="btn btn-primary" id="dlXls"'+(rows.length?'':' disabled')+'>'+svg('file')+'Unduh Excel (.xls)</button>'+
+        '<button class="btn btn-ghost" id="dlCsv"'+(rows.length?'':' disabled')+'>'+svg('file')+'Unduh CSV</button>'+
+        '<button class="btn btn-ghost" id="dlReload" title="Ambil ulang data terbaru dari database">'+svg('refresh')+'Muat Ulang Data</button>'+
+      '</div>'+
+    '</div>'+
+    '<div class="cap-card"><div class="cap-card-t">Pratinjau '+(rows.length?('(8 dari '+rows.length+' baris)'):'')+'</div>'+
+      (rows.length
+        ? '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr>'+prevHead+'</tr></thead><tbody>'+prevBody+'</tbody></table></div>'
+        : '<div class="cap-empty">Tidak ada data pada bulan & cabang ini.</div>')+
+    '</div>';
+  document.querySelectorAll('[data-dlsheet]').forEach(b=>b.addEventListener('click',()=>{ D.sheet=b.dataset.dlsheet; dlPaint(); }));
+  $('#dlMonth').addEventListener('change', e=>{ D.ym=e.target.value||ymd(new Date()).slice(0,7); dlPaint(); });
+  $('#dlCab').addEventListener('change', e=>{ D.cab=e.target.value; dlPaint(); });
+  const namaFile=()=> D.sheet+'-'+D.ym+'-'+(D.cab||'SEMUA-CABANG');
+  const judul=()=> D.sheet+' · '+monthLabel(D.ym)+' · '+(D.cab||'Semua Cabang');
+  const x=$('#dlXls'); if(x) x.addEventListener('click',()=>{
+    downloadXls(namaFile()+'.xls', cols, rows, judul()); toast(rows.length+' baris diunduh (Excel)','ok'); });
+  const c=$('#dlCsv'); if(c) c.addEventListener('click',()=>{
+    downloadCsv(namaFile()+'.csv', dlToCsv(cols, rows)); toast(rows.length+' baris diunduh (CSV)','ok'); });
+  const rl=$('#dlReload'); if(rl) rl.addEventListener('click',()=>renderDownloadData(true));
 }
 function renderFormCsv(){
   const list=csvFormList();
