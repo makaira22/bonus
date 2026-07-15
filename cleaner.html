@@ -90,15 +90,34 @@ button{font-family:inherit;cursor:pointer}
 .h-title{font-size:20px;font-weight:800;margin:2px 0 14px}
 .stat{background:linear-gradient(135deg,var(--petrol),var(--petrol-2));color:#fff;border-radius:18px;padding:20px;margin-bottom:14px}
 .stat .l{font-size:12.5px;opacity:.85} .stat .v{font-size:30px;font-weight:800;margin-top:4px}
+/* Ringkasan absen (Overview) */
+.astat{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.as{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:11px 12px;display:flex;align-items:center;gap:10px}
+.as-v{font-size:23px;font-weight:800;line-height:1;min-width:26px;color:var(--petrol)}
+.as-v.as-warn{color:var(--warn)} .as-v.as-bad{color:var(--danger)}
+.as-l{font-size:11.5px;font-weight:700;line-height:1.35;color:var(--muted)}
+.as-n{font-weight:600;color:var(--faint)}
+.as-sep{font-size:11.5px;font-weight:800;color:var(--faint);letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px}
 .row{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
 .row:last-child{border-bottom:none}
 .empty{text-align:center;color:var(--faint);padding:28px 10px;font-size:13.5px}
 
 /* Bottom nav */
 .nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--surface);border-top:1px solid var(--line);
-  display:flex;padding:6px 4px calc(6px + env(safe-area-inset-bottom));box-shadow:0 -6px 24px -14px rgba(0,0,0,.25)}
+  display:flex;align-items:flex-end;padding:6px 4px calc(6px + env(safe-area-inset-bottom));box-shadow:0 -6px 24px -14px rgba(0,0,0,.25)}
 .nav button{flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;color:var(--faint);font-size:10.5px;font-weight:700}
 .nav button.on{color:var(--petrol)}
+/* Tombol Absen menonjol di tengah */
+.nav button.mid{position:relative}
+.nav button.mid .ic{width:56px;height:56px;border-radius:50%;margin-top:-26px;margin-bottom:1px;
+  background:linear-gradient(140deg,var(--petrol),var(--petrol-2));color:#fff;
+  align-items:center;justify-content:center;border:4px solid var(--surface);
+  box-shadow:0 10px 22px -8px rgba(14,59,58,.75);transition:transform .14s ease, box-shadow .14s ease}
+.nav button.mid .i{width:26px;height:26px;stroke-width:1.9}
+.nav button.mid:active .ic{transform:scale(.93)}
+.nav button.mid.on .ic{background:linear-gradient(140deg,#A98A4E,var(--gold));
+  box-shadow:0 10px 24px -7px rgba(194,165,103,.85)}
+.nav button.mid.on{color:#8A6E32}
 .nav .ic{font-size:19px;line-height:1;display:flex}
 
 /* Ikon garis (siluet) — tanpa warna, mengikuti warna teks induknya */
@@ -171,7 +190,7 @@ label.fl{display:block;font-size:12px;font-weight:700;color:var(--muted);margin:
   <div class="nav">
     <button data-tab="overview" class="on"><span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.2 12 3l9 7.2"/><path d="M5.5 9v11.5h13V9"/><path d="M9.5 20.5v-6h5v6"/></svg></span>Overview</button>
     <button data-tab="kerja"><span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3 10 7"/><path d="M8.5 5.5 13 10"/><path d="m11 8-5.5 5.5a2 2 0 0 0 0 2.8l1.2 1.2a2 2 0 0 0 2.8 0L15 12"/><path d="M6 17c-1 2-2 3-3.5 4h9c1-1.5 1.2-3 .5-4"/></svg></span>Kerja</button>
-    <button data-tab="absen"><span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg></span>Absen</button>
+    <button data-tab="absen" class="mid"><span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg></span>Absen</button>
     <button data-tab="ajuan"><span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/><path d="M8.5 12.5h7M8.5 16.5h4.5"/></svg></span>Ajuan</button>
     <button data-tab="bonus"><span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6H18a1 1 0 0 1 1 1v1.5"/><path d="M3 7.5v10A1.5 1.5 0 0 0 4.5 19H19a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1H4.5A1.5 1.5 0 0 1 3 7.5z"/><circle cx="16" cy="14" r="1.1"/></svg></span>Bonus</button>
   </div>
@@ -347,7 +366,7 @@ function switchTab(t){ TAB=t; if(t!=='absen') stopCam();
   ({overview:renderOverview,kerja:renderKerja,absen:renderAbsen,ajuan:renderAjuan,bonus:renderBonus}[t]||renderOverview)();
 }
 
-let ovMode='cycle', ovStart='', ovEnd='';
+let ovMode='cycle', ovStart='', ovEnd='', ovAbsLimit=15;
 async function renderOverview(){
   const [bonus, absen] = await Promise.all([myBonus(), myAbsen()]);
   window._ovBonus=bonus; window._ovAbsen=absen;
@@ -366,7 +385,6 @@ function paintOverview(){
   const total=fb.reduce((s,b)=>s+md(b['Nominal']),0);
   const fa=absen.filter(a=>inRange(a['Tanggal'],R.start,R.end))
     .sort((a,b)=>String(b['Tanggal']+' '+b['Jam']).localeCompare(String(a['Tanggal']+' '+a['Jam'])));
-  const hariMasuk=new Set(fa.filter(a=>norm(a['Tipe'])==='masuk').map(a=>a['Tanggal'])).size;
 
   let h='<div class="h-title">Halo, '+esc((ME.nama||'').split(' ')[0])+'</div>';
   // filter
@@ -382,43 +400,65 @@ function paintOverview(){
   // total bonus
   h+='<div class="stat"><div class="l">Total Bonus'+(R.label?(' · '+esc(R.label)):'')+'</div><div class="v">'+rp(total)+'</div>'+
      '<div class="l" style="margin-top:8px">'+fb.length+' bonus'+(R.start?(' · '+esc(fmtTgl(R.start))+' – '+esc(fmtTgl(R.end))):'')+'</div></div>';
-  // rincian absen — dikelompokkan per hari
+  // ---- Rincian absen: dikelompokkan per hari, lalu diringkas ----
   const byDay={};
   fa.forEach(a=>{ const d=a['Tanggal']; if(!d) return; (byDay[d]=byDay[d]||[]).push(a); });
   const days=Object.keys(byDay).sort().reverse();
-  h+='<div class="card"><div style="font-weight:800;margin-bottom:10px">'+ic('calendar','i-lead')+'Rincian Absen · '+hariMasuk+' hari masuk</div>';
-  if(days.length){
-    h+=days.slice(0,31).map(d=>{
-      const recs=byDay[d];
-      const masuk =recs.filter(r=>norm(r['Tipe'])==='masuk' ).sort((a,b)=>jamToMin(a['Jam'])-jamToMin(b['Jam']))[0];
-      const pulang=recs.filter(r=>norm(r['Tipe'])==='pulang').sort((a,b)=>jamToMin(b['Jam'])-jamToMin(a['Jam']))[0];
+  // Ringkas tiap hari → { tgl, masuk, pulang, telat }
+  const hari=days.map(d=>{
+    const recs=byDay[d];
+    const masuk =recs.filter(r=>norm(r['Tipe'])==='masuk' ).sort((a,b)=>jamToMin(a['Jam'])-jamToMin(b['Jam']))[0]||null;
+    const pulang=recs.filter(r=>norm(r['Tipe'])==='pulang').sort((a,b)=>jamToMin(b['Jam'])-jamToMin(a['Jam']))[0]||null;
+    return { tgl:d, masuk, pulang, telat: masuk ? isTelat(masuk['Jam']) : false };
+  });
+  const nLengkap    = hari.filter(x=>x.masuk && x.pulang).length;   // absen sesuai aturan (masuk + pulang)
+  const nTelat      = hari.filter(x=>x.telat).length;
+  const nTanpaMasuk = hari.filter(x=>!x.masuk).length;
+  const nTanpaPulang= hari.filter(x=>x.masuk && !x.pulang).length;
+
+  h+='<div class="card"><div style="font-weight:800;margin-bottom:10px">'+ic('calendar','i-lead')+'Rincian Absen</div>'+
+     '<div class="astat">'+
+       '<div class="as"><div class="as-v">'+nLengkap+'</div><div class="as-l">Hari absen<br><span class="as-n">masuk + pulang</span></div></div>'+
+       '<div class="as"><div class="as-v as-warn">'+nTelat+'</div><div class="as-l">Telat<br><span class="as-n">lewat '+esc(batasTelatStr())+'</span></div></div>'+
+       '<div class="as"><div class="as-v as-bad">'+nTanpaMasuk+'</div><div class="as-l">Tidak absen<br><span class="as-n">masuk</span></div></div>'+
+       '<div class="as"><div class="as-v as-bad">'+nTanpaPulang+'</div><div class="as-l">Tidak absen<br><span class="as-n">pulang</span></div></div>'+
+     '</div>';
+
+  // ---- Detail per hari: 15 dulu, sisanya lewat tombol ----
+  const shown=hari.slice(0, ovAbsLimit);
+  if(shown.length){
+    h+='<div class="as-sep">Detail</div>';
+    h+=shown.map(x=>{
       let masukLine, pulangLine;
-      if(masuk){
-        const telat=isTelat(masuk['Jam']);
-        masukLine='<span>Masuk <b>'+esc(masuk['Jam']||'-')+'</b></span>'+
-          '<span class="chip '+(telat?'c-cancel':'c-complete')+'">'+(telat?'Terlambat':'Tepat waktu')+'</span>';
+      if(x.masuk){
+        masukLine='<span>Masuk <b>'+esc(x.masuk['Jam']||'-')+'</b></span>'+
+          '<span class="chip '+(x.telat?'c-cancel':'c-complete')+'">'+(x.telat?'Terlambat':'Tepat waktu')+'</span>';
       } else {
         masukLine='<span class="muted">Absen masuk</span><span class="chip c-cancel">Tidak absen masuk</span>';
       }
-      if(pulang){
-        pulangLine='<span>Pulang <b>'+esc(pulang['Jam']||'-')+'</b></span><span class="chip c-done">Selesai</span>';
-      } else if(masuk){
+      if(x.pulang){
+        pulangLine='<span>Pulang <b>'+esc(x.pulang['Jam']||'-')+'</b></span><span class="chip c-done">Selesai</span>';
+      } else if(x.masuk){
         pulangLine='<span class="muted">Absen pulang</span><span class="chip c-pending">Belum absen pulang</span>';
       } else { pulangLine=''; }
       return '<div style="padding:10px 0;border-bottom:1px solid var(--line)">'+
-        '<div style="font-weight:700;margin-bottom:6px">'+esc(hariTgl(d))+'</div>'+
+        '<div style="font-weight:700;margin-bottom:6px">'+esc(hariTgl(x.tgl))+'</div>'+
         '<div class="row" style="border:none;padding:3px 0">'+masukLine+'</div>'+
         (pulangLine?'<div class="row" style="border:none;padding:3px 0">'+pulangLine+'</div>':'')+
       '</div>';
     }).join('');
+    if(hari.length>shown.length){
+      h+='<button class="btn-more" id="absMore" style="margin-top:10px">Muat lebih banyak ('+(hari.length-shown.length)+' lagi)</button>';
+    }
   } else h+='<div class="empty">Belum ada absen pada periode ini.</div>';
   h+='</div>';
 
   $('#view').innerHTML=h;
-  document.querySelectorAll('[data-ov]').forEach(b=>b.onclick=()=>{ ovMode=b.dataset.ov; paintOverview(); });
+  document.querySelectorAll('[data-ov]').forEach(b=>b.onclick=()=>{ ovMode=b.dataset.ov; ovAbsLimit=15; paintOverview(); });
+  const am=$('#absMore'); if(am) am.onclick=()=>{ ovAbsLimit+=15; paintOverview(); };
   const s=$('#ovS'), e=$('#ovE');
-  if(s) s.onchange=()=>{ ovStart=s.value; paintOverview(); };
-  if(e) e.onchange=()=>{ ovEnd=e.value; paintOverview(); };
+  if(s) s.onchange=()=>{ ovStart=s.value; ovAbsLimit=15; paintOverview(); };
+  if(e) e.onchange=()=>{ ovEnd=e.value; ovAbsLimit=15; paintOverview(); };
 }
 
 let kerjaMode='today', kerjaLimit=15;
