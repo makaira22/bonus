@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- KLINKLIN-BUILD: NAVY-PREMIUM-v1 + LOGO-UPLOAD + GAJI-HARIAN-THP + ABSEN-CARDS -->
+<!-- KLINKLIN-BUILD: KONTEN-JUDUL-VIDEO + NUM-NULL-FIX + NAVY-PREMIUM-v1 -->
 <html lang="id">
 <head>
 <meta charset="UTF-8" />
@@ -670,6 +670,8 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .kontn-item{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface);display:flex;flex-direction:column}
 .kontn-img{width:100%;aspect-ratio:1/1;object-fit:cover;cursor:zoom-in;background:var(--surface-2)}
 .kontn-noimg{width:100%;aspect-ratio:1/1;display:grid;place-items:center;color:var(--faint);font-size:12px;background:var(--surface-2)}
+.kontn-vid{width:100%;aspect-ratio:1/1;object-fit:cover;background:#000;display:block}
+.kontn-judul{padding:9px 10px 0;font-size:13px;font-weight:800;color:var(--petrol);line-height:1.35}
 .kontn-teks{padding:8px 10px;font-size:12.5px;color:var(--ink);white-space:pre-wrap;flex:1}
 .kontn-act{display:flex;gap:6px;padding:8px 10px;border-top:1px solid var(--line)}
 .kontn-act .btn{flex:1;justify-content:center}
@@ -1778,12 +1780,14 @@ VIEWS.kelolaPengingat = {
 VIEWS.kontenKelola = {
   sheet:'KONTEN', title:'Kelola Konten CS', sub:'', inSettings:true, countTop:true, noSyncBtn:true,
   idField:'id', canAdd:true, canEdit:true, canDelete:true,
-  table:['Tipe','Teks','Gambar'],
-  search:['Teks','Tipe'],
+  table:['Judul','Tipe','Teks','Gambar'],
+  search:['Judul','Teks','Tipe'],
   form:[
+    f('Judul','text',{full:true, req:true, help:'Hanya label untuk memudahkan CS memilih — TIDAK ikut terkirim ke status/WhatsApp'}),
     f('Tipe','select',{opts:['Konten Story','Promo','Konten Follow Up'], req:true}),
-    f('Teks','textarea',{full:true, req:true}),
-    f('Gambar','file',{accept:'image/*', full:true})
+    f('Teks','textarea',{full:true, req:true, help:'Teks inilah yang terkirim ke WhatsApp/status'}),
+    f('Gambar','file',{accept:'image/*', full:true}),
+    f('Video','file',{accept:'video/*', full:true, help:'Opsional · maksimal 45 MB'})
   ]
 };
 VIEWS.kelolaUpdateFitur = {
@@ -4753,10 +4757,15 @@ function renderField(fd, val){
   } else if(fd.t==='textarea'){
     inner = '<textarea data-k="'+esc(fd.k)+'"'+ro+'>'+esc(val)+'</textarea>';
   } else if(fd.t==='file'){
+    const isVid = /video/.test(String(fd.accept||''));
     const has = val ? '<a class="file-name" href="'+esc(val)+'" target="_blank">File tersimpan</a>' : '';
+    // Field video: jangan render <img> (URL video bukan gambar → ikon rusak). Pakai <video>.
+    const prevEl = isVid
+      ? (val?'<video class="prev" src="'+esc(val)+'" style="display:block" muted preload="metadata"></video>':'<span class="prev" style="display:none"></span>')
+      : '<img class="prev" data-prev="'+esc(fd.k)+'"'+(val?' src="'+esc(val)+'" style="display:block"':'')+'>';
     inner = '<div class="file-row">'+
-      '<img class="prev" data-prev="'+esc(fd.k)+'"'+(val?' src="'+esc(val)+'" style="display:block"':'')+'>'+
-      '<label class="file-btn">'+svg('upload')+'Pilih file'+
+      prevEl+
+      '<label class="file-btn">'+svg('upload')+(isVid?'Pilih video':'Pilih file')+
       '<input type="file" data-file="'+esc(fd.k)+'" accept="'+(fd.accept||'')+'" style="display:none"></label>'+
       '<span class="file-name" data-fn="'+esc(fd.k)+'">'+has+'</span></div>';
   } else if(fd.t==='datalist'){
@@ -4917,20 +4926,33 @@ function wireFields(v){
       const file=e.target.files[0]; if(!file) return;
       const key=inp.dataset.file;
       const fn=document.querySelector('[data-fn="'+CSS.escape(key)+'"]');
+      const isVideo = /^video\//.test(file.type);
+      // Video: batasi ukuran & unggah langsung (tanpa base64) agar tidak membebani memori.
+      if(isVideo && file.size > 45*1024*1024){
+        fn.textContent='Terlalu besar';
+        toast('Video maksimal 45 MB. Ukuran file ini '+(file.size/1048576).toFixed(1)+' MB — kompres dulu.','err');
+        inp.value=''; return;
+      }
       fn.textContent='Mengunggah…';
       try{
-        const up0 = await prepUpload(file);
-        const r = await api({action:'uploadFile', base64:up0.base64, mime:up0.mime, name:up0.name});
-        state.files[key]=r.url;
-        fn.innerHTML='<a class="file-name" href="'+esc(r.url)+'" target="_blank">Tersimpan ✓</a>';
+        let url, mime;
+        if(isVideo){
+          url = await uploadRaw(file); mime = file.type;
+        }else{
+          const up0 = await prepUpload(file);
+          const r = await api({action:'uploadFile', base64:up0.base64, mime:up0.mime, name:up0.name});
+          url = r.url; mime = up0.mime;
+        }
+        state.files[key]=url;
+        fn.innerHTML='<a class="file-name" href="'+esc(url)+'" target="_blank">Tersimpan ✓</a>';
         const prev=document.querySelector('[data-prev="'+CSS.escape(key)+'"]');
-        if(prev && /image/.test(up0.mime)){ prev.src=r.url; prev.style.display='block'; }
+        if(prev && /image/.test(mime)){ prev.src=url; prev.style.display='block'; }
         // auto status order
         if(v.special==='order'){
           if(key==='Bukti Transfer'){ setVal('Status Order','done'); showInvoiceBtn(); state.files['Waktu Bukti Transfer']=nowStr_(); }
           if(key==='Bukti Cancel') setVal('Status Order','cancel');
         }
-      }catch(err){ fn.textContent='Gagal'; toast(err.message,'err'); }
+      }catch(err){ fn.textContent='Gagal'; toast(err.message||String(err),'err'); }
     });
   });
   // recompute triggers
@@ -5551,6 +5573,10 @@ async function saveForm(){
       const el=getEl(fd.k); data[fd.k]= fd.bool ? !!(el&&el.checked) : numVal(fd.k);
     }else if(fd.t==='money'){
       data[fd.k]=numVal(fd.k);
+    }else if(fd.t==='num'){
+      // Kolom angka: kosong HARUS dikirim null, bukan "" (Postgres menolak "" untuk numeric).
+      const raw=String(getVal(fd.k)).trim();
+      data[fd.k] = raw==='' ? null : (Number(raw.replace(/[^0-9.\-]/g,'')) || 0);
     }else{
       data[fd.k]=getVal(fd.k);
     }
@@ -5635,6 +5661,15 @@ function fileToB64(file){
     r.onload=()=>res(String(r.result).split(',')[1]); r.onerror=rej; r.readAsDataURL(file); });
 }
 /* Kompres gambar sebelum upload: resize maks 1400px + JPEG kualitas 0.62 (tetap terbaca). */
+/* Unggah file APA ADANYA ke storage (tanpa base64) — dipakai untuk video/berkas besar. */
+async function uploadRaw(file){
+  const ext=(file.name||'file').split('.').pop().toLowerCase().replace(/[^a-z0-9]/g,'')||'bin';
+  const path='konten/'+Date.now()+'-'+Math.random().toString(36).slice(2,8)+'.'+ext;
+  const up=await window.sb.storage.from('bukti').upload(path, file, {contentType:file.type||'application/octet-stream', upsert:false});
+  if(up.error) throw up.error;
+  const { data } = window.sb.storage.from('bukti').getPublicUrl(path);
+  return data.publicUrl;
+}
 function prepUpload(file){
   return new Promise(resolve=>{
     const fallback=()=>{ const r=new FileReader(); r.onload=()=>resolve({base64:String(r.result).split(',')[1], mime:file.type, name:file.name}); r.readAsDataURL(file); };
@@ -6703,12 +6738,17 @@ async function renderKonten(){
     if(!items.length){ html+='<div class="cap-empty">Belum ada konten. Minta tim Marketing menambahkan.</div>'; }
     else{
       html+='<div class="kontn-grid">'+items.map(it=>{
-        const img=it['Gambar'];
+        const img=it['Gambar'], vid=it['Video'];
+        const media = vid
+          ? '<video class="kontn-vid" src="'+esc(vid)+'" controls preload="metadata" playsinline></video>'
+          : (img?'<img class="kontn-img" src="'+esc(img)+'" data-img="'+esc(img)+'" alt="">':'<div class="kontn-noimg">Tanpa gambar</div>');
         return '<div class="kontn-item">'+
-          (img?'<img class="kontn-img" src="'+esc(img)+'" data-img="'+esc(img)+'" alt="">':'<div class="kontn-noimg">Tanpa gambar</div>')+
+          media+
+          (it['Judul']?'<div class="kontn-judul">'+esc(it['Judul'])+'</div>':'')+
           (it['Teks']?'<div class="kontn-teks">'+esc(it['Teks'])+'</div>':'')+
           '<div class="kontn-act">'+
             (img?'<a class="btn btn-ghost btn-sm" href="'+esc(img)+'" target="_blank" download>'+svg('file')+'Gambar</a>':'')+
+            (vid?'<a class="btn btn-ghost btn-sm" href="'+esc(vid)+'" target="_blank" download>'+svg('file')+'Video</a>':'')+
             '<button class="btn btn-primary btn-sm" data-kirim="'+esc(it['Teks']||'')+'">'+svg('wa')+esc(btnLabel)+'</button>'+
           '</div></div>';
       }).join('')+'</div>';
@@ -6716,7 +6756,7 @@ async function renderKonten(){
     html+='</div>';
   });
   $('#panel').innerHTML =
-    '<div class="ops-note">Pilih gambar → unduh, lalu klik tombol untuk mengirim teksnya ke WhatsApp (pilih diri sendiri / Status). Konten diisi oleh tim Marketing.</div>'+html;
+    '<div class="ops-note">Unduh <b>gambar/video</b>-nya, lalu klik tombol untuk mengirim <b>teks</b>-nya ke WhatsApp (pilih diri sendiri / Status). Judul hanya penanda, tidak ikut terkirim. Konten diisi oleh tim Marketing.</div>'+html;
   document.querySelectorAll('[data-kirim]').forEach(b=>b.addEventListener('click',()=>{
     window.open('https://wa.me/?text='+encodeURIComponent(b.dataset.kirim||''),'_blank');
   }));
