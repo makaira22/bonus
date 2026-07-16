@@ -758,6 +758,23 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .pie-val{flex:none;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
 .cap-card-t{font-weight:700;font-size:13.5px;color:var(--ink);margin-bottom:12px}
 .cap-chart{overflow-x:auto;padding-bottom:4px}
+/* Tooltip grafik */
+.gtip{position:fixed;z-index:200;pointer-events:none;display:none;background:#0F211F;color:#fff;
+  border-radius:10px;padding:9px 11px;box-shadow:0 12px 30px -8px rgba(0,0,0,.55);font-size:12px;min-width:150px}
+.gtip-t{font-weight:800;margin-bottom:6px;font-size:12.5px;border-bottom:1px solid rgba(255,255,255,.18);padding-bottom:5px}
+.gtip-r{display:flex;align-items:center;gap:7px;padding:2px 0;white-space:nowrap}
+.gtip-d{width:9px;height:9px;border-radius:3px;flex:none}
+.gtip-n{flex:1;opacity:.85;margin-right:10px}
+.gtip-r b{font-variant-numeric:tabular-nums}
+.gh{cursor:crosshair}
+/* Legenda grafik */
+.gleg{display:flex;flex-wrap:wrap;gap:10px 16px;margin:-2px 0 10px}
+.gleg-i{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:var(--muted)}
+.gleg-d{width:11px;height:11px;border-radius:3px;flex:none}
+/* Baris grafik yang bisa diklik */
+.cap-row-clk{cursor:pointer;border-radius:8px;transition:.12s}
+.cap-row-clk:hover{background:var(--surface-2)}
+.cap-chev{color:var(--faint);font-weight:800;margin-left:2px}
 .cap-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
 .cap-row{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:12.5px}
 .cap-rank{width:20px;height:20px;flex:none;border-radius:50%;background:var(--bg);color:var(--petrol);
@@ -1542,7 +1559,7 @@ const VIEWS = {
   gaji:{
     sheet:'GAJI', title:'Gaji Karyawan', sub:'', countTop:true, noSyncBtn:true, hub:'gaji', gajiTipe:'Bulanan',
     idField:'ID Slip', canAdd:true, canEdit:true, canDelete:true, rowDetail:true, gajiSort:true, special:'gaji', slip:true, paged:true,
-    table:['Periode Bulan','Nama Karyawan','Total Bonus','Total Potongan','Gaji Diterima','Take Home Pay'],
+    table:['Periode Bulan','Nama Karyawan','No. Rekening','Total Bonus','Total Potongan','Gaji Diterima','Take Home Pay'],
     colorMap:{'Total Bonus':'c-green','Total Potongan':'c-red','Gaji Diterima':'c-orange','Take Home Pay':'c-blue'},
     filters:['Cabang'], dynPeriode:true,
     search:['Nama Karyawan','ID Slip'],
@@ -1578,7 +1595,7 @@ const VIEWS = {
   gajiHarian:{
     sheet:'GAJI', title:'Gaji Harian', sub:'', countTop:true, noSyncBtn:true, hub:'gaji', gajiTipe:'Harian',
     idField:'ID Slip', canAdd:true, canEdit:true, canDelete:true, rowDetail:true, gajiSort:true, special:'gaji', slip:true, paged:true,
-    table:['Awal Periode','Akhir Periode','Jumlah Hari','Nama Karyawan','Total Bonus','Total Potongan','Take Home Pay'],
+    table:['Awal Periode','Akhir Periode','Jumlah Hari','Nama Karyawan','No. Rekening','Total Bonus','Total Potongan','Take Home Pay'],
     colorMap:{'Total Bonus':'c-green','Total Potongan':'c-red','Take Home Pay':'c-blue'},
     filters:['Cabang'],
     search:['Nama Karyawan','ID Slip'],
@@ -2852,7 +2869,10 @@ function renderTable(){
     cols.map(c=>'<th>'+esc(colLabel(v,c))+'</th>').join('')+(showAct?'<th></th>':'')+'</tr></thead><tbody>';
   pageRows.forEach(r=>{
     const oid=r['ID Order'];
-    html+= v.rowDetail ? '<tr class="rowclick" data-detailrow="'+esc(oid)+'">' : '<tr>';
+    // Kunci baris = idField view (GAJI pakai "ID Slip", ORDER pakai "ID Order").
+    // Dulu selalu memakai ID Order → baris GAJI tidak bisa diklik.
+    const rid = v.idField ? r[v.idField] : oid;
+    html+= v.rowDetail ? '<tr class="rowclick" data-detailrow="'+esc(rid==null?'':rid)+'">' : '<tr>';
     if(chk) html+='<td class="chkcol"><input type="checkbox" class="rowchk" data-id="'+esc(oid)+'"></td>';
     html+=cols.map(c=>{
       const cls=[]; if(isMoney(c)) cls.push('money'); if(v.colorMap&&v.colorMap[c]) cls.push(v.colorMap[c]);
@@ -2940,10 +2960,12 @@ function renderTable(){
       const _rentang = (isHarian && (r['Awal Periode']||r['Akhir Periode']))
         ? '<div class="ocard-meta">'+svg('result')+'<span>'+esc(tglPanjangId(r['Awal Periode'])+' – '+tglPanjangId(r['Akhir Periode']))+'</span></div>'
         : '';
+      const _rek = r['No. Rekening'] || rekOf(r['Nama Karyawan']);
       return '<div class="ocard" data-detailgaji="'+sid+'">'+
         '<div class="ocard-top"><span class="ocard-name">'+esc(r['Nama Karyawan']||'-')+'</span>'+
           '<span class="pay-chip">'+esc(per)+'</span></div>'+
         _rentang+
+        '<div class="ocard-meta"><span>'+svg('file')+'</span><span>Rek: '+(_rek?('<b>'+esc(_rek)+'</b>'):'<span style="color:var(--faint)">belum diisi</span>')+'</span></div>'+
         '<div class="gaji-thp"><span class="gt-l">Take Home Pay</span>'+
           '<span class="gt-v">'+esc(rp(r['Take Home Pay']||0))+'</span></div>'+
         '<div class="ocard-act">'+
@@ -3349,7 +3371,11 @@ function clusterByAlamat(rows){
     else { const c={tokens:tset, count:1, labelFreq:{}}; c.labelFreq[raw]=1; clusters.push(c); }
   });
   clusters.forEach(c=>{ c.label=Object.keys(c.labelFreq).sort((a,b)=>c.labelFreq[b]-c.labelFreq[a])[0]||'-'; });
-  return clusters.map(c=>({k:c.label, val:c.count})).sort((a,b)=>b.val-a.val);
+  // addrs = rincian alamat asli yang membentuk kelompok ini (untuk pop-up detail)
+  return clusters.map(c=>({
+    k:c.label, val:c.count,
+    addrs:Object.keys(c.labelFreq).map(a=>({a, n:c.labelFreq[a]})).sort((x,y)=>y.n-x.n)
+  })).sort((a,b)=>b.val-a.val);
 }
 /* Kartu diagram pie (dipakai Finance untuk Top 5 layanan). */
 function pieCard(title, arr, fmt){
@@ -4612,13 +4638,125 @@ function grafInit(){ if(!state.graf) state.graf={cab:'',ds:'',de:''}; }
 function grafRange(){ const G=state.graf;
   if(G.ds||G.de){ const a=G.ds||G.de,b=G.de||G.ds; return {s:(a<=b?a:b),e:(a<=b?b:a)}; }
   const t=ymd(new Date()); return {s:t.slice(0,7)+'-01', e:t}; }
-function grafBars(title, arr, fmt){
+/* ---------- Tooltip melayang untuk grafik ---------- */
+function gtipShow(html, cx, cy){
+  let t=document.getElementById('gtip');
+  if(!t){ t=document.createElement('div'); t.id='gtip'; t.className='gtip'; document.body.appendChild(t); }
+  t.innerHTML=html; t.style.display='block';
+  const r=t.getBoundingClientRect();
+  let left=cx-r.width/2, top=cy-r.height-14;
+  left=Math.max(8, Math.min(left, window.innerWidth-r.width-8));
+  if(top<8) top=cy+18;
+  t.style.left=Math.round(left)+'px'; t.style.top=Math.round(top)+'px';
+}
+function gtipHide(){ const t=document.getElementById('gtip'); if(t) t.style.display='none'; }
+
+const GRAF_COL=['#123A5E','#3E86B5','#C9A961','#5E9E8E','#B5635A','#8E7CC3'];
+/* Grafik banyak seri (garis &/atau batang) + tooltip saat disorot / disentuh.
+   days   : [{k:'01/07', full:'Rabu, 1 Juli 2026', v:{organik:5, iklan:3}}]
+   series : [{key:'organik', name:'Chat Organik', col:'#123A5E', bar:false, axis:'l', fmt:v=>v+' chat'}]
+   axis 'l' & 'r' punya skala sendiri (mis. jumlah order vs omzet).            */
+function grafMulti(title, days, series, note){
+  if(!days.length) return '<div class="cap-card"><div class="cap-card-t">'+title+'</div><div class="cap-empty">Belum ada data</div></div>';
+  const id='g'+Math.random().toString(36).slice(2,8);
+  window._grafReg=window._grafReg||{}; window._grafReg[id]={days, series};
+  const W=Math.max(days.length*46+70, 340), H=230, padL=40, padR=40, padT=14, padB=30;
+  const maxOf=ax=>{ let m=0; series.filter(s=>(s.axis||'l')===ax).forEach(s=>days.forEach(d=>{ const v=Number(d.v[s.key])||0; if(v>m) m=v; })); return m||1; };
+  const maxL=maxOf('l'), maxR=maxOf('r');
+  const n=days.length;
+  const span=W-padL-padR;
+  const X=i=>padL+(n===1?span/2:i*(span/(n-1)));
+  const Y=(v,ax)=>H-padB-((Number(v)||0)/((ax==='r')?maxR:maxL))*(H-padT-padB);
+  const band=n>1?span/(n-1):span;
+
+  let svg='';
+  // garis bantu horizontal
+  for(let g=0; g<=3; g++){ const yy=padT+g*((H-padT-padB)/3);
+    svg+='<line x1="'+padL+'" y1="'+yy.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+yy.toFixed(1)+'" stroke="var(--line)" stroke-width="1" stroke-dasharray="3 4"/>'; }
+  // batang dulu (di belakang garis)
+  const bars=series.filter(s=>s.bar);
+  bars.forEach((s,bi)=>{
+    const bw=Math.min(20, Math.max(4, band*0.5/bars.length));
+    days.forEach((d,i)=>{
+      const v=Number(d.v[s.key])||0; if(!v) return;
+      const y=Y(v,s.axis||'l'); const x=X(i)-(bars.length*bw)/2+bi*bw;
+      svg+='<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+Math.max(0,(H-padB-y)).toFixed(1)+'" fill="'+s.col+'" opacity=".85" rx="2"/>';
+    });
+  });
+  // garis + titik
+  series.filter(s=>!s.bar).forEach(s=>{
+    const ax=s.axis||'l';
+    const pts=days.map((d,i)=>X(i).toFixed(1)+','+Y(d.v[s.key],ax).toFixed(1)).join(' ');
+    svg+='<polyline points="'+pts+'" fill="none" stroke="'+s.col+'" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>';
+    days.forEach((d,i)=>{ svg+='<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(d.v[s.key],ax).toFixed(1)+'" r="2.8" fill="'+s.col+'"/>'; });
+  });
+  // label tanggal
+  days.forEach((d,i)=>{ if(n<=16||i%Math.ceil(n/16)===0)
+    svg+='<text x="'+X(i).toFixed(1)+'" y="'+(H-8)+'" text-anchor="middle" font-size="9" fill="var(--muted)">'+esc(d.k)+'</text>'; });
+  // area sorot per hari (garis penanda + area tak terlihat)
+  days.forEach((d,i)=>{
+    svg+='<g class="gh" data-graf="'+id+'" data-gi="'+i+'">'+
+      '<line class="gh-ln" x1="'+X(i).toFixed(1)+'" y1="'+padT+'" x2="'+X(i).toFixed(1)+'" y2="'+(H-padB)+'" stroke="var(--petrol)" stroke-width="1" opacity="0"/>'+
+      '<rect x="'+(X(i)-band/2).toFixed(1)+'" y="0" width="'+band.toFixed(1)+'" height="'+H+'" fill="transparent"/></g>';
+  });
+  const legend='<div class="gleg">'+series.map(s=>
+    '<span class="gleg-i"><span class="gleg-d" style="background:'+s.col+(s.bar?'':'')+'"></span>'+esc(s.name)+'</span>').join('')+'</div>';
+  return '<div class="cap-card"><div class="cap-card-t">'+title+'</div>'+legend+
+    '<div class="cap-chart"><svg viewBox="0 0 '+W+' '+H+'" style="min-width:'+W+'px;height:'+H+'px">'+svg+'</svg></div>'+
+    (note?'<div class="ops-note" style="margin:8px 0 0">'+note+'</div>':'')+'</div>';
+}
+/* Pasang tooltip pada semua grafik multi-seri di layar. */
+function wireGrafMulti(){
+  document.querySelectorAll('.gh[data-graf]').forEach(g=>{
+    const reg=(window._grafReg||{})[g.dataset.graf]; if(!reg) return;
+    const i=+g.dataset.gi, d=reg.days[i];
+    const show=e=>{
+      const ln=g.querySelector('.gh-ln'); if(ln) ln.setAttribute('opacity','.35');
+      const rows=reg.series.map(s=>'<div class="gtip-r"><span class="gtip-d" style="background:'+s.col+'"></span>'+
+        '<span class="gtip-n">'+esc(s.name)+'</span><b>'+esc(s.fmt?s.fmt(Number(d.v[s.key])||0):String(Number(d.v[s.key])||0))+'</b></div>').join('');
+      const r=g.getBoundingClientRect();
+      gtipShow('<div class="gtip-t">'+esc(d.full||d.k)+'</div>'+rows, r.left+r.width/2, r.top+30);
+    };
+    const hide=()=>{ const ln=g.querySelector('.gh-ln'); if(ln) ln.setAttribute('opacity','0'); gtipHide(); };
+    g.addEventListener('mouseenter', show);
+    g.addEventListener('mousemove', show);
+    g.addEventListener('mouseleave', hide);
+    g.addEventListener('touchstart', e=>{ show(e); }, {passive:true});
+  });
+  document.addEventListener('scroll', gtipHide, {passive:true, once:true});
+}
+
+function grafBars(title, arr, fmt, opt){
+  opt=opt||{};
   if(!arr.length) return '<div class="cap-card"><div class="cap-card-t">'+title+'</div><div class="cap-empty">Belum ada data</div></div>';
   const max=arr[0].val||1;
-  return '<div class="cap-card"><div class="cap-card-t">'+title+'</div>'+arr.map((it,i)=>
-    '<div class="cap-row"><span class="cap-rank">'+(i+1)+'</span><span class="cap-name" title="'+esc(it.k)+'">'+esc(it.k)+'</span>'+
+  const clickable=!!opt.clickKey;
+  return '<div class="cap-card"><div class="cap-card-t">'+title+
+    (clickable?'<span class="cap-sub2"> · ketuk baris untuk rincian</span>':'')+'</div>'+arr.map((it,i)=>
+    '<div class="cap-row'+(clickable?' cap-row-clk':'')+'"'+(clickable?(' data-'+opt.clickKey+'="'+i+'"'):'')+'>'+
+    '<span class="cap-rank">'+(i+1)+'</span><span class="cap-name" title="'+esc(it.k)+'">'+esc(it.k)+'</span>'+
     '<span class="cap-bar"><span style="width:'+Math.max(5,Math.round(it.val/max*100))+'%"></span></span>'+
-    '<span class="cap-val">'+fmt(it.val)+'</span></div>').join('')+'</div>';
+    '<span class="cap-val">'+fmt(it.val)+(clickable?' <span class="cap-chev">›</span>':'')+'</span></div>').join('')+'</div>';
+}
+/* Pop-up: alamat asli yang membentuk satu kelompok Top Alamat. */
+function showAlamatDetail(cl){
+  if(!cl) return;
+  $('#modalTitle').textContent='Rincian Alamat — '+(cl.k||'-');
+  const list=(cl.addrs||[]);
+  const tot=list.reduce((s,a)=>s+a.n,0);
+  $('#modalBody').innerHTML='<div class="detail">'+
+    '<div class="dc-pop-hero"><div><div class="dc-pop-l">Jumlah Order</div>'+
+      '<div class="dc-pop-v">'+cl.val+'</div></div>'+
+      '<div class="dc-pop-x">'+list.length+' alamat berbeda dikelompokkan</div></div>'+
+    '<div class="ops-note" style="margin:0 0 10px">Alamat dikelompokkan otomatis bila ada kemiripan kata (mis. nama perumahan/jalan yang sama), sehingga penulisan yang sedikit berbeda tetap terhitung satu lokasi.</div>'+
+    '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr><th class="l">Alamat</th><th class="c">Order</th></tr></thead><tbody>'+
+    (list.length?list.map(a=>'<tr><td class="l">'+esc(a.a)+'</td><td class="c"><b>'+a.n+'</b></td></tr>').join('')
+      :'<tr><td colspan="2" class="cap-empty">Tidak ada rincian</td></tr>')+
+    '<tr class="ops-total"><td class="l">TOTAL</td><td class="c">'+tot+'</td></tr>'+
+    '</tbody></table></div></div>';
+  const sv=$('#modalSave'); if(sv) sv.style.display='none';
+  const cc=$('#modalCancel'); if(cc){ cc.textContent='Tutup'; cc.classList.add('btn-danger'); }
+  openOverlay();
 }
 function grafPie(title, arr){
   const tot=arr.reduce((s,a)=>s+a.val,0);
@@ -4653,11 +4791,11 @@ function renderGrafik(){
   grafInit(); const G=state.graf; const range=grafRange();
   const inRng=r=>{ const d=parseAnyDate(r['Tanggal Pengerjaan']); return d && d>=range.s && d<=range.e && (!G.cab||cabangOf(r)===String(G.cab).toUpperCase()); };
   const ords=state.rows.filter(r=>inRng(r) && norm(r['Status Order'])!=='cancel');
-  const byLay={}, byCab={}, byDay={}, byJam={};
+  const byLay={}, byCab={}, byDay={}, byJam={}, omzDay={};
   ords.forEach(r=>{ const o=omzetOf_(r);
     byCab[cabangOf(r)||'-']=(byCab[cabangOf(r)||'-']||0)+o;
     [1,2,3].forEach(i=>{ const nm=String(r['Layanan '+i]||'').trim(); if(nm) byLay[nm]=(byLay[nm]||0)+(Number(moneyDigits(r['Harga '+i]))||0); });
-    const d=parseAnyDate(r['Tanggal Pengerjaan']); if(d) byDay[d]=(byDay[d]||0)+1;
+    const d=parseAnyDate(r['Tanggal Pengerjaan']); if(d){ byDay[d]=(byDay[d]||0)+1; omzDay[d]=(omzDay[d]||0)+o; }
     const j=String(r['Waktu Pengerjaan']||'').trim(); if(j) byJam[j]=(byJam[j]||0)+1;
   });
   // top karyawan by bonus
@@ -4666,16 +4804,34 @@ function renderGrafik(){
     if(d && d>=range.s && d<=range.e && (!G.cab||cabangOf(b)===String(G.cab).toUpperCase())){
       String(b['Nama Cleaner']||'').split(',').map(x=>x.trim()).filter(Boolean).forEach(nm=>{ byCleaner[nm]=(byCleaner[nm]||0)+(Number(moneyDigits(b['Nominal']))||0); });
     }});
-  // chat harian
+  // chat harian — per kanal: chat masuk & closing
   const chatDay={};
   (state.cache.chatHarianAll||[]).forEach(c=>{ const d=parseAnyDate(c['Tanggal']);
     if(d && d>=range.s && d<=range.e && (!G.cab||String(c['Cabang']||'').toUpperCase()===String(G.cab).toUpperCase())){
-      const tot=['Cust Baru Organik','Cust Baru Iklan','Cust Lama'].reduce((s,k)=>s+(Number(moneyDigits(c[k]))||0),0);
-      chatDay[d]=(chatDay[d]||0)+tot;
+      const o=chatDay[d]||(chatDay[d]={cOrg:0,cIkl:0,cLam:0,kOrg:0,kIkl:0,kLam:0});
+      o.cOrg+=nChat(c['Cust Baru Organik']);          o.cIkl+=nChat(c['Cust Baru Iklan']);          o.cLam+=nChat(c['Cust Lama']);
+      o.kOrg+=nChat(c['Closing Cust Baru Organik']);  o.kIkl+=nChat(c['Closing Cust Baru Iklan']);  o.kLam+=nChat(c['Closing Cust Lama']);
     }});
   const top=(obj,n)=>Object.keys(obj).map(k=>({k,val:obj[k]})).sort((a,b)=>b.val-a.val).slice(0,n);
-  const dayPairs=Object.keys(byDay).sort().map(d=>({k:d.slice(8,10)+'/'+d.slice(5,7), v:byDay[d]}));
-  const chatPairs=Object.keys(chatDay).sort().map(d=>({k:d.slice(8,10)+'/'+d.slice(5,7), v:chatDay[d]}));
+  const dLbl=d=>d.slice(8,10)+'/'+d.slice(5,7);
+  // Order harian: batang = jumlah order, garis = omzet (skala kanan)
+  const orderDays=Object.keys(byDay).sort().map(d=>({k:dLbl(d), full:tglHariId(d), v:{ord:byDay[d]||0, omz:omzDay[d]||0}}));
+  const orderSeries=[
+    {key:'ord', name:'Jumlah Order', col:'#3E86B5', bar:true, axis:'l', fmt:v=>v+' order'},
+    {key:'omz', name:'Omzet',        col:'#123A5E', axis:'r',           fmt:v=>rp(v)}
+  ];
+  // Chat harian: 3 kanal chat masuk + 3 kanal closing
+  const chatDays=Object.keys(chatDay).sort().map(d=>({k:dLbl(d), full:tglHariId(d), v:chatDay[d]}));
+  const chatSeries=[
+    {key:'cOrg', name:'Chat Organik',    col:'#123A5E', fmt:v=>v+' chat'},
+    {key:'cIkl', name:'Chat Iklan',      col:'#3E86B5', fmt:v=>v+' chat'},
+    {key:'cLam', name:'Chat Cust Lama',  col:'#8E7CC3', fmt:v=>v+' chat'},
+    {key:'kOrg', name:'Closing Organik', col:'#5E9E8E', bar:true, fmt:v=>v+' closing'},
+    {key:'kIkl', name:'Closing Iklan',   col:'#C9A961', bar:true, fmt:v=>v+' closing'},
+    {key:'kLam', name:'Closing Lama',    col:'#B5635A', bar:true, fmt:v=>v+' closing'}
+  ];
+  const almt=clusterByAlamat(ords).slice(0,10);
+  state._grafAlmt=almt;
   const jamArr=top(byJam,10);
   const cabOpts='<option value="">Semua Cabang</option>'+CABANG.filter(c=>c!=='OFFICE').map(c=>'<option'+(G.cab===c?' selected':'')+'>'+c+'</option>').join('');
 
@@ -4687,11 +4843,13 @@ function renderGrafik(){
       '<span class="dash-hint">'+esc(tglPanjangId(range.s)+' – '+tglPanjangId(range.e))+'</span>'+
     '</div>'+
     grafPie('Komposisi Omzet per Cabang', top(byCab,10))+
-    grafLine('Order Harian', dayPairs, v=>v+' order')+
-    grafLine('Chat Harian (customer masuk)', chatPairs, v=>v+' chat')+
+    grafMulti('Order Harian', orderDays, orderSeries,
+      'Batang = jumlah order · garis = omzet. Arahkan kursor (atau sentuh) ke satu hari untuk melihat nilainya.')+
+    grafMulti('Chat Harian (customer masuk)', chatDays, chatSeries,
+      'Garis = chat masuk · batang = closing. Arahkan kursor (atau sentuh) ke satu hari untuk melihat nilainya.')+
     '<div class="cap-grid">'+
       grafBars('Top 10 Layanan — omzet', top(byLay,10), rp)+
-      grafBars('Top 10 Alamat — jumlah order', clusterByAlamat(ords).slice(0,10), x=>x+' order')+
+      grafBars('Top 10 Alamat — jumlah order', almt, x=>x+' order', {clickKey:'almt'})+
     '</div>'+
     '<div class="cap-grid">'+
       grafBars('Top 10 Karyawan — bonus tertinggi', top(byCleaner,10), rp)+
@@ -4701,6 +4859,10 @@ function renderGrafik(){
   gv('gCab').onchange=e=>{ G.cab=e.target.value; renderGrafik(); };
   gv('gDs').onchange=e=>{ G.ds=e.target.value; renderGrafik(); };
   gv('gDe').onchange=e=>{ G.de=e.target.value; renderGrafik(); };
+  wireGrafMulti();
+  document.querySelectorAll('[data-almt]').forEach(el=>el.addEventListener('click',()=>{
+    showAlamatDetail((state._grafAlmt||[])[+el.dataset.almt]);
+  }));
   setCount(ords.length,'order');
 }
 function openWa(num, text, who){
@@ -4843,6 +5005,11 @@ function cell(v,c,r){
   if(c==='Jumlah Hari'){
     const n=periodeHari(r['Awal Periode'], r['Akhir Periode']);
     return n>0 ? '<b>'+esc(n+' hari')+'</b>' : '<span style="color:var(--faint)">—</span>';
+  }
+  if(c==='No. Rekening'){
+    // Di menu Gaji kolom ini tidak ada di tabel GAJI → ambil dari data Karyawan by nama.
+    const rk = (val!=null && val!=='') ? val : rekOf(r['Nama Karyawan']);
+    return rk ? esc(rk) : '<span style="color:var(--faint)">—</span>';
   }
   if(c==='Batas Telat'){
     // Kolom hitung pada Aturan Absensi: Jam Masuk + Toleransi Telat.
