@@ -3593,7 +3593,8 @@ function kpiOmzetCardHTML(cur){
     let cls='k-red';
     if(tgt<=0) cls='k-none';
     else if(kpi>=safePct) cls='k-green';
-    else if(kpi>=safePct-30) cls='k-yellow';
+    else if(kpi>=safePct*0.7) cls='k-yellow';   // kurang s/d 30% DARI target aman
+    // di bawah 70% target aman (kurang >30%) → merah
     const growth = pv>0 ? ((ach-pv)/pv*100) : (ach>0?100:0);
     return {cab, ach, pv, tgt, kpi, cls, growth, hasT:tgt>0};
   });
@@ -3624,9 +3625,9 @@ function kpiOmzetCardHTML(cur){
         '<th class="l">Cabang</th><th class="c">Target Aman</th>'+
         th('KPI Omzet','kpi','c')+th('Growth','growth','c')+th('Omzet Dicapai','ach','r')+th('Target Omzet','tgt','r')+
       '</tr></thead><tbody>'+rowsHtml+'</tbody></table></div>'+
-      '<div class="kpi-legend"><span class="kpi-badge k-green">Hijau</span> di atas target aman · '+
-        '<span class="kpi-badge k-yellow">Kuning</span> kurang s/d 30% · '+
-        '<span class="kpi-badge k-red">Merah</span> di bawah itu · <span style="color:var(--faint)">klik judul kolom untuk mengurutkan</span></div>'+
+      '<div class="kpi-legend"><span class="kpi-badge k-green">Hijau</span> ≥ target aman ('+safePct+'%) · '+
+        '<span class="kpi-badge k-yellow">Kuning</span> kurang s/d 30% (≥ '+Math.round(safePct*0.7)+'%) · '+
+        '<span class="kpi-badge k-red">Merah</span> kurang &gt;30% (&lt; '+Math.round(safePct*0.7)+'%) · <span style="color:var(--faint)">klik judul kolom untuk mengurutkan</span></div>'+
     '</div>';
 }
 function reportKpiCur(){
@@ -4233,7 +4234,8 @@ function dashTabOperasional(){
     nowR.forEach(r=>{ const o=omzetOf_(r); const ch=chan(r); if(ch==='ads')ads+=o; else if(ch==='org')org+=o; else if(ch==='lama')lama+=o;
       const d=parseAnyDate(r['Tanggal Pengerjaan']); if(d>last) last=d; });
     const tgt=targets[cab]||0; const kpi=tgt>0?(now/tgt*100):0;
-    let cls=tgt<=0?'k-none':(kpi>=safePct?'k-green':(kpi>=safePct-30?'k-yellow':'k-red'));
+    // Hijau ≥ target aman · Kuning kurang s/d 30% dari target aman · Merah kurang >30%
+    let cls=tgt<=0?'k-none':(kpi>=safePct?'k-green':(kpi>=safePct*0.7?'k-yellow':'k-red'));
     const gr=pv>0?((now-pv)/pv*100):(now>0?100:0);
     totNow+=now; totPrev+=pv; totAds+=ads; totOrg+=org; totLama+=lama;
     return {cab,now,pv,tgt,kpi,cls,gr,diff:now-pv,ads,org,lama,last,hasT:tgt>0};
@@ -4256,7 +4258,7 @@ function dashTabOperasional(){
     '<div class="tbl-wrap freeze-cab"><table class="ops-tbl"><thead><tr>'+
       '<th class="l det-cabcol">Cabang</th><th class="c">Target Aman</th>'+oh('KPI Omzet','kpi','c')+oh('Growth','gr','c')+oh('Omzet Dicapai','now','r')+oh('Target Omzet','tgt','r')+
     '</tr></thead><tbody>'+kpiRows+'</tbody></table></div>'+
-    '<div class="kpi-legend"><span class="kpi-badge k-green">Hijau</span> di atas target aman · <span class="kpi-badge k-yellow">Kuning</span> kurang s/d 30% · <span class="kpi-badge k-red">Merah</span> di bawah itu · klik judul kolom untuk mengurutkan</div></div>';
+    '<div class="kpi-legend"><span class="kpi-badge k-green">Hijau</span> ≥ target aman ('+safePct+'%) · <span class="kpi-badge k-yellow">Kuning</span> kurang s/d 30% (≥ '+Math.round(safePct*0.7)+'%) · <span class="kpi-badge k-red">Merah</span> kurang &gt;30% (&lt; '+Math.round(safePct*0.7)+'%) · klik judul kolom untuk mengurutkan</div></div>';
 
   // 2) Omzet per Cabang
   const omzRows=objs.map(o=>'<tr>'+
