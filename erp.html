@@ -777,6 +777,21 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .cap-chev{color:var(--faint);font-weight:800;margin-left:2px}
 .alm-tipe{display:inline-block;margin-left:7px;font-size:9.5px;font-weight:800;letter-spacing:.03em;
   text-transform:uppercase;padding:2px 6px;border-radius:5px;background:var(--surface-2);color:var(--muted);vertical-align:1px}
+/* Pemilih Pelanggan Lama (order ulang) */
+.rp-search{display:flex;align-items:center;gap:8px;border:1.5px solid var(--line-2);border-radius:12px;
+  padding:0 12px;margin:0 0 12px;background:var(--surface-2)}
+.rp-search svg{width:17px;height:17px;color:var(--faint);flex:none}
+.rp-search input{flex:1;border:none;background:none;padding:12px 0;font-size:15px;font-family:inherit;outline:none;color:var(--ink)}
+.rp-list{display:flex;flex-direction:column;gap:8px;max-height:56vh;overflow-y:auto}
+.rp-item{text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;
+  padding:11px 13px;cursor:pointer;font-family:inherit;transition:.12s;width:100%}
+.rp-item:hover{border-color:var(--petrol);background:var(--surface-2)}
+.rp-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.rp-nm{font-weight:800;font-size:14.5px;color:var(--ink)}
+.rp-n{font-size:10.5px;font-weight:800;color:var(--petrol);background:rgba(14,59,58,.10);padding:2px 8px;border-radius:20px;flex:none}
+.rp-sub{font-size:11.5px;color:var(--muted);margin-top:3px;display:flex;align-items:center;gap:5px}
+.rp-sub svg{width:13px;height:13px;flex:none;opacity:.7}
+.rp-lay{font-size:11.5px;color:var(--gold-deep,#8A6E32);font-weight:700;margin-top:5px}
 .cap-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
 .cap-row{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:12.5px}
 .cap-rank{width:20px;height:20px;flex:none;border-radius:50%;background:var(--bg);color:var(--petrol);
@@ -1666,7 +1681,7 @@ const VIEWS = {
   },
   order:{
     sheet:'ORDER', title:'Order', sub:'', branchLock:true, countTop:true, noSyncBtn:true,
-    idField:'ID Order', canAdd:true, canEdit:true, special:'order', orderSort:true, bonusBtn:true, paged:true,
+    idField:'ID Order', canAdd:true, canEdit:true, special:'order', orderSort:true, bonusBtn:true, paged:true, repeatBtn:true,
     table:['ID Order','Tanggal Input','Status Order','Nama Customer','Tanggal Pengerjaan','Waktu Pengerjaan','Metode Pembayaran','Nama Cleaner','Total Akhir Setelah Diskon'],
     colLabel:{'Metode Pembayaran':'Metode','Total Akhir Setelah Diskon':'Total','Waktu Pengerjaan':'Jam'},
     filters:['Status Order'],
@@ -2418,11 +2433,13 @@ function renderShell(){
       '<div><div class="page-title">'+v.title+'</div>'+(v.sub?'<div class="page-sub">'+v.sub+'</div>':'')+'<div class="hairline"></div></div>'+
       '<span class="count-chip'+(v.countTop?' count-chip-force':'')+'" id="headCount"></span>'+
       '<div class="spacer"></div>'+
+      (v.repeatBtn ? '<button class="btn btn-ghost" id="btnRepeat">'+svg('users')+'Pelanggan Lama</button>' : '')+
       (v.canAdd ? '<button class="btn btn-primary" id="btnAdd">'+svg('plus')+'Tambah</button>' : '')+
     '</div>'+
     '<div class="toolbar" id="toolbar"></div>'+
     '<div class="panel" id="panel"></div>';
   if(v.canAdd) $('#btnAdd').addEventListener('click', ()=>openForm(null));
+  if(v.repeatBtn) $('#btnRepeat').addEventListener('click', openRepeatPicker);
   document.querySelectorAll('[data-audittab]').forEach(b=>b.addEventListener('click',()=>openAuditTab(b.dataset.audittab)));
   document.querySelectorAll('[data-captab]').forEach(b=>b.addEventListener('click',()=>openCapTab(b.dataset.captab)));
   document.querySelectorAll('[data-gajitab]').forEach(b=>b.addEventListener('click',()=>openGajiTab(b.dataset.gajitab)));
@@ -5198,6 +5215,103 @@ async function openForm(row, pre){
   }
   openOverlay();
 }
+/* ============================================================
+   PELANGGAN LAMA (CS → Order)
+   Order berulang tidak perlu diketik dari nol: cari pelanggan,
+   klik, form terisi dari order TERAKHIR-nya, tinggal disesuaikan.
+   Sumber data: riwayat order cabang ini (state.rows) — tanpa query baru.
+   ============================================================ */
+/* Kunci pelanggan: pakai No WA bila ada (paling andal), kalau tidak pakai nama. */
+function custKey(r){
+  const wa=waNum(r['No WA Customer']);
+  if(wa) return 'w'+wa;
+  const nm=norm(r['Nama Customer']);
+  return nm ? 'n'+nm : '';
+}
+/* Daftar pelanggan unik + order terakhir masing-masing. */
+function custList(){
+  const map={};
+  (state.rows||[]).forEach(r=>{
+    if(!String(r['Nama Customer']||'').trim()) return;
+    const k=custKey(r); if(!k) return;
+    const d=parseAnyDate(r['Tanggal Pengerjaan'])||parseAnyDate(r['Tanggal Input'])||'';
+    const c=map[k]||(map[k]={nama:r['Nama Customer'], wa:r['No WA Customer']||'', n:0, last:'', lastRow:null, batal:0});
+    c.n++;
+    if(norm(r['Status Order'])==='cancel') c.batal++;
+    if(!c.last || d>c.last){ c.last=d; c.lastRow=r; c.nama=r['Nama Customer']; if(r['No WA Customer']) c.wa=r['No WA Customer']; }
+  });
+  return Object.keys(map).map(k=>map[k])
+    .sort((a,b)=> String(b.last).localeCompare(String(a.last)) || String(a.nama).localeCompare(String(b.nama),'id'));
+}
+function openRepeatPicker(){
+  state._custAll=custList();
+  $('#modalTitle').textContent='Pelanggan Lama — Order Ulang';
+  $('#modalBody').innerHTML=
+    '<div class="ops-note" style="margin-top:0">Cari pelanggan, lalu ketuk namanya. Form order baru akan terisi otomatis dari order terakhirnya — tanggal &amp; layanan tinggal disesuaikan.</div>'+
+    '<div class="rp-search">'+svg('search')+'<input id="rpQ" type="search" placeholder="Cari nama customer atau nomor WA…" autocomplete="off"></div>'+
+    '<div id="rpList" class="rp-list"></div>';
+  const sv=$('#modalSave'); if(sv) sv.style.display='none';
+  const cc=$('#modalCancel'); if(cc){ cc.textContent='Tutup'; cc.classList.remove('btn-danger'); }
+  openOverlay();
+  paintRepeatList('');
+  const q=$('#rpQ');
+  if(q){ q.addEventListener('input', ()=>paintRepeatList(q.value)); setTimeout(()=>q.focus(), 80); }
+}
+function paintRepeatList(q){
+  const s=norm(q), sDigit=String(q||'').replace(/\D/g,'');
+  let list=state._custAll||[];
+  if(s){
+    list=list.filter(c=>{
+      if(norm(c.nama).indexOf(s)>-1) return true;                    // cocok nama
+      if(sDigit && String(c.wa||'').replace(/\D/g,'').indexOf(sDigit)>-1) return true;  // cocok nomor WA
+      return false;
+    });
+  }
+  const box=$('#rpList'); if(!box) return;
+  if(!list.length){
+    box.innerHTML='<div class="cap-empty">'+(s?'Pelanggan tidak ditemukan.':'Belum ada riwayat order di cabang ini.')+'</div>';
+    return;
+  }
+  const shown=list.slice(0,40);
+  box.innerHTML=shown.map((c,i)=>{
+    const r=c.lastRow||{};
+    const lay=[1,2,3].map(n=>String(r['Layanan '+n]||'').trim()).filter(Boolean).join(', ');
+    return '<button class="rp-item" data-cust="'+i+'">'+
+      '<div class="rp-top"><span class="rp-nm">'+esc(c.nama)+'</span>'+
+        '<span class="rp-n">'+c.n+' order</span></div>'+
+      '<div class="rp-sub">'+(c.wa?esc(c.wa)+' · ':'')+'terakhir '+esc(c.last?tglPanjangId(c.last):'-')+'</div>'+
+      (r['Alamat']?'<div class="rp-sub">'+svg('map')+' '+esc(r['Alamat'])+'</div>':'')+
+      (lay?'<div class="rp-lay">'+esc(lay)+'</div>':'')+
+    '</button>';
+  }).join('')+(list.length>shown.length?'<div class="ops-note" style="margin:10px 0 0">Menampilkan 40 dari '+list.length+' pelanggan. Ketik untuk mempersempit.</div>':'');
+  box.querySelectorAll('[data-cust]').forEach(b=>b.addEventListener('click',()=>{
+    repeatOrder(shown[+b.dataset.cust]);
+  }));
+}
+/* Buka form order baru berisi data pelanggan + layanan dari order terakhirnya. */
+function repeatOrder(c){
+  if(!c || !c.lastRow) return;
+  const r=c.lastRow;
+  const pre={
+    'Chat Dari':'Lama',                       // otomatis — supaya laporan chat/KPI tetap benar
+    'Nama Customer': c.nama,
+    'No WA Customer': c.wa||'',
+    'Alamat': r['Alamat']||'',
+    'Waktu Pengerjaan': r['Waktu Pengerjaan']||'',
+    'Tanggal Pengerjaan': ymd(new Date()),    // selalu hari ini — jangan ikut tanggal lama
+    'Metode Pembayaran': r['Metode Pembayaran']||'',
+    'Diskon (%)': r['Diskon (%)']||'',
+    'PPn': r['PPn']||0
+  };
+  [1,2,3].forEach(i=>{
+    if(String(r['Layanan '+i]||'').trim()){
+      pre['Layanan '+i]=r['Layanan '+i]; pre['Qty '+i]=r['Qty '+i]||''; pre['Harga '+i]=r['Harga '+i]||'';
+    }
+  });
+  closeOverlay();
+  setTimeout(()=>{ openForm(null, pre); toast('Data '+c.nama+' dimuat — cek tanggal & layanan','ok'); }, 60);
+}
+
 function defaults(v){
   const d={}; const today=ymd(new Date());
   if(v.sheet==='ORDER'){ d['Tanggal Input']=today; d['Status Order']='pending';
