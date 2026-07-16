@@ -775,6 +775,8 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .cap-row-clk{cursor:pointer;border-radius:8px;transition:.12s}
 .cap-row-clk:hover{background:var(--surface-2)}
 .cap-chev{color:var(--faint);font-weight:800;margin-left:2px}
+.alm-tipe{display:inline-block;margin-left:7px;font-size:9.5px;font-weight:800;letter-spacing:.03em;
+  text-transform:uppercase;padding:2px 6px;border-radius:5px;background:var(--surface-2);color:var(--muted);vertical-align:1px}
 .cap-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
 .cap-row{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:12.5px}
 .cap-rank{width:20px;height:20px;flex:none;border-radius:50%;background:var(--bg);color:var(--petrol);
@@ -3350,32 +3352,117 @@ function wireSummary(){ /* placeholder untuk interaksi ringkasan bila diperlukan
    CAPAIAN (DASHBOARD CS & FINANCE)
    ============================================================ */
 /* Tokenisasi alamat: ambil kata-kata bermakna (buang kata umum & angka murni). */
-function alamatTokens(s){
-  const stop=new Set(['jalan','jl','jln','no','nomor','rt','rw','blok','gang','gg','kel','kec','kelurahan',
-    'kecamatan','kota','kab','kabupaten','perum','perumahan','komplek','kompleks','komp','the','dan','raya',
-    'gedung','ruko','apartemen','apt','lantai','lt','depan','belakang','samping','dekat','sebelah']);
-  return String(s||'').toLowerCase().replace(/[^a-z0-9\s]/g,' ').split(/\s+/)
-    .filter(w=>w.length>=3 && !stop.has(w) && !/^\d+$/.test(w));
-}
 /* Kelompokkan alamat yang berbagi minimal 2 kata sama (walau depan/belakang & panjang beda). */
+/* ================= PENGELOMPOKAN ALAMAT (Top Alamat) =================
+   Alamat pelanggan ditulis bebas, jadi dikelompokkan memakai TITIK ACUAN
+   yang paling jelas dulu — bukan menebak kemiripan kata:
+
+     1. Perumahan / kompleks / apartemen  → "Griya Asri"
+     2. Kecamatan                         → "Kec. Sukolilo"
+     3. Kelurahan / Desa                  → "Kel. Keputih"
+     4. Nama jalan                        → "Jl. Merdeka"
+     5. Tanpa penanda                     → 2 kata pertama yang bermakna
+
+   Nomor rumah / blok / RT / RW sengaja diabaikan supaya satu lokasi
+   tidak pecah jadi banyak baris.
+   ===================================================================== */
+
+// Kata generik di DEPAN nama (tidak ikut jadi nama): "Perum Griya Asri" → "griya asri"
+const ALM_PREFIX = ['perumahan','perum','komplek','kompleks','komp','cluster','kluster',
+  'apartemen','apartement','apartment','apart','residence','regency','asrama','kost','kos'];
+// Kata yang MERUPAKAN bagian nama: "Griya Asri" → "griya asri"
+const ALM_NAME = ['griya','graha','villa','vila','pondok','taman','puri','bumi','permata',
+  'citra','pesona','mutiara','grand','green','harmoni','regensi'];
+// Kata yang menandai akhir nama / tidak bermakna sebagai lokasi.
+// Nama kota cabang ikut dimasukkan: "Kec. Sukolilo, Surabaya" harus sama dengan "Kec. Sukolilo".
+const ALM_STOP = new Set(['jl','jln','jalan','no','nomor','nomer','rt','rw','blok','kav','gg','gang',
+  'unit','lantai','lt','kel','kelurahan','kec','kecamatan','kab','kabupaten','kota','desa','ds',
+  'dusun','dsn','prov','provinsi','depan','belakang','samping','dekat','sebelah','dpn','sblh',
+  'the','dan','yang','di','ke','dari','rumah','gedung','ruko','toko','warung','masjid','sekolah',
+  'pasar','kantor','arah','patokan','utara','selatan','timur','barat','tengah',
+  'jawa','jatim','jabar','jateng','bali','kalimantan','sulawesi','indonesia'
+].concat(CABANG.map(c=>c.toLowerCase())));
+
+function almNorm(s){
+  return String(s||'').toLowerCase()
+    .replace(/[^a-z0-9\s]/g,' ')
+    .replace(/\s+/g,' ').trim();
+}
+function almTitle(s){
+  return String(s||'').split(' ').filter(Boolean)
+    .map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(' ');
+}
+/* Ambil maksimal 2 kata bermakna setelah posisi i. Berhenti di "blok"/"no"/angka. */
+function almAfter(w, i){
+  const out=[];
+  for(let j=i+1; j<w.length && out.length<2; j++){
+    const x=w[j];
+    if(ALM_STOP.has(x)) break;
+    if(/^\d/.test(x)) break;          // "12", "2a" → penanda nomor/blok
+    if(x.length<3) break;             // "c", "a2" → penanda blok
+    out.push(x);
+  }
+  return out.join(' ');
+}
+/* Kunci pengelompokan satu alamat → {tipe, key, label} */
+function alamatKey(raw){
+  const s=almNorm(raw); if(!s) return null;
+  const w=s.split(' ');
+  // 1a) Kata generik di depan: "Perum X", "Kompleks X"
+  for(let i=0;i<w.length;i++){
+    if(ALM_PREFIX.indexOf(w[i])>=0){
+      const nm=almAfter(w,i);
+      if(nm) return {tipe:'Perumahan', key:nm, label:almTitle(nm)};
+    }
+  }
+  // 1b) Nama tempat langsung: "Griya X", "Taman X"
+  for(let i=0;i<w.length;i++){
+    if(ALM_NAME.indexOf(w[i])>=0){
+      const nm=almAfter(w,i);
+      if(nm) return {tipe:'Perumahan', key:w[i]+' '+nm, label:almTitle(w[i]+' '+nm)};
+    }
+  }
+  // 2) Kecamatan
+  for(let i=0;i<w.length;i++){
+    if(w[i]==='kec'||w[i]==='kecamatan'){
+      const nm=almAfter(w,i);
+      if(nm) return {tipe:'Kecamatan', key:'kec '+nm, label:'Kec. '+almTitle(nm)};
+    }
+  }
+  // 3) Kelurahan / Desa
+  for(let i=0;i<w.length;i++){
+    if(w[i]==='kel'||w[i]==='kelurahan'||w[i]==='desa'||w[i]==='ds'){
+      const nm=almAfter(w,i);
+      if(nm) return {tipe:'Kelurahan', key:'kel '+nm,
+        label:((w[i]==='desa'||w[i]==='ds')?'Desa ':'Kel. ')+almTitle(nm)};
+    }
+  }
+  // 4) Nama jalan
+  for(let i=0;i<w.length;i++){
+    if(w[i]==='jl'||w[i]==='jln'||w[i]==='jalan'){
+      const nm=almAfter(w,i);
+      if(nm) return {tipe:'Jalan', key:'jl '+nm, label:'Jl. '+almTitle(nm)};
+    }
+  }
+  // 5) Tidak ada penanda → 2 kata pertama yang bermakna
+  const mw=w.filter(x=>x.length>2 && !ALM_STOP.has(x) && !/^\d/.test(x));
+  if(!mw.length) return null;
+  const nm=mw.slice(0,2).join(' ');
+  return {tipe:'Alamat', key:nm, label:almTitle(nm)};
+}
+/* Kelompokkan baris order berdasarkan alamat. Hasil urut terbanyak dulu. */
 function clusterByAlamat(rows){
-  const clusters=[];
-  rows.forEach(r=>{
+  const map={};
+  (rows||[]).forEach(r=>{
     const raw=String(r['Alamat']||'').trim(); if(!raw) return;
-    const toks=alamatTokens(raw); if(!toks.length) return;
-    const tset=new Set(toks);
-    let best=null, bestShare=1;
-    clusters.forEach(c=>{ let share=0; tset.forEach(t=>{ if(c.tokens.has(t)) share++; });
-      if(share>=2 && share>bestShare){ best=c; bestShare=share; } });
-    if(best){ best.count++; toks.forEach(t=>best.tokens.add(t)); best.labelFreq[raw]=(best.labelFreq[raw]||0)+1; }
-    else { const c={tokens:tset, count:1, labelFreq:{}}; c.labelFreq[raw]=1; clusters.push(c); }
+    const k=alamatKey(raw); if(!k) return;
+    const c=map[k.key]||(map[k.key]={k:k.label, tipe:k.tipe, val:0, freq:{}});
+    c.val++; c.freq[raw]=(c.freq[raw]||0)+1;
   });
-  clusters.forEach(c=>{ c.label=Object.keys(c.labelFreq).sort((a,b)=>c.labelFreq[b]-c.labelFreq[a])[0]||'-'; });
-  // addrs = rincian alamat asli yang membentuk kelompok ini (untuk pop-up detail)
-  return clusters.map(c=>({
-    k:c.label, val:c.count,
-    addrs:Object.keys(c.labelFreq).map(a=>({a, n:c.labelFreq[a]})).sort((x,y)=>y.n-x.n)
-  })).sort((a,b)=>b.val-a.val);
+  return Object.keys(map).map(id=>{ const c=map[id];
+    return { k:c.k, tipe:c.tipe, val:c.val,
+      addrs:Object.keys(c.freq).map(a=>({a,n:c.freq[a]})).sort((x,y)=>y.n-x.n) };
+  }).sort((a,b)=> b.val-a.val || String(a.k).localeCompare(String(b.k),'id'));
 }
 /* Kartu diagram pie (dipakai Finance untuk Top 5 layanan). */
 function pieCard(title, arr, fmt){
@@ -4734,7 +4821,8 @@ function grafBars(title, arr, fmt, opt){
   return '<div class="cap-card"><div class="cap-card-t">'+title+
     (clickable?'<span class="cap-sub2"> · ketuk baris untuk rincian</span>':'')+'</div>'+arr.map((it,i)=>
     '<div class="cap-row'+(clickable?' cap-row-clk':'')+'"'+(clickable?(' data-'+opt.clickKey+'="'+i+'"'):'')+'>'+
-    '<span class="cap-rank">'+(i+1)+'</span><span class="cap-name" title="'+esc(it.k)+'">'+esc(it.k)+'</span>'+
+    '<span class="cap-rank">'+(i+1)+'</span><span class="cap-name" title="'+esc(it.k)+'">'+esc(it.k)+
+      (it.tipe?'<span class="alm-tipe">'+esc(it.tipe)+'</span>':'')+'</span>'+
     '<span class="cap-bar"><span style="width:'+Math.max(5,Math.round(it.val/max*100))+'%"></span></span>'+
     '<span class="cap-val">'+fmt(it.val)+(clickable?' <span class="cap-chev">›</span>':'')+'</span></div>').join('')+'</div>';
 }
@@ -4744,12 +4832,20 @@ function showAlamatDetail(cl){
   $('#modalTitle').textContent='Rincian Alamat — '+(cl.k||'-');
   const list=(cl.addrs||[]);
   const tot=list.reduce((s,a)=>s+a.n,0);
+  const why={
+    'Perumahan':'Dikelompokkan sebagai <b>satu perumahan/kompleks</b> — nomor blok & rumah diabaikan.',
+    'Kecamatan':'Dikelompokkan sebagai <b>satu kecamatan</b> — diambil dari tulisan "Kec./Kecamatan" pada alamat.',
+    'Kelurahan':'Dikelompokkan sebagai <b>satu kelurahan/desa</b> — diambil dari tulisan "Kel./Desa" pada alamat.',
+    'Jalan':'Dikelompokkan sebagai <b>satu nama jalan</b> — nomor rumah & RT/RW diabaikan.',
+    'Alamat':'Alamat tanpa penanda perumahan/kecamatan/jalan — dikelompokkan dari kata awal yang sama.'
+  }[cl.tipe] || '';
   $('#modalBody').innerHTML='<div class="detail">'+
     '<div class="dc-pop-hero"><div><div class="dc-pop-l">Jumlah Order</div>'+
       '<div class="dc-pop-v">'+cl.val+'</div></div>'+
-      '<div class="dc-pop-x">'+list.length+' alamat berbeda dikelompokkan</div></div>'+
-    '<div class="ops-note" style="margin:0 0 10px">Alamat dikelompokkan otomatis bila ada kemiripan kata (mis. nama perumahan/jalan yang sama), sehingga penulisan yang sedikit berbeda tetap terhitung satu lokasi.</div>'+
-    '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr><th class="l">Alamat</th><th class="c">Order</th></tr></thead><tbody>'+
+      '<div class="dc-pop-x">'+(cl.tipe?'<span class="alm-tipe">'+esc(cl.tipe)+'</span> · ':'')+
+        list.length+' penulisan alamat berbeda</div></div>'+
+    (why?'<div class="ops-note" style="margin:0 0 10px">'+why+'</div>':'')+
+    '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr><th class="l">Alamat asli (seperti diinput CS)</th><th class="c">Order</th></tr></thead><tbody>'+
     (list.length?list.map(a=>'<tr><td class="l">'+esc(a.a)+'</td><td class="c"><b>'+a.n+'</b></td></tr>').join('')
       :'<tr><td colspan="2" class="cap-empty">Tidak ada rincian</td></tr>')+
     '<tr class="ops-total"><td class="l">TOTAL</td><td class="c">'+tot+'</td></tr>'+
