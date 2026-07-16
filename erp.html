@@ -186,6 +186,12 @@ input,select,textarea{font-family:inherit; font-size:14.5px; color:var(--ink)}
   border-radius:12px; background:var(--surface); outline:none; transition:.15s}
 .search input:focus{border-color:var(--petrol); box-shadow:0 0 0 4px rgba(20,38,74,.07)}
 .fl{display:flex; align-items:center; gap:6px}
+/* Filter pilih-banyak (chip) */
+.mfl{display:flex;gap:5px;flex-wrap:wrap}
+.mfc{padding:8px 13px;border:1px solid var(--line-2);border-radius:11px;background:var(--surface);
+  color:var(--muted);font-weight:700;font-size:12.5px;font-family:inherit;cursor:pointer;transition:.12s;text-transform:capitalize}
+.mfc:hover{border-color:var(--petrol)}
+.mfc.on{background:var(--petrol);color:#fff;border-color:transparent}
 .fl select,.fl input{padding:10px 12px; border:1px solid var(--line-2); border-radius:11px;
   background:var(--surface); outline:none; transition:.15s; max-width:170px}
 .fl select:focus,.fl input:focus{border-color:var(--petrol)}
@@ -1476,6 +1482,7 @@ const MENUS = {
   CEO: [
     {key:'dashboard', label:'Dashboard', icon:'result'},
     {key:'grafik', label:'Grafik', icon:'audit'},
+    {key:'dataChat', label:'Data Chat', icon:'wa'},
     {key:'agenda', label:'Agenda', icon:'audit'},
     {key:'__settings', label:'Pengaturan', icon:'settings'}
   ],
@@ -1707,7 +1714,8 @@ const VIEWS = {
   },
   capOmzet:{  // TAB 1 — sama seperti Laporan Omzet (Operasional) + Top 5
     sheet:'ORDER', title:'Capaian', sub:'', special:'capOmzet', hub:'capfin', countTop:true, noSyncBtn:true,
-    datePreset:true, dateRange:true, dateFilterField:'Tanggal Pengerjaan', filters:['Cabang','Status Order']
+    datePreset:true, dateRange:true, dateFilterField:'Tanggal Pengerjaan',
+    filters:['Cabang','Status Order'], multiFilters:['Status Order']
   },
   capKpi:{  // TAB 2 — Ringkasan Nilai KPI per Cabang + KPI Omzet per Cabang
     sheet:'ORDER', title:'Capaian', sub:'', special:'capKpi', hub:'capfin', countTop:true, noSyncBtn:true,
@@ -2453,11 +2461,19 @@ function buildToolbar(){
     if(v.branchLock && fld==='Cabang') return;
     let opts = FILTER_OPTS[fld] || [];
     if(fld==='Status Order' && v.statusClient) opts = v.statusClient.slice();
-    if(fld==='Periode Bulan'){
-      pf += '<div class="fl"><span class="lbl">'+fld+'</span><input type="month" data-filter="'+fld+'"></div>';
+    const isMulti = (v.multiFilters||[]).indexOf(fld)>=0;
+    if(isMulti){
+      // Filter pilih-banyak: klik untuk aktif/nonaktif, boleh lebih dari satu.
+      const sel = Array.isArray(state.filters[fld]) ? state.filters[fld] : [];
+      pf += '<div class="fl"><span class="lbl">'+fld+'</span><div class="mfl" data-mfilter="'+esc(fld)+'">'+
+        '<button type="button" class="mfc'+(sel.length?'':' on')+'" data-mv="">Semua</button>'+
+        opts.map(o=>'<button type="button" class="mfc'+(sel.indexOf(o)>=0?' on':'')+'" data-mv="'+esc(o)+'">'+esc(o)+'</button>').join('')+
+      '</div></div>';
+    }else if(fld==='Periode Bulan'){
+      pf += '<div class="fl"><span class="lbl">'+fld+'</span><input type="month" data-filter="'+fld+'" value="'+esc(state.filters[fld]||'')+'"></div>';
     }else{
       pf += '<div class="fl"><span class="lbl">'+fld+'</span><select data-filter="'+fld+'"><option value="">Semua</option>'+
-        opts.map(o=>'<option>'+o+'</option>').join('')+'</select></div>';
+        opts.map(o=>'<option'+((state.filters[fld]||'')===o?' selected':'')+'>'+o+'</option>').join('')+'</select></div>';
     }
   });
   if(v.monthFilter){
@@ -2502,6 +2518,25 @@ function buildToolbar(){
   }
   document.querySelectorAll('[data-filter]').forEach(el=>{
     el.addEventListener('change', e=>{ state.filters[el.dataset.filter]=e.target.value; updateFbadge(); renderView(); });
+  });
+  // Filter pilih-banyak (mis. Status Order: done + complete sekaligus)
+  document.querySelectorAll('[data-mfilter]').forEach(box=>{
+    const fld=box.dataset.mfilter;
+    box.querySelectorAll('[data-mv]').forEach(btn=>btn.addEventListener('click',()=>{
+      const val=btn.dataset.mv;
+      let sel = Array.isArray(state.filters[fld]) ? state.filters[fld].slice() : [];
+      if(!val){ sel=[]; }                                   // "Semua" → kosongkan pilihan
+      else {
+        const i=sel.indexOf(val);
+        if(i>=0) sel.splice(i,1); else sel.push(val);
+      }
+      state.filters[fld] = sel.length ? sel : '';
+      box.querySelectorAll('[data-mv]').forEach(b=>{
+        const v2=b.dataset.mv;
+        b.classList.toggle('on', v2 ? sel.indexOf(v2)>=0 : !sel.length);
+      });
+      updateFbadge(); renderView();
+    }));
   });
   const fMonth=$('#fMonth'), fDay=$('#fDay');
   if(fMonth && state.dateStart){
@@ -2552,7 +2587,11 @@ function buildToolbar(){
 }
 function updateFbadge(){
   const b=$('#fbadge'); if(!b) return;
-  let n=0; Object.keys(state.filters).forEach(k=>{ if(state.filters[k]) n++; });
+  let n=0; Object.keys(state.filters).forEach(k=>{
+    const v=state.filters[k];
+    if(Array.isArray(v)) { if(v.length) n++; }
+    else if(v) n++;
+  });
   if(state.dateStart||state.dateEnd) n++;
   b.textContent = n? n : ''; b.style.display = n? 'flex':'none';
 }
@@ -2656,7 +2695,11 @@ function applyClientFilters(rows){
   }
   Object.keys(state.filters).forEach(k=>{
     const val=state.filters[k]; if(!val) return;
-    if(k==='Nama Cleaner'){
+    if(Array.isArray(val)){                       // filter pilih-banyak
+      if(!val.length) return;                     // kosong = tampilkan semua
+      const allow=val.map(norm);
+      out = out.filter(r=>allow.indexOf(norm(r[k]))>-1);
+    }else if(k==='Nama Cleaner'){
       out = out.filter(r=>String(r['Nama Cleaner']||'').split(',').map(s=>norm(s)).indexOf(norm(val))>-1);
     }else if(k==='Periode Bulan'){
       const want=parseAnyMonth(val);
@@ -3313,8 +3356,7 @@ function renderCapaian(){
   const isCsCap = state.session && state.session.role==='CS' && state.view && state.view.special==='capaian';
   let rows, csMLast=null;
   if(isCsCap){
-    const statusFilter=state.filters['Status Order'];
-    const okStatus=r=>statusFilter?norm(r['Status Order'])===norm(statusFilter):norm(r['Status Order'])!=='cancel';
+    const okStatus=r=>statusPass(r);
     const today=ymd(new Date()); const ym=today.slice(0,7);
     const dStart=state.dateStart||(ym+'-01'); const dEnd=state.dateEnd||today;
     rows=state.rows.filter(r=>{ const d=parseAnyDate(r['Tanggal Pengerjaan']); return d && d>=dStart && d<=dEnd && okStatus(r); });
@@ -3474,14 +3516,39 @@ function prevPeriodBounds(cur){
   const pe=new Date(s.getFullYear(), s.getMonth(),   27);
   return {start:ymd(ps), end:ymd(pe)};
 }
-/* Baris ORDER setelah filter Cabang + Status Order (TANPA rentang tanggal). */
+/* Baris ORDER setelah filter Cabang + Status Order (TANPA rentang tanggal).
+   Status Order bisa berupa daftar (pilih-banyak), mis. ['done','complete']. */
 function opsBaseRows(){
   let rows=state.rows.slice();
   const fc=state.filters['Cabang'], fs=state.filters['Status Order'];
   if(fc) rows=rows.filter(r=>String(r['Cabang']||'').toUpperCase()===String(fc).toUpperCase());
-  if(fs) rows=rows.filter(r=>norm(r['Status Order'])===norm(fs));
-  else rows=rows.filter(r=>norm(r['Status Order'])!=='cancel');   // default: semua status kecuali cancel
+  if(Array.isArray(fs) && fs.length){
+    const allow=fs.map(norm);
+    rows=rows.filter(r=>allow.indexOf(norm(r['Status Order']))>-1);
+  }else if(fs && !Array.isArray(fs)){
+    rows=rows.filter(r=>norm(r['Status Order'])===norm(fs));
+  }else{
+    rows=rows.filter(r=>norm(r['Status Order'])!=='cancel');   // default: semua status kecuali cancel
+  }
   return rows;
+}
+/* Label filter status untuk catatan di layar. */
+function statusFilterLabel(){
+  const fs=state.filters['Status Order'];
+  if(Array.isArray(fs)) return fs.length ? fs.join(' + ') : '';
+  return fs || '';
+}
+/* Apakah status order lolos filter? Menangani filter tunggal maupun pilih-banyak.
+   fallback = penyaring bila tidak ada filter aktif. */
+function statusPass(r, fallback){
+  const fs=state.filters['Status Order'];
+  const st=norm(r['Status Order']);
+  if(Array.isArray(fs)){
+    if(fs.length) return fs.map(norm).indexOf(st)>-1;
+  }else if(fs){
+    return st===norm(fs);
+  }
+  return fallback ? fallback(st) : st!=='cancel';
 }
 function opsCabangList(){
   const v=state.view;
@@ -3635,7 +3702,7 @@ function renderLaporanOmzet(){
   const growStat = '<div class="cap-stat"><div class="cap-stat-l">Growth vs periode lalu</div>'+
     '<div class="cap-grow">'+growthHTML(totNow,totPrev)+'</div></div>';
   $('#panel').innerHTML =
-    '<div class="ops-note">Periode: <b>'+esc(tglPanjangId(cur.start)+' – '+tglPanjangId(cur.end))+'</b> vs Periode Sebelumnya (−1 bulan): <b>'+esc(tglPanjangId(prev.start)+' – '+tglPanjangId(prev.end))+'</b><br>Berdasarkan Tanggal Pengerjaan · semua status kecuali cancel'+(state.filters['Status Order']?(' · filter: '+esc(state.filters['Status Order'])):'')+'</div>'+
+    '<div class="ops-note">Periode: <b>'+esc(tglPanjangId(cur.start)+' – '+tglPanjangId(cur.end))+'</b> vs Periode Sebelumnya (−1 bulan): <b>'+esc(tglPanjangId(prev.start)+' – '+tglPanjangId(prev.end))+'</b><br>Berdasarkan Tanggal Pengerjaan · semua status kecuali cancel'+(statusFilterLabel()?(' · filter: '+esc(statusFilterLabel())):'')+'</div>'+
     '<div class="cap-stats cap-stats-4">'+stat('Omzet Periode Ini',rp(totNow))+stat('Omzet Periode Lalu',rp(totPrev))+growStat+stat('Jumlah Cancel',cancelCount+' order')+'</div>'+
     '<div class="cap-card"><div class="cap-card-t">Omzet per Cabang</div>'+
       '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr>'+
@@ -3884,12 +3951,10 @@ function cabangOf(r){
   return CODE_CABANG[code]||'';
 }
 function kpiOmzet(cab, ym){
-  const fs=state.filters['Status Order'];
   return state.rows.filter(r=>{
     if(cabangOf(r)!==cab) return false;
     // status: jika ada filter pakai itu; jika tidak → hanya pending/done/complete (buang cancel & status kosong)
-    if(fs){ if(norm(r['Status Order'])!==norm(fs)) return false; }
-    else if(['pending','done','complete'].indexOf(norm(r['Status Order']))<0) return false;
+    if(!statusPass(r, st=>['pending','done','complete'].indexOf(st)>=0)) return false;
     return parseAnyMonth(r['Tanggal Pengerjaan'])===ym;
   }).reduce((s,r)=>s+omzetOf_(r),0);
 }
@@ -4156,7 +4221,15 @@ function dashMetrics(range,cab,status){
     const pm=parseAnyMonth(sp['Periode']||sp['Periode Bulan']||sp['Tanggal']); if(!pm) return;
     if(pm>=range.s.slice(0,7) && pm<=range.e.slice(0,7)) totSpend+=Number(moneyDigits(sp['Nominal']))||0;
   });
-  return {omzet, cancel, karN:kar.length, totSpend};
+  // Chat harian (CHAT_HARIAN) — chat masuk, closing & closing rate pada rentang & cabang terpilih.
+  const chatRows=(state.cache.chatHarianAll||[]).filter(c=>{
+    const d=parseAnyDate(c['Tanggal']); if(!d || d<range.s || d>range.e) return false;
+    if(cab && String(c['Cabang']||'').toUpperCase()!==String(cab).toUpperCase()) return false;
+    return true;
+  });
+  const cA=chatAgg(chatRows);
+  return {omzet, cancel, karN:kar.length, totSpend,
+          chat:cA.totChat, closing:cA.totClose, closeRate:cA.rate};
 }
 function dashDeltaBadge(a,b,fmt){
   fmt = fmt || (x=>x);
@@ -4189,7 +4262,11 @@ function renderDashboard(){
     '<div class="dash-range">Periode: <b>'+esc(rangeLbl)+'</b></div>'+
     '<div class="cap-stats dash-cards">'+
       stat('Omzet', rp(met.omzet), (cmp?dashDeltaBadge(met.omzet,cmp.omzet,rp):''))+
-      stat('Chat', '—', '<div class="cap-stat-s">segera</div>')+
+      stat('Chat', (met.chat? met.closeRate.toFixed(0)+'%' : '—'),
+        (met.chat
+          ? '<div class="cap-stat-s">'+met.chat.toLocaleString('id-ID')+' chat → '+met.closing.toLocaleString('id-ID')+' closing</div>'+
+            (cmp?dashDeltaBadge(met.closeRate,cmp.closeRate,x=>x.toFixed(0)+'%'):'')
+          : '<div class="cap-stat-s">belum ada laporan</div>'))+
       stat('Order Cancel', met.cancel+'', (cmp?dashDeltaBadge(met.cancel,cmp.cancel,x=>x+' order'):''))+
       stat('Jumlah Karyawan', met.karN+'', (cmp?dashDeltaBadge(met.karN,cmp.karN,x=>x+' org'):'<div class="cap-stat-s">tanpa Freelance & Vendor</div>'))+
       stat('Total Spend Iklan', rp(met.totSpend), (cmp?dashDeltaBadge(met.totSpend,cmp.totSpend,rp):''))+
