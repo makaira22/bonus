@@ -566,6 +566,44 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .g-up{color:var(--success)} .g-down{color:var(--danger)} .g-flat{color:var(--muted)}
 .kpi-badge{display:inline-block;font-weight:800;font-size:12.5px;padding:4px 11px;border-radius:16px;color:#fff}
 .k-green{background:var(--success)} .k-yellow{background:#C99A28} .k-red{background:var(--danger)}
+/* ===== DATA CHAT ===== */
+.dc-hero{display:flex;gap:16px;align-items:stretch;background:linear-gradient(135deg,var(--petrol),var(--petrol-2));
+  color:#fff;border-radius:16px;padding:20px 22px;margin-bottom:14px;flex-wrap:wrap}
+.dc-hero-l{flex:1;min-width:190px}
+.dc-hero-t{font-size:12px;opacity:.8;font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.dc-hero-v{font-family:var(--display);font-size:52px;font-weight:600;line-height:1;margin:4px 0 6px}
+.dc-hero-v span{font-size:24px;opacity:.75;margin-left:2px}
+.dc-hero-s{font-size:12px;opacity:.8}
+.dc-hero-r{display:grid;grid-template-columns:repeat(2,minmax(84px,1fr));gap:8px;align-content:center}
+.dc-mini{background:rgba(255,255,255,.11);border-radius:11px;padding:9px 12px}
+.dc-mini-l{font-size:10.5px;opacity:.8;font-weight:600}
+.dc-mini-v{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.2}
+.dc-chans{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px}
+.dc-chan{text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 15px;
+  box-shadow:var(--shadow-sm);cursor:pointer;font-family:inherit;transition:.12s}
+.dc-chan:hover{border-color:var(--petrol);transform:translateY(-2px);box-shadow:var(--shadow-md,0 8px 20px -10px rgba(0,0,0,.25))}
+.dc-chan-h{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.dc-chan-n{font-weight:800;font-size:14px;color:var(--ink)}
+.dc-chan-s{font-size:10.5px;color:var(--faint);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-top:1px}
+.dc-bar{height:6px;border-radius:6px;background:var(--surface-2);overflow:hidden;margin:9px 0 10px}
+.dc-bar i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,var(--petrol),var(--gold))}
+.dc-chan-g{display:flex;gap:14px}
+.dc-chan-g div{display:flex;flex-direction:column}
+.dc-chan-g b{font-size:17px;font-variant-numeric:tabular-nums;color:var(--petrol)}
+.dc-chan-g span{font-size:10.5px;color:var(--faint);font-weight:600}
+.dc-chan-f{margin-top:9px;padding-top:8px;border-top:1px dashed var(--line);font-size:11px;color:var(--muted);font-weight:600}
+.dc-pop-hero{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;
+  background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:12px}
+.dc-pop-l{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.dc-pop-v{font-family:var(--display);font-size:30px;font-weight:600;color:var(--petrol);line-height:1.1}
+.dc-pop-x{font-size:12.5px;color:var(--muted)}
+.dc-day{min-width:760px;font-size:12px}
+.dc-tot td{background:var(--surface-2);font-weight:800;border-top:2px solid var(--line)}
+@media (max-width:900px){
+  .dc-chans{grid-template-columns:1fr}
+  .dc-hero-v{font-size:42px}
+  .dc-hero-r{grid-template-columns:repeat(4,1fr);width:100%}
+}
 .k-none{background:var(--faint)}
 .kpi-legend{margin-top:12px;font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .kpi-cs-card{padding:0;overflow:hidden}
@@ -1411,6 +1449,7 @@ const MENUS = {
     {key:'laporanOmzet', label:'Laporan Omzet', icon:'result'},
     {key:'reportKPI', label:'Report KPI', icon:'audit'},
     {key:'kpiCS', label:'KPI CS', icon:'users'},
+    {key:'dataChat', label:'Data Chat', icon:'wa'},
     {key:'agenda', label:'Agenda', icon:'audit'},
     {key:'__settings', label:'Pengaturan', icon:'settings'}
   ],
@@ -1896,6 +1935,14 @@ VIEWS.chatHarian = {
     f('Telp','num'),
     f('SDM','text',{help:'Nama SDM/CS yang melaporkan'})
   ]
+};
+
+/* ===== DATA CHAT (OPERASIONAL) — rekap chat & closing dari CHAT_HARIAN ===== */
+VIEWS.dataChat = {
+  sheet:'CHAT_HARIAN', title:'Data Chat', sub:'', special:'dataChat',
+  countTop:true, noSyncBtn:true, readOnly:true,
+  filters:['Cabang'],
+  datePreset:true, dateFilterField:'Tanggal', defaultMonth:true
 };
 
 const FILTER_OPTS = {
@@ -2686,6 +2733,7 @@ function renderView(){
   else if(v.special==='todo') renderTodo();
   else if(v.special==='insentifSum') renderInsentifSum();
   else if(v.special==='absensi') renderAbsensi();
+  else if(v.special==='dataChat') renderDataChat();
   else if(v.special==='agenda') renderAgenda();
   else renderTable();
 }
@@ -6910,6 +6958,196 @@ function kirimChatHarianWa(d){
   $('#modalBody').innerHTML='<div class="ops-note" style="margin-top:0">Laporan tersimpan. Browser memblokir pembukaan otomatis — tekan tombol di bawah untuk mengirim.</div>'+
     '<pre class="chat-pre">'+esc(teks)+'</pre>'+
     '<a class="btn btn-primary" style="width:100%;justify-content:center" href="'+esc(url)+'" target="_blank" rel="noopener">'+svg('wa')+'Kirim ke WhatsApp</a>';
+  const sv=$('#modalSave'); if(sv) sv.style.display='none';
+  const cc=$('#modalCancel'); if(cc){ cc.textContent='Tutup'; cc.classList.add('btn-danger'); }
+  openOverlay();
+}
+
+/* ============================================================
+   DATA CHAT (OPERASIONAL)
+   Sumber: CHAT_HARIAN — laporan harian yang diinput tiap CS.
+   Tampilan utama = persentase; klik kartu/baris → pop-up rincian.
+   ============================================================ */
+const CHAN_CHAT  = { iklan:'Cust Baru Iklan', organik:'Cust Baru Organik', lama:'Cust Lama' };
+const CHAN_CLOSE = { iklan:'Closing Cust Baru Iklan', organik:'Closing Cust Baru Organik', lama:'Closing Cust Lama' };
+const CHAN_LABEL = { iklan:'Iklan', organik:'Organik', lama:'Cust Lama' };
+const nChat=v=>Number(String(v==null?'':v).replace(/[^0-9-]/g,''))||0;
+
+/* Jumlahkan sekumpulan baris CHAT_HARIAN → angka & persentase. */
+function chatAgg(rows){
+  const a={ chat:{iklan:0,organik:0,lama:0}, close:{iklan:0,organik:0,lama:0},
+            order:0, telp:0, hari:0, totChat:0, totClose:0 };
+  (rows||[]).forEach(r=>{
+    a.hari++;
+    ['iklan','organik','lama'].forEach(k=>{
+      a.chat[k]  += nChat(r[CHAN_CHAT[k]]);
+      a.close[k] += nChat(r[CHAN_CLOSE[k]]);
+    });
+    a.order += nChat(r['Jumlah Orderan']);
+    a.telp  += nChat(r['Telp']);
+  });
+  a.totChat  = a.chat.iklan+a.chat.organik+a.chat.lama;
+  a.totClose = a.close.iklan+a.close.organik+a.close.lama;
+  a.rate     = a.totChat? a.totClose/a.totChat*100 : 0;   // closing rate keseluruhan
+  return a;
+}
+const pctS=(n,d)=> d>0 ? (n/d*100) : 0;
+const pctTxt=(n,d)=> d>0 ? (n/d*100).toFixed(0)+'%' : '—';
+/* Warna badge closing rate: ≥70% hijau · ≥40% kuning · sisanya merah. */
+const rateCls=p=> p>=70?'k-green':(p>=40?'k-yellow':'k-red');
+
+function renderDataChat(){
+  const rows=applyClientFilters(state.rows);
+  const A=chatAgg(rows);
+  state._chatRows=rows;
+
+  if(!rows.length){
+    $('#panel').innerHTML='<div class="cap-card"><div class="cap-empty">Belum ada laporan Chat Harian pada periode/filter ini.<br>Data ini berasal dari <b>Chat Harian</b> yang diinput CS tiap hari.</div></div>';
+    setCount(0,'laporan'); return;
+  }
+
+  // ---- Kartu utama: persentase ----
+  const bar=p=>'<div class="dc-bar"><i style="width:'+Math.max(0,Math.min(100,p))+'%"></i></div>';
+  const top=
+    '<div class="dc-hero">'+
+      '<div class="dc-hero-l">'+
+        '<div class="dc-hero-t">Closing Rate</div>'+
+        '<div class="dc-hero-v">'+A.rate.toFixed(0)+'<span>%</span></div>'+
+        '<div class="dc-hero-s">'+A.totClose.toLocaleString('id-ID')+' closing dari '+A.totChat.toLocaleString('id-ID')+' chat masuk · '+A.hari+' hari lapor</div>'+
+      '</div>'+
+      '<div class="dc-hero-r">'+
+        '<div class="dc-mini"><div class="dc-mini-l">Chat Masuk</div><div class="dc-mini-v">'+A.totChat.toLocaleString('id-ID')+'</div></div>'+
+        '<div class="dc-mini"><div class="dc-mini-l">Closing</div><div class="dc-mini-v">'+A.totClose.toLocaleString('id-ID')+'</div></div>'+
+        '<div class="dc-mini"><div class="dc-mini-l">Orderan</div><div class="dc-mini-v">'+A.order.toLocaleString('id-ID')+'</div></div>'+
+        '<div class="dc-mini"><div class="dc-mini-l">Telepon</div><div class="dc-mini-v">'+A.telp.toLocaleString('id-ID')+'</div></div>'+
+      '</div>'+
+    '</div>';
+
+  // ---- Kartu per sumber (klik → rincian) ----
+  const chanCard=k=>{
+    const chat=A.chat[k], close=A.close[k];
+    const rate=pctS(close,chat);
+    const share=pctS(chat,A.totChat);         // porsi chat masuk
+    const kontrib=pctS(close,A.totClose);     // porsi closing
+    return '<button class="dc-chan" data-chan="'+k+'">'+
+      '<div class="dc-chan-h"><span class="dc-chan-n">'+esc(CHAN_LABEL[k])+'</span>'+
+        '<span class="kpi-badge '+rateCls(rate)+'">'+(chat?rate.toFixed(0)+'%':'—')+'</span></div>'+
+      '<div class="dc-chan-s">closing rate</div>'+
+      bar(rate)+
+      '<div class="dc-chan-g">'+
+        '<div><b>'+chat.toLocaleString('id-ID')+'</b><span>chat</span></div>'+
+        '<div><b>'+close.toLocaleString('id-ID')+'</b><span>closing</span></div>'+
+      '</div>'+
+      '<div class="dc-chan-f">'+share.toFixed(0)+'% dari chat masuk · '+kontrib.toFixed(0)+'% dari closing</div>'+
+    '</button>';
+  };
+  const chans='<div class="dc-chans">'+['iklan','organik','lama'].map(chanCard).join('')+'</div>';
+
+  // ---- Tabel per cabang (klik → rincian harian) ----
+  const byCab={};
+  rows.forEach(r=>{ const c=String(r['Cabang']||'-').toUpperCase(); (byCab[c]=byCab[c]||[]).push(r); });
+  const cabs=Object.keys(byCab).sort();
+  const trs=cabs.map(c=>{
+    const g=chatAgg(byCab[c]);
+    return '<tr class="rowclick" data-dccab="'+esc(c)+'">'+
+      '<td class="cab-cell l">'+esc(c)+'</td>'+
+      '<td class="c">'+g.totChat+'</td>'+
+      '<td class="c">'+g.totClose+'</td>'+
+      '<td class="c"><span class="kpi-badge '+rateCls(g.rate)+'">'+(g.totChat?g.rate.toFixed(0)+'%':'—')+'</span></td>'+
+      '<td class="c">'+pctTxt(g.close.iklan,g.chat.iklan)+'</td>'+
+      '<td class="c">'+pctTxt(g.close.organik,g.chat.organik)+'</td>'+
+      '<td class="c">'+pctTxt(g.close.lama,g.chat.lama)+'</td>'+
+      '<td class="c">'+g.order+'</td>'+
+      '<td class="c">'+g.hari+'</td></tr>';
+  }).join('');
+  const tabel='<div class="cap-card"><div class="cap-card-t">Closing Rate per Cabang — ketuk baris untuk rincian harian</div>'+
+    '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr>'+
+      '<th class="l" rowspan="2">Cabang</th><th class="c" rowspan="2">Chat</th><th class="c" rowspan="2">Closing</th>'+
+      '<th class="c" rowspan="2">Rate</th><th class="c" colspan="3">Closing Rate per Sumber</th>'+
+      '<th class="c" rowspan="2">Orderan</th><th class="c" rowspan="2">Hari</th></tr>'+
+      '<tr><th class="c">Iklan</th><th class="c">Organik</th><th class="c">Lama</th></tr>'+
+    '</thead><tbody>'+trs+'</tbody></table></div>'+
+    '<div class="kpi-legend"><span class="kpi-badge k-green">≥70%</span> · <span class="kpi-badge k-yellow">40–69%</span> · '+
+      '<span class="kpi-badge k-red">&lt;40%</span> &nbsp;·&nbsp; <span style="color:var(--faint)">Closing rate = closing ÷ chat masuk</span></div></div>';
+
+  $('#panel').innerHTML=
+    '<div class="ops-note">Sumber: laporan <b>Chat Harian</b> yang diinput CS. '+
+      'Angka mengikuti filter cabang &amp; tanggal di atas.</div>'+
+    top+chans+tabel;
+
+  document.querySelectorAll('[data-chan]').forEach(b=>b.addEventListener('click',()=>showChanDetail(b.dataset.chan)));
+  document.querySelectorAll('[data-dccab]').forEach(b=>b.addEventListener('click',()=>showCabChatDetail(b.dataset.dccab)));
+  setCount(rows.length,'laporan');
+}
+
+/* Pop-up: rincian satu sumber (Iklan/Organik/Cust Lama) per cabang. */
+function showChanDetail(k){
+  const rows=state._chatRows||[];
+  const A=chatAgg(rows);
+  const chat=A.chat[k], close=A.close[k], rate=pctS(close,chat);
+  $('#modalTitle').textContent='Data Chat — '+CHAN_LABEL[k];
+  const byCab={}; rows.forEach(r=>{ const c=String(r['Cabang']||'-').toUpperCase(); (byCab[c]=byCab[c]||[]).push(r); });
+  const list=Object.keys(byCab).map(c=>{ const g=chatAgg(byCab[c]);
+    return {cab:c, chat:g.chat[k], close:g.close[k], rate:pctS(g.close[k],g.chat[k])}; })
+    .sort((a,b)=>b.rate-a.rate);
+  let h='<div class="detail">'+
+    '<div class="dc-pop-hero"><div><div class="dc-pop-l">Closing Rate '+esc(CHAN_LABEL[k])+'</div>'+
+      '<div class="dc-pop-v">'+(chat?rate.toFixed(1)+'%':'—')+'</div></div>'+
+      '<div class="dc-pop-x"><b>'+chat.toLocaleString('id-ID')+'</b> chat → <b>'+close.toLocaleString('id-ID')+'</b> closing</div></div>'+
+    '<div class="dt-sec">Per Cabang (urut rate tertinggi)</div>'+
+    '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr><th class="l">Cabang</th>'+
+      '<th class="c">Chat</th><th class="c">Closing</th><th class="c">Rate</th></tr></thead><tbody>'+
+    (list.length?list.map(o=>'<tr><td class="cab-cell l">'+esc(o.cab)+'</td><td class="c">'+o.chat+'</td>'+
+      '<td class="c">'+o.close+'</td><td class="c"><span class="kpi-badge '+rateCls(o.rate)+'">'+
+      (o.chat?o.rate.toFixed(0)+'%':'—')+'</span></td></tr>').join('')
+      :'<tr><td colspan="4" class="cap-empty">Tidak ada data</td></tr>')+
+    '</tbody></table></div>';
+  if(k==='lama') h+='<div class="ops-note" style="margin:12px 0 0">Closing Cust Lama bisa melebihi 100% — pelanggan lama sering memesan lagi tanpa chat baru.</div>';
+  h+='</div>';
+  $('#modalBody').innerHTML=h;
+  const sv=$('#modalSave'); if(sv) sv.style.display='none';
+  const cc=$('#modalCancel'); if(cc){ cc.textContent='Tutup'; cc.classList.add('btn-danger'); }
+  openOverlay();
+}
+
+/* Pop-up: rincian harian satu cabang (seperti laporan spreadsheet). */
+function showCabChatDetail(cab){
+  const rows=(state._chatRows||[]).filter(r=>String(r['Cabang']||'').toUpperCase()===cab)
+    .sort((a,b)=>String(parseAnyDate(a['Tanggal'])).localeCompare(String(parseAnyDate(b['Tanggal']))));
+  const A=chatAgg(rows);
+  $('#modalTitle').textContent='Data Chat — '+cab;
+  const cell=n=>n?String(n):'<span style="color:var(--faint)">0</span>';
+  const trs=rows.map(r=>{
+    const g=chatAgg([r]);
+    return '<tr><td class="l" style="white-space:nowrap"><b>'+esc(tglPanjangId(r['Tanggal']))+'</b>'+
+        (r['SDM']?'<div class="cs-sub">'+esc(r['SDM'])+'</div>':'')+'</td>'+
+      '<td class="c">'+cell(g.chat.organik)+'</td><td class="c">'+cell(g.chat.iklan)+'</td><td class="c">'+cell(g.chat.lama)+'</td>'+
+      '<td class="c"><b>'+g.totChat+'</b></td>'+
+      '<td class="c">'+cell(g.close.organik)+'</td><td class="c">'+cell(g.close.iklan)+'</td><td class="c">'+cell(g.close.lama)+'</td>'+
+      '<td class="c"><b>'+g.totClose+'</b></td>'+
+      '<td class="c"><span class="kpi-badge '+rateCls(g.rate)+'">'+(g.totChat?g.rate.toFixed(0)+'%':'—')+'</span></td>'+
+      '<td class="c">'+cell(g.order)+'</td><td class="c">'+cell(g.telp)+'</td></tr>';
+  }).join('');
+  const foot='<tr class="dc-tot"><td class="l"><b>TOTAL</b><div class="cs-sub">'+A.hari+' hari</div></td>'+
+      '<td class="c">'+A.chat.organik+'</td><td class="c">'+A.chat.iklan+'</td><td class="c">'+A.chat.lama+'</td>'+
+      '<td class="c">'+A.totChat+'</td>'+
+      '<td class="c">'+A.close.organik+'</td><td class="c">'+A.close.iklan+'</td><td class="c">'+A.close.lama+'</td>'+
+      '<td class="c">'+A.totClose+'</td>'+
+      '<td class="c"><span class="kpi-badge '+rateCls(A.rate)+'">'+(A.totChat?A.rate.toFixed(0)+'%':'—')+'</span></td>'+
+      '<td class="c">'+A.order+'</td><td class="c">'+A.telp+'</td></tr>';
+  $('#modalBody').innerHTML='<div class="detail">'+
+    '<div class="dc-pop-hero"><div><div class="dc-pop-l">Closing Rate '+esc(cab)+'</div>'+
+      '<div class="dc-pop-v">'+(A.totChat?A.rate.toFixed(1)+'%':'—')+'</div></div>'+
+      '<div class="dc-pop-x"><b>'+A.totChat+'</b> chat → <b>'+A.totClose+'</b> closing · <b>'+A.order+'</b> orderan</div></div>'+
+    '<div class="dt-sec">Rincian Harian</div>'+
+    '<div class="tbl-wrap"><table class="ops-tbl dc-day"><thead>'+
+      '<tr><th class="l" rowspan="2">Tanggal</th><th class="c" colspan="4">Chat Masuk</th>'+
+        '<th class="c" colspan="4">Closing</th><th class="c" rowspan="2">Rate</th>'+
+        '<th class="c" rowspan="2">Order</th><th class="c" rowspan="2">Telp</th></tr>'+
+      '<tr><th class="c">Org</th><th class="c">Iklan</th><th class="c">Lama</th><th class="c">Tot</th>'+
+        '<th class="c">Org</th><th class="c">Iklan</th><th class="c">Lama</th><th class="c">Tot</th></tr>'+
+    '</thead><tbody>'+(trs||'<tr><td colspan="12" class="cap-empty">Tidak ada data</td></tr>')+foot+'</tbody></table></div>'+
+  '</div>';
   const sv=$('#modalSave'); if(sv) sv.style.display='none';
   const cc=$('#modalCancel'); if(cc){ cc.textContent='Tutup'; cc.classList.add('btn-danger'); }
   openOverlay();
