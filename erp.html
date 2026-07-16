@@ -1527,14 +1527,15 @@ const VIEWS = {
   karyawan:{
     sheet:'KARYAWAN', title:'Karyawan', sub:'', countTop:true, noSyncBtn:true, inSettings:true, canDelete:true,
     idField:'ID Karyawan', canAdd:true, canEdit:true, sortBy:['Cabang','Nama Lengkap'],
-    table:['Foto Profil','ID Karyawan','Nama Lengkap','Jabatan','Status','Cabang','No WA'],
+    table:['Foto Profil','ID Karyawan','Nama Lengkap','Jabatan','Status','Cabang','No WA','No. Rekening'],
     filters:['Cabang','Jabatan','Status'],
-    search:['Nama Lengkap','ID Karyawan','No WA'],
+    search:['Nama Lengkap','ID Karyawan','No WA','No. Rekening'],
     form:[
       f('Nama Lengkap','text',{req:true}), f('PIN','text'),
       f('Email','text'), f('No WA','text'),
       f('Jabatan','select',{opts:JABATAN}), f('Status','select',{opts:STATUS_KARYAWAN}),
       f('Cabang','select',{opts:CABANG}),
+      f('No. Rekening','text',{full:true, help:'Nomor rekening untuk transfer gaji. Tampil di menu Gaji & slip gaji.'}),
       f('Foto Profil','file',{accept:'image/*', full:true})
     ]
   },
@@ -1674,7 +1675,7 @@ const VIEWS = {
     ]
   },
   auditOrder:{
-    sheet:'ORDER', title:'Audit Order', sub:'', branchLock:false, hub:'audit',
+    sheet:'ORDER', title:'Audit Order', sub:'', branchLock:false, hub:'audit', trxCount:true,
     idField:'ID Order', statusClient:['done'], statusPrio:['done'], paged:true, revertPending:true,
     approve:true, multiApprove:true, statusBadge:true, invoice:true, rowDetail:true, countTop:true, noSyncBtn:true,
     table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Metode Pembayaran','PPn','Total Akhir Setelah Diskon','Waktu Bukti Transfer','Bukti Transfer'],
@@ -2630,7 +2631,7 @@ async function loadList(force){
     refreshDynFilters();
     if(v.special==='reportKPI'){ await loadTargets(); state.rkSort=null; state.rkOrderPage=0; state.rkFilter={}; }
     if(v.special==='capKpi'){ await loadTargets(); await loadKpiCfg(); }
-    if(v.special==='capOmzet'){ state.rkSort=null; }
+    if(v.special==='capOmzet'){ state.rkSort=null; state.omzSort=null; }
     if(v.special==='capaian') await loadTargets();
     if(v.special==='kpiCS' || v.special==='capaian') await loadKpiCfg();
     if(v.special==='kpiCS'){ await loadTargets(); state.kpiCsSort=null; }
@@ -2800,13 +2801,31 @@ function setCount(n, noun){
   const c=$('#headCount'); if(c) c.textContent = txt;
   const cm=$('#headCountM'); if(cm) cm.textContent = txt;
 }
+/* Teks hitungan bebas (mis. "577 order · 812 transaksi"). */
+function setCountText(txt){
+  const c=$('#headCount'); if(c) c.textContent = txt;
+  const cm=$('#headCountM'); if(cm) cm.textContent = txt;
+}
+/* Jumlah transaksi = banyaknya layanan yang dipesan.
+   Tidak dihitung: order berstatus cancel, dan order yang total akhirnya 0. */
+function countTrx(rows){
+  let n=0;
+  (rows||[]).forEach(r=>{
+    if(norm(r['Status Order'])==='cancel') return;
+    if(omzetOf_(r)<=0) return;
+    [1,2,3].forEach(i=>{ if(String(r['Layanan '+i]||'').trim()) n++; });
+  });
+  return n;
+}
 function renderTable(){
   const v=state.view;
   let rows=applyClientFilters(state.rows);
   if(v.sheet==='BONUS') rows=rows.slice().sort((a,b)=>String(a['Tanggal Pengerjaan']||'').localeCompare(String(b['Tanggal Pengerjaan']||'')));
   let summary=(v.sheet==='BONUS' && state.filters['Nama Cleaner']) ? bonusSummaryCard(rows, state.filters['Nama Cleaner']) : '';
   if(v.chatSum) summary += chatCsSummary(rows);
-  if(!rows.length){ $('#panel').innerHTML=summary+emptyState('Belum ada data'); setCount(0,countNoun()); wireSummary(); return; }
+  if(!rows.length){ $('#panel').innerHTML=summary+emptyState('Belum ada data');
+    if(v.trxCount) setCountText('0 order · 0 transaksi'); else setCount(0,countNoun());
+    wireSummary(); return; }
   const cols=v.table.filter(c=>HIDDEN_COLS.indexOf(c)<0);
   const PAGE=15; const total=rows.length;
   let pageRows=rows, cardRows=rows, pagerHtml='', moreHtml='';
@@ -2965,7 +2984,8 @@ function renderTable(){
   } else {
     $('#panel').innerHTML=summary+html+cardHtml+moreHtml;
   }
-  setCount(rows.length,countNoun());
+  if(v.trxCount) setCountText(rows.length+' order · '+countTrx(rows)+' transaksi');
+  else setCount(rows.length,countNoun());
   wireSummary();
   wireRowHandlers(v);
   const pgP=$('#pgPrev'), pgN=$('#pgNext'), pgM=$('#pgMore');
@@ -3233,6 +3253,8 @@ function showGajiDetail(g){
   let h='<div class="detail">';
   h+=row('Nama', esc(g['Nama Karyawan']||'-'));
   h+=row('Cabang', esc(g['Cabang']||'-'));
+  { const rk=g['No. Rekening']||rekOf(g['Nama Karyawan']);
+    h+=row('No. Rekening', rk?('<b>'+esc(rk)+'</b>'):'<span style="color:var(--faint)">belum diisi di data Karyawan</span>'); }
   h+=row('Periode', esc(per));
   if(g['Awal Periode']||g['Akhir Periode']){
     h+=row('Awal Periode', esc(tglPanjangId(g['Awal Periode'])||'-'));
@@ -3532,6 +3554,14 @@ function opsBaseRows(){
   }
   return rows;
 }
+/* Baris ORDER untuk perhitungan KPI: hanya status pending / done / complete.
+   Cancel & status kosong tidak pernah ikut. Filter Status Order tetap dihormati. */
+function kpiBaseRows(){
+  let rows=state.rows.slice();
+  const fc=state.filters['Cabang'];
+  if(fc) rows=rows.filter(r=>String(r['Cabang']||'').toUpperCase()===String(fc).toUpperCase());
+  return rows.filter(r=>statusPass(r, st=>['pending','done','complete'].indexOf(st)>=0));
+}
 /* Label filter status untuk catatan di layar. */
 function statusFilterLabel(){
   const fs=state.filters['Status Order'];
@@ -3626,7 +3656,7 @@ function renderLaporanOmzet(){
     return c; };
 
   let totNow=0, totPrev=0, totAds=0, totOrg=0, totLama=0;
-  const rowsHtml = cabs.map(cab=>{
+  const cabObjs = cabs.map(cab=>{
     const rc=base.filter(r=>cabangOf(r)===cab);
     const now = rc.filter(r=>inRange(r['Tanggal Pengerjaan'],cur.start,cur.end)).reduce((s,r)=>s+omzetOf_(r),0);
     const pv  = rc.filter(r=>inRange(r['Tanggal Pengerjaan'],prev.start,prev.end)).reduce((s,r)=>s+omzetOf_(r),0);
@@ -3636,15 +3666,28 @@ function renderLaporanOmzet(){
     // terakhir update = tanggal pengerjaan terbaru pd periode ini
     let last=''; nowRows.forEach(r=>{ const d=parseAnyDate(r['Tanggal Pengerjaan']); if(d&&d>last) last=d; });
     totNow+=now; totPrev+=pv; totAds+=ads; totOrg+=org; totLama+=lama;
-    return '<tr><td class="cab-cell">'+esc(cab)+'</td>'+
-      '<td class="money">'+rp(now)+'</td>'+
-      '<td class="money">'+rp(pv)+'</td>'+
-      '<td>'+growthHTML(now,pv)+'</td>'+
-      '<td>'+(last?esc(tglPanjangId(last)):'<span style="color:var(--faint)">—</span>')+'</td>'+
-      '<td class="money">'+rp(ads)+'</td>'+
-      '<td class="money">'+rp(org)+'</td>'+
-      '<td class="money">'+rp(lama)+'</td></tr>';
-  }).join('');
+    const growth = pv>0 ? ((now-pv)/pv*100) : (now>0?100:0);
+    return {cab, now, pv, growth, last, ads, org, lama};
+  });
+  // Urutkan kolom Periode Ini / Periode Lalu / Growth (klik judul kolom).
+  if(state.omzSort && state.omzSort.col){
+    const c=state.omzSort.col, dir=state.omzSort.dir;
+    cabObjs.sort((a,b)=>(a[c]-b[c])*dir);
+  }
+  const rowsHtml = cabObjs.map(o=>
+    '<tr><td class="cab-cell">'+esc(o.cab)+'</td>'+
+      '<td class="money">'+rp(o.now)+'</td>'+
+      '<td class="money">'+rp(o.pv)+'</td>'+
+      '<td>'+growthHTML(o.now,o.pv)+'</td>'+
+      '<td>'+(o.last?esc(tglPanjangId(o.last)):'<span style="color:var(--faint)">—</span>')+'</td>'+
+      '<td class="money">'+rp(o.ads)+'</td>'+
+      '<td class="money">'+rp(o.org)+'</td>'+
+      '<td class="money">'+rp(o.lama)+'</td></tr>').join('');
+  const thOmz=(label,col,cls)=>{
+    const s=state.omzSort||{}; const on=s.col===col;
+    const car=on?(s.dir>0?' ▲':' ▼'):' ⇅';
+    return '<th class="'+(cls||'')+' rk-sort" data-omzsort="'+col+'">'+label+'<span class="rk-car">'+car+'</span></th>';
+  };
 
   // DETAIL omzet: matriks Cabang (baris) × Layanan (kolom) — transaksi & omzet
   const detMatrix={}; const layatSet=new Set();
@@ -3706,7 +3749,8 @@ function renderLaporanOmzet(){
     '<div class="cap-stats cap-stats-4">'+stat('Omzet Periode Ini',rp(totNow))+stat('Omzet Periode Lalu',rp(totPrev))+growStat+stat('Jumlah Cancel',cancelCount+' order')+'</div>'+
     '<div class="cap-card"><div class="cap-card-t">Omzet per Cabang</div>'+
       '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr>'+
-        '<th class="l">Cabang</th><th class="r">Periode Ini</th><th class="r">Periode Lalu</th><th class="l">Growth</th><th class="l">Terakhir Update</th><th class="r">Ads</th><th class="r">Organik</th><th class="r">Lama</th>'+
+        '<th class="l">Cabang</th>'+thOmz('Periode Ini','now','r')+thOmz('Periode Lalu','pv','r')+thOmz('Growth','growth','l')+
+        '<th class="l">Terakhir Update</th><th class="r">Ads</th><th class="r">Organik</th><th class="r">Lama</th>'+
       '</tr></thead><tbody>'+rowsHtml+
       '<tr class="ops-total"><td>TOTAL</td><td class="money">'+rp(totNow)+'</td><td class="money">'+rp(totPrev)+'</td>'+
         '<td>'+growthHTML(totNow,totPrev)+'</td><td>—</td><td class="money">'+rp(totAds)+'</td><td class="money">'+rp(totOrg)+'</td><td class="money">'+rp(totLama)+'</td></tr>'+
@@ -3726,11 +3770,16 @@ function renderLaporanOmzet(){
           '<span class="dc-mk dn">▼</span> transaksi tersedikit <span style="color:var(--faint)">(per cabang)</span></div>'
       : '<div class="cap-empty">Tidak ada transaksi pada periode ini.</div>')+
     '</div>';
+  document.querySelectorAll('[data-omzsort]').forEach(t=>t.addEventListener('click',()=>{
+    const col=t.dataset.omzsort; const s=state.omzSort||{};
+    state.omzSort = (s.col===col) ? {col, dir:-s.dir} : {col, dir:1};   // klik pertama: terkecil → terbesar
+    renderLaporanOmzet();
+  }));
   setCount(base.filter(r=>inRange(r['Tanggal Pengerjaan'],cur.start,cur.end)).length, 'order');
 }
 
 function kpiOmzetCardHTML(cur){
-  const base=opsBaseRows();
+  const base=kpiBaseRows();   // hanya pending/done/complete (cancel & status kosong dibuang)
   const targets=state.cache.targets||{};
   const backM=s=>{ const d=parseDate_(s); const lastPrev=new Date(d.getFullYear(), d.getMonth(), 0).getDate();
     return ymd(new Date(d.getFullYear(), d.getMonth()-1, Math.min(d.getDate(), lastPrev))); };
@@ -5637,12 +5686,17 @@ function slipSigner(){
   const s=state.session||{};
   return s.nama||'';
 }
-/* Cari nama lengkap HRD dari tabel KARYAWAN (Jabatan = HRD). */
+/* Cari nama lengkap HRD dari tabel KARYAWAN (Jabatan = HRD).
+   Sekalian membangun peta No. Rekening per nama karyawan (dipakai menu Gaji). */
 async function loadHrdNama(){
   if(state.cache.hrdNama!==undefined) return;
   state.cache.hrdNama=null;
   try{
     const rows=trimKeys((await api({action:'list', sheet:'KARYAWAN'})).data||[]);
+    const rek={};
+    rows.forEach(k=>{ const nm=String(k['Nama Lengkap']||'').trim();
+      if(nm && String(k['No. Rekening']||'').trim()) rek[norm(nm)]=String(k['No. Rekening']).trim(); });
+    state.cache.rekMap=rek;
     const hrd=rows.filter(k=>norm(k['Jabatan'])==='hrd' && String(k['Nama Lengkap']||'').trim());
     if(hrd.length){
       // Bila ada lebih dari satu HRD, utamakan yang sama dengan akun yang login.
@@ -5652,6 +5706,8 @@ async function loadHrdNama(){
     }
   }catch(e){}
 }
+/* No. Rekening karyawan berdasarkan namanya (dari data Karyawan). */
+function rekOf(nama){ return (state.cache.rekMap||{})[norm(nama)] || ''; }
 function buildSlipHTML(g){
   g=g||{};
   const info=branchInfo(g['Cabang']);
@@ -5721,7 +5777,8 @@ function buildSlipHTML(g){
       '<td style="width:50%;vertical-align:top"><table style="width:100%;border-collapse:collapse">'+
         idRow('Cabang', g['Cabang'])+
         idRow('Periode', fmtTgl(g['Awal Periode'])+' s/d '+fmtTgl(g['Akhir Periode']))+
-        (isHarian && hari>0 ? idRow('Jumlah Hari', hari+' hari') : '')+'</table></td>'+
+        (isHarian && hari>0 ? idRow('Jumlah Hari', hari+' hari') : '')+
+        ((g['No. Rekening']||rekOf(g['Nama Karyawan'])) ? idRow('No. Rekening', g['No. Rekening']||rekOf(g['Nama Karyawan'])) : '')+'</table></td>'+
     '</tr></table>'+
     '<div style="height:16px"></div>'+
     '<table style="width:100%;border-collapse:collapse"><tr>'+
@@ -6415,19 +6472,27 @@ function dlBuildRows(sheet, ym, cab, st){
       if(stN && norm(r['Status Order'])!==stN) return false;
       return true;
     }).sort((x,y)=>String(parseAnyDate(x['Tanggal Pengerjaan'])).localeCompare(String(parseAnyDate(y['Tanggal Pengerjaan']))))
-    .map(r=>[
-      hariId(r['Tanggal Pengerjaan'])||'',
-      tglPanjangId(r['Tanggal Pengerjaan'])||'',
-      r['Nama Cleaner']||'',
-      r['Waktu Pengerjaan']||'',
-      r['Nama Customer']||'',
-      r['Alamat']||'',
-      r['No WA Customer']||'',
-      dlLayananOf(r),
-      omzetOf_(r),
-      r['Metode Pembayaran']||'',
-      r['Status Order']||''
-    ]);
+    // Satu baris per LAYANAN: order dengan 2–3 layanan dipecah jadi 2–3 baris.
+    // Semua kolom lain sama persis; hanya kolom Layanan yang berbeda.
+    .reduce((out,r)=>{
+      const lays=[1,2,3].map(i=>String(r['Layanan '+i]||'').trim()).filter(Boolean);
+      const base=[
+        hariId(r['Tanggal Pengerjaan'])||'',
+        tglPanjangId(r['Tanggal Pengerjaan'])||'',
+        r['Nama Cleaner']||'',
+        r['Waktu Pengerjaan']||'',
+        r['Nama Customer']||'',
+        r['Alamat']||'',
+        r['No WA Customer']||'',
+        null,                        // diisi nama layanan di bawah
+        omzetOf_(r),
+        r['Metode Pembayaran']||'',
+        r['Status Order']||''
+      ];
+      if(!lays.length){ const b=base.slice(); b[7]=''; out.push(b); return out; }
+      lays.forEach(nm=>{ const b=base.slice(); b[7]=nm; out.push(b); });
+      return out;
+    }, []);
   }
   if(sheet==='GAJI'){
     return all.filter(g=>{
