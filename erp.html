@@ -655,6 +655,12 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .kpi-mtotal-t{font-size:11.5px;opacity:.85;font-weight:700}
 .kpi-auto{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;
   color:var(--info);background:var(--surface-2);border-radius:6px;padding:1px 5px;vertical-align:middle}
+/* Keterangan kelengkapan data Chat Harian di baris Closing Rate / Closing Chat */
+.kpi-days{font-size:9.5px;font-weight:700;margin-top:2px;white-space:nowrap;letter-spacing:.01em}
+.kpi-days.ok{color:var(--success)}
+.kpi-days.no{color:var(--danger)}
+.kpi-mrow-days{margin-top:4px}
+.kpi-mrow-days .kpi-days{margin-top:0}
 .kpi-strat{padding:14px 16px 16px}
 .kpi-strat-t{font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);margin-bottom:8px}
 .kpi-strat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
@@ -4131,6 +4137,30 @@ function kpiCloseRate(cab, ym){
   const A=chatAgg(rows);
   return A.chatBaru ? A.rate : 0;
 }
+/* Kelengkapan laporan Chat Harian satu cabang pada satu bulan.
+   ada   = jumlah hari (unik) yang sudah dilaporkan
+   harus = jumlah hari yang seharusnya sudah ada laporannya
+           → bulan berjalan: sampai HARI INI · bulan lampau: sebulan penuh
+   Dipakai sebagai penanda apakah nilai Closing Rate & Closing Chat sudah
+   berdasar data lengkap. */
+function kpiChatHari(cab, ym){
+  const rows=(state.cache.chatHarianAll||[]).filter(c=>
+    String(c['Cabang']||'').toUpperCase()===String(cab).toUpperCase() &&
+    parseAnyMonth(c['Tanggal'])===ym);
+  const set={}; rows.forEach(c=>{ const d=parseAnyDate(c['Tanggal']); if(d) set[d]=1; });
+  const ada=Object.keys(set).length;
+  const b=calMonthBounds(ym);
+  let harus=0;
+  if(b){
+    const today=ymd(new Date());
+    if(today>=b.start){                                  // bulan ini / lampau
+      const end = b.end>today ? today : b.end;           // bulan berjalan → sampai hari ini
+      harus = Math.round((new Date(end+'T00:00:00')-new Date(b.start+'T00:00:00'))/86400000)+1;
+      if(harus<0) harus=0;
+    }
+  }
+  return {ada, harus, lengkap: harus>0 && ada>=harus};
+}
 /* Closing Chat satu cabang pada satu bulan — otomatis dari laporan Chat Harian.
    Definisi: RATA-RATA order per hari = total Jumlah Orderan ÷ jumlah hari yang dilaporkan.
    Contoh: 10 hari tercatat, 100 order → 10 closing chat.                     */
@@ -4202,19 +4232,27 @@ function renderKpiCS(){
       const nRnd = Math.round(nilai*10)/10;              // rapikan desimal (mis. 11,1)
       const fT = it.money?rp(target):(it.pct?target+'%':target);
       const fN = it.money?rp(nilai):(it.pct?Math.round(nilai)+'%':nRnd);
-      return {it,bobot,pros,fT,fN};
+      // Closing Rate & Closing Chat: tampilkan dari berapa hari datanya
+      let hariTag='';
+      if(it.autoRate || it.autoChat){
+        const H=kpiChatHari(cab, ym);
+        hariTag = '<div class="kpi-days '+(H.lengkap?'ok':'no')+'">data '+H.ada+
+          (H.harus?(' dari '+H.harus):'')+' hari</div>';
+      }
+      return {it,bobot,pros,fT,fN,hariTag};
     });
     const autoTag = d => (d.it.auto||d.it.autoRate||d.it.autoChat)?' <span class="kpi-auto">auto</span>':'';
     const rows = itemData.map(d=>'<tr>'+
       '<td class="l">'+d.it.key+autoTag(d)+'</td>'+
       '<td class="r">'+d.fT+'</td>'+
       '<td class="c">'+d.bobot+'%</td>'+
-      '<td class="r">'+d.fN+'</td>'+
+      '<td class="r">'+d.fN+d.hariTag+'</td>'+
       '<td class="r"><b>'+d.pros.toFixed(0)+'%</b></td></tr>').join('');
     const mlist = itemData.map(d=>'<div class="kpi-mrow">'+
       '<div class="kpi-mrow-top"><span class="kpi-mname">'+d.it.key+autoTag(d)+'</span>'+
         '<span class="kpi-mcap">'+d.pros.toFixed(0)+'%</span></div>'+
       '<div class="kpi-mrow-sub"><span>Target: <b>'+d.fT+'</b></span><span>Bobot: <b>'+d.bobot+'%</b></span><span>Nilai: <b>'+d.fN+'</b></span></div>'+
+      (d.hariTag?'<div class="kpi-mrow-days">'+d.hariTag+'</div>':'')+
     '</div>').join('');
     const stratDefs=[['Tgl 7','25%','Strategi Tgl 7'],['Tgl 14','50%','Strategi Tgl 14'],
                      ['Tgl 21','75%','Strategi Tgl 21'],['Tgl 28','100%','Strategi Tgl 28']];
