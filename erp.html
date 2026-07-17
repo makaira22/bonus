@@ -506,6 +506,7 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .pie-leg{font-size:12px;display:flex;align-items:center;gap:7px}
 .freeze-cab .det-cabcol{position:sticky;left:0;z-index:2;background:var(--surface);box-shadow:1px 0 0 var(--line)}
 .freeze-cab thead .det-cabcol{background:var(--surface-2);z-index:3}
+.freeze-cab .ops-total .det-cabcol{background:var(--surface-2)}
 .lt-cell{display:flex;flex-direction:column;gap:1px;line-height:1.3}
 .lt-lay{font-size:12px;font-weight:600;color:var(--ink)}
 .lt-num{font-size:11.5px;color:var(--petrol);font-weight:700;font-variant-numeric:tabular-nums}
@@ -3002,7 +3003,7 @@ function renderTable(){
       const g=chatAgg([r]);
       return '<div class="ocard">'+
         '<div class="ocard-top"><span class="ocard-name">'+esc(tglPanjangId(r['Tanggal'])||'-')+'</span>'+
-          '<span class="kpi-badge '+rateCls(g.rate)+'">'+(g.totChat?g.rate.toFixed(0)+'%':'—')+'</span></div>'+
+          '<span class="kpi-badge k-none">'+g.totClose+' closing</span></div>'+
         '<div class="ocard-meta sub"><span>'+g.totChat+' chat → '+g.totClose+' closing · '+g.order+' orderan'+
           (g.telp?(' · '+g.telp+' telp'):'')+'</span></div>'+
         '<div class="mb-g" style="margin-top:9px">'+
@@ -3805,7 +3806,7 @@ function renderLaporanOmzet(){
     cabObjs.sort((a,b)=>(a[c]-b[c])*dir);
   }
   const rowsHtml = cabObjs.map(o=>
-    '<tr><td class="cab-cell">'+esc(o.cab)+'</td>'+
+    '<tr><td class="cab-cell det-cabcol">'+esc(o.cab)+'</td>'+
       '<td class="money">'+rp(o.now)+'</td>'+
       '<td class="money">'+rp(o.pv)+'</td>'+
       '<td>'+growthHTML(o.now,o.pv)+'</td>'+
@@ -3878,11 +3879,11 @@ function renderLaporanOmzet(){
     '<div class="ops-note">Periode: <b>'+esc(tglPanjangId(cur.start)+' – '+tglPanjangId(cur.end))+'</b> vs Periode Sebelumnya (−1 bulan): <b>'+esc(tglPanjangId(prev.start)+' – '+tglPanjangId(prev.end))+'</b><br>Berdasarkan Tanggal Pengerjaan · semua status kecuali cancel'+(statusFilterLabel()?(' · filter: '+esc(statusFilterLabel())):'')+'</div>'+
     '<div class="cap-stats cap-stats-4">'+stat('Omzet Periode Ini',rp(totNow))+stat('Omzet Periode Lalu',rp(totPrev))+growStat+stat('Jumlah Cancel',cancelCount+' order')+'</div>'+
     '<div class="cap-card"><div class="cap-card-t">Omzet per Cabang</div>'+
-      '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr>'+
-        '<th class="l">Cabang</th>'+thOmz('Periode Ini','now','r')+thOmz('Periode Lalu','pv','r')+thOmz('Growth','growth','l')+
+      '<div class="tbl-wrap"><table class="ops-tbl freeze-cab"><thead><tr>'+
+        '<th class="l det-cabcol">Cabang</th>'+thOmz('Periode Ini','now','r')+thOmz('Periode Lalu','pv','r')+thOmz('Growth','growth','l')+
         '<th class="l">Terakhir Update</th><th class="r">Ads</th><th class="r">Organik</th><th class="r">Lama</th>'+
       '</tr></thead><tbody>'+rowsHtml+
-      '<tr class="ops-total"><td>TOTAL</td><td class="money">'+rp(totNow)+'</td><td class="money">'+rp(totPrev)+'</td>'+
+      '<tr class="ops-total"><td class="det-cabcol">TOTAL</td><td class="money">'+rp(totNow)+'</td><td class="money">'+rp(totPrev)+'</td>'+
         '<td>'+growthHTML(totNow,totPrev)+'</td><td>—</td><td class="money">'+rp(totAds)+'</td><td class="money">'+rp(totOrg)+'</td><td class="money">'+rp(totLama)+'</td></tr>'+
       '</tbody></table></div></div>'+
     laytrxRingkasHTML(cabs, detMatrix)+
@@ -3941,7 +3942,7 @@ function kpiOmzetCardHTML(cur){
   const rowsHtml = objs.map(o=>{
     const gcls = o.ach-o.pv>=0?'g-up':'g-down';
     return '<tr>'+
-      '<td class="cab-cell l">'+esc(o.cab)+'</td>'+
+      '<td class="cab-cell l det-cabcol">'+esc(o.cab)+'</td>'+
       '<td class="c">'+safePct+'%</td>'+
       '<td class="c"><span class="kpi-badge '+o.cls+'">'+(o.hasT?o.kpi.toFixed(1)+'%':'—')+'</span></td>'+
       '<td class="grow '+gcls+' c">'+(o.ach-o.pv>=0?'+':'−')+Math.abs(o.growth).toFixed(1)+'%</td>'+
@@ -3957,8 +3958,8 @@ function kpiOmzetCardHTML(cur){
   return '<div class="ops-note">Periode: <b>'+esc(tglPanjangId(cur.start)+' – '+tglPanjangId(cur.end))+'</b> · Pembanding (−1 bulan): <b>'+esc(tglPanjangId(prev.start)+' – '+tglPanjangId(prev.end))+'</b> · Target aman: <b>'+safePct+'%</b>'+
       (hasTarget?'':' · <span style="color:var(--danger)">Target omzet belum diatur (Pengaturan → Target Omzet)</span>')+'</div>'+
     '<div class="cap-card"><div class="cap-card-t">KPI Omzet per Cabang</div>'+
-      '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr>'+
-        '<th class="l">Cabang</th><th class="c">Target Aman</th>'+
+      '<div class="tbl-wrap"><table class="ops-tbl freeze-cab"><thead><tr>'+
+        '<th class="l det-cabcol">Cabang</th><th class="c">Target Aman</th>'+
         th('KPI Omzet','kpi','c')+th('Growth','growth','c')+th('Omzet Dicapai','ach','r')+th('Target Omzet','tgt','r')+
       '</tr></thead><tbody>'+rowsHtml+'</tbody></table></div>'+
       '<div class="kpi-legend"><span class="kpi-badge k-green">Hijau</span> ≥ target aman ('+safePct+'%) · '+
@@ -7463,7 +7464,11 @@ function chatCsSummary(rows){
   const A=chatAgg(rows);
   state._chatRows=rows;
   const cab=(state.session&&state.session.cabang)||'';
-  return chatHeroHTML(A, 'Closing Rate'+(cab?' — '+cab:'')) + chatChansHTML(A, true) + chatBulananCard(rows);
+  return chatHeroHTML(A, 'Closing Rate — Customer Baru'+(cab?' · '+cab:'')) + chatChansHTML(A, true) +
+    '<div class="ops-note">Closing rate dihitung dari <b>customer baru</b> (organik + iklan) untuk <b>seluruh periode</b> — bukan per hari. '+
+    'Order dari <b>pelanggan lama</b> tidak ikut hitungan rate karena mereka memesan lagi tanpa chat baru.<br>'+
+    'Kamu tetap mencatat closing di hari deal-nya seperti biasa — tidak perlu mengubah data hari sebelumnya.</div>'+
+    chatBulananCard(rows);
 }
 
 /* Rekap Chat Harian per bulan (mengikuti filter yang aktif). */
@@ -7482,18 +7487,20 @@ function chatBulananCard(rows){
   if(!keys.length) return '';
   const tr=keys.map(k=>{ const o=per[k];
     const chat=o.bo+o.bi+o.lama, clos=o.cbo+o.cbi+o.clama;
-    const rate=chat?Math.round(clos/chat*100):0;
+    const cBaru=o.bo+o.bi, kBaru=o.cbo+o.cbi;            // rate: customer baru saja
+    const rate=cBaru?Math.round(kBaru/cBaru*100):0;
     return '<tr><td class="l"><b>'+esc(monthLabel(k))+'</b><div class="cs-sub">'+o.hari+' hari</div></td>'+
       '<td class="c">'+o.bo+'</td><td class="c">'+o.bi+'</td><td class="c">'+o.lama+'</td>'+
       '<td class="c"><b>'+chat+'</b></td>'+
       '<td class="c">'+o.cbo+'</td><td class="c">'+o.cbi+'</td><td class="c">'+o.clama+'</td>'+
       '<td class="c"><b>'+clos+'</b></td>'+
-      '<td class="c">'+rate+'%</td><td class="c"><b>'+o.ord+'</b></td><td class="c">'+o.telp+'</td></tr>';
+      '<td class="c"><span class="kpi-badge '+rateCls(rate)+'">'+rate+'%</span></td><td class="c"><b>'+o.ord+'</b></td><td class="c">'+o.telp+'</td></tr>';
   }).join('');
   // Kartu ringkas untuk HP (tabel 12 kolom tidak terbaca di layar kecil).
   const mob=keys.map(k=>{ const o=per[k];
     const chat=o.bo+o.bi+o.lama, clos=o.cbo+o.cbi+o.clama;
-    const rate=chat?Math.round(clos/chat*100):0;
+    const cBaru=o.bo+o.bi, kBaru=o.cbo+o.cbi;
+    const rate=cBaru?Math.round(kBaru/cBaru*100):0;
     return '<div class="mb-card">'+
       '<div class="mb-h"><b>'+esc(monthLabel(k))+'</b><span class="kpi-badge '+rateCls(rate)+'">'+rate+'%</span></div>'+
       '<div class="mb-s">'+o.hari+' hari lapor · '+chat+' chat → '+clos+' closing · '+o.ord+' orderan</div>'+
@@ -7557,7 +7564,16 @@ const CHAN_CLOSE = { iklan:'Closing Cust Baru Iklan', organik:'Closing Cust Baru
 const CHAN_LABEL = { iklan:'Iklan', organik:'Organik', lama:'Cust Lama' };
 const nChat=v=>Number(String(v==null?'':v).replace(/[^0-9-]/g,''))||0;
 
-/* Jumlahkan sekumpulan baris CHAT_HARIAN → angka & persentase. */
+/* Jumlahkan sekumpulan baris CHAT_HARIAN → angka & persentase.
+
+   CATATAN PENTING soal "closing rate":
+   • Pelanggan LAMA memesan lagi tanpa chat baru, jadi closing lama sering
+     jauh melebihi chat lama (mis. 126 closing dari 24 chat = 525%).
+     Karena itu closing rate DIHITUNG DARI CUSTOMER BARU SAJA (organik+iklan);
+     cust lama ditampilkan sebagai JUMLAH ORDER, bukan rate.
+   • Closing juga sering dicatat di hari deal-nya, bukan hari chat masuk
+     (chat hari ini, deal besok). Jadi rate hanya bermakna untuk SATU PERIODE,
+     bukan per hari — rate harian sengaja tidak ditampilkan.                */
 function chatAgg(rows){
   const a={ chat:{iklan:0,organik:0,lama:0}, close:{iklan:0,organik:0,lama:0},
             order:0, telp:0, hari:0, totChat:0, totClose:0 };
@@ -7572,7 +7588,9 @@ function chatAgg(rows){
   });
   a.totChat  = a.chat.iklan+a.chat.organik+a.chat.lama;
   a.totClose = a.close.iklan+a.close.organik+a.close.lama;
-  a.rate     = a.totChat? a.totClose/a.totChat*100 : 0;   // closing rate keseluruhan
+  a.chatBaru  = a.chat.iklan+a.chat.organik;      // hanya customer baru
+  a.closeBaru = a.close.iklan+a.close.organik;
+  a.rate = a.chatBaru ? a.closeBaru/a.chatBaru*100 : 0;   // closing rate customer baru
   return a;
 }
 const pctS=(n,d)=> d>0 ? (n/d*100) : 0;
@@ -7584,15 +7602,15 @@ const rateCls=p=> p>=70?'k-green':(p>=40?'k-yellow':'k-red');
 function chatHeroHTML(A, judul){
   return '<div class="dc-hero">'+
     '<div class="dc-hero-l">'+
-      '<div class="dc-hero-t">'+esc(judul||'Closing Rate')+'</div>'+
+      '<div class="dc-hero-t">'+esc(judul||'Closing Rate — Customer Baru')+'</div>'+
       '<div class="dc-hero-v">'+A.rate.toFixed(0)+'<span>%</span></div>'+
-      '<div class="dc-hero-s">'+A.totClose.toLocaleString('id-ID')+' closing dari '+A.totChat.toLocaleString('id-ID')+' chat masuk · '+A.hari+' hari lapor</div>'+
+      '<div class="dc-hero-s">'+A.closeBaru.toLocaleString('id-ID')+' closing dari '+A.chatBaru.toLocaleString('id-ID')+' chat customer baru · '+A.hari+' hari lapor</div>'+
     '</div>'+
     '<div class="dc-hero-r">'+
-      '<div class="dc-mini"><div class="dc-mini-l">Chat Masuk</div><div class="dc-mini-v">'+A.totChat.toLocaleString('id-ID')+'</div></div>'+
-      '<div class="dc-mini"><div class="dc-mini-l">Closing</div><div class="dc-mini-v">'+A.totClose.toLocaleString('id-ID')+'</div></div>'+
-      '<div class="dc-mini"><div class="dc-mini-l">Orderan</div><div class="dc-mini-v">'+A.order.toLocaleString('id-ID')+'</div></div>'+
-      '<div class="dc-mini"><div class="dc-mini-l">Telepon</div><div class="dc-mini-v">'+A.telp.toLocaleString('id-ID')+'</div></div>'+
+      '<div class="dc-mini"><div class="dc-mini-l">Chat Baru</div><div class="dc-mini-v">'+A.chatBaru.toLocaleString('id-ID')+'</div></div>'+
+      '<div class="dc-mini"><div class="dc-mini-l">Closing Baru</div><div class="dc-mini-v">'+A.closeBaru.toLocaleString('id-ID')+'</div></div>'+
+      '<div class="dc-mini"><div class="dc-mini-l">Order Cust Lama</div><div class="dc-mini-v">'+A.close.lama.toLocaleString('id-ID')+'</div></div>'+
+      '<div class="dc-mini"><div class="dc-mini-l">Total Orderan</div><div class="dc-mini-v">'+A.order.toLocaleString('id-ID')+'</div></div>'+
     '</div>'+
   '</div>';
 }
@@ -7601,8 +7619,25 @@ function chatChansHTML(A, clickable){
   const bar=p=>'<div class="dc-bar"><i style="width:'+Math.max(0,Math.min(100,p))+'%"></i></div>';
   const card=k=>{
     const chat=A.chat[k], close=A.close[k];
-    const rate=pctS(close,chat), share=pctS(chat,A.totChat), kontrib=pctS(close,A.totClose);
+    const isLama = k==='lama';
+    const rate=pctS(close,chat);
     const tag = clickable ? 'button class="dc-chan" data-chan="'+k+'"' : 'div class="dc-chan dc-chan-flat"';
+    if(isLama){
+      // Pelanggan lama memesan lagi tanpa chat baru → rate tidak berlaku, tampilkan JUMLAH.
+      const share=pctS(close, A.totClose);
+      return '<'+tag+'>'+
+        '<div class="dc-chan-h"><span class="dc-chan-n">'+esc(CHAN_LABEL[k])+'</span>'+
+          '<span class="kpi-badge k-none">'+close.toLocaleString('id-ID')+'</span></div>'+
+        '<div class="dc-chan-s">order pelanggan lama</div>'+
+        bar(share)+
+        '<div class="dc-chan-g">'+
+          '<div><b>'+chat.toLocaleString('id-ID')+'</b><span>chat</span></div>'+
+          '<div><b>'+close.toLocaleString('id-ID')+'</b><span>order</span></div>'+
+        '</div>'+
+        '<div class="dc-chan-f">'+share.toFixed(0)+'% dari total closing · tanpa rate (pesan lagi tanpa chat baru)</div>'+
+      '</'+(clickable?'button':'div')+'>';
+    }
+    const share=pctS(chat,A.chatBaru), kontrib=pctS(close,A.closeBaru);
     return '<'+tag+'>'+
       '<div class="dc-chan-h"><span class="dc-chan-n">'+esc(CHAN_LABEL[k])+'</span>'+
         '<span class="kpi-badge '+rateCls(rate)+'">'+(chat?rate.toFixed(0)+'%':'—')+'</span></div>'+
@@ -7612,7 +7647,7 @@ function chatChansHTML(A, clickable){
         '<div><b>'+chat.toLocaleString('id-ID')+'</b><span>chat</span></div>'+
         '<div><b>'+close.toLocaleString('id-ID')+'</b><span>closing</span></div>'+
       '</div>'+
-      '<div class="dc-chan-f">'+share.toFixed(0)+'% dari chat masuk · '+kontrib.toFixed(0)+'% dari closing</div>'+
+      '<div class="dc-chan-f">'+share.toFixed(0)+'% dari chat baru · '+kontrib.toFixed(0)+'% dari closing baru</div>'+
     '</'+(clickable?'button':'div')+'>';
   };
   return '<div class="dc-chans">'+['iklan','organik','lama'].map(card).join('')+'</div>';
@@ -7638,29 +7673,31 @@ function renderDataChat(){
   const trs=cabs.map(c=>{
     const g=chatAgg(byCab[c]);
     return '<tr class="rowclick" data-dccab="'+esc(c)+'">'+
-      '<td class="cab-cell l">'+esc(c)+'</td>'+
-      '<td class="c">'+g.totChat+'</td>'+
-      '<td class="c">'+g.totClose+'</td>'+
-      '<td class="c"><span class="kpi-badge '+rateCls(g.rate)+'">'+(g.totChat?g.rate.toFixed(0)+'%':'—')+'</span></td>'+
+      '<td class="cab-cell l det-cabcol">'+esc(c)+'</td>'+
+      '<td class="c">'+g.chatBaru+'</td>'+
+      '<td class="c">'+g.closeBaru+'</td>'+
+      '<td class="c"><span class="kpi-badge '+rateCls(g.rate)+'">'+(g.chatBaru?g.rate.toFixed(0)+'%':'—')+'</span></td>'+
       '<td class="c">'+pctTxt(g.close.iklan,g.chat.iklan)+'</td>'+
       '<td class="c">'+pctTxt(g.close.organik,g.chat.organik)+'</td>'+
-      '<td class="c">'+pctTxt(g.close.lama,g.chat.lama)+'</td>'+
+      '<td class="c">'+g.close.lama+'</td>'+
       '<td class="c">'+g.order+'</td>'+
       '<td class="c">'+g.hari+'</td></tr>';
   }).join('');
   const tabel='<div class="cap-card"><div class="cap-card-t">Closing Rate per Cabang — ketuk baris untuk rincian harian</div>'+
-    '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr>'+
-      '<th class="l" rowspan="2">Cabang</th><th class="c" rowspan="2">Chat</th><th class="c" rowspan="2">Closing</th>'+
-      '<th class="c" rowspan="2">Rate</th><th class="c" colspan="3">Closing Rate per Sumber</th>'+
-      '<th class="c" rowspan="2">Orderan</th><th class="c" rowspan="2">Hari</th></tr>'+
-      '<tr><th class="c">Iklan</th><th class="c">Organik</th><th class="c">Lama</th></tr>'+
+    '<div class="tbl-wrap"><table class="ops-tbl freeze-cab"><thead><tr>'+
+      '<th class="l det-cabcol" rowspan="2">Cabang</th><th class="c" colspan="3">Customer Baru</th>'+
+      '<th class="c" colspan="2">Rate per Sumber</th>'+
+      '<th class="c" rowspan="2">Order<br>Cust Lama</th>'+
+      '<th class="c" rowspan="2">Total<br>Orderan</th><th class="c" rowspan="2">Hari</th></tr>'+
+      '<tr><th class="c">Chat</th><th class="c">Closing</th><th class="c">Rate</th>'+
+        '<th class="c">Iklan</th><th class="c">Organik</th></tr>'+
     '</thead><tbody>'+trs+'</tbody></table></div>'+
     '<div class="kpi-legend"><span class="kpi-badge k-green">≥70%</span> · <span class="kpi-badge k-yellow">40–69%</span> · '+
-      '<span class="kpi-badge k-red">&lt;40%</span> &nbsp;·&nbsp; <span style="color:var(--faint)">Closing rate = closing ÷ chat masuk</span></div></div>';
+      '<span class="kpi-badge k-red">&lt;40%</span> &nbsp;·&nbsp; <span style="color:var(--faint)">Closing rate = closing ÷ chat, <b>customer baru saja</b> (organik + iklan)</span></div></div>';
 
   $('#panel').innerHTML=
-    '<div class="ops-note">Sumber: laporan <b>Chat Harian</b> yang diinput CS. '+
-      'Angka mengikuti filter cabang &amp; tanggal di atas.</div>'+
+    '<div class="ops-note">Sumber: laporan <b>Chat Harian</b> yang diinput CS. Angka mengikuti filter cabang &amp; tanggal di atas.<br>'+
+      '<b>Closing rate dihitung dari customer baru saja</b> (organik + iklan). Order dari <b>pelanggan lama</b> tidak ikut karena mereka memesan lagi tanpa chat baru — ditampilkan terpisah sebagai jumlah order.</div>'+
     top+chans+tabel;
 
   document.querySelectorAll('[data-chan]').forEach(b=>b.addEventListener('click',()=>showChanDetail(b.dataset.chan)));
@@ -7672,25 +7709,26 @@ function renderDataChat(){
 function showChanDetail(k){
   const rows=state._chatRows||[];
   const A=chatAgg(rows);
+  const isLama = k==='lama';
   const chat=A.chat[k], close=A.close[k], rate=pctS(close,chat);
   $('#modalTitle').textContent='Data Chat — '+CHAN_LABEL[k];
   const byCab={}; rows.forEach(r=>{ const c=String(r['Cabang']||'-').toUpperCase(); (byCab[c]=byCab[c]||[]).push(r); });
   const list=Object.keys(byCab).map(c=>{ const g=chatAgg(byCab[c]);
     return {cab:c, chat:g.chat[k], close:g.close[k], rate:pctS(g.close[k],g.chat[k])}; })
-    .sort((a,b)=>b.rate-a.rate);
+    .sort((a,b)=> isLama ? (b.close-a.close) : (b.rate-a.rate));
   let h='<div class="detail">'+
-    '<div class="dc-pop-hero"><div><div class="dc-pop-l">Closing Rate '+esc(CHAN_LABEL[k])+'</div>'+
-      '<div class="dc-pop-v">'+(chat?rate.toFixed(1)+'%':'—')+'</div></div>'+
-      '<div class="dc-pop-x"><b>'+chat.toLocaleString('id-ID')+'</b> chat → <b>'+close.toLocaleString('id-ID')+'</b> closing</div></div>'+
-    '<div class="dt-sec">Per Cabang (urut rate tertinggi)</div>'+
-    '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr><th class="l">Cabang</th>'+
-      '<th class="c">Chat</th><th class="c">Closing</th><th class="c">Rate</th></tr></thead><tbody>'+
-    (list.length?list.map(o=>'<tr><td class="cab-cell l">'+esc(o.cab)+'</td><td class="c">'+o.chat+'</td>'+
-      '<td class="c">'+o.close+'</td><td class="c"><span class="kpi-badge '+rateCls(o.rate)+'">'+
-      (o.chat?o.rate.toFixed(0)+'%':'—')+'</span></td></tr>').join('')
+    '<div class="dc-pop-hero"><div><div class="dc-pop-l">'+(isLama?'Order Pelanggan Lama':'Closing Rate '+esc(CHAN_LABEL[k]))+'</div>'+
+      '<div class="dc-pop-v">'+(isLama ? close.toLocaleString('id-ID') : (chat?rate.toFixed(1)+'%':'—'))+'</div></div>'+
+      '<div class="dc-pop-x"><b>'+chat.toLocaleString('id-ID')+'</b> chat → <b>'+close.toLocaleString('id-ID')+'</b> '+(isLama?'order':'closing')+'</div></div>'+
+    '<div class="dt-sec">Per Cabang (urut '+(isLama?'order terbanyak':'rate tertinggi')+')</div>'+
+    '<div class="tbl-wrap"><table class="ops-tbl freeze-cab"><thead><tr><th class="l det-cabcol">Cabang</th>'+
+      '<th class="c">Chat</th><th class="c">'+(isLama?'Order':'Closing')+'</th>'+(isLama?'':'<th class="c">Rate</th>')+'</tr></thead><tbody>'+
+    (list.length?list.map(o=>'<tr><td class="cab-cell l det-cabcol">'+esc(o.cab)+'</td><td class="c">'+o.chat+'</td>'+
+      '<td class="c"><b>'+o.close+'</b></td>'+(isLama?'':'<td class="c"><span class="kpi-badge '+rateCls(o.rate)+'">'+
+      (o.chat?o.rate.toFixed(0)+'%':'—')+'</span></td>')+'</tr>').join('')
       :'<tr><td colspan="4" class="cap-empty">Tidak ada data</td></tr>')+
     '</tbody></table></div>';
-  if(k==='lama') h+='<div class="ops-note" style="margin:12px 0 0">Closing Cust Lama bisa melebihi 100% — pelanggan lama sering memesan lagi tanpa chat baru.</div>';
+  if(isLama) h+='<div class="ops-note" style="margin:12px 0 0"><b>Kenapa tanpa closing rate?</b> Pelanggan lama sering memesan lagi langsung tanpa chat baru, jadi jumlah order-nya bisa jauh melebihi jumlah chat. Membaginya jadi persentase akan menghasilkan angka di atas 100% yang menyesatkan — karena itu ditampilkan sebagai jumlah order saja.</div>';
   h+='</div>';
   $('#modalBody').innerHTML=h;
   const sv=$('#modalSave'); if(sv) sv.style.display='none';
@@ -7713,7 +7751,6 @@ function showCabChatDetail(cab){
       '<td class="c"><b>'+g.totChat+'</b></td>'+
       '<td class="c">'+cell(g.close.organik)+'</td><td class="c">'+cell(g.close.iklan)+'</td><td class="c">'+cell(g.close.lama)+'</td>'+
       '<td class="c"><b>'+g.totClose+'</b></td>'+
-      '<td class="c"><span class="kpi-badge '+rateCls(g.rate)+'">'+(g.totChat?g.rate.toFixed(0)+'%':'—')+'</span></td>'+
       '<td class="c">'+cell(g.order)+'</td><td class="c">'+cell(g.telp)+'</td></tr>';
   }).join('');
   const foot='<tr class="dc-tot"><td class="l"><b>TOTAL</b><div class="cs-sub">'+A.hari+' hari</div></td>'+
@@ -7721,20 +7758,20 @@ function showCabChatDetail(cab){
       '<td class="c">'+A.totChat+'</td>'+
       '<td class="c">'+A.close.organik+'</td><td class="c">'+A.close.iklan+'</td><td class="c">'+A.close.lama+'</td>'+
       '<td class="c">'+A.totClose+'</td>'+
-      '<td class="c"><span class="kpi-badge '+rateCls(A.rate)+'">'+(A.totChat?A.rate.toFixed(0)+'%':'—')+'</span></td>'+
       '<td class="c">'+A.order+'</td><td class="c">'+A.telp+'</td></tr>';
   $('#modalBody').innerHTML='<div class="detail">'+
-    '<div class="dc-pop-hero"><div><div class="dc-pop-l">Closing Rate '+esc(cab)+'</div>'+
-      '<div class="dc-pop-v">'+(A.totChat?A.rate.toFixed(1)+'%':'—')+'</div></div>'+
-      '<div class="dc-pop-x"><b>'+A.totChat+'</b> chat → <b>'+A.totClose+'</b> closing · <b>'+A.order+'</b> orderan</div></div>'+
+    '<div class="dc-pop-hero"><div><div class="dc-pop-l">Closing Rate Customer Baru — '+esc(cab)+'</div>'+
+      '<div class="dc-pop-v">'+(A.chatBaru?A.rate.toFixed(1)+'%':'—')+'</div></div>'+
+      '<div class="dc-pop-x"><b>'+A.chatBaru+'</b> chat baru → <b>'+A.closeBaru+'</b> closing · <b>'+A.close.lama+'</b> order cust lama · <b>'+A.order+'</b> total orderan</div></div>'+
     '<div class="dt-sec">Rincian Harian</div>'+
     '<div class="tbl-wrap"><table class="ops-tbl dc-day"><thead>'+
       '<tr><th class="l" rowspan="2">Tanggal</th><th class="c" colspan="4">Chat Masuk</th>'+
-        '<th class="c" colspan="4">Closing</th><th class="c" rowspan="2">Rate</th>'+
+        '<th class="c" colspan="4">Closing</th>'+
         '<th class="c" rowspan="2">Order</th><th class="c" rowspan="2">Telp</th></tr>'+
       '<tr><th class="c">Org</th><th class="c">Iklan</th><th class="c">Lama</th><th class="c">Tot</th>'+
         '<th class="c">Org</th><th class="c">Iklan</th><th class="c">Lama</th><th class="c">Tot</th></tr>'+
-    '</thead><tbody>'+(trs||'<tr><td colspan="12" class="cap-empty">Tidak ada data</td></tr>')+foot+'</tbody></table></div>'+
+    '</thead><tbody>'+(trs||'<tr><td colspan="11" class="cap-empty">Tidak ada data</td></tr>')+foot+'</tbody></table></div>'+
+    '<div class="ops-note" style="margin:10px 0 0"><b>Kenapa tidak ada rate per hari?</b> Closing sering dicatat di hari <i>deal</i>-nya, bukan hari chat masuk — chat hari ini bisa deal besok. Jadi angka closing dan chat pada satu hari yang sama tidak sebanding. Rate hanya bermakna untuk satu periode (angka besar di atas).</div>'+
   '</div>';
   const sv=$('#modalSave'); if(sv) sv.style.display='none';
   const cc=$('#modalCancel'); if(cc){ cc.textContent='Tutup'; cc.classList.add('btn-danger'); }
