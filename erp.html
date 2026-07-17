@@ -655,6 +655,8 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .kpi-mtotal-t{font-size:11.5px;opacity:.85;font-weight:700}
 .kpi-auto{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;
   color:var(--info);background:var(--surface-2);border-radius:6px;padding:1px 5px;vertical-align:middle}
+.kpi-cap{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;margin-left:5px;
+  color:var(--success);background:rgba(31,122,94,.13);border-radius:5px;padding:1px 5px;vertical-align:1px;cursor:help}
 .kpi-strat{padding:14px 16px 16px}
 .kpi-strat-t{font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);margin-bottom:8px}
 .kpi-strat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
@@ -1801,8 +1803,9 @@ VIEWS.kpiCS = {
     {sec:'Closing Rate (nilai capaian dihitung otomatis dari Chat Harian)'},
     f('Target Closing Rate','num',{help:'Target closing rate cabang ini dalam %, mis. 60'}),
     f('Bobot Closing Rate','num'),
-    {sec:'Closing Chat'},
-    f('Target Closing Chat','num'), f('Bobot Closing Chat','num'), f('Nilai Closing Chat','num'),
+    {sec:'Closing Chat (nilai capaian dihitung otomatis dari Chat Harian)'},
+    f('Target Closing Chat','num',{help:'Target rata-rata order per hari, mis. 10'}),
+    f('Bobot Closing Chat','num'),
     {sec:'Stock Opname'},
     f('Target Stock Opname','num'), f('Bobot Stock Opname','num'), f('Nilai Stock Opname','num'),
     {sec:'Review Maps'},
@@ -4115,7 +4118,7 @@ function kpiItems(){
   return [
     {key:'Omzet',        tKey:'Target Omzet',        bKey:'Bobot Omzet',        money:true, auto:true, defB:40},
     {key:'Closing Rate', tKey:'Target Closing Rate', bKey:'Bobot Closing Rate', nKey:'Nilai Closing Rate', pct:true, defB:20, autoRate:true},
-    {key:'Closing Chat', tKey:'Target Closing Chat', bKey:'Bobot Closing Chat', nKey:'Nilai Closing Chat', defB:20},
+    {key:'Closing Chat', tKey:'Target Closing Chat', bKey:'Bobot Closing Chat', nKey:'Nilai Closing Chat', defB:20, autoChat:true},
     {key:'Stock Opname', tKey:'Target Stock Opname', bKey:'Bobot Stock Opname', nKey:'Nilai Stock Opname', defB:10},
     {key:'Review Maps',  tKey:'Target Review Maps',  bKey:'Bobot Review Maps',  nKey:'Nilai Review Maps',  defB:10}
   ];
@@ -4130,12 +4133,30 @@ function kpiCloseRate(cab, ym){
   const A=chatAgg(rows);
   return A.chatBaru ? A.rate : 0;
 }
-/* Nilai capaian satu item KPI: otomatis (omzet / closing rate) atau input manual. */
+/* Closing Chat satu cabang pada satu bulan — otomatis dari laporan Chat Harian.
+   Definisi: RATA-RATA order per hari = total Jumlah Orderan ÷ jumlah hari yang dilaporkan.
+   Contoh: 10 hari tercatat, 100 order → 10 closing chat.                     */
+function kpiCloseChat(cab, ym){
+  const rows=(state.cache.chatHarianAll||[]).filter(c=>
+    String(c['Cabang']||'').toUpperCase()===String(cab).toUpperCase() &&
+    parseAnyMonth(c['Tanggal'])===ym);
+  if(!rows.length) return 0;
+  const A=chatAgg(rows);
+  return A.hari ? A.order/A.hari : 0;
+}
+/* Nilai capaian satu item KPI: otomatis (omzet / closing rate / closing chat) atau input manual. */
 function kpiNilai(it, cfg, cab, ym){
   const num=v=>Number(moneyDigits(v))||0;
   if(it.auto)     return kpiOmzet(cab, ym);
   if(it.autoRate) return Math.round(kpiCloseRate(cab, ym));
+  if(it.autoChat) return kpiCloseChat(cab, ym);
   return num(cfg[it.nKey]);
+}
+/* Skor satu item = (nilai ÷ target) × bobot, DIBATASI maksimal sebesar bobot.
+   Capaian di atas 100% tidak menambah skor — bobot 20% maksimal tetap 20%. */
+function kpiSkor(nilai, target, bobot){
+  if(!(target>0)) return 0;
+  return Math.min(nilai/target, 1) * bobot;
 }
 function kpiTotalFor(cab, ym){
   const cfg=(state.cache.kpiCfg||{})[String(cab).toUpperCase()+'|'+ym]||{};
@@ -4144,8 +4165,7 @@ function kpiTotalFor(cab, ym){
   kpiItems().forEach(it=>{
     const target=num(cfg[it.tKey]);
     const bobot=(cfg[it.bKey]!=null&&String(cfg[it.bKey]).trim()!=='')?num(cfg[it.bKey]):it.defB;
-    const nilai=kpiNilai(it, cfg, cab, ym);
-    if(target>0) total+=(nilai/target)*bobot;
+    total += kpiSkor(kpiNilai(it, cfg, cab, ym), target, bobot);
   });
   return total;
 }
@@ -4179,22 +4199,28 @@ function renderKpiCS(){
       const target = num(c[it.tKey]);
       const bobot  = (c[it.bKey]!=null && String(c[it.bKey]).trim()!=='') ? num(c[it.bKey]) : it.defB;
       const nilai  = kpiNilai(it, c, cab, ym);
-      const pros   = target>0 ? (nilai/target)*bobot : 0;
+      const ratio  = target>0 ? nilai/target : 0;
+      const pros   = kpiSkor(nilai, target, bobot);      // dibatasi maksimal = bobot
+      const capped = ratio>1;                            // capaian lewat 100% → skor mentok
       total += pros;
+      const nRnd = Math.round(nilai*10)/10;              // rapikan desimal (mis. 11,1)
       const fT = it.money?rp(target):(it.pct?target+'%':target);
-      const fN = it.money?rp(nilai):(it.pct?nilai+'%':nilai);
-      return {it,bobot,pros,fT,fN};
+      const fN = it.money?rp(nilai):(it.pct?Math.round(nilai)+'%':nRnd);
+      return {it,bobot,pros,fT,fN,capped,ratio};
     });
-    const autoTag = d => (d.it.auto||d.it.autoRate)?' <span class="kpi-auto">auto</span>':'';
+    const autoTag = d => (d.it.auto||d.it.autoRate||d.it.autoChat)?' <span class="kpi-auto">auto</span>':'';
+    // Penanda saat capaian melebihi target → skor tetap maksimal sebesar bobot
+    const capTag = d => d.capped
+      ? '<span class="kpi-cap" title="Capaian '+Math.round(d.ratio*100)+'% — skor dibatasi maksimal bobot '+d.bobot+'%">maks</span>' : '';
     const rows = itemData.map(d=>'<tr>'+
       '<td class="l">'+d.it.key+autoTag(d)+'</td>'+
       '<td class="r">'+d.fT+'</td>'+
       '<td class="c">'+d.bobot+'%</td>'+
       '<td class="r">'+d.fN+'</td>'+
-      '<td class="r"><b>'+d.pros.toFixed(0)+'%</b></td></tr>').join('');
+      '<td class="r"><b>'+d.pros.toFixed(0)+'%</b>'+capTag(d)+'</td></tr>').join('');
     const mlist = itemData.map(d=>'<div class="kpi-mrow">'+
       '<div class="kpi-mrow-top"><span class="kpi-mname">'+d.it.key+autoTag(d)+'</span>'+
-        '<span class="kpi-mcap">'+d.pros.toFixed(0)+'%</span></div>'+
+        '<span class="kpi-mcap">'+d.pros.toFixed(0)+'%'+capTag(d)+'</span></div>'+
       '<div class="kpi-mrow-sub"><span>Target: <b>'+d.fT+'</b></span><span>Bobot: <b>'+d.bobot+'%</b></span><span>Nilai: <b>'+d.fN+'</b></span></div>'+
     '</div>').join('');
     const stratDefs=[['Tgl 7','25%','Strategi Tgl 7'],['Tgl 14','50%','Strategi Tgl 14'],
