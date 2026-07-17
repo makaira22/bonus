@@ -1798,8 +1798,9 @@ VIEWS.kpiCS = {
     f('Target Nilai KPI','num',{help:'Target total nilai KPI untuk cabang ini, mis. 100'}),
     {sec:'Omzet (nilai capaian dihitung otomatis dari order)'},
     f('Target Omzet','money'), f('Bobot Omzet','num'),
-    {sec:'Closing Rate (target & nilai dalam %)'},
-    f('Target Closing Rate','num'), f('Bobot Closing Rate','num'), f('Nilai Closing Rate','num'),
+    {sec:'Closing Rate (nilai capaian dihitung otomatis dari Chat Harian)'},
+    f('Target Closing Rate','num',{help:'Target closing rate cabang ini dalam %, mis. 60'}),
+    f('Bobot Closing Rate','num'),
     {sec:'Closing Chat'},
     f('Target Closing Chat','num'), f('Bobot Closing Chat','num'), f('Nilai Closing Chat','num'),
     {sec:'Stock Opname'},
@@ -2667,11 +2668,11 @@ async function loadList(force){
     }
     refreshDynFilters();
     if(v.special==='reportKPI'){ await loadTargets(); state.rkSort=null; state.rkOrderPage=0; state.rkFilter={}; }
-    if(v.special==='capKpi'){ await loadTargets(); await loadKpiCfg(); }
+    if(v.special==='capKpi'){ await loadTargets(); await loadKpiCfg(); await loadChatAll(); }
     if(v.special==='capOmzet'){ state.rkSort=null; state.omzSort=null; }
     if(v.special==='capaian') await loadTargets();
     if(v.special==='kpiCS' || v.special==='capaian') await loadKpiCfg();
-    if(v.special==='kpiCS'){ await loadTargets(); state.kpiCsSort=null; }
+    if(v.special==='kpiCS'){ await loadTargets(); await loadChatAll(); state.kpiCsSort=null; }
     if(v.special==='dashboard') await loadDashData();
     if(v.special==='grafik') await loadDashData();
     if(v.special==='absensi'){ await loadCleanerList(); await loadAturanAbsen(); }
@@ -4103,24 +4104,47 @@ async function loadKpiCfg(){
     state.cache.kpiCfg=map; return map;
   }catch(e){ state.cache.kpiCfg={}; return {}; }
 }
+/* Muat seluruh CHAT_HARIAN (dipakai KPI closing rate otomatis). */
+async function loadChatAll(){
+  if(state.cache.chatHarianAll) return;
+  try{ const r=await api({action:'list', sheet:'CHAT_HARIAN'});
+       state.cache.chatHarianAll=trimKeys(r.data||[]); }
+  catch(e){ state.cache.chatHarianAll=[]; }
+}
 function kpiItems(){
   return [
     {key:'Omzet',        tKey:'Target Omzet',        bKey:'Bobot Omzet',        money:true, auto:true, defB:40},
-    {key:'Closing Rate', tKey:'Target Closing Rate', bKey:'Bobot Closing Rate', nKey:'Nilai Closing Rate', pct:true, defB:20},
+    {key:'Closing Rate', tKey:'Target Closing Rate', bKey:'Bobot Closing Rate', nKey:'Nilai Closing Rate', pct:true, defB:20, autoRate:true},
     {key:'Closing Chat', tKey:'Target Closing Chat', bKey:'Bobot Closing Chat', nKey:'Nilai Closing Chat', defB:20},
     {key:'Stock Opname', tKey:'Target Stock Opname', bKey:'Bobot Stock Opname', nKey:'Nilai Stock Opname', defB:10},
     {key:'Review Maps',  tKey:'Target Review Maps',  bKey:'Bobot Review Maps',  nKey:'Nilai Review Maps',  defB:10}
   ];
 }
+/* Closing rate satu cabang pada satu bulan — otomatis dari laporan Chat Harian.
+   Memakai CUSTOMER BARU saja (organik + iklan), sama seperti menu Data Chat. */
+function kpiCloseRate(cab, ym){
+  const rows=(state.cache.chatHarianAll||[]).filter(c=>
+    String(c['Cabang']||'').toUpperCase()===String(cab).toUpperCase() &&
+    parseAnyMonth(c['Tanggal'])===ym);
+  if(!rows.length) return 0;
+  const A=chatAgg(rows);
+  return A.chatBaru ? A.rate : 0;
+}
+/* Nilai capaian satu item KPI: otomatis (omzet / closing rate) atau input manual. */
+function kpiNilai(it, cfg, cab, ym){
+  const num=v=>Number(moneyDigits(v))||0;
+  if(it.auto)     return kpiOmzet(cab, ym);
+  if(it.autoRate) return Math.round(kpiCloseRate(cab, ym));
+  return num(cfg[it.nKey]);
+}
 function kpiTotalFor(cab, ym){
   const cfg=(state.cache.kpiCfg||{})[String(cab).toUpperCase()+'|'+ym]||{};
-  const omzet=kpiOmzet(cab, ym);
   const num=v=>Number(moneyDigits(v))||0;
   let total=0;
   kpiItems().forEach(it=>{
     const target=num(cfg[it.tKey]);
     const bobot=(cfg[it.bKey]!=null&&String(cfg[it.bKey]).trim()!=='')?num(cfg[it.bKey]):it.defB;
-    const nilai=it.auto?omzet:num(cfg[it.nKey]);
+    const nilai=kpiNilai(it, cfg, cab, ym);
     if(target>0) total+=(nilai/target)*bobot;
   });
   return total;
@@ -4149,20 +4173,19 @@ function renderKpiCS(){
 
   const cards = cabs.map(cab=>{
     const c = cfg[cab+'|'+ym] || {};
-    const omzet = kpiOmzet(cab, ym);
     const tgtKpi = num(c['Target Nilai KPI']);
     let total=0;
     const itemData = kpiItems().map(it=>{
       const target = num(c[it.tKey]);
       const bobot  = (c[it.bKey]!=null && String(c[it.bKey]).trim()!=='') ? num(c[it.bKey]) : it.defB;
-      const nilai  = it.auto ? omzet : num(c[it.nKey]);
+      const nilai  = kpiNilai(it, c, cab, ym);
       const pros   = target>0 ? (nilai/target)*bobot : 0;
       total += pros;
       const fT = it.money?rp(target):(it.pct?target+'%':target);
       const fN = it.money?rp(nilai):(it.pct?nilai+'%':nilai);
       return {it,bobot,pros,fT,fN};
     });
-    const autoTag = d => d.it.auto?' <span class="kpi-auto">auto</span>':'';
+    const autoTag = d => (d.it.auto||d.it.autoRate)?' <span class="kpi-auto">auto</span>':'';
     const rows = itemData.map(d=>'<tr>'+
       '<td class="l">'+d.it.key+autoTag(d)+'</td>'+
       '<td class="r">'+d.fT+'</td>'+
@@ -6829,7 +6852,7 @@ function csvFormList(){
    ============================================================ */
 const DL_COLS = {
   ORDER: ['Nama Hari','Tanggal Pengerjaan','Nama Cleaner','Jam Pengerjaan','Nama Customer',
-          'Alamat Customer','Nomor WA Customer','Layanan Yang Dipesan','Nominal Total Akhir',
+          'Alamat Customer','Nomor WA Customer','Layanan Yang Dipesan','Qty','Nominal Layanan',
           'Metode Pembayaran','Status Order'],
   GAJI:  ['Nama Cleaner','Take Home Pay','Total Bonus','Total Potongan']
 };
@@ -6853,7 +6876,14 @@ function dlBuildRows(sheet, ym, cab, st){
     // Satu baris per LAYANAN: order dengan 2–3 layanan dipecah jadi 2–3 baris.
     // Semua kolom lain sama persis; hanya kolom Layanan yang berbeda.
     .reduce((out,r)=>{
-      const lays=[1,2,3].map(i=>String(r['Layanan '+i]||'').trim()).filter(Boolean);
+      // Satu baris per LAYANAN. Nominal = porsi layanan itu dari total akhir order,
+      // dibagi menurut Harga masing-masing layanan, sehingga:
+      //   • tanpa diskon/PPn → sama persis dengan Harga layanan
+      //   • ada diskon/PPn  → terbagi adil & jumlah kolomnya tetap = omzet order
+      const lays=[1,2,3].map(i=>({ nm:String(r['Layanan '+i]||'').trim(),
+                                   qty:String(r['Qty '+i]||'').trim(),
+                                   harga:Number(moneyDigits(r['Harga '+i]))||0 }))
+                        .filter(x=>x.nm);
       const base=[
         hariId(r['Tanggal Pengerjaan'])||'',
         tglPanjangId(r['Tanggal Pengerjaan'])||'',
@@ -6862,13 +6892,23 @@ function dlBuildRows(sheet, ym, cab, st){
         r['Nama Customer']||'',
         r['Alamat']||'',
         r['No WA Customer']||'',
-        null,                        // diisi nama layanan di bawah
-        omzetOf_(r),
+        null, null, null,            // layanan, qty, nominal — diisi di bawah
         r['Metode Pembayaran']||'',
         r['Status Order']||''
       ];
-      if(!lays.length){ const b=base.slice(); b[7]=''; out.push(b); return out; }
-      lays.forEach(nm=>{ const b=base.slice(); b[7]=nm; out.push(b); });
+      const totOrder=omzetOf_(r);
+      if(!lays.length){ const b=base.slice(); b[7]=''; b[8]=''; b[9]=totOrder; out.push(b); return out; }
+      const sumHarga=lays.reduce((s,x)=>s+x.harga,0);
+      let sisa=totOrder;
+      lays.forEach((x,i)=>{
+        const b=base.slice();
+        b[7]=x.nm; b[8]=x.qty;
+        // baris terakhir mengambil sisa → jumlah kolom pasti sama dgn total order
+        b[9]= (i===lays.length-1) ? sisa
+            : (sumHarga>0 ? Math.round(totOrder*x.harga/sumHarga) : Math.round(totOrder/lays.length));
+        sisa -= b[9];
+        out.push(b);
+      });
       return out;
     }, []);
   }
