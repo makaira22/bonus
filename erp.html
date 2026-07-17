@@ -655,8 +655,6 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .kpi-mtotal-t{font-size:11.5px;opacity:.85;font-weight:700}
 .kpi-auto{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;
   color:var(--info);background:var(--surface-2);border-radius:6px;padding:1px 5px;vertical-align:middle}
-.kpi-cap{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;margin-left:5px;
-  color:var(--success);background:rgba(31,122,94,.13);border-radius:5px;padding:1px 5px;vertical-align:1px;cursor:help}
 .kpi-strat{padding:14px 16px 16px}
 .kpi-strat-t{font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);margin-bottom:8px}
 .kpi-strat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
@@ -4199,28 +4197,23 @@ function renderKpiCS(){
       const target = num(c[it.tKey]);
       const bobot  = (c[it.bKey]!=null && String(c[it.bKey]).trim()!=='') ? num(c[it.bKey]) : it.defB;
       const nilai  = kpiNilai(it, c, cab, ym);
-      const ratio  = target>0 ? nilai/target : 0;
       const pros   = kpiSkor(nilai, target, bobot);      // dibatasi maksimal = bobot
-      const capped = ratio>1;                            // capaian lewat 100% → skor mentok
       total += pros;
       const nRnd = Math.round(nilai*10)/10;              // rapikan desimal (mis. 11,1)
       const fT = it.money?rp(target):(it.pct?target+'%':target);
       const fN = it.money?rp(nilai):(it.pct?Math.round(nilai)+'%':nRnd);
-      return {it,bobot,pros,fT,fN,capped,ratio};
+      return {it,bobot,pros,fT,fN};
     });
     const autoTag = d => (d.it.auto||d.it.autoRate||d.it.autoChat)?' <span class="kpi-auto">auto</span>':'';
-    // Penanda saat capaian melebihi target → skor tetap maksimal sebesar bobot
-    const capTag = d => d.capped
-      ? '<span class="kpi-cap" title="Capaian '+Math.round(d.ratio*100)+'% — skor dibatasi maksimal bobot '+d.bobot+'%">maks</span>' : '';
     const rows = itemData.map(d=>'<tr>'+
       '<td class="l">'+d.it.key+autoTag(d)+'</td>'+
       '<td class="r">'+d.fT+'</td>'+
       '<td class="c">'+d.bobot+'%</td>'+
       '<td class="r">'+d.fN+'</td>'+
-      '<td class="r"><b>'+d.pros.toFixed(0)+'%</b>'+capTag(d)+'</td></tr>').join('');
+      '<td class="r"><b>'+d.pros.toFixed(0)+'%</b></td></tr>').join('');
     const mlist = itemData.map(d=>'<div class="kpi-mrow">'+
       '<div class="kpi-mrow-top"><span class="kpi-mname">'+d.it.key+autoTag(d)+'</span>'+
-        '<span class="kpi-mcap">'+d.pros.toFixed(0)+'%'+capTag(d)+'</span></div>'+
+        '<span class="kpi-mcap">'+d.pros.toFixed(0)+'%</span></div>'+
       '<div class="kpi-mrow-sub"><span>Target: <b>'+d.fT+'</b></span><span>Bobot: <b>'+d.bobot+'%</b></span><span>Nilai: <b>'+d.fN+'</b></span></div>'+
     '</div>').join('');
     const stratDefs=[['Tgl 7','25%','Strategi Tgl 7'],['Tgl 14','50%','Strategi Tgl 14'],
