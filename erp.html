@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- KLINKLIN-BUILD: INSENTIF-FILTER + BONUS-RETURN-FILTER + KONTEN-RELATION-FIX -->
+<!-- KLINKLIN-BUILD: INSENTIF-CARDS-PAGED + INSENTIF-FILTER + BONUS-RETURN-FILTER -->
 <html lang="id">
 <head>
 <meta charset="UTF-8" />
@@ -879,7 +879,7 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 @media (max-width:880px){ .desk-only{display:none} }
 /* ORDER tables punya banyak kolom → di layar sempit (mis. jendela desktop di-minimize)
    otomatis pakai kartu supaya penuh & tak perlu geser horizontal. */
-@media (max-width:1100px){ .tbl-wrap.desk-only{display:none} .card-list.order-cards,.card-list.gaji-cards,.card-list.kar-cards,.card-list.bonus-cards,.card-list.abs-cards,.card-list.chat-cards{display:flex} }
+@media (max-width:1100px){ .tbl-wrap.desk-only{display:none} .card-list.order-cards,.card-list.gaji-cards,.card-list.kar-cards,.card-list.bonus-cards,.card-list.abs-cards,.card-list.chat-cards,.card-list.ins-cards{display:flex} }
 .ocard-del{color:var(--danger)}
 .dt-bonus{display:flex;flex-direction:column;gap:6px}
 .dt-bonus-row{display:flex;justify-content:space-between;gap:10px;font-size:13px;background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:8px 11px}
@@ -1078,7 +1078,7 @@ td.c-green, td.c-red, td.c-orange, td.c-blue{font-weight:700}
 .field.form-hidden{display:none!important}
 /* Kartu yang selalu tampil (mis. Input Bonus) — desktop & HP sama */
 .card-list.cards-always{display:flex!important}
-.card-list.cards-always .ocard,.card-list.abs-cards .ocard{cursor:pointer}
+.card-list.cards-always .ocard,.card-list.abs-cards .ocard,.card-list.ins-cards .ocard{cursor:pointer}
 .logo-img{width:100%;height:100%;object-fit:contain;display:block}
 .logo-prev-wrap{display:flex;gap:14px;flex-wrap:wrap;margin-top:4px}
 .logo-prev{flex:1;min-width:190px}
@@ -2847,7 +2847,7 @@ function applyClientFilters(rows){
 
 function renderView(){
   const v=state.view; if(!v) return;
-  state.page=0;
+  state.page=0; state.insPage=0;
   if(v.special==='capaian') renderCapaian();
   else if(v.special==='capOmzet') renderCapOmzet();
   else if(v.special==='capKpi') renderCapKpi();
@@ -7332,18 +7332,41 @@ function renderInsentifSum(){
   const arr=Object.keys(map).map(k=>({k,n:map[k].n,val:map[k].val})).sort((a,b)=>b.val-a.val);
   const total=arr.reduce((s,a)=>s+a.val,0);
   state._insDetail=rows;
-  const trows=arr.map(a=>'<tr class="rowclick" data-inscl="'+esc(a.k)+'"><td class="l">'+esc(a.k)+'</td><td class="c">'+a.n+'</td><td class="money">'+rp(a.val)+'</td></tr>').join('');
-  const cards=arr.map(a=>'<div class="ocard" data-inscl="'+esc(a.k)+'">'+
+
+  // Paginasi 15 baris: desktop per-halaman (Sebelumnya/Selanjutnya), HP kumulatif (Muat lebih banyak).
+  const PAGE=15; const totN=arr.length;
+  if(state.insPage==null) state.insPage=0;
+  const maxPage=Math.max(0, Math.ceil(totN/PAGE)-1);
+  if(state.insPage>maxPage) state.insPage=maxPage; if(state.insPage<0) state.insPage=0;
+  const pageArr=arr.slice(state.insPage*PAGE,(state.insPage+1)*PAGE);   // tabel desktop
+  const cardArr=arr.slice(0,(state.insPage+1)*PAGE);                    // kartu HP (kumulatif)
+
+  const trows=pageArr.map(a=>'<tr class="rowclick" data-inscl="'+esc(a.k)+'"><td class="l">'+esc(a.k)+'</td><td class="c">'+a.n+'</td><td class="money">'+rp(a.val)+'</td></tr>').join('');
+  const cards=cardArr.map(a=>'<div class="ocard" data-inscl="'+esc(a.k)+'">'+
     '<div class="ocard-top"><span class="ocard-name">'+esc(a.k)+'</span><span class="pay-chip">'+rp(a.val)+'</span></div>'+
     '<div class="ocard-meta"><span>'+a.n+' bonus · ketuk untuk rincian</span></div></div>').join('');
+
+  let pagerHtml='', moreHtml='';
+  if(totN>PAGE){
+    pagerHtml='<div class="pager desk-only"><button class="btn btn-ghost btn-sm" id="insPrev"'+(state.insPage<=0?' disabled':'')+'>‹ Sebelumnya</button>'+
+      '<span class="pager-info">'+(state.insPage*PAGE+1)+'–'+Math.min(totN,(state.insPage+1)*PAGE)+' dari '+totN+'</span>'+
+      '<button class="btn btn-ghost btn-sm" id="insNext"'+(state.insPage>=maxPage?' disabled':'')+'>Selanjutnya ›</button></div>';
+    if(cardArr.length<totN){
+      moreHtml='<button class="btn btn-ghost load-more" id="insMore">Muat lebih banyak ('+cardArr.length+'/'+totN+')</button>';
+    }
+  }
   $('#panel').innerHTML=
     '<div class="cap-stats"><div class="cap-stat"><div class="cap-stat-l">Total Insentif</div><div class="cap-stat-v">'+rp(total)+'</div></div>'+
       '<div class="cap-stat"><div class="cap-stat-l">Jumlah Cleaner</div><div class="cap-stat-v">'+arr.length+'</div></div></div>'+
     '<div class="cap-card"><div class="cap-card-t">Insentif per Cleaner — ketuk untuk detail</div>'+
     '<div class="tbl-wrap desk-only"><table class="ops-tbl"><thead><tr><th class="l">Nama Cleaner</th><th class="c">Jml Bonus</th><th class="r">Total Bonus</th></tr></thead>'+
     '<tbody>'+(trows||'<tr><td colspan="3" class="cap-empty">Belum ada data</td></tr>')+'</tbody></table></div>'+
-    '<div class="card-list cards-always">'+(cards||'<div class="cap-empty">Belum ada data</div>')+'</div></div>';
+    '<div class="card-list ins-cards">'+(cards||'<div class="cap-empty">Belum ada data</div>')+'</div>'+
+    pagerHtml+moreHtml+'</div>';
   document.querySelectorAll('[data-inscl]').forEach(el=>el.addEventListener('click',()=>showCleanerInsentif(el.dataset.inscl)));
+  const p=$('#insPrev'); if(p) p.addEventListener('click',()=>{ state.insPage--; renderInsentifSum(); });
+  const n=$('#insNext'); if(n) n.addEventListener('click',()=>{ state.insPage++; renderInsentifSum(); });
+  const m=$('#insMore'); if(m) m.addEventListener('click',()=>{ state.insPage++; renderInsentifSum(); });
   setCount(arr.length,'cleaner');
 }
 function showCleanerInsentif(name){
