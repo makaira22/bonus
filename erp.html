@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- KLINKLIN-BUILD: INSENTIF-CARDS-PAGED + INSENTIF-FILTER + BONUS-RETURN-FILTER -->
+<!-- KLINKLIN-BUILD: BONUS-BTN-STATUS + INSENTIF-CARDS-PAGED + BONUS-RETURN-FILTER -->
 <html lang="id">
 <head>
 <meta charset="UTF-8" />
@@ -174,6 +174,9 @@ input,select,textarea{font-family:inherit; font-size:14.5px; color:var(--ink)}
 .btn-primary:active{transform:translateY(1px)}
 .btn-ghost{background:var(--surface); border:1px solid var(--line-2); color:var(--ink)}
 .btn-ghost:hover{border-color:var(--petrol)}
+.btn.bonus-done{background:var(--success);color:#fff;border:1px solid var(--success)}
+.btn.bonus-done svg{stroke:#fff}
+.btn.bonus-todo{border-color:var(--gold);color:var(--gold-deep)}
 .btn-gold{background:linear-gradient(180deg,#d4b878,var(--gold-deep)); color:#3a2e10;
   box-shadow:0 10px 22px -12px rgba(166,134,63,.8)}
 .btn-sm{padding:8px 12px; font-size:12.5px; border-radius:10px}
@@ -2673,6 +2676,7 @@ async function loadList(force){
   // kecuali dipaksa (force) — yang terjadi setelah tambah/edit/approve atau tombol Sinkronkan.
   if(!force && key && state.listCache[key]){
     state.rows = state.listCache[key];
+    if(v.bonusBtn) await ensureBonusOrderSet(force);
     refreshDynFilters(); renderView();
     return;
   }
@@ -2705,12 +2709,26 @@ async function loadList(force){
     if(v.special==='grafik') await loadDashData();
     if(v.special==='absensi'){ await loadCleanerList(); await loadAturanAbsen(); }
     if(v.special==='gaji') await loadHrdNama();
+    if(v.bonusBtn) await ensureBonusOrderSet(true);
     renderView();
     syncDone(state.rows.length);
   }catch(err){ setSync(false); toast(err.message,'err'); $('#panel').innerHTML=emptyState('Gagal memuat data'); }
 }
 /* Hapus semua cache daftar (dipanggil setelah ada perubahan data). */
-function invalidateLists(){ state.listCache={}; }
+function invalidateLists(){ state.listCache={}; state._bonusOrderSet=null; }
+
+/* Kumpulan No Order yang SUDAH punya bonus — untuk mewarnai tombol "Input Bonus".
+   Dipakai di view Order (CS) agar terlihat mana order yang sudah diinput bonusnya. */
+async function ensureBonusOrderSet(force){
+  if(!force && state._bonusOrderSet) return;
+  try{
+    const r = await api({action:'list', sheet:'BONUS'});
+    const set={};
+    (r.data||[]).forEach(b=>{ const no=norm(b['No Order']); if(no) set[no]=(set[no]||0)+1; });
+    state._bonusOrderSet = set;
+  }catch(e){ if(!state._bonusOrderSet) state._bonusOrderSet={}; }
+}
+function orderHasBonus(oid){ const s=state._bonusOrderSet||{}; return !!s[norm(oid)]; }
 
 /* Isi opsi filter "Cleaner" dari data yang sudah dimuat (distinct, sudah dipecah koma). */
 function refreshDynFilters(){
@@ -3095,7 +3113,10 @@ function rowActions(v,r){
     else act+='<button class="act-ic" data-edit="'+eid+'" title="Edit">'+svg('edit')+'</button>';
   }
   if(v.bonusBtn && norm(r['Status Order'])!=='cancel'){
-    act += '<button class="btn btn-ghost btn-sm" data-bonusfor="'+esc(oid)+'">'+svg('bonus')+'Input Bonus</button>';
+    const sudah=orderHasBonus(oid);
+    act += sudah
+      ? '<button class="btn btn-sm bonus-done" data-bonusfor="'+esc(oid)+'" title="Sudah ada bonus untuk order ini — klik untuk tambah/lihat">'+svg('check')+'Bonus ✓</button>'
+      : '<button class="btn btn-ghost btn-sm bonus-todo" data-bonusfor="'+esc(oid)+'">'+svg('bonus')+'Input Bonus</button>';
   }
   if(v.revertPending && ['done','complete'].indexOf(norm(r['Status Order']))>=0 && state.session && state.session.role==='FINANCE'){
     act += '<button class="btn btn-ghost btn-sm" data-topending="'+esc(oid)+'" title="Kembalikan ke pending & hapus bukti transfer agar CS bisa edit + upload ulang" style="color:var(--danger)">'+svg('edit')+'Reset ke Pending</button>';
