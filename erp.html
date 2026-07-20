@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- KLINKLIN-BUILD: KONTEN-RELATION-FIX + KONTEN-JUDUL-VIDEO + NUM-NULL-FIX -->
+<!-- KLINKLIN-BUILD: INSENTIF-FILTER + BONUS-RETURN-FILTER + KONTEN-RELATION-FIX -->
 <html lang="id">
 <head>
 <meta charset="UTF-8" />
@@ -1677,9 +1677,9 @@ const VIEWS = {
   insentif:{
     sheet:'BONUS', title:'Insentif', sub:'', countTop:true, noSyncBtn:true, readOnly:true, special:'insentifSum',
     idField:'ID Insentif',
-    dynCleaner:true,
+    dynCleaner:true, filters:['Cabang'], bonusCabangFilter:true,
     search:['Nama Cleaner','No Order','Nama Customer'],
-    datePreset:true, dateFilterField:'Tanggal Pengerjaan', defaultMonth:true
+    datePreset:true, dateRange:true, dateFilterField:'Tanggal Pengerjaan', defaultMonth:true
   },
   layanan:{
     sheet:'LAYANAN', title:'Layanan', sub:'', countTop:true, noSyncBtn:true, inSettings:true, canDelete:true,
@@ -2516,7 +2516,7 @@ function buildToolbar(){
   const v=state.view;
   let row='<div class="tbar-row">';
   if(!v.countTop){ row += '<span class="count-chip mob-count" id="headCountM"></span>'; }
-  if(v.search){ row += '<div class="search">'+svg('search')+'<input id="q" placeholder="Cari…" /></div>'; }
+  if(v.search){ row += '<div class="search">'+svg('search')+'<input id="q" placeholder="Cari…" value="'+esc(state.search||'')+'" /></div>'; }
   else { row += '<div class="spacer"></div>'; }
   if(v.multiApprove){ row += '<button class="btn btn-gold btn-sm" id="btnApproveSel">'+svg('check')+'Approve<span class="hide-sm"> terpilih</span></button>'; }
   row += '<button class="icon-btn fbtn" id="filterToggle" title="Filter">'+svg('funnel')+'<span class="fbadge" id="fbadge"></span></button>';
@@ -2766,6 +2766,9 @@ function applyClientFilters(rows){
       if(!val.length) return;                     // kosong = tampilkan semua
       const allow=val.map(norm);
       out = out.filter(r=>allow.indexOf(norm(r[k]))>-1);
+    }else if(k==='Cabang' && v.bonusCabangFilter){
+      // BONUS: kolom Cabang kosong → turunkan dari kode No Order.
+      out = out.filter(r=>cabangOfBonus(r)===String(val).toUpperCase());
     }else if(k==='Nama Cleaner'){
       out = out.filter(r=>String(r['Nama Cleaner']||'').split(',').map(s=>norm(s)).indexOf(norm(val))>-1);
     }else if(k==='Periode Bulan'){
@@ -3412,6 +3415,14 @@ function openBonusForOrder(oid){
   const o=state.rows.find(x=>String(x['ID Order'])===String(oid));
   if(!o){ toast('Order tidak ditemukan','err'); return; }
   state._bonusReturn = state.viewKey;
+  // Simpan kondisi filter menu Order agar bisa dipulihkan setelah input bonus
+  // (selesai/batal) — supaya tidak balik ke tampilan default bulan ini.
+  state._bonusReturnFilters = {
+    filters: JSON.parse(JSON.stringify(state.filters||{})),
+    search: state.search||'',
+    dateStart: state.dateStart||'',
+    dateEnd: state.dateEnd||''
+  };
   state.view = VIEWS.inputBonus; state.viewKey='inputBonus';
   openForm(null, {'No Order':o['ID Order'], 'Nama Customer':o['Nama Customer']||'',
     'Tanggal Pengerjaan':o['Tanggal Pengerjaan']||'', 'Nama Cleaner':o['Nama Cleaner']||''});
@@ -6529,7 +6540,26 @@ function prepUpload(file){
 /* ---------- overlay ---------- */
 function openOverlay(){ $('#overlay').classList.add('open'); }
 function closeOverlay(){ $('#overlay').classList.remove('open'); state.editing=null; state.files={};
-  if(state._bonusReturn){ const rk=state._bonusReturn; state._bonusReturn=null; selectMenu(rk); }
+  if(state._bonusReturn){
+    const rk=state._bonusReturn; state._bonusReturn=null;
+    const snap=state._bonusReturnFilters; state._bonusReturnFilters=null;
+    selectMenuKeepFilters(rk, snap);
+  }
+}
+/* Kembali ke menu asal SAMBIL memulihkan filter (bulan/tanggal/cabang/cari) yang tadi dipakai. */
+async function selectMenuKeepFilters(key, snap){
+  await selectMenu(key);
+  if(snap){
+    state.filters = snap.filters||{};
+    state.search = snap.search||'';
+    state.dateStart = snap.dateStart||'';
+    state.dateEnd = snap.dateEnd||'';
+    // renderShell() membangun ulang toolbar; buildToolbar mengisi kontrol Bulan/Tanggal/Cabang/Cari
+    // dari state di atas, sehingga tampilan & data kembali persis seperti sebelum input bonus.
+    renderShell();
+    refreshDynFilters();
+    renderView();
+  }
 }
 
 /* ============================================================
