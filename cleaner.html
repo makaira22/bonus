@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- KLINKLIN CLEANER PORTAL v1 -->
+<!-- KLINKLIN CLEANER PORTAL v2 — BONUS-KETERANGAN -->
 <html lang="id">
 <head>
 <meta charset="UTF-8" />
@@ -98,6 +98,8 @@ button{font-family:inherit;cursor:pointer}
 .as-l{font-size:11.5px;font-weight:700;line-height:1.35;color:var(--muted)}
 .as-n{font-weight:600;color:var(--faint)}
 .as-sep{font-size:11.5px;font-weight:800;color:var(--faint);letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px}
+.bket{margin-top:8px;padding:8px 10px;background:var(--surface-2);border-left:3px solid var(--gold);
+  border-radius:8px;font-size:13px;line-height:1.5;color:var(--ink);white-space:pre-wrap}
 .row{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
 .row:last-child{border-bottom:none}
 .empty{text-align:center;color:var(--faint);padding:28px 10px;font-size:13.5px}
@@ -847,9 +849,14 @@ function paintBonus(){
   }
   const shown = bonus.slice(0, bLimit);
   if(!bonus.length){ h+='<div class="empty">Tidak ada bonus untuk filter ini.</div>'; }
-  else h+=shown.map(b=>'<div class="card"><div style="display:flex;justify-content:space-between;align-items:center">'+
+  else h+=shown.map(b=>{
+    const ket=String(b['Keterangan']||'').trim();
+    return '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center">'+
     '<b>'+esc(b['Jenis']||'Bonus')+'</b><b style="color:var(--success)">'+rp(b['Nominal'])+'</b></div>'+
-    '<div class="small muted" style="margin-top:4px">'+esc(hariTgl(b['Tanggal Pengerjaan']))+(b['Jam']?(' · '+esc(b['Jam'])):'')+(b['Nama Customer']?(' · '+esc(b['Nama Customer'])):'')+'</div></div>').join('');
+    '<div class="small muted" style="margin-top:4px">'+esc(hariTgl(b['Tanggal Pengerjaan']))+(b['Jam']?(' · '+esc(b['Jam'])):'')+(b['Nama Customer']?(' · '+esc(b['Nama Customer'])):'')+'</div>'+
+    (ket?'<div class="bket">'+esc(ket)+'</div>':'')+
+    '</div>';
+  }).join('');
   if(bonus.length>shown.length) h+='<button class="btn-more" id="bonusMore">Muat lebih banyak ('+(bonus.length-shown.length)+' lagi)</button>';
 
   $('#view').innerHTML=h;
