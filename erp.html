@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- KLINKLIN-BUILD: BONUS-BTN-STATUS + INSENTIF-CARDS-PAGED + BONUS-RETURN-FILTER -->
+<!-- KLINKLIN-BUILD: KPI-COLOR-79-70 + CLEANER-FILTER-SEARCH + DATE-CALENDAR + BONUS-KET -->
 <html lang="id">
 <head>
 <meta charset="UTF-8" />
@@ -866,6 +866,8 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
   width:min(380px,94vw);max-height:min(70vh,520px);overflow:auto;flex-wrap:wrap;gap:10px 14px;align-items:center;
   padding:14px 16px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-lg)}
 .filter-panel.open{display:flex}
+.fl-clear{width:100%;justify-content:flex-end}
+.fl-clear .btn{padding:6px 12px;font-size:12px}
 /* tombol di baris toolbar (light bg) biar rapi & jelas */
 .tbar-row .icon-btn{background:var(--surface);border:1px solid var(--line-2);color:var(--ink);flex:none}
 .tbar-row .icon-btn:hover{border-color:var(--petrol);color:var(--petrol)}
@@ -1763,7 +1765,7 @@ const VIEWS = {
     idField:'ID Order', canEdit:true, special:'order', statusBadge:true, invoice:true, revertPending:true,
     statusClient:['done','complete'], statusPrio:['done','complete'], paged:true,
     table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Metode Pembayaran','Nama Cleaner','Total Akhir Setelah Diskon'],
-    filters:['Cabang','Status Order'],
+    filters:['Cabang','Status Order'], dynCleaner:true,
     datePreset:true, dateFilterField:'Tanggal Pengerjaan',
     search:['Nama Customer','ID Order','Nama Cleaner'],
     form: ORDER_FORM
@@ -2552,14 +2554,18 @@ function buildToolbar(){
     pf += '<div class="fl"><span class="lbl">Bulan</span><input type="month" id="fMonthKpi" value="'+ym+'"></div>';
   }
   if(v.dynCleaner){
-    pf += '<div class="fl"><span class="lbl">Cleaner</span><select data-filter="Nama Cleaner" id="fCleaner"><option value="">Semua Cleaner</option></select></div>';
+    pf += '<div class="fl"><span class="lbl">Cleaner</span>'+
+      '<input list="dlCleaner" data-filter="Nama Cleaner" id="fCleaner" placeholder="Semua Cleaner" '+
+      'value="'+esc(state.filters['Nama Cleaner']||'')+'" autocomplete="off">'+
+      '<datalist id="dlCleaner"></datalist></div>';
   }
   if(v.dynPeriode){
     pf += '<div class="fl"><span class="lbl">Periode Bulan</span><select data-filter="Periode Bulan" id="fPeriode"><option value="">Semua Periode</option></select></div>';
   }
   if(v.datePreset || v.dateFilterField){
     pf += '<div class="fl"><span class="lbl">Bulan</span><input type="month" id="fMonth"></div>'+
-      '<div class="fl"><span class="lbl">Tanggal</span><select id="fDay"><option value="">Semua tanggal</option></select></div>';
+      '<div class="fl"><span class="lbl">Tanggal</span><input type="date" id="fDay" title="Pilih tanggal dari kalender"></div>'+
+      '<div class="fl fl-clear"><button type="button" class="btn btn-ghost btn-sm" id="fDayClear">Semua tanggal</button></div>';
   }
   if(v.dateRange){
     pf += '<div class="fl"><span class="lbl">Dari Tanggal</span><input type="date" id="fFrom" value="'+esc(state.dateStart||'')+'"></div>'+
@@ -2587,7 +2593,17 @@ function buildToolbar(){
       clearTimeout(t); t=setTimeout(renderView,160); });
   }
   document.querySelectorAll('[data-filter]').forEach(el=>{
-    el.addEventListener('change', e=>{ state.filters[el.dataset.filter]=e.target.value; updateFbadge(); renderView(); });
+    el.addEventListener('change', e=>{
+      state.filters[el.dataset.filter]=e.target.value; updateFbadge();
+      // Ganti Cabang → daftar cleaner ikut menyesuaikan cabang tsb.
+      if(el.dataset.filter==='Cabang') refreshDynFilters();
+      renderView();
+    });
+    // Kolom cleaner bisa diketik → saring sambil mengetik (dijeda agar tidak berat).
+    if(el.id==='fCleaner'){
+      let t; el.addEventListener('input', e=>{ clearTimeout(t); const val=e.target.value;
+        t=setTimeout(()=>{ state.filters['Nama Cleaner']=val; updateFbadge(); renderView(); }, 220); });
+    }
   });
   // Filter pilih-banyak (mis. Status Order: done + complete sekaligus)
   document.querySelectorAll('[data-mfilter]').forEach(box=>{
@@ -2612,23 +2628,38 @@ function buildToolbar(){
   if(fMonth && state.dateStart){
     const ym=state.dateStart.slice(0,7); const b=calMonthBounds(ym);
     if(b && state.dateStart===b.start && state.dateEnd===b.end){ fMonth.value=ym; }
-    else if(state.dateStart===state.dateEnd){ fMonth.value=state.dateStart.slice(0,7); }
+    else if(state.dateStart===state.dateEnd){ fMonth.value=state.dateStart.slice(0,7); if(fDay) fDay.value=state.dateStart; }
     const tabAll=document.querySelector('#dateTabs .dt[data-day=""]'); if(tabAll) tabAll.classList.remove('on');
   }
-  function fillDays(){ if(!fDay) return; const m=fMonth?fMonth.value:'';
-    const n=m?new Date(+m.slice(0,4),+m.slice(5,7),0).getDate():31;
-    let o='<option value="">Semua tanggal</option>'; for(let i=1;i<=n;i++) o+='<option value="'+i+'">'+i+'</option>'; fDay.innerHTML=o; }
+  /* Batasi kalender ke bulan yang dipilih agar pilihan tetap masuk akal. */
+  function fillDays(){
+    if(!fDay) return;
+    const m=fMonth?fMonth.value:'';
+    if(m){
+      const last=new Date(+m.slice(0,4),+m.slice(5,7),0).getDate();
+      fDay.min=m+'-01'; fDay.max=m+'-'+String(last).padStart(2,'0');
+      if(fDay.value && fDay.value.slice(0,7)!==m) fDay.value='';   // tanggal lama di luar bulan baru
+    }else{ fDay.removeAttribute('min'); fDay.removeAttribute('max'); }
+  }
   function applyMonthDay(){
-    const m=fMonth?fMonth.value:'', d=fDay?fDay.value:'';
-    if(!m){ state.dateStart=''; state.dateEnd=''; }
-    else if(!d){ state.dateStart=m+'-01'; const last=new Date(+m.slice(0,4),+m.slice(5,7),0).getDate(); state.dateEnd=m+'-'+String(last).padStart(2,'0'); }
-    else { const day=m+'-'+String(d).padStart(2,'0'); state.dateStart=day; state.dateEnd=day; }
+    const d=fDay?fDay.value:'';
+    let m=fMonth?fMonth.value:'';
+    if(d){                                   // tanggal spesifik → satu hari
+      if(fMonth && d.slice(0,7)!==m){ fMonth.value=d.slice(0,7); m=fMonth.value; fillDays(); }
+      state.dateStart=d; state.dateEnd=d;
+    }else if(m){                             // hanya bulan → satu bulan penuh
+      const last=new Date(+m.slice(0,4),+m.slice(5,7),0).getDate();
+      state.dateStart=m+'-01'; state.dateEnd=m+'-'+String(last).padStart(2,'0');
+    }else{ state.dateStart=''; state.dateEnd=''; }
     document.querySelectorAll('#dateTabs .dt').forEach(x=>x.classList.remove('on'));
     const _ff=$('#fFrom'), _ft=$('#fTo'); if(_ff) _ff.value=''; if(_ft) _ft.value='';
     updateFbadge(); renderView();
   }
+  fillDays();
   if(fMonth) fMonth.addEventListener('change', ()=>{ fillDays(); applyMonthDay(); });
   if(fDay) fDay.addEventListener('change', applyMonthDay);
+  const fdc=$('#fDayClear');
+  if(fdc) fdc.addEventListener('click', ()=>{ if(fDay) fDay.value=''; applyMonthDay(); });
   // Rentang tanggal (Dari–Sampai)
   const fFrom=$('#fFrom'), fTo=$('#fTo');
   function applyRange(){
@@ -2734,18 +2765,25 @@ function orderHasBonus(oid){ const s=state._bonusOrderSet||{}; return !!s[norm(o
 function refreshDynFilters(){
   const v=state.view; if(!v) return;
   if(v.dynCleaner){
-    const sel=$('#fCleaner');
-    if(sel){
+    const dl=$('#dlCleaner');
+    if(dl){
       let base=state.rows;
       if(v.branchLock && v.sheet==='BONUS' && state.session.cabang){
         base=base.filter(r=>cabangOfBonus(r)===String(state.session.cabang).toUpperCase());
       }
+      // Ikuti filter Cabang yang sedang aktif → daftar cleaner hanya dari cabang itu.
+      const cabSel=state.filters['Cabang'];
+      if(cabSel){
+        const want=String(cabSel).toUpperCase();
+        base=base.filter(r=> v.bonusCabangFilter ? cabangOfBonus(r)===want
+                                                 : String(r['Cabang']||'').toUpperCase()===want);
+      }
       const set=new Set();
       base.forEach(r=>String(r['Nama Cleaner']||'').split(',').forEach(n=>{ const t=n.trim(); if(t) set.add(t); }));
       const names=[...set].sort((a,b)=>a.localeCompare(b,'id'));
-      const cur=state.filters['Nama Cleaner']||'';
-      sel.innerHTML='<option value="">Semua Cleaner</option>'+
-        names.map(n=>'<option'+(n===cur?' selected':'')+'>'+esc(n)+'</option>').join('');
+      dl.innerHTML=names.map(n=>'<option value="'+esc(n)+'"></option>').join('');
+      const inp=$('#fCleaner');
+      if(inp) inp.placeholder = names.length ? ('Semua Cleaner ('+names.length+')') : 'Tidak ada cleaner';
     }
   }
   if(v.dynPeriode){
@@ -2788,7 +2826,10 @@ function applyClientFilters(rows){
       // BONUS: kolom Cabang kosong → turunkan dari kode No Order.
       out = out.filter(r=>cabangOfBonus(r)===String(val).toUpperCase());
     }else if(k==='Nama Cleaner'){
-      out = out.filter(r=>String(r['Nama Cleaner']||'').split(',').map(s=>norm(s)).indexOf(norm(val))>-1);
+      // Cocok persis (dipilih dari daftar) ATAU sebagian (diketik manual).
+      const want=norm(val);
+      out = out.filter(r=>String(r['Nama Cleaner']||'').split(',').map(s=>norm(s))
+        .some(n=> n===want || n.indexOf(want)>-1));
     }else if(k==='Periode Bulan'){
       const want=parseAnyMonth(val);
       out = out.filter(r=>parseAnyMonth(r['Periode Bulan'])===want);
@@ -4038,11 +4079,7 @@ function kpiOmzetCardHTML(cur){
     const pv =rc.filter(r=>inRange(r['Tanggal Pengerjaan'],prev.start,prev.end)).reduce((s,r)=>s+omzetOf_(r),0);
     const tgt=targets[cab]||0;
     const kpi = tgt>0 ? (ach/tgt*100) : 0;
-    let cls='k-red';
-    if(tgt<=0) cls='k-none';
-    else if(kpi>=safePct) cls='k-green';
-    else if(kpi>=safePct*0.7) cls='k-yellow';   // kurang s/d 30% DARI target aman
-    // di bawah 70% target aman (kurang >30%) → merah
+    const cls = kpiCls(kpi, tgt, safePct);
     const growth = pv>0 ? ((ach-pv)/pv*100) : (ach>0?100:0);
     return {cab, ach, pv, tgt, kpi, cls, growth, hasT:tgt>0};
   });
@@ -4073,9 +4110,9 @@ function kpiOmzetCardHTML(cur){
         '<th class="l det-cabcol">Cabang</th><th class="c">Target Aman</th>'+
         th('KPI Omzet','kpi','c')+th('Growth','growth','c')+th('Omzet Dicapai','ach','r')+th('Target Omzet','tgt','r')+
       '</tr></thead><tbody>'+rowsHtml+'</tbody></table></div>'+
-      '<div class="kpi-legend"><span class="kpi-badge k-green">Hijau</span> ≥ target aman ('+safePct+'%) · '+
-        '<span class="kpi-badge k-yellow">Kuning</span> kurang s/d 30% (≥ '+Math.round(safePct*0.7)+'%) · '+
-        '<span class="kpi-badge k-red">Merah</span> kurang &gt;30% (&lt; '+Math.round(safePct*0.7)+'%) · <span style="color:var(--faint)">klik judul kolom untuk mengurutkan</span></div>'+
+      '<div class="kpi-legend"><span class="kpi-badge k-green">Hijau</span> &gt;79% dari target aman (&gt; '+Math.round(safePct*KPI_GREEN_AT)+'%) · '+
+        '<span class="kpi-badge k-yellow">Kuning</span> 70–79% ('+Math.round(safePct*KPI_YELLOW_AT)+'–'+Math.round(safePct*KPI_GREEN_AT)+'%) · '+
+        '<span class="kpi-badge k-red">Merah</span> &lt;70% (&lt; '+Math.round(safePct*KPI_YELLOW_AT)+'%) · <span style="color:var(--faint)">klik judul kolom untuk mengurutkan</span></div>'+
     '</div>';
 }
 function reportKpiCur(){
@@ -4299,6 +4336,18 @@ function kpiTotalFor(cab, ym){
     total += kpiSkor(kpiNilai(it, cfg, cab, ym), target, bobot);
   });
   return total;
+}
+/* ---- Aturan warna KPI Omzet per Cabang (satu sumber, dipakai Report KPI & Dashboard CEO)
+   Hijau  : > 79% dari target aman
+   Kuning : 70% – 79% dari target aman
+   Merah  : < 70% dari target aman                                                       ---- */
+const KPI_GREEN_AT = 0.79, KPI_YELLOW_AT = 0.70;
+function kpiCls(kpi, tgt, safePct){
+  if(!(tgt>0)) return 'k-none';
+  const rel = safePct>0 ? (kpi/safePct) : 0;
+  if(rel >  KPI_GREEN_AT)  return 'k-green';
+  if(rel >= KPI_YELLOW_AT) return 'k-yellow';
+  return 'k-red';
 }
 function cabangOf(r){
   const c=String(r['Cabang']||'').trim().toUpperCase(); if(c) return c;
@@ -4765,8 +4814,7 @@ function dashTabOperasional(){
     nowR.forEach(r=>{ const o=omzetOf_(r); const ch=chan(r); if(ch==='ads')ads+=o; else if(ch==='org')org+=o; else if(ch==='lama')lama+=o;
       const d=parseAnyDate(r['Tanggal Pengerjaan']); if(d>last) last=d; });
     const tgt=targets[cab]||0; const kpi=tgt>0?(now/tgt*100):0;
-    // Hijau ≥ target aman · Kuning kurang s/d 30% dari target aman · Merah kurang >30%
-    let cls=tgt<=0?'k-none':(kpi>=safePct?'k-green':(kpi>=safePct*0.7?'k-yellow':'k-red'));
+    const cls=kpiCls(kpi, tgt, safePct);   // aturan sama dengan Report KPI
     const gr=pv>0?((now-pv)/pv*100):(now>0?100:0);
     totNow+=now; totPrev+=pv; totAds+=ads; totOrg+=org; totLama+=lama;
     return {cab,now,pv,tgt,kpi,cls,gr,diff:now-pv,ads,org,lama,last,hasT:tgt>0};
@@ -4779,7 +4827,7 @@ function dashTabOperasional(){
   const stat=(l,v,ss)=>'<div class="cap-stat"><div class="cap-stat-l">'+l+'</div><div class="cap-stat-v">'+v+'</div>'+(ss||'')+'</div>';
 
   // 1) KPI Omzet per Cabang
-  const kpiRows=objs.map(o=>'<tr class="'+(o.hasT&&o.kpi<safePct?'kpi-below':'')+'">'+
+  const kpiRows=objs.map(o=>'<tr class="'+(o.cls==='k-red'?'kpi-below':'')+'">'+
     '<td class="cab-cell l det-cabcol">'+esc(o.cab)+'</td>'+
     '<td class="c">'+safePct+'%</td>'+
     '<td class="c"><span class="kpi-badge '+o.cls+'">'+(o.hasT?o.kpi.toFixed(1)+'%':'—')+'</span></td>'+
@@ -4789,7 +4837,7 @@ function dashTabOperasional(){
     '<div class="tbl-wrap freeze-cab"><table class="ops-tbl"><thead><tr>'+
       '<th class="l det-cabcol">Cabang</th><th class="c">Target Aman</th>'+oh('KPI Omzet','kpi','c')+oh('Growth','gr','c')+oh('Omzet Dicapai','now','r')+oh('Target Omzet','tgt','r')+
     '</tr></thead><tbody>'+kpiRows+'</tbody></table></div>'+
-    '<div class="kpi-legend"><span class="kpi-badge k-green">Hijau</span> ≥ target aman ('+safePct+'%) · <span class="kpi-badge k-yellow">Kuning</span> kurang s/d 30% (≥ '+Math.round(safePct*0.7)+'%) · <span class="kpi-badge k-red">Merah</span> kurang &gt;30% (&lt; '+Math.round(safePct*0.7)+'%) · klik judul kolom untuk mengurutkan</div></div>';
+    '<div class="kpi-legend"><span class="kpi-badge k-green">Hijau</span> &gt;79% dari target aman (&gt; '+Math.round(safePct*KPI_GREEN_AT)+'%) · <span class="kpi-badge k-yellow">Kuning</span> 70–79% ('+Math.round(safePct*KPI_YELLOW_AT)+'–'+Math.round(safePct*KPI_GREEN_AT)+'%) · <span class="kpi-badge k-red">Merah</span> &lt;70% (&lt; '+Math.round(safePct*KPI_YELLOW_AT)+'%) · klik judul kolom untuk mengurutkan</div></div>';
 
   // 2) Omzet per Cabang
   const omzRows=objs.map(o=>'<tr>'+
