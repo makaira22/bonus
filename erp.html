@@ -286,6 +286,35 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 /* Tombol Hapus di form — sengaja dijauhkan dari Simpan (kiri, gaya garis) */
 .btn-danger-o{background:transparent;color:var(--danger);border:1.5px solid var(--danger)!important}
 .btn-danger-o:hover{background:var(--danger);color:#fff}
+/* Dialog konfirmasi metode pembayaran (sebelum unggah bukti transfer) */
+.kmp-wrap{position:fixed;inset:0;z-index:300;background:rgba(15,33,31,.55);backdrop-filter:blur(2px);
+  display:flex;align-items:center;justify-content:center;padding:16px;animation:kmpIn .16s ease}
+@keyframes kmpIn{from{opacity:0}to{opacity:1}}
+.kmp-box{background:var(--surface);border-radius:16px;width:100%;max-width:430px;overflow:hidden;
+  box-shadow:0 24px 60px -18px rgba(0,0,0,.5);animation:kmpUp .2s cubic-bezier(.2,.9,.3,1.1)}
+@keyframes kmpUp{from{transform:translateY(14px) scale(.98)}to{transform:none}}
+.kmp-head{display:flex;gap:13px;align-items:center;padding:18px 20px 14px;border-bottom:1px solid var(--line)}
+.kmp-ic{width:42px;height:42px;border-radius:12px;flex:none;display:flex;align-items:center;justify-content:center}
+.kmp-ic svg{width:21px;height:21px}
+.kmp-ic.warn{background:rgba(194,165,103,.18);color:#8A6E32}
+.kmp-ic.bad{background:rgba(178,58,58,.14);color:var(--danger)}
+.kmp-t{font-weight:800;font-size:15.5px;line-height:1.25;color:var(--ink)}
+.kmp-s{font-size:12px;color:var(--muted);margin-top:2px}
+.kmp-body{padding:16px 20px 18px}
+.kmp-note{font-size:12.5px;line-height:1.55;color:var(--muted);background:var(--surface-2);
+  border-radius:10px;padding:10px 12px;margin-bottom:14px}
+.kmp-note.bad{background:rgba(178,58,58,.09);color:#8d3030}
+.kmp-lbl{display:block;font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--faint);margin-bottom:6px}
+.kmp-sel{width:100%;padding:13px 14px;border:1.5px solid var(--line-2);border-radius:12px;
+  font-size:16px;font-weight:700;font-family:inherit;background:var(--surface-2);color:var(--ink)}
+.kmp-sel:focus{outline:none;border-color:var(--petrol);background:#fff;box-shadow:0 0 0 4px rgba(14,59,58,.09)}
+.kmp-err{display:none;color:var(--danger);font-size:12px;font-weight:700;margin-top:7px}
+.kmp-err.show{display:block}
+.kmp-foot{display:flex;gap:10px;justify-content:flex-end;padding:14px 20px 18px;background:var(--surface-2);
+  border-top:1px solid var(--line)}
+.field-err{border-color:var(--danger)!important;box-shadow:0 0 0 3px rgba(178,58,58,.13)!important}
+@media(max-width:480px){ .kmp-foot{flex-direction:column-reverse} .kmp-foot .btn{width:100%;justify-content:center} }
 /* Bar "Urungkan" setelah hapus — tidak menghalangi pekerjaan lain */
 .undobar{position:fixed;left:50%;bottom:22px;transform:translate(-50%,140%);z-index:120;
   display:flex;align-items:center;gap:12px;background:#0F211F;color:#fff;border-radius:12px;
@@ -1496,7 +1525,8 @@ const IC = {
   inbox:'<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
   wa:'<path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.38 8.38 0 0 1-4-1L3 21l2-5.5a8.38 8.38 0 0 1-1-4A8.5 8.5 0 0 1 21 11.5z"/>',
   refresh:'<path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>',
-  map:'<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>'
+  map:'<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
+  alert:'<path d="M10.6 3.9 2.5 18a1.6 1.6 0 0 0 1.4 2.4h16.2A1.6 1.6 0 0 0 21.5 18L13.4 3.9a1.6 1.6 0 0 0-2.8 0z"/><path d="M12 9.3v4M12 16.9h.01"/>'
 };
 function svg(name, cls){
   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '+
@@ -3327,7 +3357,68 @@ function wireRowHandlers(v){
   }));
   const all=$('#checkAll'); if(all) all.addEventListener('change',()=>document.querySelectorAll('.rowchk').forEach(c=>c.checked=all.checked));
 }
+/* ============================================================
+   KONFIRMASI METODE PEMBAYARAN — sebelum unggah bukti transfer.
+   Wajib terisi. Kalau kosong/keliru, bisa langsung dibetulkan di sini
+   tanpa harus batal lalu buka Edit.
+   Balikan: metode terpilih (string) · null bila dibatalkan.
+   ============================================================ */
+function konfirmasiMetode(o){
+  return new Promise(resolve=>{
+    const kini=String((o&&o['Metode Pembayaran'])||'').trim();
+    const kosong=!kini;
+    const wrap=document.createElement('div');
+    wrap.className='kmp-wrap';
+    wrap.innerHTML=
+      '<div class="kmp-box" role="dialog" aria-modal="true">'+
+        '<div class="kmp-head">'+
+          '<div class="kmp-ic '+(kosong?'bad':'warn')+'">'+svg(kosong?'alert':'file')+'</div>'+
+          '<div><div class="kmp-t">'+(kosong?'Metode pembayaran belum diisi':'Cek metode pembayaran')+'</div>'+
+          '<div class="kmp-s">'+esc((o&&o['Nama Customer'])||'-')+
+            ((o&&moneyDigits(o['Total Akhir Setelah Diskon']||o['Total Akhir']))
+              ? (' · '+rp(Number(moneyDigits(o['Total Akhir Setelah Diskon']||o['Total Akhir'])))) : '')+'</div></div>'+
+        '</div>'+
+        '<div class="kmp-body">'+
+          '<div class="kmp-note '+(kosong?'bad':'')+'">'+
+            (kosong
+              ? 'Bukti transfer <b>tidak bisa disimpan</b> sebelum metode pembayaran diisi. Pilih metode yang sesuai dengan bukti yang akan diunggah.'
+              : 'Pastikan metode pembayaran <b>sesuai dengan bukti</b> yang akan diunggah. Bila keliru, ubah di bawah ini.')+
+          '</div>'+
+          '<label class="kmp-lbl">Metode Pembayaran <span class="req">*</span></label>'+
+          '<select id="kmpSel" class="kmp-sel">'+
+            '<option value="">— pilih metode —</option>'+
+            METODE.map(m=>'<option'+(m===kini?' selected':'')+'>'+esc(m)+'</option>').join('')+
+          '</select>'+
+          '<div class="kmp-err" id="kmpErr">Metode pembayaran wajib dipilih.</div>'+
+        '</div>'+
+        '<div class="kmp-foot">'+
+          '<button class="btn btn-ghost" id="kmpBatal">Batal</button>'+
+          '<button class="btn btn-primary" id="kmpOk">Lanjut Unggah Bukti</button>'+
+        '</div>'+
+      '</div>';
+    document.body.appendChild(wrap);
+    const sel=wrap.querySelector('#kmpSel'), err=wrap.querySelector('#kmpErr');
+    const tutup=val=>{ wrap.remove(); document.removeEventListener('keydown', onKey); resolve(val); };
+    const onKey=e=>{ if(e.key==='Escape') tutup(null); };
+    document.addEventListener('keydown', onKey);
+    setTimeout(()=>{ try{ sel.focus(); }catch(e){} }, 50);
+    sel.addEventListener('change', ()=>{ if(sel.value) err.classList.remove('show'); });
+    wrap.querySelector('#kmpBatal').onclick=()=>tutup(null);
+    wrap.addEventListener('click', e=>{ if(e.target===wrap) tutup(null); });
+    wrap.querySelector('#kmpOk').onclick=()=>{
+      const val=String(sel.value||'').trim();
+      if(!val){ err.classList.add('show'); sel.focus(); return; }   // kosong → tidak bisa lanjut
+      tutup(val);
+    };
+  });
+}
 async function quickUploadProof(oid){
+  // Cek metode pembayaran DULU, sebelum memilih berkas — supaya tidak sia-sia
+  // memilih foto lalu ditolak. Kosong = tidak bisa lanjut sama sekali.
+  const ord=(state.rows||[]).find(x=>String(x['ID Order'])===String(oid));
+  const metode=await konfirmasiMetode(ord);
+  if(metode===null) return;                      // dibatalkan
+
   const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*,application/pdf'; inp.multiple=true;
   inp.addEventListener('change', async ()=>{
     const files=Array.from(inp.files||[]).slice(0,2); if(!files.length) return;   // maks 2 gambar
@@ -3341,10 +3432,11 @@ async function quickUploadProof(oid){
       }
     }catch(err){ showLoad(false); toast('Gagal unggah file: '+(err.message||err),'err'); return; }
     try{
-      // Satu update atomik: bukti, status, dan WAKTU BUKTI sekaligus.
+      // Satu update atomik: bukti, status, waktu bukti, DAN metode pembayaran sekaligus.
       // (Dulu waktu bukti ditulis lewat update terpisah yang error-nya ditelan diam-diam,
       //  sehingga kolomnya selalu kosong tanpa ada tanda apa pun.)
-      const data={'Bukti Transfer':urls[0], 'Status Order':'done', 'Waktu Bukti Transfer':nowStr_()};
+      const data={'Bukti Transfer':urls[0], 'Status Order':'done', 'Waktu Bukti Transfer':nowStr_(),
+                  'Metode Pembayaran':metode};
       if(urls[1]) data['Bukti Transfer 2']=urls[1];   // gambar ke-2 (opsional)
       const res=await api({action:'update', sheet:'ORDER', id:oid, data});
       if(res && res.updated===0){
@@ -3355,7 +3447,9 @@ async function quickUploadProof(oid){
       if(res && res.stripped && res.stripped.indexOf('Waktu Bukti Transfer')>=0){
         toast('Bukti tersimpan, TAPI kolom "Waktu Bukti Transfer" belum ada di database — jalankan SQL penambahan kolom.','err');
       }else{
-        toast(urls.length>1?'2 bukti transfer terunggah ✓':'Bukti transfer terunggah ✓','ok');
+        const ganti = ord && String(ord['Metode Pembayaran']||'').trim()!==metode;
+        toast((urls.length>1?'2 bukti transfer terunggah':'Bukti transfer terunggah')+
+              ' ✓ · metode: '+metode+(ganti?' (diperbarui)':''),'ok');
       }
       invalidateLists(); await loadList(true);
     }catch(err){ toast('Gagal simpan order: '+(err.message||err),'err'); }
@@ -6532,6 +6626,27 @@ async function saveForm(){
   const miss=[];
   v.form.forEach(fd=>{ if(fd.req && !String(data[fd.k]||'').trim()) miss.push(fd.k); });
   if(miss.length){ toast('Wajib diisi: '+miss.join(', '),'err'); return; }
+
+  // ORDER: bukti transfer tidak boleh tersimpan tanpa metode pembayaran.
+  // Berlaku untuk unggahan baru lewat form maupun bukti yang sudah ada.
+  if(v.sheet==='ORDER'){
+    const adaBuktiBaru = !!(state.files['Bukti Transfer'] || state.files['Bukti Transfer 2']);
+    const adaBukti = adaBuktiBaru || !!String(data['Bukti Transfer']||'').trim();
+    if(adaBukti && !String(data['Metode Pembayaran']||'').trim()){
+      toast('Metode pembayaran wajib diisi sebelum menyimpan bukti transfer.','err');
+      const el=getEl('Metode Pembayaran');
+      if(el){ el.classList.add('field-err'); el.focus();
+        el.addEventListener('change', ()=>el.classList.remove('field-err'), {once:true}); }
+      return;
+    }
+    // Unggahan bukti BARU → minta pengesahan metodenya (boleh dibetulkan di dialog).
+    if(adaBuktiBaru){
+      const pilih=await konfirmasiMetode(data);
+      if(pilih===null) return;                   // dibatalkan → tidak jadi menyimpan
+      data['Metode Pembayaran']=pilih;
+      const el=getEl('Metode Pembayaran'); if(el) el.value=pilih;
+    }
+  }
 
   setSync(true);
   try{
