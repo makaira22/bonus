@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulasi Pijat Panggilan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box}
+
+:root{
+  --bg:#E9EEE9;
+  --surface:#FCFDFB;
+  --surface-2:#F2F6F1;
+  --ink:#1F2E28;
+  --ink-2:#47584E;
+  --muted:#7A8B81;
+  --line:rgba(31,46,40,.10);
+  --line-2:rgba(31,46,40,.06);
+
+  --c1:#6F9C86;  /* komisi terapis */
+  --c2:#7FA3C2;  /* transport */
+  --c3:#9B7FA6;  /* gaji & bonus terapis */
+  --c4:#C79DB0;  /* gaji CS */
+  --c5:#D8A868;  /* penyusutan alat */
+  --c6:#7FBDB0;  /* bahan habis pakai */
+  --c7:#C79684;  /* iklan & lain-lain */
+  --pine:#3D6A57;
+  --rose:#BE6F7E;
+
+  --r:20px;
+  --r-sm:12px;
+  --shadow:0 1px 2px rgba(31,46,40,.04), 0 10px 30px -18px rgba(31,46,40,.35);
+  --ease:cubic-bezier(.22,.8,.3,1);
+}
+
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;
+  font-family:'Plus Jakarta Sans',ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
+  color:var(--ink);line-height:1.55;-webkit-font-smoothing:antialiased;
+  background:
+    radial-gradient(1100px 600px at 12% -10%, #F6F9F4 0%, rgba(246,249,244,0) 60%),
+    radial-gradient(900px 500px at 100% 0%, #EFEDF4 0%, rgba(239,237,244,0) 55%),
+    var(--bg);
+  background-attachment:fixed;
+}
+.wrap{max-width:1240px;margin:0 auto;padding:30px 18px 64px}
+
+/* ---------- ringkasan atas ---------- */
+.strip{display:grid;gap:13px;grid-template-columns:repeat(2,1fr);margin-bottom:13px}
+@media(min-width:880px){.strip{grid-template-columns:repeat(4,1fr)}}
+.stat{
+  font:inherit;text-align:left;cursor:pointer;position:relative;overflow:hidden;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  box-shadow:var(--shadow);padding:17px 17px 15px;
+  transition:transform .22s var(--ease),box-shadow .22s var(--ease),border-color .22s var(--ease)
+}
+.stat::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent,var(--c1))}
+.stat:hover{transform:translateY(-3px);border-color:rgba(111,156,134,.45);
+  box-shadow:0 2px 4px rgba(31,46,40,.05),0 18px 34px -20px rgba(31,46,40,.5)}
+.stat:focus-visible{outline:2px solid var(--pine);outline-offset:3px}
+.stat .k{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  font-size:11.5px;font-weight:600;color:var(--ink-2);letter-spacing:.02em}
+.stat .k i{font-style:normal;font-size:15px;color:var(--muted);line-height:1;transition:transform .22s var(--ease)}
+.stat:hover .k i{transform:translateX(3px)}
+.stat .v{font-family:'Fraunces',Georgia,serif;font-weight:500;font-size:clamp(19px,2.5vw,26px);
+  letter-spacing:-.02em;color:var(--ink);margin:9px 0 2px;font-variant-numeric:tabular-nums;line-height:1.1}
+.stat .s{font-size:11px;color:var(--muted)}
+
+.profitbar{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+  width:100%;font:inherit;text-align:left;cursor:pointer;
+  border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);
+  padding:18px 20px;margin-bottom:22px;
+  background:linear-gradient(120deg,#F1F7F2 0%,#E9F1EB 100%);
+  transition:transform .22s var(--ease),box-shadow .22s var(--ease),background .4s var(--ease)
+}
+.profitbar.loss{background:linear-gradient(120deg,#FBF3F4 0%,#F4E7E9 100%)}
+.profitbar:hover{transform:translateY(-3px);box-shadow:0 2px 4px rgba(31,46,40,.05),0 18px 34px -20px rgba(31,46,40,.5)}
+.profitbar:focus-visible{outline:2px solid var(--pine);outline-offset:3px}
+.pb-l{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.pb-k{font-size:11.5px;font-weight:600;color:var(--ink-2);letter-spacing:.02em}
+.pb-v{font-family:'Fraunces',Georgia,serif;font-weight:500;font-size:clamp(24px,3.6vw,34px);
+  letter-spacing:-.02em;color:var(--pine);font-variant-numeric:tabular-nums}
+.pb-v.neg{color:var(--rose)}
+.pb-r{font-size:12.5px;color:var(--ink-2);max-width:44ch}
+.pb-r b{color:var(--pine)}
+.profitbar.loss .pb-r b{color:var(--rose)}
+
+/* ---------- layout ---------- */
+.grid{display:grid;gap:20px;grid-template-columns:1fr}
+@media(min-width:1040px){.grid{grid-template-columns:376px 1fr;align-items:start}}
+.stack{display:grid;gap:20px}
+
+/* ---------- panel ---------- */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  box-shadow:var(--shadow);padding:20px}
+.panel-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:16px}
+.panel-title{font-family:'Fraunces',Georgia,serif;font-weight:500;font-size:18px;letter-spacing:-.01em;margin:0}
+.panel-note{font-size:11.5px;color:var(--muted)}
+
+/* ---------- seksi lipat ---------- */
+.sec{border-bottom:1px solid var(--line-2)}
+.sec:last-of-type{border-bottom:0}
+.sec>summary{
+  cursor:pointer;list-style:none;padding:13px 0;display:flex;align-items:center;gap:10px;
+  font-size:13px;font-weight:700;color:var(--ink);letter-spacing:.01em
+}
+.sec>summary::-webkit-details-marker{display:none}
+.sec>summary .sq{width:9px;height:9px;border-radius:3px;background:var(--accent,var(--c1));flex:0 0 auto}
+.sec>summary .tot{margin-left:auto;font-size:11.5px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
+.sec>summary .car{font-size:14px;color:var(--muted);transition:transform .2s var(--ease)}
+.sec[open]>summary .car{transform:rotate(90deg)}
+.sec>summary:focus-visible{outline:2px solid var(--pine);outline-offset:2px;border-radius:6px}
+.sec-body{padding:2px 0 18px}
+
+/* ---------- field ---------- */
+.field{margin-bottom:17px}
+.field:last-child{margin-bottom:0}
+.field-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px}
+label{font-size:12.5px;font-weight:600;color:var(--ink-2)}
+.readout{font-family:'Fraunces',Georgia,serif;font-size:18px;font-weight:500;color:var(--pine);font-variant-numeric:tabular-nums}
+.readout small{font-family:'Plus Jakarta Sans',sans-serif;font-size:10.5px;font-weight:600;color:var(--muted);margin-left:4px}
+.field-help{font-size:11px;color:var(--muted);margin:8px 0 0;line-height:1.45}
+.field-help b{color:var(--ink-2);font-weight:600}
+.field.linked{margin-top:16px;padding-top:14px;border-top:1px dashed rgba(31,46,40,.16);position:relative}
+.field.linked::before{content:"atau";position:absolute;top:-8px;left:0;background:var(--surface);
+  padding-right:8px;font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+
+/* ---------- slider ---------- */
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;margin:0;background:transparent;cursor:grab;display:block}
+input[type=range]:active{cursor:grabbing}
+input[type=range]::-webkit-slider-runnable-track{height:9px;border-radius:99px;
+  background:linear-gradient(90deg,var(--c1) 0 var(--pct,50%),#E2EAE3 var(--pct,50%) 100%)}
+input[type=range]::-moz-range-track{height:9px;border-radius:99px;background:#E2EAE3}
+input[type=range]::-moz-range-progress{height:9px;border-radius:99px;background:var(--c1)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;margin-top:-6.5px;
+  background:var(--surface);border:1px solid rgba(31,46,40,.14);
+  box-shadow:0 1px 2px rgba(31,46,40,.10),0 4px 12px -4px rgba(31,46,40,.30);
+  transition:transform .18s var(--ease),box-shadow .18s var(--ease)}
+input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:var(--surface);
+  border:1px solid rgba(31,46,40,.14);box-shadow:0 1px 2px rgba(31,46,40,.10)}
+input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.09)}
+input[type=range]:active::-webkit-slider-thumb{box-shadow:0 0 0 7px rgba(111,156,134,.16)}
+input[type=range]:focus{outline:none}
+input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 4px rgba(111,156,134,.35)}
+
+.presets{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.chip{font:inherit;font-size:11.5px;font-weight:600;color:var(--ink-2);background:var(--surface-2);
+  border:1px solid var(--line);padding:5px 10px;border-radius:99px;cursor:pointer;
+  transition:background .18s var(--ease),color .18s var(--ease),border-color .18s var(--ease)}
+.chip:hover{background:#E7EFE8;border-color:rgba(111,156,134,.4)}
+.chip[aria-pressed=true]{background:var(--pine);border-color:var(--pine);color:#fff}
+
+/* ---------- input angka ---------- */
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line-2)}
+.row:last-child{border-bottom:0}
+.row label{font-weight:500;font-size:12.5px}
+.row .hint{display:block;font-size:10.5px;color:var(--muted);font-weight:400}
+.money{position:relative;flex:0 0 auto}
+.money .pre{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted);pointer-events:none;font-weight:600}
+.money.has-pre input{padding-left:28px}
+input[type=text],input[type=number]{
+  font:inherit;font-size:13.5px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink);
+  text-align:right;width:126px;padding:7px 10px;background:var(--surface-2);
+  border:1px solid var(--line);border-radius:var(--r-sm);
+  transition:background .18s var(--ease),border-color .18s var(--ease),box-shadow .18s var(--ease)}
+input[type=text]:hover,input[type=number]:hover{border-color:rgba(111,156,134,.45)}
+input[type=text]:focus,input[type=number]:focus{outline:none;background:var(--surface);
+  border-color:var(--c1);box-shadow:0 0 0 4px rgba(111,156,134,.16)}
+.narrow input{width:80px}
+input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+input[type=number]{-moz-appearance:textfield}
+
+.field-top input.readout-input{
+  font-family:'Fraunces',Georgia,serif;font-size:18px;font-weight:500;color:var(--pine);
+  width:76px;text-align:right;padding:2px 7px;background:transparent;border:1px solid transparent;border-radius:9px}
+.field-top input.readout-input:hover{background:var(--surface-2);border-color:var(--line)}
+.field-top input.readout-input:focus{background:var(--surface);border-color:var(--c1);box-shadow:0 0 0 4px rgba(111,156,134,.16)}
+
+/* ---------- baris alat & bahan ---------- */
+.itemhead{display:grid;gap:8px;align-items:end;padding:0 0 6px;
+  font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.item{display:grid;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line-2)}
+.item:last-child{border-bottom:0}
+.gr3{grid-template-columns:1fr 84px 46px 54px 22px}
+.gr2{grid-template-columns:1fr 92px 60px 22px}
+.item .nm{font-size:12.5px;font-weight:600;color:var(--ink-2)}
+.item .sub{display:block;font-size:10px;color:var(--muted);font-weight:400}
+.item input{width:100%;font-size:12.5px;padding:6px 8px;text-align:right}
+.item input.nm-in{text-align:left;font-weight:600;color:var(--ink-2);background:transparent;border-color:transparent}
+.item input.nm-in:hover{background:var(--surface-2);border-color:var(--line)}
+.item input.nm-in:focus{background:var(--surface);border-color:var(--c1)}
+.item .u{font-size:10px;color:var(--muted);text-align:right;display:block;margin-top:2px}
+.item .del{width:22px;height:22px;padding:0;border-radius:7px;border:1px solid transparent;background:transparent;
+  color:var(--muted);font-size:15px;line-height:1;cursor:pointer;
+  transition:background .18s var(--ease),color .18s var(--ease),border-color .18s var(--ease)}
+.item .del:hover{background:rgba(190,111,126,.12);color:var(--rose);border-color:rgba(190,111,126,.28)}
+.item .del:focus-visible{outline:2px solid var(--rose);outline-offset:1px}
+.additem{margin-top:9px;width:100%;font:inherit;font-size:11.5px;font-weight:600;color:var(--muted);
+  background:transparent;border:1px dashed var(--line);border-radius:10px;padding:7px;cursor:pointer;
+  transition:color .18s var(--ease),border-color .18s var(--ease),background .18s var(--ease)}
+.additem:hover{color:var(--pine);border-color:var(--c5);background:var(--surface-2)}
+.additem:focus-visible{outline:2px solid var(--pine);outline-offset:2px}
+.empty{font-size:11.5px;color:var(--muted);padding:10px 0;text-align:center}
+
+/* di layar sempit, nama pindah ke baris sendiri */
+@media(max-width:460px){
+  .itemhead{display:none}
+  .item.gr3{grid-template-columns:1fr 52px 58px 22px;
+    grid-template-areas:"nm nm nm del" "hg jm um ."; row-gap:4px}
+  .item.gr3>*:nth-child(1){grid-area:nm}
+  .item.gr3>*:nth-child(2){grid-area:hg}
+  .item.gr3>*:nth-child(3){grid-area:jm}
+  .item.gr3>*:nth-child(4){grid-area:um}
+  .item.gr3>*:nth-child(5){grid-area:del;justify-self:end}
+  .item.gr2{grid-template-columns:1fr 64px 22px;
+    grid-template-areas:"nm nm del" "hg pr ."; row-gap:4px}
+  .item.gr2>*:nth-child(1){grid-area:nm}
+  .item.gr2>*:nth-child(2){grid-area:hg}
+  .item.gr2>*:nth-child(3){grid-area:pr}
+  .item.gr2>*:nth-child(4){grid-area:del;justify-self:end}
+  .item input.nm-in{background:var(--surface-2);border-color:var(--line)}
+}
+.itemfoot{display:flex;justify-content:space-between;font-size:12px;font-weight:600;
+  color:var(--ink);padding-top:11px;margin-top:4px;border-top:1px solid var(--line)}
+.itemfoot span:last-child{font-variant-numeric:tabular-nums}
+
+.reset{margin-top:16px;width:100%;font:inherit;font-size:12px;font-weight:600;color:var(--muted);
+  background:transparent;border:1px dashed var(--line);border-radius:var(--r-sm);padding:9px;cursor:pointer;
+  transition:color .18s var(--ease),border-color .18s var(--ease)}
+.reset:hover{color:var(--pine);border-color:var(--c1)}
+
+/* ---------- meteran titik impas ---------- */
+.meter-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.meter-verdict{font-size:13px;color:var(--ink-2);max-width:48ch;margin:0}
+.meter-verdict b{color:var(--pine)}
+.meter-verdict.warn b{color:var(--rose)}
+.meter{position:relative;height:54px;margin:0 2px}
+.meter-track{position:absolute;top:17px;left:0;right:0;height:13px;border-radius:99px;background:#E4EBE4;overflow:hidden}
+.meter-loss{position:absolute;inset:0 auto 0 0;width:0;
+  background:repeating-linear-gradient(115deg,rgba(190,111,126,.30) 0 6px,rgba(190,111,126,.15) 6px 12px);
+  transition:width .5s var(--ease)}
+.meter-gain{position:absolute;top:0;bottom:0;right:0;left:0;
+  background:linear-gradient(90deg,rgba(111,156,134,.22),rgba(61,106,87,.42));transition:left .5s var(--ease)}
+.meter-tick{position:absolute;top:11px;width:2px;height:25px;border-radius:2px;background:var(--pine);
+  transform:translateX(-1px);transition:left .5s var(--ease)}
+.meter-tick::after{content:attr(data-label);position:absolute;top:29px;left:50%;transform:translateX(-50%);
+  font-size:10px;font-weight:600;color:var(--pine);white-space:nowrap}
+.meter-now{position:absolute;top:10px;width:27px;height:27px;border-radius:50%;background:var(--surface);
+  border:1px solid rgba(31,46,40,.14);box-shadow:0 2px 4px rgba(31,46,40,.10),0 8px 18px -8px rgba(31,46,40,.45);
+  transform:translateX(-13.5px);transition:left .5s var(--ease);display:grid;place-items:center}
+.meter-now i{width:9px;height:9px;border-radius:50%;background:var(--pine);transition:background .4s var(--ease)}
+.meter-now.neg i{background:var(--rose)}
+.meter-scale{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:2px}
+
+/* ---------- batang aliran uang ---------- */
+.flow{display:flex;height:32px;border-radius:11px;overflow:hidden;background:#E4EBE4}
+.seg{position:relative;transition:width .5s var(--ease),filter .2s var(--ease);min-width:0}
+.seg:hover{filter:brightness(1.08)}
+.seg::after{content:"";position:absolute;inset:0;border-right:1px solid rgba(255,255,255,.55)}
+.seg:last-child::after{border:0}
+.legend{display:grid;gap:1px;margin-top:14px}
+.leg{display:grid;grid-template-columns:12px 1fr auto auto;align-items:center;gap:10px;
+  padding:6px 8px;border-radius:9px;font-size:12.5px;transition:background .18s var(--ease)}
+.leg.on{background:var(--surface-2)}
+.dot{width:10px;height:10px;border-radius:3px}
+.leg .nm{color:var(--ink-2)}
+.leg .pc{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;min-width:38px;text-align:right}
+.leg .amt{font-weight:600;font-variant-numeric:tabular-nums;min-width:100px;text-align:right}
+.leg.total{border-top:1px solid var(--line);border-radius:0;margin-top:6px;padding-top:11px}
+.leg.total .nm{color:var(--ink);font-weight:600}
+
+/* ---------- grafik ---------- */
+.chartwrap{position:relative}
+#curve{display:block;width:100%;height:220px;touch-action:pan-y}
+.tip{position:absolute;pointer-events:none;opacity:0;transform:translate(-50%,-118%);background:var(--ink);
+  color:#F2F6F1;font-size:11px;font-weight:500;padding:6px 9px;border-radius:9px;white-space:nowrap;
+  transition:opacity .16s var(--ease);box-shadow:0 8px 20px -10px rgba(0,0,0,.5)}
+
+/* ---------- modal ---------- */
+.modal[hidden]{display:none}
+.modal{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:18px}
+.modal-back{position:absolute;inset:0;background:rgba(24,36,31,.42);backdrop-filter:blur(3px);animation:fade .22s var(--ease)}
+.modal-card{position:relative;width:min(560px,100%);max-height:86vh;overflow:auto;
+  background:var(--surface);border:1px solid var(--line);border-radius:22px;
+  box-shadow:0 30px 70px -30px rgba(24,36,31,.6);padding:26px 24px 22px;animation:pop .26s var(--ease)}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes pop{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
+.modal-x{position:absolute;top:14px;right:14px;width:32px;height:32px;border-radius:50%;
+  border:1px solid var(--line);background:var(--surface-2);color:var(--ink-2);font-size:17px;line-height:1;
+  cursor:pointer;transition:background .18s var(--ease)}
+.modal-x:hover{background:#E7EFE8}
+.modal-eyebrow{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;color:var(--muted);margin:0 0 6px}
+.modal-card h3{font-family:'Fraunces',Georgia,serif;font-weight:500;font-size:19px;margin:0 0 4px;letter-spacing:-.01em}
+.modal-big{font-family:'Fraunces',Georgia,serif;font-weight:500;font-size:31px;letter-spacing:-.02em;
+  color:var(--pine);margin:6px 0 18px;font-variant-numeric:tabular-nums}
+.modal-big.neg{color:var(--rose)}
+.mrow{display:flex;justify-content:space-between;gap:14px;font-size:13px;padding:8px 0;border-bottom:1px solid var(--line-2);color:var(--ink-2)}
+.mrow span:last-child{font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink);white-space:nowrap}
+.mrow.sub{font-size:12px;color:var(--muted);padding:5px 0 5px 14px;border-bottom:0}
+.mrow.sub span:last-child{font-weight:500;color:var(--ink-2)}
+.mrow.tot{border-bottom:0;border-top:1px solid var(--line);margin-top:6px;padding-top:11px;font-weight:700;color:var(--ink)}
+.mrow.neg span:last-child{color:var(--rose)}
+.mhead{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;color:var(--muted);
+  margin:18px 0 2px;padding-bottom:5px;border-bottom:1px solid var(--line)}
+.mnote{font-size:11.5px;color:var(--muted);margin:16px 0 0;line-height:1.5;
+  background:var(--surface-2);border-radius:12px;padding:11px 13px}
+.mformula{font-size:11.5px;color:var(--ink-2);background:var(--surface-2);border-left:3px solid var(--c1);
+  border-radius:0 10px 10px 0;padding:9px 12px;margin:14px 0 0;line-height:1.6}
+
+/* ---------- catatan ---------- */
+.notes{font-size:13px;color:var(--ink-2)}
+.notes p{margin:0 0 11px}
+.notes ul{margin:0;padding:0;list-style:none;display:grid;gap:10px}
+.notes li{padding-left:16px;position:relative}
+.notes li::before{content:"";position:absolute;left:0;top:8px;width:6px;height:6px;border-radius:50%;background:var(--c1)}
+.notes strong{color:var(--ink);font-weight:600}
+.foot{margin-top:16px;font-size:11px;color:var(--muted)}
+details.notes-toggle>summary{cursor:pointer;list-style:none;font-family:'Fraunces',Georgia,serif;
+  font-size:18px;font-weight:500;display:flex;align-items:center;justify-content:space-between}
+details.notes-toggle>summary::-webkit-details-marker{display:none}
+details.notes-toggle>summary::after{content:"+";font-family:'Plus Jakarta Sans',sans-serif;font-size:19px;color:var(--muted);font-weight:400}
+details.notes-toggle[open]>summary::after{content:"–"}
+details.notes-toggle[open]>summary{margin-bottom:15px}
+
+@media (prefers-reduced-motion:reduce){*{transition-duration:.01ms !important;animation-duration:.01ms !important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ====== RINGKASAN ATAS ====== -->
+  <div class="strip">
+    <button class="stat" type="button" data-modal="omzet" style="--accent:var(--c1)">
+      <span class="k">Omzet sebulan <i>›</i></span>
+      <span class="v" id="sOmzet">Rp0</span>
+      <span class="s" id="sOmzetSub">–</span>
+    </button>
+    <button class="stat" type="button" data-modal="thp" style="--accent:var(--c3)">
+      <span class="k">Take-home pay terapis <i>›</i></span>
+      <span class="v" id="sThp">Rp0</span>
+      <span class="s" id="sThpSub">–</span>
+    </button>
+    <button class="stat" type="button" data-modal="beban" style="--accent:var(--c7)">
+      <span class="k">Total pengeluaran <i>›</i></span>
+      <span class="v" id="sBeban">Rp0</span>
+      <span class="s" id="sBebanSub">–</span>
+    </button>
+    <button class="stat" type="button" data-modal="cs" style="--accent:var(--c4)">
+      <span class="k">Gaji CS <i>›</i></span>
+      <span class="v" id="sCS">Rp0</span>
+      <span class="s" id="sCSSub">–</span>
+    </button>
+  </div>
+
+  <button class="profitbar" type="button" data-modal="untung" id="profitBar">
+    <span class="pb-l">
+      <span class="pb-k">Untung bersih sebulan</span>
+      <span class="pb-v" id="sProfit">Rp0</span>
+    </span>
+    <span class="pb-r" id="sProfitNote">–</span>
+  </button>
+
+  <div class="grid">
+
+    <!-- ====== PARAMETER ====== -->
+    <div>
+      <section class="panel" id="paramPanel">
+        <div class="panel-head">
+          <h2 class="panel-title">Parameter</h2>
+          <span class="panel-note">langsung terhitung</span>
+        </div>
+
+        <!-- 1. Order & harga -->
+        <details class="sec" open style="--accent:var(--c1)">
+          <summary><span class="sq"></span>Order &amp; harga<span class="tot" id="tOrder"></span><span class="car">›</span></summary>
+          <div class="sec-body">
+
+            <div class="field">
+              <div class="field-top">
+                <label for="terapis">Jumlah terapis</label>
+                <span class="readout" id="valTerapis">2<small>orang</small></span>
+              </div>
+              <input type="range" id="terapis" min="1" max="15" step="1" value="2">
+              <p class="field-help" id="teamEcho"></p>
+            </div>
+
+            <div class="field">
+              <div class="field-top">
+                <label for="orderNum">Order per terapis per hari</label>
+                <span class="readout"><input class="readout-input" type="number" id="orderNum" min="0" step="0.1" value="2"><small>order</small></span>
+              </div>
+              <input type="range" id="order" min="0" max="11.54" step="0.05" value="2" aria-label="Geser order per hari">
+              <div class="presets" id="presets">
+                <button class="chip" type="button" data-order="1">Sepi</button>
+                <button class="chip" type="button" data-order="2">Normal</button>
+                <button class="chip" type="button" data-order="4">Ramai</button>
+              </div>
+            </div>
+
+            <div class="field linked">
+              <div class="field-top">
+                <label for="orderBulan">Total order per terapis sebulan</label>
+                <span class="readout"><input class="readout-input" type="number" id="orderBulan" min="0" max="300" step="1" value="52"><small>order</small></span>
+              </div>
+              <input type="range" id="orderBulanRange" min="0" max="300" step="1" value="52" aria-label="Geser order sebulan">
+              <div class="presets" id="presetsBulan">
+                <button class="chip" type="button" data-month="60">60 · bonus Rp100rb</button>
+                <button class="chip" type="button" data-month="80">80 · bonus Rp200rb</button>
+                <button class="chip" type="button" data-month="150">150</button>
+              </div>
+              <p class="field-help">Maksimal 300 order sebulan. Kedua angka berlaku untuk <b>satu</b> terapis — <span id="echoTim"></span>.</p>
+            </div>
+
+            <div class="row" style="margin-top:14px;border-top:1px solid var(--line-2);padding-top:12px">
+              <label for="harga">Harga layanan<span class="hint">per satu kali panggilan</span></label>
+              <span class="money has-pre"><span class="pre">Rp</span><input type="text" class="rp" id="harga" inputmode="numeric" value="130.000"></span>
+            </div>
+            <div class="row narrow">
+              <label for="hari">Hari kerja<span class="hint">dalam sebulan</span></label>
+              <span class="money"><input type="number" id="hari" min="1" max="31" step="1" value="26"></span>
+            </div>
+          </div>
+        </details>
+
+        <!-- 2. Terapis -->
+        <details class="sec" open style="--accent:var(--c3)">
+          <summary><span class="sq"></span>Biaya terapis<span class="tot" id="tTerapis"></span><span class="car">›</span></summary>
+          <div class="sec-body">
+            <div class="row narrow">
+              <label for="komisi">Komisi terapis<span class="hint">persen dari harga layanan</span></label>
+              <span class="money has-pre"><span class="pre">%</span><input type="number" id="komisi" min="0" max="100" step="1" value="40"></span>
+            </div>
+            <div class="row">
+              <label for="transport">Transport<span class="hint">per order</span></label>
+              <span class="money has-pre"><span class="pre">Rp</span><input type="text" class="rp" id="transport" inputmode="numeric" value="8.000"></span>
+            </div>
+            <div class="row">
+              <label for="gaji">Gaji kehadiran<span class="hint">per terapis per hari</span></label>
+              <span class="money has-pre"><span class="pre">Rp</span><input type="text" class="rp" id="gaji" inputmode="numeric" value="28.000"></span>
+            </div>
+            <div class="row">
+              <label for="bonus60">Bonus tembus 60 order<span class="hint">per terapis per bulan</span></label>
+              <span class="money has-pre"><span class="pre">Rp</span><input type="text" class="rp" id="bonus60" inputmode="numeric" value="100.000"></span>
+            </div>
+            <div class="row">
+              <label for="bonus80">Bonus tembus 80 order<span class="hint">per terapis per bulan</span></label>
+              <span class="money has-pre"><span class="pre">Rp</span><input type="text" class="rp" id="bonus80" inputmode="numeric" value="200.000"></span>
+            </div>
+          </div>
+        </details>
+
+        <!-- 3. CS -->
+        <details class="sec" style="--accent:var(--c4)">
+          <summary><span class="sq"></span>Customer service<span class="tot" id="tCS"></span><span class="car">›</span></summary>
+          <div class="sec-body">
+            <div class="field">
+              <div class="field-top">
+                <label for="nCS">Jumlah CS</label>
+                <span class="readout" id="valCS">1<small>orang</small></span>
+              </div>
+              <input type="range" id="nCS" min="0" max="8" step="1" value="1">
+            </div>
+            <div class="row">
+              <label for="csPokok">Gaji pokok<span class="hint">per CS per bulan</span></label>
+              <span class="money has-pre"><span class="pre">Rp</span><input type="text" class="rp" id="csPokok" inputmode="numeric" value="1.800.000"></span>
+            </div>
+            <div class="row">
+              <label for="csTunjangan">Tunjangan<span class="hint">per CS per bulan</span></label>
+              <span class="money has-pre"><span class="pre">Rp</span><input type="text" class="rp" id="csTunjangan" inputmode="numeric" value="400.000"></span>
+            </div>
+            <div class="row">
+              <label for="csBonus">Bonus per order<span class="hint">dari seluruh order yang masuk</span></label>
+              <span class="money has-pre"><span class="pre">Rp</span><input type="text" class="rp" id="csBonus" inputmode="numeric" value="3.000"></span>
+            </div>
+            <p class="field-help" id="csEcho"></p>
+          </div>
+        </details>
+
+        <!-- 4. Alat & bahan -->
+        <details class="sec" style="--accent:var(--c5)">
+          <summary><span class="sq"></span>Alat &amp; bahan<span class="tot" id="tAlat"></span><span class="car">›</span></summary>
+          <div class="sec-body">
+            <p class="field-help" style="margin:0 0 10px">Alat dihitung penyusutannya: harga dibagi umur pakai, dikali jumlah set per terapis. Nama boleh diganti, baris boleh ditambah atau dihapus.</p>
+            <div class="itemhead gr3"><span>Alat</span><span style="text-align:right">Harga</span><span style="text-align:right">Jml</span><span style="text-align:right">Umur</span><span></span></div>
+            <div id="alatRows"></div>
+            <button class="additem" type="button" id="addAlat">+ Tambah alat</button>
+            <div class="itemfoot"><span>Penyusutan alat sebulan</span><span id="fAlat">–</span></div>
+
+            <div class="itemhead gr2" style="margin-top:18px"><span>Bahan habis pakai</span><span style="text-align:right">Harga</span><span style="text-align:right">Cukup</span><span></span></div>
+            <div id="bahanRows"></div>
+            <button class="additem" type="button" id="addBahan">+ Tambah bahan</button>
+            <div class="itemfoot"><span>Bahan sebulan</span><span id="fBahan">–</span></div>
+          </div>
+        </details>
+
+        <!-- 5. Biaya lain -->
+        <details class="sec" style="--accent:var(--c7)">
+          <summary><span class="sq"></span>Biaya lain<span class="tot" id="tLain"></span><span class="car">›</span></summary>
+          <div class="sec-body">
+            <div class="row">
+              <label for="iklan">Biaya iklan<span class="hint">total per bulan</span></label>
+              <span class="money has-pre"><span class="pre">Rp</span><input type="text" class="rp" id="iklan" inputmode="numeric" value="3.000.000"></span>
+            </div>
+            <div class="row">
+              <label for="lain">Lain-lain<span class="hint">sewa, listrik, pulsa, dll</span></label>
+              <span class="money has-pre"><span class="pre">Rp</span><input type="text" class="rp" id="lain" inputmode="numeric" value="500.000"></span>
+            </div>
+          </div>
+        </details>
+
+        <button class="reset" type="button" id="reset">Kembalikan ke angka awal</button>
+      </section>
+    </div>
+
+    <!-- ====== HASIL ====== -->
+    <div class="stack">
+
+      <section class="panel">
+        <div class="meter-head">
+          <h2 class="panel-title">Titik impas</h2>
+          <p class="meter-verdict" id="verdict">–</p>
+        </div>
+        <div class="meter">
+          <div class="meter-track">
+            <div class="meter-loss" id="meterLoss"></div>
+            <div class="meter-gain" id="meterGain"></div>
+          </div>
+          <div class="meter-tick" id="meterTick" data-label=""></div>
+          <div class="meter-now" id="meterNow"><i></i></div>
+        </div>
+        <div class="meter-scale"><span>0</span><span id="meterMax"></span></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2 class="panel-title">Ke mana uangnya</h2>
+          <span class="panel-note">arahkan kursor ke batang</span>
+        </div>
+        <div class="flow" id="flow"></div>
+        <div class="legend" id="legend"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2 class="panel-title">Untung mengikuti jumlah order</h2>
+          <span class="panel-note">order per terapis per hari</span>
+        </div>
+        <div class="chartwrap">
+          <svg id="curve" role="img" aria-label="Grafik untung bersih terhadap jumlah order"></svg>
+          <div class="tip" id="tip"></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <details class="notes-toggle">
+          <summary>Cara angka ini dihitung</summary>
+          <div class="notes">
+            <p>Untung bersih adalah <strong>omzet</strong> dikurangi <strong>seluruh pengeluaran</strong>:</p>
+            <ul>
+              <li><strong>Terapis</strong> — komisi, transport, gaji kehadiran, dan bonus target. Semuanya masuk ke take-home pay terapis.</li>
+              <li><strong>Customer service</strong> — gaji pokok dan tunjangan per orang, ditambah bonus untuk setiap order yang masuk.</li>
+              <li><strong>Penyusutan alat</strong> — seragam, jarik, handuk, timer, dan alas. Harga dibagi umur pakai, jadi biaya bulanan per terapis.</li>
+              <li><strong>Bahan habis pakai</strong> — minyak pijat dan lotion, dihitung dari harga per botol dibagi berapa order yang bisa dilayani.</li>
+              <li><strong>Biaya lain</strong> — iklan dan pengeluaran rutin lainnya, tetap berapa pun jumlah ordernya.</li>
+            </ul>
+            <p class="foot">Simulasi mengasumsikan semua terapis mencapai jumlah order yang sama.</p>
+          </div>
+        </details>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<!-- ====== MODAL ====== -->
+<div class="modal" id="modal" hidden>
+  <div class="modal-back" data-close></div>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <button class="modal-x" type="button" data-close aria-label="Tutup">×</button>
+    <p class="modal-eyebrow" id="modalEyebrow"></p>
+    <h3 id="modalTitle"></h3>
+    <p class="modal-big" id="modalBig"></p>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const MAX_MONTH = 300;
+
+  /* ---------- format ---------- */
+  const nf = new Intl.NumberFormat('id-ID');
+  const rp = v => 'Rp' + nf.format(Math.round(v));
+  const rpShort = v => {
+    const a = Math.abs(v);
+    if (a >= 1e9) return 'Rp' + (v/1e9).toFixed(1).replace('.',',') + ' M';
+    if (a >= 1e6) return 'Rp' + (v/1e6).toFixed(1).replace('.',',') + ' jt';
+    if (a >= 1e3) return 'Rp' + Math.round(v/1e3) + ' rb';
+    return 'Rp' + Math.round(v);
+  };
+  const dec = v => v.toLocaleString('id-ID',{minimumFractionDigits:1,maximumFractionDigits:1});
+  const pc  = (a,b) => b ? (a/b*100).toFixed(1).replace('.',',') + '%' : '–';
+  const digits = s => parseInt(String(s).replace(/\D/g,''),10) || 0;
+
+  /* ---------- daftar alat & bahan (bisa ditambah / dihapus) ---------- */
+  const ALAT_DEF = [
+    {nama:'Seragam',       harga:150000, jml:2, umur:12},
+    {nama:'Jarik',         harga:80000,  jml:2, umur:6},
+    {nama:'Handuk',        harga:45000,  jml:3, umur:6},
+    {nama:'Timer',         harga:35000,  jml:1, umur:24},
+    {nama:'Alas / matras', harga:250000, jml:1, umur:12}
+  ];
+  const BAHAN_DEF = [
+    {nama:'Minyak pijat', harga:60000, per:15},
+    {nama:'Lotion',       harga:45000, per:20}
+  ];
+
+  let uidSeq = 0;
+  const uid = () => 'i' + (++uidSeq);
+  const esc = s => String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+
+  let alatList  = ALAT_DEF.map(a => Object.assign({uid:uid()}, a));
+  let bahanList = BAHAN_DEF.map(b => Object.assign({uid:uid()}, b));
+
+  const numOf = id => { const e = $(id); return e ? Math.max(0, +e.value || 0) : 0; };
+
+  // salin nilai yang sedang ada di layar ke dalam daftar
+  function harvest(){
+    alatList.forEach(a => {
+      if (!$('h_'+a.uid)) return;
+      a.nama  = $('n_'+a.uid).value;
+      a.harga = digits($('h_'+a.uid).value);
+      a.jml   = numOf('j_'+a.uid);
+      a.umur  = Math.max(1, numOf('u_'+a.uid));
+    });
+    bahanList.forEach(b => {
+      if (!$('h_'+b.uid)) return;
+      b.nama  = $('n_'+b.uid).value;
+      b.harga = digits($('h_'+b.uid).value);
+      b.per   = Math.max(1, numOf('p_'+b.uid));
+    });
+  }
+
+  function buildItems(){
+    $('alatRows').innerHTML = alatList.length ? alatList.map(a =>
+      '<div class="item gr3">' +
+        '<input type="text" class="nm-in" id="n_' + a.uid + '" value="' + esc(a.nama) + '" placeholder="Nama alat">' +
+        '<span class="money"><input type="text" class="rp" id="h_' + a.uid + '" inputmode="numeric" value="' + nf.format(a.harga) + '"><span class="u">rupiah</span></span>' +
+        '<span class="money"><input type="number" id="j_' + a.uid + '" min="0" step="1" value="' + a.jml + '"><span class="u">set</span></span>' +
+        '<span class="money"><input type="number" id="u_' + a.uid + '" min="1" step="1" value="' + a.umur + '"><span class="u">bulan</span></span>' +
+        '<button class="del" type="button" data-del="alat" data-uid="' + a.uid + '" aria-label="Hapus baris">×</button>' +
+      '</div>').join('') : '<p class="empty">Belum ada alat.</p>';
+
+    $('bahanRows').innerHTML = bahanList.length ? bahanList.map(b =>
+      '<div class="item gr2">' +
+        '<input type="text" class="nm-in" id="n_' + b.uid + '" value="' + esc(b.nama) + '" placeholder="Nama bahan">' +
+        '<span class="money"><input type="text" class="rp" id="h_' + b.uid + '" inputmode="numeric" value="' + nf.format(b.harga) + '"><span class="u">rupiah</span></span>' +
+        '<span class="money"><input type="number" id="p_' + b.uid + '" min="1" step="1" value="' + b.per + '"><span class="u">order</span></span>' +
+        '<button class="del" type="button" data-del="bahan" data-uid="' + b.uid + '" aria-label="Hapus baris">×</button>' +
+      '</div>').join('') : '<p class="empty">Belum ada bahan.</p>';
+  }
+  buildItems();
+
+  $('addAlat').addEventListener('click', () => {
+    harvest();
+    const nu = uid();
+    alatList.push({uid:nu, nama:'', harga:0, jml:1, umur:12});
+    buildItems(); render();
+    $('n_'+nu).focus();
+  });
+  $('addBahan').addEventListener('click', () => {
+    harvest();
+    const nu = uid();
+    bahanList.push({uid:nu, nama:'', harga:0, per:20});
+    buildItems(); render();
+    $('n_'+nu).focus();
+  });
+  document.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('[data-del]');
+    if (!b) return;
+    harvest();
+    if (b.dataset.del === 'alat') alatList = alatList.filter(x => x.uid !== b.dataset.uid);
+    else                          bahanList = bahanList.filter(x => x.uid !== b.dataset.uid);
+    buildItems(); render();
+  });
+
+  /* ---------- order: harian & bulanan tersinkron ---------- */
+  let perDay = 2;
+  function hariVal(){ return Math.min(31, Math.max(1, +$('hari').value || 1)); }
+  function maxPerDay(){ return MAX_MONTH / hariVal(); }
+  function orderBulanVal(){ return Math.round(perDay * hariVal()); }
+  function setPerDay(v){ perDay = Math.max(0, Math.min(maxPerDay(), isNaN(v) ? 0 : v)); }
+  function setPerBulan(m){ setPerDay(Math.max(0, Math.min(MAX_MONTH, isNaN(m) ? 0 : m)) / hariVal()); }
+  const numVal = el => parseFloat(String(el.value).replace(',','.'));
+
+  function syncOrderUI(){
+    const mx = maxPerDay();
+    $('order').max = mx;  $('order').value = perDay;
+    $('orderNum').max = Math.round(mx*10)/10;
+    $('orderBulanRange').value = orderBulanVal();
+    if (document.activeElement !== $('orderNum'))   $('orderNum').value = Math.round(perDay*10)/10;
+    if (document.activeElement !== $('orderBulan')) $('orderBulan').value = orderBulanVal();
+  }
+
+  /* ---------- baca semua parameter ---------- */
+  function state(){
+    harvest();
+    const s = {
+      n: +$('terapis').value,
+      o: perDay,
+      hari: hariVal(),
+      harga: digits($('harga').value),
+      komisi: Math.min(100, Math.max(0, +$('komisi').value || 0)),
+      transport: digits($('transport').value),
+      gaji: digits($('gaji').value),
+      bonus60: digits($('bonus60').value),
+      bonus80: digits($('bonus80').value),
+      nCS: +$('nCS').value,
+      csPokok: digits($('csPokok').value),
+      csTunjangan: digits($('csTunjangan').value),
+      csBonus: digits($('csBonus').value),
+      iklan: digits($('iklan').value),
+      lain: digits($('lain').value),
+      alat: alatList.map(a => ({nama:(a.nama||'').trim() || 'Alat tanpa nama', harga:a.harga, jml:a.jml, umur:a.umur})),
+      bahan: bahanList.map(b => ({nama:(b.nama||'').trim() || 'Bahan tanpa nama', harga:b.harga, per:b.per}))
+    };
+    s.alatPerTerapis = s.alat.reduce((t,a) => t + a.harga * a.jml / a.umur, 0);
+    s.bahanPerOrder  = s.bahan.reduce((t,b) => t + b.harga / b.per, 0);
+    return s;
+  }
+
+  /* ---------- inti perhitungan ---------- */
+  function compute(s, orderPerDay){
+    const o = (orderPerDay === undefined) ? s.o : orderPerDay;
+    const orders = Math.round(o * s.hari);          // order sebulan per terapis
+    const komisiRp = s.harga * s.komisi / 100;
+    const bonus = orders >= 80 ? s.bonus80 : orders >= 60 ? s.bonus60 : 0;
+
+    // terapis (per satu orang)
+    const tGaji = s.gaji * s.hari;
+    const tKomisi = komisiRp * orders;
+    const tTransport = s.transport * orders;
+    const thp = tGaji + tKomisi + tTransport + bonus;
+
+    const totalOrder = orders * s.n;
+    const omzet = totalOrder * s.harga;
+
+    // beban
+    const bKomisi = tKomisi * s.n;
+    const bTransport = tTransport * s.n;
+    const bGajiBonus = (tGaji + bonus) * s.n;
+    const bTerapis = thp * s.n;
+    const csPokokTot = s.csPokok * s.nCS;
+    const csTunjTot  = s.csTunjangan * s.nCS;
+    const csBonusTot = s.csBonus * totalOrder;
+    const bCS = csPokokTot + csTunjTot + csBonusTot;
+    const bAlat = s.alatPerTerapis * s.n;
+    const bBahan = s.bahanPerOrder * totalOrder;
+    const bLain = s.iklan + s.lain;
+
+    const beban = bTerapis + bCS + bAlat + bBahan + bLain;
+    const profit = omzet - beban;
+
+    // kontribusi tiap order tambahan
+    const marginOrder = s.harga - komisiRp - s.transport - s.csBonus - s.bahanPerOrder;
+
+    return {orders, bonus, komisiRp, tGaji, tKomisi, tTransport, thp, totalOrder, omzet,
+            bKomisi, bTransport, bGajiBonus, bTerapis,
+            csPokokTot, csTunjTot, csBonusTot, bCS, bAlat, bBahan, bLain,
+            beban, profit, marginOrder};
+  }
+
+  function breakEven(s){
+    const mx = MAX_MONTH / s.hari;
+    if (compute(s, mx).profit < 0) return null;
+    const step = mx / 300;
+    for (let o = 0; o <= mx + 1e-9; o += step) if (compute(s, o).profit >= 0) return Math.round(o*20)/20;
+    return null;
+  }
+
+  /* ---------- angka bergerak halus ---------- */
+  const prev = new Map();
+  function setNum(el, value, fmt){
+    if (reduce){ el.textContent = fmt(value); prev.set(el, value); return; }
+    const from = prev.has(el) ? prev.get(el) : value;
+    prev.set(el, value);
+    if (from === value){ el.textContent = fmt(value); return; }
+    const t0 = performance.now(), dur = 400;
+    (function step(t){
+      const k = Math.min(1, (t - t0)/dur), e = 1 - Math.pow(1-k, 3);
+      el.textContent = fmt(from + (value - from)*e);
+      if (k < 1) requestAnimationFrame(step);
+    })(t0);
+  }
+
+  /* ---------- batang aliran uang ---------- */
+  const SEGS = [
+    {k:'bKomisi',    n:'Komisi terapis',       c:'var(--c1)'},
+    {k:'bTransport', n:'Transport terapis',    c:'var(--c2)'},
+    {k:'bGajiBonus', n:'Gaji & bonus terapis', c:'var(--c3)'},
+    {k:'bCS',        n:'Gaji CS',              c:'var(--c4)'},
+    {k:'bAlat',      n:'Penyusutan alat',      c:'var(--c5)'},
+    {k:'bBahan',     n:'Bahan habis pakai',    c:'var(--c6)'},
+    {k:'bLain',      n:'Iklan & lain-lain',    c:'var(--c7)'}
+  ];
+
+  function renderFlow(r){
+    const base = Math.max(r.omzet, r.beban) || 1;
+    const items = SEGS.map(g => ({n:g.n, c:g.c, v:r[g.k]}));
+    items.push(r.profit >= 0
+      ? {n:'Untung bersih', c:'var(--pine)', v:r.profit}
+      : {n:'Kekurangan',    c:'var(--rose)', v:-r.profit});
+
+    const flow = $('flow'), legend = $('legend');
+    flow.innerHTML = ''; legend.innerHTML = '';
+    items.forEach(it => {
+      const w = it.v / base * 100;
+      const seg = document.createElement('div');
+      seg.className = 'seg'; seg.style.width = w + '%'; seg.style.background = it.c;
+      seg.title = it.n + ' · ' + rp(it.v);
+      flow.appendChild(seg);
+
+      const row = document.createElement('div');
+      row.className = 'leg';
+      row.innerHTML = '<span class="dot" style="background:' + it.c + '"></span><span class="nm">' + it.n +
+        '</span><span class="pc">' + w.toFixed(0) + '%</span><span class="amt">' + rp(it.v) + '</span>';
+      legend.appendChild(row);
+      seg.addEventListener('mouseenter', () => row.classList.add('on'));
+      seg.addEventListener('mouseleave', () => row.classList.remove('on'));
+      row.addEventListener('mouseenter', () => row.classList.add('on'));
+      row.addEventListener('mouseleave', () => row.classList.remove('on'));
+    });
+    const tot = document.createElement('div');
+    tot.className = 'leg total';
+    tot.innerHTML = '<span></span><span class="nm">Omzet</span><span class="pc"></span><span class="amt">' + rp(r.omzet) + '</span>';
+    legend.appendChild(tot);
+  }
+
+  /* ---------- grafik ---------- */
+  const NS = 'http://www.w3.org/2000/svg';
+  let curvePts = [], curveGeom = null;
+
+  function renderCurve(s){
+    const svg = $('curve');
+    const W = Math.max(300, svg.clientWidth || svg.parentNode.clientWidth || 600);
+    const H = 220, padL = 58, padR = 14, padT = 14, padB = 28;
+    const MX = MAX_MONTH / s.hari;
+
+    const pts = [];
+    for (let o = 0; o <= MX + 1e-9; o += MX/60) pts.push({o, p: compute(s, o).profit});
+    curvePts = pts;
+
+    const ys = pts.map(p => p.p);
+    let min = Math.min(0, ...ys), max = Math.max(0, ...ys);
+    if (max === min) max = min + 1;
+    const sp = max - min; min -= sp*.08; max += sp*.08;
+
+    const X = o => padL + (o/MX) * (W - padL - padR);
+    const Y = v => padT + (1 - (v-min)/(max-min)) * (H - padT - padB);
+    curveGeom = {X, Y, W, MX, padL, padR};
+
+    const zeroY = Y(0);
+    const line = pts.map((p,i) => (i?'L':'M') + X(p.o).toFixed(1) + ' ' + Y(p.p).toFixed(1)).join(' ');
+    const area = line + ' L' + X(MX).toFixed(1) + ' ' + zeroY.toFixed(1) + ' L' + X(0).toFixed(1) + ' ' + zeroY.toFixed(1) + ' Z';
+    const el = (t,a) => { const n = document.createElementNS(NS,t); for (const k in a) n.setAttribute(k,a[k]); return n; };
+
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    svg.innerHTML = '<defs>' +
+      '<clipPath id="cU"><rect x="0" y="0" width="' + W + '" height="' + Math.max(0,zeroY) + '"/></clipPath>' +
+      '<clipPath id="cD"><rect x="0" y="' + Math.max(0,zeroY) + '" width="' + W + '" height="' + Math.max(0,H-zeroY) + '"/></clipPath></defs>';
+
+    [min + (max-min)*.15, min + (max-min)*.5, min + (max-min)*.85].forEach(v => {
+      svg.appendChild(el('line',{x1:padL,x2:W-padR,y1:Y(v).toFixed(1),y2:Y(v).toFixed(1),stroke:'rgba(31,46,40,.07)','stroke-width':1}));
+      const tx = el('text',{x:padL-9,y:(Y(v)+4).toFixed(1),'text-anchor':'end',fill:'#7A8B81','font-size':10,'font-family':'Plus Jakarta Sans, sans-serif'});
+      tx.textContent = rpShort(v); svg.appendChild(tx);
+    });
+
+    svg.appendChild(el('path',{d:area, fill:'rgba(111,156,134,.22)', 'clip-path':'url(#cU)'}));
+    svg.appendChild(el('path',{d:area, fill:'rgba(190,111,126,.20)', 'clip-path':'url(#cD)'}));
+    svg.appendChild(el('line',{x1:padL,x2:W-padR,y1:zeroY.toFixed(1),y2:zeroY.toFixed(1),stroke:'rgba(31,46,40,.28)','stroke-width':1,'stroke-dasharray':'3 4'}));
+
+    const be = breakEven(s);
+    if (be !== null && be > 0)
+      svg.appendChild(el('line',{x1:X(be).toFixed(1),x2:X(be).toFixed(1),y1:padT,y2:H-padB,stroke:'rgba(61,106,87,.35)','stroke-width':1.5,'stroke-dasharray':'2 5'}));
+
+    svg.appendChild(el('path',{d:line,fill:'none',stroke:'#3D6A57','stroke-width':2.25,'stroke-linejoin':'round','stroke-linecap':'round'}));
+
+    const tstep = Math.max(1, Math.ceil(MX/6));
+    for (let o = 0; o <= MX + 1e-9; o += tstep){
+      const tx = el('text',{x:X(o).toFixed(1),y:H-9,'text-anchor':'middle',fill:'#7A8B81','font-size':10,'font-family':'Plus Jakarta Sans, sans-serif'});
+      tx.textContent = o; svg.appendChild(tx);
+    }
+
+    const now = compute(s).profit;
+    svg.appendChild(el('circle',{cx:X(s.o).toFixed(1),cy:Y(now).toFixed(1),r:9,fill:now<0?'rgba(190,111,126,.20)':'rgba(61,106,87,.18)'}));
+    svg.appendChild(el('circle',{cx:X(s.o).toFixed(1),cy:Y(now).toFixed(1),r:4.5,fill:now<0?'#BE6F7E':'#3D6A57',stroke:'#FCFDFB','stroke-width':2}));
+    const hv = el('circle',{cx:-99,cy:-99,r:4,fill:'#1F2E28',opacity:.55}); hv.setAttribute('id','hovDot'); svg.appendChild(hv);
+  }
+
+  (function bindHover(){
+    const svg = $('curve'), tip = $('tip');
+    function move(ev){
+      if (!curveGeom || !curvePts.length) return;
+      const box = svg.getBoundingClientRect();
+      const cx = (ev.touches ? ev.touches[0].clientX : ev.clientX) - box.left;
+      const sc = curveGeom.W / box.width;
+      const ux = cx * sc;
+      const o = Math.max(0, Math.min(curveGeom.MX, ((ux - curveGeom.padL)/(curveGeom.W - curveGeom.padL - curveGeom.padR)) * curveGeom.MX));
+      let best = curvePts[0];
+      for (const p of curvePts) if (Math.abs(p.o-o) < Math.abs(best.o-o)) best = p;
+      const d = document.getElementById('hovDot');
+      if (d){ d.setAttribute('cx', curveGeom.X(best.o)); d.setAttribute('cy', curveGeom.Y(best.p)); }
+      tip.style.opacity = 1;
+      tip.style.left = (curveGeom.X(best.o)/sc) + 'px';
+      tip.style.top  = (curveGeom.Y(best.p)/sc) + 'px';
+      tip.innerHTML = dec(best.o) + '/hari · ' + nf.format(Math.round(best.o*hariVal())) + '/bulan · <b>' + rp(best.p) + '</b>';
+    }
+    function leave(){ tip.style.opacity = 0; const d = document.getElementById('hovDot'); if (d){ d.setAttribute('cx',-99); d.setAttribute('cy',-99);} }
+    svg.addEventListener('mousemove', move);
+    svg.addEventListener('mouseleave', leave);
+    svg.addEventListener('touchmove', move, {passive:true});
+    svg.addEventListener('touchend', leave);
+  })();
+
+  /* ---------- modal ---------- */
+  const modal = $('modal');
+  let lastFocus = null, currentModal = null;
+
+  const row  = (l,v,cls) => '<div class="mrow ' + (cls||'') + '"><span>' + l + '</span><span>' + v + '</span></div>';
+  const sub  = (l,v) => row(l, v, 'sub');
+  const head = t => '<p class="mhead">' + t + '</p>';
+
+  function modalContent(key, s, r){
+    if (key === 'omzet') return {
+      eyebrow:'Pemasukan', title:'Omzet sebulan', big:rp(r.omzet), neg:false,
+      body: row('Harga layanan', rp(s.harga)) +
+            row('Order per terapis per hari', dec(s.o)) +
+            row('Hari kerja sebulan', s.hari + ' hari') +
+            row('Order per terapis sebulan', nf.format(r.orders) + ' order') +
+            row('Jumlah terapis', s.n + ' orang') +
+            row('Total order seluruh tim', nf.format(r.totalOrder) + ' order', 'tot') +
+            '<div class="mformula">' + nf.format(r.totalOrder) + ' order × ' + rp(s.harga) + ' = <b>' + rp(r.omzet) + '</b></div>' +
+            '<p class="mnote">Rata-rata omzet per terapis: ' + rp(s.n ? r.omzet/s.n : 0) + ' sebulan.</p>'
+    };
+
+    if (key === 'thp') return {
+      eyebrow:'Untuk satu terapis', title:'Take-home pay terapis', big:rp(r.thp), neg:false,
+      body: row('Gaji kehadiran', rp(r.tGaji)) +
+            sub(rp(s.gaji) + ' × ' + s.hari + ' hari', '') +
+            row('Komisi ' + s.komisi + '%', rp(r.tKomisi)) +
+            sub(rp(r.komisiRp) + ' × ' + nf.format(r.orders) + ' order', '') +
+            row('Transport', rp(r.tTransport)) +
+            sub(rp(s.transport) + ' × ' + nf.format(r.orders) + ' order', '') +
+            row('Bonus target', r.bonus ? rp(r.bonus) : '—') +
+            sub(r.bonus ? 'tembus ' + (r.orders >= 80 ? '80' : '60') + ' order' : 'belum tembus 60 order', '') +
+            row('Take-home pay per orang', rp(r.thp), 'tot') +
+            head('Seluruh tim') +
+            row('Total untuk ' + s.n + ' terapis', rp(r.bTerapis)) +
+            row('Rata-rata per order', r.orders ? rp(r.thp/r.orders) : '—') +
+            '<p class="mnote">Menambah terapis tidak mengubah penghasilan per orang — yang bertambah adalah total upah tim, omzet, dan order yang bisa dilayani.</p>'
+    };
+
+    if (key === 'cs') return {
+      eyebrow:'Customer service', title:'Gaji CS sebulan', big:rp(r.bCS), neg:false,
+      body: row('Jumlah CS', s.nCS + ' orang') +
+            head('Per satu CS') +
+            row('Gaji pokok', rp(s.csPokok)) +
+            row('Tunjangan', rp(s.csTunjangan)) +
+            row('Bonus order', rp(s.nCS ? r.csBonusTot/s.nCS : 0)) +
+            sub(rp(s.csBonus) + ' × ' + nf.format(r.totalOrder) + ' order ÷ ' + s.nCS + ' CS', '') +
+            row('Diterima satu CS', rp(s.nCS ? r.bCS/s.nCS : 0), 'tot') +
+            head('Seluruh CS') +
+            row('Total gaji pokok', rp(r.csPokokTot)) +
+            row('Total tunjangan', rp(r.csTunjTot)) +
+            row('Total bonus order', rp(r.csBonusTot)) +
+            row('Total gaji CS', rp(r.bCS), 'tot') +
+            '<p class="mnote">Bonus order dihitung dari seluruh order yang masuk (' + nf.format(r.totalOrder) + ' order), lalu dibagi rata ke semua CS. Porsi bonus: ' + pc(r.csBonusTot, r.bCS) + ' dari total gaji CS.</p>'
+    };
+
+    if (key === 'beban'){
+      const alatRows = s.alat.map(a => sub(a.nama + ' — ' + rp(a.harga) + ' × ' + a.jml + ' ÷ ' + a.umur + ' bln',
+        rp(a.harga * a.jml / a.umur * s.n))).join('');
+      const bahanRows = s.bahan.map(b => sub(b.nama + ' — ' + rp(b.harga) + ' ÷ ' + b.per + ' order',
+        rp(b.harga / b.per * r.totalOrder))).join('');
+      return {
+        eyebrow:'Pengeluaran', title:'Total pengeluaran sebulan', big:rp(r.beban), neg:false,
+        body: head('Terapis · ' + pc(r.bTerapis, r.beban)) +
+              row('Komisi', rp(r.bKomisi)) +
+              row('Transport', rp(r.bTransport)) +
+              row('Gaji kehadiran & bonus', rp(r.bGajiBonus)) +
+              row('Subtotal terapis', rp(r.bTerapis), 'tot') +
+              head('Customer service · ' + pc(r.bCS, r.beban)) +
+              row('Gaji pokok', rp(r.csPokokTot)) +
+              row('Tunjangan', rp(r.csTunjTot)) +
+              row('Bonus order', rp(r.csBonusTot)) +
+              row('Subtotal CS', rp(r.bCS), 'tot') +
+              head('Penyusutan alat · ' + pc(r.bAlat, r.beban)) + alatRows +
+              row('Subtotal alat (' + s.n + ' set)', rp(r.bAlat), 'tot') +
+              head('Bahan habis pakai · ' + pc(r.bBahan, r.beban)) + bahanRows +
+              row('Subtotal bahan', rp(r.bBahan), 'tot') +
+              head('Biaya lain · ' + pc(r.bLain, r.beban)) +
+              row('Iklan', rp(s.iklan)) +
+              row('Lain-lain', rp(s.lain)) +
+              row('Subtotal lain', rp(r.bLain), 'tot') +
+              head('') +
+              row('TOTAL PENGELUARAN', rp(r.beban), 'tot') +
+              '<p class="mnote">Biaya per order (komisi + transport + bonus CS + bahan): ' + rp(s.harga - r.marginOrder) +
+              '. Sisa dari tiap order untuk menutup biaya tetap: <b>' + rp(r.marginOrder) + '</b>.</p>'
+      };
+    }
+
+    // untung
+    const be = breakEven(s);
+    return {
+      eyebrow: r.profit < 0 ? 'Rugi' : 'Laba', title:'Untung bersih sebulan',
+      big: rp(r.profit), neg: r.profit < 0,
+      body: row('Omzet', rp(r.omzet)) +
+            row('Total pengeluaran', '−' + rp(r.beban)) +
+            row('Untung bersih', rp(r.profit), 'tot' + (r.profit<0?' neg':'')) +
+            head('Ukuran lain') +
+            row('Margin dari omzet', pc(r.profit, r.omzet)) +
+            row('Untung per order', r.totalOrder ? rp(r.profit/r.totalOrder) : '—') +
+            row('Untung per terapis', s.n ? rp(r.profit/s.n) : '—') +
+            row('Biaya tetap sebulan', rp(r.bLain + r.bCS - r.csBonusTot + r.bAlat + s.gaji*s.hari*s.n)) +
+            row('Titik impas', be === null ? 'tidak tercapai' : dec(be) + ' order/hari · ' + nf.format(Math.round(be*s.hari)) + ' order/bulan') +
+            '<p class="mnote">Tiap order tambahan menyumbang <b>' + rp(r.marginOrder) + '</b> untuk menutup biaya tetap. Setelah titik impas terlampaui, seluruh angka itu menjadi untung.</p>'
+    };
+  }
+
+  function openModal(key){
+    const s = state(), r = compute(s);
+    const c = modalContent(key, s, r);
+    $('modalEyebrow').textContent = c.eyebrow;
+    $('modalTitle').textContent = c.title;
+    $('modalBig').textContent = c.big;
+    $('modalBig').classList.toggle('neg', !!c.neg);
+    $('modalBody').innerHTML = c.body;
+    currentModal = key;
+    lastFocus = document.activeElement;
+    modal.hidden = false;
+    document.body.style.overflow = 'hidden';
+    modal.querySelector('.modal-x').focus();
+  }
+  function closeModal(){
+    modal.hidden = true; currentModal = null;
+    document.body.style.overflow = '';
+    if (lastFocus) lastFocus.focus();
+  }
+  document.querySelectorAll('[data-modal]').forEach(b =>
+    b.addEventListener('click', () => openModal(b.dataset.modal)));
+  modal.addEventListener('click', e => { if (e.target.hasAttribute('data-close')) closeModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !modal.hidden) closeModal(); });
+
+  /* ---------- render ---------- */
+  function render(){
+    syncOrderUI();
+    const s = state(), r = compute(s);
+
+    ['terapis','order','orderBulanRange','nCS'].forEach(id => {
+      const el = $(id);
+      const pct = ((el.value - el.min) / ((el.max - el.min) || 1)) * 100;
+      el.style.setProperty('--pct', pct + '%');
+    });
+
+    $('valTerapis').innerHTML = s.n + '<small>orang</small>';
+    $('valCS').innerHTML = s.nCS + '<small>orang</small>';
+    $('teamEcho').innerHTML = 'Seluruh tim: <b>' + nf.format(r.totalOrder) + '</b> order sebulan, omzet <b>' + rpShort(r.omzet) + '</b>.';
+    $('echoTim').textContent = s.n + ' terapis berarti ' + nf.format(r.totalOrder) + ' order sebulan';
+    $('csEcho').innerHTML = s.nCS ? 'Satu CS menerima <b>' + rp(r.bCS/s.nCS) + '</b> sebulan, termasuk bonus <b>' + rp(r.csBonusTot/s.nCS) + '</b>.' : 'Belum ada CS.';
+
+    document.querySelectorAll('#presets .chip').forEach(c =>
+      c.setAttribute('aria-pressed', String(Math.abs(+c.dataset.order - perDay) < .005)));
+    document.querySelectorAll('#presetsBulan .chip').forEach(c =>
+      c.setAttribute('aria-pressed', String(+c.dataset.month === r.orders)));
+
+    // ringkasan atas
+    setNum($('sOmzet'), r.omzet, rp);
+    $('sOmzetSub').textContent = nf.format(r.totalOrder) + ' order · ' + rp(s.harga) + ' per order';
+    setNum($('sThp'), r.thp, rp);
+    $('sThpSub').textContent = 'per orang · ' + rp(r.bTerapis) + ' untuk ' + s.n + ' terapis';
+    setNum($('sBeban'), r.beban, rp);
+    $('sBebanSub').textContent = pc(r.beban, r.omzet) + ' dari omzet';
+    setNum($('sCS'), r.bCS, rp);
+    $('sCSSub').textContent = s.nCS + ' CS · ' + (s.nCS ? rp(r.bCS/s.nCS) + ' per orang' : 'belum ada CS');
+
+    const loss = r.profit < 0;
+    $('profitBar').classList.toggle('loss', loss);
+    $('sProfit').classList.toggle('neg', loss);
+    setNum($('sProfit'), r.profit, rp);
+
+    // ringkasan seksi
+    $('tOrder').textContent = nf.format(r.totalOrder) + ' order';
+    $('tTerapis').textContent = rp(r.bTerapis);
+    $('tCS').textContent = rp(r.bCS);
+    $('tAlat').textContent = rp(r.bAlat + r.bBahan);
+    $('tLain').textContent = rp(r.bLain);
+    $('fAlat').textContent = rp(r.bAlat);
+    $('fBahan').textContent = rp(r.bBahan);
+
+    // titik impas
+    const be = breakEven(s), mxDay = MAX_MONTH / s.hari;
+    const pctOf = o => Math.max(0, Math.min(100, o/mxDay*100));
+    const vd = $('verdict');
+    if (be === null){
+      $('meterLoss').style.width = '100%'; $('meterGain').style.left = '100%';
+      $('meterTick').style.display = 'none';
+      vd.classList.add('warn');
+      vd.innerHTML = r.marginOrder <= 0
+        ? 'Tiap order justru <b>menambah rugi</b> — komisi, transport, bonus CS, dan bahan sudah melebihi harga layanan.'
+        : 'Sampai 300 order sebulan pun <b>belum balik modal</b>. Kurangi biaya tetap atau naikkan harga.';
+      $('sProfitNote').innerHTML = 'Belum balik modal pada rentang order mana pun.';
+    } else {
+      $('meterTick').style.display = '';
+      $('meterLoss').style.width = pctOf(be) + '%';
+      $('meterGain').style.left = pctOf(be) + '%';
+      $('meterTick').style.left = pctOf(be) + '%';
+      $('meterTick').setAttribute('data-label', dec(be) + '/hari');
+      vd.classList.toggle('warn', loss);
+      const beB = nf.format(Math.round(be*s.hari));
+      vd.innerHTML = (loss ? 'Butuh <b>' : 'Balik modal di <b>') + dec(be) + ' order per hari</b> per terapis — sekitar ' + beB +
+                     ' order sebulan. Sekarang ' + dec(s.o) + '.';
+      $('sProfitNote').innerHTML = loss
+        ? 'Masih kurang <b>' + rp(-r.profit) + '</b>. Balik modal di ' + beB + ' order/terapis/bulan.'
+        : 'Margin <b>' + pc(r.profit, r.omzet) + '</b> · balik modal di ' + beB + ' order/terapis/bulan.';
+    }
+    $('meterNow').style.left = pctOf(s.o) + '%';
+    $('meterNow').classList.toggle('neg', loss);
+    $('meterMax').textContent = dec(mxDay) + ' order/hari · 300/bulan';
+
+    renderFlow(r);
+    renderCurve(s);
+    if (currentModal) {
+      const c = modalContent(currentModal, s, r);
+      $('modalBig').textContent = c.big;
+      $('modalBig').classList.toggle('neg', !!c.neg);
+      $('modalBody').innerHTML = c.body;
+    }
+  }
+
+  /* ---------- events ---------- */
+  const paramPanel = $('paramPanel');
+
+  // format rupiah untuk semua input .rp, termasuk yang baru ditambahkan
+  document.addEventListener('focusin', e => {
+    const t = e.target;
+    if (t.classList && t.classList.contains('rp')){ t.value = String(digits(t.value)); t.select(); }
+  });
+  document.addEventListener('focusout', e => {
+    const t = e.target;
+    if (t.classList && t.classList.contains('rp')){ t.value = nf.format(digits(t.value)); }
+    if (t.id === 'orderNum' || t.id === 'orderBulan') render();
+  });
+
+  paramPanel.addEventListener('input', e => {
+    const id = e.target.id;
+    if (id === 'order')                setPerDay(+e.target.value);
+    else if (id === 'orderNum')        setPerDay(numVal(e.target));
+    else if (id === 'orderBulan')      setPerBulan(numVal(e.target));
+    else if (id === 'orderBulanRange') setPerBulan(+e.target.value);
+    render();
+  });
+
+  $('presets').addEventListener('click', e => {
+    const b = e.target.closest('.chip'); if (b){ setPerDay(+b.dataset.order); render(); }
+  });
+  $('presetsBulan').addEventListener('click', e => {
+    const b = e.target.closest('.chip'); if (b){ setPerBulan(+b.dataset.month); render(); }
+  });
+
+  const DEF = {terapis:2, hari:26, harga:130000, komisi:40, transport:8000, gaji:28000,
+               bonus60:100000, bonus80:200000, nCS:1, csPokok:1800000, csTunjangan:400000,
+               csBonus:3000, iklan:3000000, lain:500000};
+  $('reset').addEventListener('click', () => {
+    for (const k in DEF){
+      const el = $(k);
+      el.value = el.classList.contains('rp') ? nf.format(DEF[k]) : DEF[k];
+    }
+    alatList  = ALAT_DEF.map(a => Object.assign({uid:uid()}, a));
+    bahanList = BAHAN_DEF.map(b => Object.assign({uid:uid()}, b));
+    buildItems();
+    setPerDay(2);
+    render();
+  });
+
+  let rt;
+  window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(render, 120); });
+  render();
+})();
+</script>
+</body>
+</html>
