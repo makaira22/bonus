@@ -767,6 +767,69 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
   .chat-panel{bottom:140px;right:12px;left:12px;width:auto}
 }
 
+/* ---------- ABSEN CS (tombol melayang + panel selfie) ----------
+   Tampilan & aturan mengikuti portal cleaner. Acuan jam/toleransi/titik
+   kantor diambil dari ABSEN_ATURAN sesuai CABANG si CS (diatur HRD).      */
+.absn-fab{position:fixed;right:22px;bottom:90px;z-index:70;display:none;align-items:center;gap:9px;
+  height:52px;padding:0 20px 0 17px;border-radius:26px;border:none;cursor:pointer;
+  background:linear-gradient(180deg,#d4b878,var(--gold-deep));color:#3a2e10;
+  font-family:var(--ui);font-size:13.5px;font-weight:800;white-space:nowrap;
+  box-shadow:0 16px 34px -14px rgba(168,135,66,.9),0 2px 6px rgba(16,26,48,.18);
+  transition:transform .15s ease,box-shadow .15s ease}
+.absn-fab.show{display:inline-flex;animation:absnPop .26s cubic-bezier(.2,.9,.3,1.15)}
+.absn-fab:hover{transform:translateY(-2px)}
+.absn-fab:active{transform:translateY(1px) scale(.98)}
+.absn-fab svg{width:21px;height:21px;flex:none}
+@keyframes absnPop{from{opacity:0;transform:translateY(12px) scale(.9)}to{opacity:1;transform:none}}
+
+.absn-ov{position:fixed;inset:0;z-index:96;display:none;align-items:flex-start;justify-content:center;
+  padding:26px 16px;overflow:auto;background:rgba(10,23,48,.58);backdrop-filter:blur(3px)}
+.absn-ov.open{display:flex}
+.absn-card{width:min(430px,100%);background:var(--surface);border-radius:20px;overflow:hidden;
+  box-shadow:var(--shadow-lg);animation:rise .22s ease}
+.absn-head{display:flex;align-items:center;gap:10px;padding:15px 18px;background:var(--petrol);color:#fff}
+.absn-head h3{margin:0;flex:1;font-family:var(--display);font-weight:600;font-size:18px}
+.absn-x{margin-left:auto;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;
+  background:none;border:none;color:#fff;font-size:24px;line-height:1;cursor:pointer}
+.absn-x:hover{background:rgba(255,255,255,.16)}
+.absn-body{padding:16px 18px 20px}
+.absn-info{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--surface-2);margin-bottom:12px}
+.absn-info svg{width:19px;height:19px;flex:none}
+.absn-row{display:flex;gap:9px;align-items:flex-start}
+.absn-info b{display:block;font-size:14px;line-height:1.3}
+.absn-sub{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.5}
+.absn-sub.bad{color:var(--danger);font-weight:600}
+.absn-sub b{display:inline;font-size:inherit;color:var(--ink)}
+.absn-cam{position:relative;border-radius:16px;overflow:hidden;background:var(--petrol-3);aspect-ratio:3/4;margin-bottom:10px}
+.absn-cam video,.absn-cam img{width:100%;height:100%;object-fit:cover;display:block}
+.absn-camtxt{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:24px;
+  color:#DCE4F2;font-size:12.5px;line-height:1.6}
+/* Tirai penutup kamera saat di luar radius kantor / GPS belum siap */
+.absn-lock{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:9px;text-align:center;padding:22px 20px;background:rgba(10,23,48,.9);
+  backdrop-filter:blur(3px);color:#fff}
+.absn-lock svg{width:42px;height:42px;stroke-width:1.7;color:#FF9B9B}
+.absn-lt{font-weight:800;font-size:15.5px}
+.absn-lj{font-size:12.5px;font-weight:800;background:rgba(255,255,255,.15);padding:5px 12px;border-radius:20px}
+.absn-ld{font-size:12px;line-height:1.55;color:#DCE4F2;max-width:265px}
+.absn-gps{font-size:12.5px;color:var(--muted);line-height:1.5;margin-bottom:12px}
+.absn-gps svg{width:15px;height:15px;flex:none;margin-top:2px}
+.absn-gps b{color:var(--ink)}
+.absn-ok,.absn-bad{margin-top:8px;padding:9px 11px;border-radius:10px;font-size:12.5px;line-height:1.45;
+  display:flex;gap:7px;align-items:flex-start}
+.absn-ok{background:rgba(23,121,92,.12);color:var(--success)}
+.absn-bad{background:rgba(179,58,68,.12);color:var(--danger)}
+.absn-acts{display:flex;flex-direction:column;gap:8px}
+.absn-acts .btn{width:100%;justify-content:center}
+.absn-msg{text-align:center;padding:24px 6px 10px}
+.absn-msg svg{width:38px;height:38px;stroke-width:1.6;color:var(--petrol-2)}
+.absn-msg.good svg{color:var(--success)}
+.absn-mt{font-weight:800;font-size:15.5px;margin-top:9px}
+.absn-md{font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.55}
+/* Saat panel Obrolan terbuka, sembunyikan tombol Absen agar tidak bertumpuk. */
+.chat-panel.open ~ .absn-fab{display:none!important}
+@media (max-width:880px){ .absn-fab{bottom:144px} }
+
 /* ---------- REMINDER / POPUP WAJIB ---------- */
 .rem-overlay{position:fixed;inset:0;z-index:98;display:none;align-items:center;justify-content:center;
   padding:20px;background:rgba(8,24,23,.6);backdrop-filter:blur(3px)}
@@ -1220,6 +1283,22 @@ td.c-green, td.c-red, td.c-orange, td.c-blue{font-weight:700}
     </div>
   </div>
 
+  <!-- Absen CS: tombol melayang (pojok kanan bawah) + panel selfie.
+       Muncul mulai jam 6 pagi (Masuk) & jam 12 siang (Pulang); hilang setelah absen. -->
+  <button class="absn-fab" id="absnFab" type="button" title="Absen" aria-label="Absen">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg>
+    <span id="absnFabLbl">Absen</span>
+  </button>
+  <div class="absn-ov" id="absnOv">
+    <div class="absn-card">
+      <div class="absn-head">
+        <h3 id="absnTitle">Absen</h3>
+        <button class="absn-x" id="absnClose" aria-label="Tutup">&times;</button>
+      </div>
+      <div class="absn-body" id="absnBody"></div>
+    </div>
+  </div>
+
   <!-- Pengingat / popup wajib -->
   <div class="rem-overlay" id="remOverlay">
     <div class="rem-card">
@@ -1526,7 +1605,14 @@ const IC = {
   wa:'<path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.38 8.38 0 0 1-4-1L3 21l2-5.5a8.38 8.38 0 0 1-1-4A8.5 8.5 0 0 1 21 11.5z"/>',
   refresh:'<path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>',
   map:'<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
-  alert:'<path d="M10.6 3.9 2.5 18a1.6 1.6 0 0 0 1.4 2.4h16.2A1.6 1.6 0 0 0 21.5 18L13.4 3.9a1.6 1.6 0 0 0-2.8 0z"/><path d="M12 9.3v4M12 16.9h.01"/>'
+  alert:'<path d="M10.6 3.9 2.5 18a1.6 1.6 0 0 0 1.4 2.4h16.2A1.6 1.6 0 0 0 21.5 18L13.4 3.9a1.6 1.6 0 0 0-2.8 0z"/><path d="M12 9.3v4M12 16.9h.01"/>',
+  /* dipakai panel Absen CS */
+  camera:'<path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/>',
+  ban:'<circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3.2 2"/>',
+  sunrise:'<path d="M17 18a5 5 0 0 0-10 0"/><path d="M2.5 18h19"/><path d="M12 3v5"/><path d="M9.4 5.6 12 3l2.6 2.6"/>',
+  sunset:'<path d="M17 18a5 5 0 0 0-10 0"/><path d="M2.5 18h19"/><path d="M12 8V3"/><path d="M9.4 5.4 12 8l2.6-2.6"/>',
+  target:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/>'
 };
 function svg(name, cls){
   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '+
@@ -2347,6 +2433,7 @@ async function logout(){
   if(state._ch){ try{ window.sb.removeChannel(state._ch); }catch(e){} state._ch=null; }
   if(state._chatCh){ try{ window.sb.removeChannel(state._chatCh); }catch(e){} state._chatCh=null; }
   if(window._flyIdle){ clearInterval(window._flyIdle); window._flyIdle=null; }
+  absnStop();
   if(state._finTimer){ clearInterval(state._finTimer); state._finTimer=null; }
   { const fn=document.getElementById('finNotif'); if(fn) fn.classList.remove('show'); }
   const cp=$('#chatPanel'); if(cp) cp.classList.remove('open');
@@ -2381,6 +2468,7 @@ function enterApp(){
   initChat();
   resolveNamaLengkap();
   initFinanceNotif();
+  absnInit();                 // tombol melayang Absen (khusus jabatan CS)
   runLoginPopups();
   document.body.classList.toggle('is-designer', s.role==='DESIGNER');
   if(!MENUS[s.role].length){ renderDesigner(); return; }
@@ -7569,6 +7657,470 @@ function showCleanerInsentif(name){
   const cc=$('#modalCancel'); if(cc){ cc.textContent='Tutup'; cc.classList.add('btn-danger'); }
   openOverlay();
 }
+/* ============================================================
+   ABSEN CS — tombol melayang (pojok kanan bawah) + panel selfie.
+
+   Aturan & tampilan MENGIKUTI PORTAL CLEANER, dengan acuan
+   per-cabang dari tabel ABSEN_ATURAN yang diatur HRD
+   (ERP → Pengaturan → Aturan Absensi): Jam Masuk, Toleransi Telat,
+   Jam Pulang, Latitude, Longitude, Radius. CS memakai baris
+   ABSEN_ATURAN yang cabangnya sama dengan cabang CS tersebut.
+
+   Jadwal tombol:
+     • jam 06:00–11:59 → "Absen Masuk"   (hilang setelah absen masuk)
+     • jam 12:00–23:59 → "Absen Pulang"  (hilang setelah absen pulang)
+     • sebelum 06:00   → tombol tidak muncul
+   Tombol melayang di atas semua tab (posisinya fixed), jadi tetap
+   terlihat di menu Capaian / Order / Input Bonus / KPI / Pengaturan.
+   ============================================================ */
+const ABSN_HOUR_IN     = 6;    // tombol absen MASUK  mulai jam 06:00
+const ABSN_HOUR_OUT    = 12;   // tombol absen PULANG mulai jam 12:00
+const ABSN_RADIUS_DFLT = 5;    // meter — bila HRD belum mengisi kolom Radius
+const ABSN_TICK_MS     = 30000;// cek ulang jadwal tiap 30 detik
+
+let ABSN = { me:null, tipe:'', lastTipe:'', cam:null, shot:null, gps:null, timer:null, sending:false,
+             tgl:'', sudah:null, cekAt:0 };   // sudah = {Masuk:bool, Pulang:bool} hari ini
+
+function absnIsCS(){
+  const s=state.session;
+  return !!(s && String(s.role||'').toUpperCase()==='CS');
+}
+
+/* ---------- START / STOP ---------- */
+function absnInit(){
+  absnWire();
+  if(!absnIsCS()){ absnStop(); return; }
+  (async ()=>{
+    await absnLoadMe();
+    await loadAturanAbsen();        // aturan absensi semua cabang (dipakai bersama HRD)
+    absnRefresh();
+  })();
+  if(ABSN.timer) clearInterval(ABSN.timer);
+  ABSN.timer=setInterval(absnRefresh, ABSN_TICK_MS);
+  document.removeEventListener('visibilitychange', absnOnVisible);
+  document.addEventListener('visibilitychange', absnOnVisible);
+}
+function absnOnVisible(){ if(!document.hidden) absnRefresh(); }   // absnRefresh sendiri yang menilai perlu baca ulang
+function absnStop(){
+  if(ABSN.timer){ clearInterval(ABSN.timer); ABSN.timer=null; }
+  document.removeEventListener('visibilitychange', absnOnVisible);
+  absnStopCam();
+  /* Tutup panel LANGSUNG (bukan lewat absnClose) — saat logout sesi belum
+     dikosongkan, jadi absnClose() akan memunculkan tombol lagi. */
+  const ov=document.getElementById('absnOv'); if(ov) ov.classList.remove('open');
+  absnFabHide();
+  ABSN={ me:null, tipe:'', lastTipe:'', cam:null, shot:null, gps:null, timer:null, sending:false,
+         tgl:'', sudah:null, cekAt:0 };
+}
+function absnWire(){
+  const fab=document.getElementById('absnFab');
+  if(fab && !fab._wired){ fab._wired=true; fab.addEventListener('click', absnOpen); }
+  const x=document.getElementById('absnClose');
+  if(x && !x._wired){ x._wired=true; x.addEventListener('click', absnClose); }
+  const ov=document.getElementById('absnOv');
+  if(ov && !ov._wired){ ov._wired=true;
+    ov.addEventListener('click', e=>{ if(e.target===ov) absnClose(); }); }
+}
+
+/* ---------- IDENTITAS CS (untuk kolom tabel ABSEN) ---------- */
+async function absnLoadMe(){
+  const s=state.session; if(!s) return null;
+  let email='';
+  try{ const u=await window.sb.auth.getUser(); email=(u&&u.data&&u.data.user&&u.data.user.email)||''; }catch(e){}
+  let rows=[];
+  try{ rows=trimKeys((await api({action:'list', sheet:'KARYAWAN'})).data||[]); }catch(e){ rows=[]; }
+  const nm=k=>k['Nama Lengkap']||k['Nama']||k['Nama Karyawan']||'';
+  let m=null;
+  if(email) m=rows.find(k=>norm(k['Email'])===norm(email) && nm(k));
+  if(!m) m=rows.find(k=>norm(k['Jabatan'])==='cs' && norm(k['Cabang'])===norm(s.cabang)
+                        && (s.status?norm(k['Status'])===norm(s.status):true) && nm(k));
+  if(!m) m=rows.find(k=>norm(k['Jabatan'])==='cs' && norm(k['Cabang'])===norm(s.cabang) && nm(k));
+  ABSN.me={
+    id:     m ? String(m['ID Karyawan']||'') : '',
+    nama:   (m&&nm(m)) || s.namaLengkap || s.nama || ('CS '+(s.cabang||'')).trim(),
+    cabang: (m&&m['Cabang']) || s.cabang || '',
+    email:  email || (m ? String(m['Email']||'') : '')
+  };
+  return ABSN.me;
+}
+
+/* Absen milik CS ini pada hari ini. Balikan null = gagal memeriksa
+   (jangan sembunyikan tombol hanya karena jaringan bermasalah). */
+async function absnTodayRows(){
+  const me=ABSN.me; if(!me) return null;
+  const t=ymd(new Date());
+  try{
+    let q=window.sb.from('ABSEN').select('*').eq('Tanggal', t);
+    q = me.id ? q.eq('ID Karyawan', me.id) : q.eq('Nama', me.nama);
+    const r=await q;
+    if(r.error) throw r.error;
+    return r.data||[];
+  }catch(e){
+    /* Cadangan: RPC my_absen (dipakai portal cleaner) bila select langsung dibatasi RLS. */
+    try{
+      const r=await window.sb.rpc('my_absen', { p_email:me.email, p_nama:me.nama });
+      if(r.error) throw r.error;
+      return (r.data||[]).filter(a=>String(a['Tanggal']||'').slice(0,10)===t);
+    }catch(e2){ return null; }
+  }
+}
+
+/* Tipe absen yang berlaku pada jam sekarang. '' = di luar jadwal. */
+function absnTipeSekarang(){
+  const hr=new Date().getHours();
+  if(hr < ABSN_HOUR_IN)  return '';
+  if(hr < ABSN_HOUR_OUT) return 'Masuk';
+  return 'Pulang';
+}
+
+/* ---------- TOMBOL MELAYANG ----------
+   Status absen hari ini disimpan sementara di ABSN.sudah supaya pemeriksaan
+   jadwal tiap 30 detik tidak menembak database terus-menerus. Database dibaca
+   ulang hanya saat: pertama kali, ganti hari, ganti tipe (lewat jam 12),
+   halaman dibuka kembali setelah >2 menit, panel absen dibuka, dan sesudah
+   absen terkirim.                                                          */
+async function absnCekSudah(force){
+  const t=ymd(new Date());
+  if(ABSN.tgl!==t){ ABSN.tgl=t; ABSN.sudah=null; ABSN.cekAt=0; }   // ganti hari → mulai bersih
+  if(!force && ABSN.sudah && (Date.now()-(ABSN.cekAt||0))<120000) return ABSN.sudah;
+  const rows=await absnTodayRows();
+  if(rows==null) return ABSN.sudah;              // gagal baca → pakai catatan terakhir
+  ABSN.sudah={ Masuk: rows.some(a=>norm(a['Tipe'])==='masuk'),
+               Pulang:rows.some(a=>norm(a['Tipe'])==='pulang') };
+  ABSN.cekAt=Date.now();
+  return ABSN.sudah;
+}
+async function absnRefresh(force){
+  if(!absnIsCS()){ absnFabHide(); return; }
+  if(!ABSN.me) await absnLoadMe();
+  const tipe=absnTipeSekarang();
+  if(!tipe){ ABSN.tipe=''; absnFabHide(); return; }        // belum jam 6 pagi
+  if(tipe!==ABSN.lastTipe){ ABSN.lastTipe=tipe; force=true; }   // masuk → pulang (jam 12)
+  const sudah=await absnCekSudah(force);
+  if(sudah && sudah[tipe]){ ABSN.tipe=''; absnFabHide(); return; }   // sudah absen → sembunyikan
+  ABSN.tipe=tipe; absnFabShow(tipe);
+}
+function absnFabShow(tipe){
+  const b=document.getElementById('absnFab'); if(!b) return;
+  const l=document.getElementById('absnFabLbl'); if(l) l.textContent='Absen '+tipe;
+  b.title='Absen '+tipe; b.classList.add('show');
+}
+function absnFabHide(){
+  const b=document.getElementById('absnFab'); if(b) b.classList.remove('show');
+}
+
+/* ---------- ATURAN CABANG (titik kantor + radius) ---------- */
+function absnTitik(){
+  const a=aturanCabang((ABSN.me&&ABSN.me.cabang)||'');
+  if(!a) return null;
+  const la=Number(String(a['Latitude']||'').trim()), ln=Number(String(a['Longitude']||'').trim());
+  if(!isFinite(la) || !isFinite(ln) || (la===0 && ln===0)) return null;
+  let r=Number(String(a['Radius']||'').replace(/[^0-9.]/g,''));
+  if(!isFinite(r) || r<=0) r=ABSN_RADIUS_DFLT;
+  return { lat:la, lng:ln, radius:Math.max(1, Math.round(r)) };
+}
+/* Jarak dua titik GPS dalam meter (rumus Haversine). */
+function absnJarak(lat1,lng1,lat2,lng2){
+  const R=6371000, rad=x=>x*Math.PI/180;
+  const dLat=rad(lat2-lat1), dLng=rad(lng2-lng1);
+  const a=Math.sin(dLat/2)*Math.sin(dLat/2)+
+          Math.cos(rad(lat1))*Math.cos(rad(lat2))*Math.sin(dLng/2)*Math.sin(dLng/2);
+  return 2*R*Math.asin(Math.min(1,Math.sqrt(a)));
+}
+function absnFmtJarak(m){ return m>=1000 ? (m/1000).toFixed(2)+' km' : Math.round(m)+' m'; }
+function absnJam(d){ const p=n=>String(n).padStart(2,'0'); return p(d.getHours())+':'+p(d.getMinutes()); }
+
+/* ---------- BUKA / TUTUP PANEL ---------- */
+async function absnOpen(){
+  if(!absnIsCS()) return;
+  ABSN.shot=null; ABSN.gps=null; ABSN.sending=false;
+  const ov=document.getElementById('absnOv'); if(!ov) return;
+  ov.classList.add('open');
+  absnMsg('clock','Memuat…','Mengambil aturan absensi cabang.');
+  await loadAturanAbsen();                  // selalu ambil aturan terbaru dari HRD
+  if(!ABSN.me) await absnLoadMe();
+
+  const tipe=absnTipeSekarang();
+  const ttl=document.getElementById('absnTitle');
+  if(ttl) ttl.textContent = tipe ? ('Absen '+tipe) : 'Absen';
+  if(!tipe){
+    absnMsg('clock','Belum waktunya absen',
+      'Absen masuk dibuka mulai <b>jam '+ABSN_HOUR_IN+' pagi</b>, absen pulang mulai <b>jam 12 siang</b>.');
+    absnFabHide(); return;
+  }
+  const sudah=await absnCekSudah(true);          // baca ulang catatan hari ini
+  if(sudah && sudah[tipe]){
+    absnMsg('check','Absen '+tipe+' hari ini sudah tercatat',
+      'Absen '+tipe.toLowerCase()+' hanya bisa sekali dalam sehari.', true);
+    absnFabHide(); return;
+  }
+  ABSN.tipe=tipe;
+  absnForm(tipe);
+}
+function absnClose(){
+  absnStopCam();
+  const ov=document.getElementById('absnOv'); if(ov) ov.classList.remove('open');
+  if(absnIsCS()) absnRefresh();
+}
+/* Pesan satu-layar (belum waktunya / sudah absen / berhasil). */
+function absnMsg(icon, title, desc, good){
+  const b=document.getElementById('absnBody'); if(!b) return;
+  b.innerHTML='<div class="absn-msg'+(good?' good':'')+'">'+svg(icon)+
+    '<div class="absn-mt">'+esc(title)+'</div>'+
+    '<div class="absn-md">'+(desc||'')+'</div></div>';
+}
+
+/* ---------- FORM ABSEN SELFIE ---------- */
+function absnForm(tipe){
+  const b=document.getElementById('absnBody'); if(!b) return;
+  const cab=(ABSN.me&&ABSN.me.cabang)||'';
+  const a=aturanCabang(cab);
+  const jamNow=absnJam(new Date());
+  const K=absnTitik();
+
+  let info;
+  if(tipe==='Masuk'){
+    const batas=batasMasukStr(cab)||'-';
+    info = absenTelat(jamNow, cab)
+      ? '<div class="absn-row"><span style="color:var(--danger)">'+svg('alert')+'</span><div>'+
+        '<b>Absen Masuk · Terlambat</b>'+
+        '<div class="absn-sub bad">Batas tepat waktu '+esc(batas)+'. Sekarang '+jamNow+'.</div></div></div>'
+      : '<div class="absn-row"><span style="color:var(--gold-deep)">'+svg('sunrise')+'</span><div>'+
+        '<b>Absen Masuk · Tepat waktu</b>'+
+        '<div class="absn-sub">Batas tepat waktu '+esc(batas)+'. Sekarang '+jamNow+'.</div></div></div>';
+  } else {
+    const jp = a && String(a['Jam Pulang']||'').trim();
+    info = '<div class="absn-row"><span style="color:var(--petrol-2)">'+svg('sunset')+'</span><div>'+
+      '<b>Absen Pulang</b><div class="absn-sub">'+
+      (jp ? ('Jam pulang '+esc(String(jp).slice(0,5))+'. Sekarang '+jamNow+'.')
+          : ('Otomatis, setelah jam 12 siang. Sekarang '+jamNow+'.'))+
+      '</div></div></div>';
+  }
+  const radiusInfo='<div class="absn-row absn-sub" style="margin-top:9px"><span>'+svg('target')+'</span><span>'+
+    (K ? ('Harus berada maksimal <b>'+K.radius+' m</b> dari titik kantor '+esc(cab||'-')+'.')
+       : ('Titik kantor '+esc(cab||'-')+' belum diatur HRD — absen tidak dibatasi jarak.'))+
+    '</span></div>';
+
+  b.innerHTML=
+    '<div class="absn-info">'+info+radiusInfo+'</div>'+
+    '<div class="absn-cam" id="absnCam"><video id="absnVid" autoplay playsinline muted></video></div>'+
+    '<div class="absn-gps absn-row" id="absnGps"><span>'+svg('map')+'</span><span>Mengambil lokasi GPS…</span></div>'+
+    '<div class="absn-acts">'+
+      '<button class="btn btn-gold" id="absnShot" type="button">'+svg('camera')+'Ambil Foto</button>'+
+      '<button class="btn btn-ghost" id="absnRetake" type="button" style="display:none">'+svg('refresh')+'Ulangi Foto</button>'+
+      '<button class="btn btn-primary" id="absnSend" type="button" style="display:none">'+svg('check')+'Kirim Absen '+esc(tipe)+'</button>'+
+      '<button class="btn btn-ghost" id="absnGpsBtn" type="button" style="display:none">'+svg('map')+'Cek Ulang Lokasi</button>'+
+    '</div>';
+
+  document.getElementById('absnShot').addEventListener('click', absnShoot);
+  document.getElementById('absnRetake').addEventListener('click', ()=>absnForm(ABSN.tipe));
+  document.getElementById('absnSend').addEventListener('click', absnSend);
+  document.getElementById('absnGpsBtn').addEventListener('click', ()=>{
+    ABSN.gps=null;
+    const g=document.getElementById('absnGps');
+    if(g) g.innerHTML='<span>'+svg('map')+'</span><span>Mengambil lokasi GPS…</span>';
+    absnGetGps();
+  });
+  absnStartCam();
+  absnGetGps();
+}
+
+/* ---------- KAMERA ---------- */
+async function absnStartCam(){
+  try{
+    ABSN.cam=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});
+    const v=document.getElementById('absnVid'); if(v) v.srcObject=ABSN.cam;
+  }catch(e){
+    const w=document.getElementById('absnCam');
+    if(w) w.innerHTML='<div class="absn-camtxt">Kamera tidak bisa diakses.<br>Izinkan akses kamera di browser, lalu buka ulang tombol Absen.</div>';
+  }
+}
+function absnStopCam(){
+  if(ABSN.cam){ try{ ABSN.cam.getTracks().forEach(t=>t.stop()); }catch(e){} ABSN.cam=null; }
+}
+function absnShoot(){
+  const v=document.getElementById('absnVid');
+  if(!v || !v.videoWidth){ toast('Kamera belum siap','err'); return; }
+  const maxW=640, sc=Math.min(1, maxW/v.videoWidth);
+  const w=Math.round(v.videoWidth*sc), h=Math.round(v.videoHeight*sc);
+  const c=document.createElement('canvas'); c.width=w; c.height=h;
+  c.getContext('2d').drawImage(v,0,0,w,h);
+  ABSN.shot=c.toDataURL('image/jpeg',0.5);      // kompres kuat — cukup untuk verifikasi wajah
+  absnStopCam();
+  const wrap=document.getElementById('absnCam');
+  if(wrap) wrap.innerHTML='<img src="'+ABSN.shot+'" alt="Foto absen">';
+  const sh=document.getElementById('absnShot');   if(sh) sh.style.display='none';
+  const rt=document.getElementById('absnRetake'); if(rt) rt.style.display='';
+  const sd=document.getElementById('absnSend');   if(sd) sd.style.display='';
+  absnGate();
+}
+
+/* ---------- GPS ---------- */
+function absnGetGps(){
+  const box=document.getElementById('absnGps');
+  if(!navigator.geolocation){
+    if(box) box.innerHTML='<span>'+svg('map')+'</span><span>GPS tidak didukung perangkat ini.</span>';
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    async pos=>{
+      ABSN.gps={ lat:pos.coords.latitude, lng:pos.coords.longitude,
+                 acc:pos.coords.accuracy||null, place:'', dist:null, ok:true };
+      const K=absnTitik();
+      if(K){
+        ABSN.gps.dist=absnJarak(ABSN.gps.lat, ABSN.gps.lng, K.lat, K.lng);
+        ABSN.gps.ok  =ABSN.gps.dist <= K.radius;
+      }
+      absnPaintGps(); absnGate();
+      const g=document.getElementById('absnGpsBtn'); if(g) g.style.display='';
+      try{ ABSN.gps.place=(await absnGeocode(ABSN.gps.lat, ABSN.gps.lng))||''; absnPaintGps(); }catch(e){}
+    },
+    err=>{
+      ABSN.gps=null; absnGate();
+      if(box) box.innerHTML='<span>'+svg('map')+'</span><span style="color:var(--danger)">Gagal ambil GPS ('+
+        esc(err.message||'')+'). Izinkan akses lokasi.</span>';
+      const g=document.getElementById('absnGpsBtn'); if(g) g.style.display='';
+    },
+    { enableHighAccuracy:true, timeout:15000, maximumAge:0 }
+  );
+}
+function absnPaintGps(){
+  const box=document.getElementById('absnGps'); if(!box || !ABSN.gps) return;
+  const K=absnTitik(), G=ABSN.gps;
+  const koord=G.lat.toFixed(5)+', '+G.lng.toFixed(5);
+  const akur=G.acc!=null ? (' · akurasi ±'+Math.round(G.acc)+' m') : '';
+  let h='<span>'+svg('map')+'</span><span><b>'+esc(G.place||'Mencari nama tempat…')+'</b>'+
+        '<br>'+esc(koord+akur);
+  if(K && G.dist!=null){
+    h += G.ok
+      ? '<span class="absn-ok">'+svg('check')+'<span><b>'+absnFmtJarak(G.dist)+'</b> dari kantor — dalam batas '+K.radius+' m.</span></span>'
+      : '<span class="absn-bad">'+svg('ban')+'<span><b>'+absnFmtJarak(G.dist)+'</b> dari kantor — maksimal <b>'+K.radius+
+        ' m</b>.<br>Mendekat ke titik kantor lalu tekan “Cek Ulang Lokasi”.</span></span>';
+  }
+  box.innerHTML=h+'</span>';
+}
+async function absnGeocode(lat,lng){
+  /* Utama: Nominatim (OpenStreetMap) — detail sampai nama jalan/lingkungan. */
+  try{
+    const u='https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&zoom=18&lat='+lat+'&lon='+lng;
+    const r=await fetch(u,{headers:{'Accept-Language':'id'}});
+    if(r.ok){
+      const j=await r.json(), a=j.address||{};
+      const parts=[
+        [a.road, a.house_number?('No. '+a.house_number):''].filter(Boolean).join(' '),
+        a.neighbourhood||a.quarter||a.hamlet,
+        a.suburb||a.village||a.town,
+        a.city_district,
+        a.city||a.county||a.municipality
+      ].filter(Boolean);
+      const uniq=[...new Set(parts)];
+      if(uniq.length) return uniq.join(', ');
+      if(j.display_name) return j.display_name;
+    }
+  }catch(e){}
+  /* Cadangan: BigDataCloud. */
+  try{
+    const u2='https://api.bigdatacloud.net/data/reverse-geocode-client?latitude='+lat+'&longitude='+lng+'&localityLanguage=id';
+    const j2=await (await fetch(u2)).json();
+    return [...new Set([j2.locality,j2.city,j2.principalSubdivision].filter(Boolean))].join(', ');
+  }catch(e){ return ''; }
+}
+
+/* Kunci tombol Kirim + tutup kamera bila di luar radius kantor / GPS belum siap. */
+function absnGate(){
+  const K=absnTitik();
+  const boleh = !K || !!(ABSN.gps && ABSN.gps.ok);   // titik belum diatur → tidak dibatasi
+  const send=document.getElementById('absnSend');
+  if(send){ send.disabled=!boleh; send.style.opacity = boleh ? '' : '.5'; }
+  absnPaintLock(K, boleh);
+}
+/* Tirai gelap menutupi kotak kamera + pesan “di luar area kantor”. */
+function absnPaintLock(K, boleh){
+  const wrap=document.getElementById('absnCam'); if(!wrap) return;
+  const old=wrap.querySelector('.absn-lock'); if(old) old.remove();
+  const shot=document.getElementById('absnShot');
+  if(boleh){
+    if(shot && !ABSN.shot) shot.style.display='';
+    if(!ABSN.cam && !ABSN.shot){                     // nyalakan ulang kamera bila sempat dimatikan
+      if(!wrap.querySelector('video')) wrap.innerHTML='<video id="absnVid" autoplay playsinline muted></video>';
+      absnStartCam();
+    }
+    return;
+  }
+  let t,d,j='';
+  if(!ABSN.gps){
+    t='Menunggu lokasi';
+    d='Aktifkan izin lokasi di perangkat, lalu tekan “Cek Ulang Lokasi”.';
+  }else{
+    t='Di luar area kantor';
+    j=absnFmtJarak(ABSN.gps.dist)+' dari kantor';
+    d='Absen hanya bisa dilakukan maksimal <b>'+K.radius+' m</b> dari titik kantor '+
+      esc((ABSN.me&&ABSN.me.cabang)||'')+'. Mendekat ke kantor lalu tekan “Cek Ulang Lokasi”.';
+  }
+  const div=document.createElement('div');
+  div.className='absn-lock';
+  div.innerHTML=svg('ban')+'<div class="absn-lt">'+t+'</div>'+
+    (j?'<div class="absn-lj">'+esc(j)+'</div>':'')+'<div class="absn-ld">'+d+'</div>';
+  wrap.appendChild(div);
+  absnStopCam();                                     // hentikan kamera, hemat baterai
+  if(shot) shot.style.display='none';
+}
+
+/* ---------- KIRIM ---------- */
+async function absnSend(){
+  if(ABSN.sending) return;
+  if(!ABSN.shot){ toast('Ambil foto dulu','err'); return; }
+  const tipe=ABSN.tipe;
+  const K=absnTitik();
+  if(K){
+    if(!ABSN.gps){ toast('Lokasi GPS belum didapat. Tekan “Cek Ulang Lokasi”.','err'); return; }
+    if(!ABSN.gps.ok){ toast('Terlalu jauh dari kantor ('+absnFmtJarak(ABSN.gps.dist)+'). Maksimal '+K.radius+' m.','err'); return; }
+  }
+  /* Pemeriksaan terakhir: pastikan belum ada absen tipe sama hari ini. */
+  const cek=await absnCekSudah(true);
+  if(cek && cek[tipe]){
+    absnStopCam();
+    absnMsg('check','Absen '+tipe+' hari ini sudah tercatat',
+      'Absen '+tipe.toLowerCase()+' hanya bisa sekali dalam sehari.', true);
+    absnFabHide(); return;
+  }
+
+  ABSN.sending=true;
+  const btn=document.getElementById('absnSend');
+  if(btn){ btn.disabled=true; btn.textContent='Mengirim…'; }
+  try{
+    let foto='';
+    try{
+      const blob=await (await fetch(ABSN.shot)).blob();
+      const path='absen/'+ymd(new Date())+'-'+((ABSN.me&&ABSN.me.id)||'cs')+'-'+Date.now()+'.jpg';
+      const up=await window.sb.storage.from('bukti').upload(path, blob, {contentType:'image/jpeg'});
+      if(!up.error) foto=window.sb.storage.from('bukti').getPublicUrl(path).data.publicUrl;
+    }catch(e){}
+    const now=new Date();
+    const rec={
+      'ID Karyawan':(ABSN.me&&ABSN.me.id)||'', 'Nama':(ABSN.me&&ABSN.me.nama)||'',
+      'Cabang':(ABSN.me&&ABSN.me.cabang)||'', email:(ABSN.me&&ABSN.me.email)||'',
+      'Tanggal':ymd(now), 'Jam':absnJam(now), 'Tipe':tipe, foto:foto,
+      lat:ABSN.gps?ABSN.gps.lat:null, lng:ABSN.gps?ABSN.gps.lng:null
+    };
+    const r=await window.sb.from('ABSEN').insert(rec);
+    if(r.error) throw r.error;
+    ABSN.sudah=Object.assign({Masuk:false,Pulang:false}, ABSN.sudah||{}); // catat lokal → tombol langsung hilang
+    ABSN.sudah[tipe]=true; ABSN.tgl=ymd(now); ABSN.cekAt=Date.now();
+    absnStopCam();
+    toast('Absen '+tipe+' berhasil ✓','ok');
+    absnMsg('check','Absen '+tipe+' tercatat · '+absnJam(now),
+      tipe==='Masuk'
+        ? 'Tombol <b>Absen Pulang</b> muncul otomatis setelah jam 12 siang.'
+        : 'Absen hari ini sudah lengkap. Terima kasih!', true);
+    absnFabHide();
+    setTimeout(()=>{ const ov=document.getElementById('absnOv'); if(ov) ov.classList.remove('open'); }, 2200);
+  }catch(err){
+    toast('Gagal: '+((err&&err.message)||err),'err');
+    if(btn){ btn.disabled=false; btn.innerHTML=svg('check')+'Kirim Absen '+esc(tipe); }
+  }finally{ ABSN.sending=false; }
+}
+
 /* ============================================================
    ABSENSI (HRD) — rekap kehadiran cleaner dari tabel ABSEN.
    Kolom ABSEN: "ID Karyawan","Nama","Cabang",email,"Tanggal",
