@@ -447,9 +447,9 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .nav-item.nav-parent.open{color:var(--ink);background:var(--surface-2)}
 .nav-item.nav-parent.active{color:#fff;background:var(--petrol)}
 /* Daftar anak: tertutup rapat, terbuka dengan animasi */
-.nav-sub{display:grid;grid-template-rows:0fr;transition:grid-template-rows .2s ease;overflow:hidden}
-.nav-sub.open{grid-template-rows:1fr}
-.nav-sub>*{min-height:0;overflow:hidden}
+.nav-sub{display:none}
+.nav-sub.open{display:block;animation:navDrop .16s ease}
+@keyframes navDrop{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
 .nav-sub .nav-sub{padding-left:13px;border-left:1px solid var(--line);margin-left:12px}
 .nav-sub-item{width:100%;display:flex;align-items:center;gap:9px;text-align:left;cursor:pointer;
   padding:9px 12px 9px 14px;margin:2px 0 2px 10px;border:none;background:none;border-radius:10px;
@@ -2779,13 +2779,20 @@ async function opsGo(path){
   if(node.children && node.children.length){ opsReveal(path, true); return; }
   if(node.view) await opsOpenView(node.view, path);
 }
-/* Buka dropdown sepanjang jalur (dan tutup lagi bila diklik ulang). */
-function opsReveal(path, toggle){
-  const key=path.join('|');
-  if(toggle && state.navOpen[key]) delete state.navOpen[key];
-  else {
-    for(let i=1;i<=path.length;i++) state.navOpen[path.slice(0,i).join('|')]=true;
-  }
+/* Buka HANYA cabang ini: seluruh dropdown lain ditutup supaya daftar
+   menu tetap pendek. Dipanggil saat memilih menu maupun membuka halaman. */
+function navOpenPath(path){
+  state.navOpen={};
+  for(let i=1;i<=(path||[]).length;i++) state.navOpen[path.slice(0,i).join('|')]=true;
+}
+/* Tutup sebuah cabang beserta seluruh anak-anaknya. */
+function navClosePath(key){
+  Object.keys(state.navOpen).forEach(k=>{
+    if(k===key || k.indexOf(key+'|')===0) delete state.navOpen[k];
+  });
+}
+function opsReveal(path){
+  navOpenPath(path);
   buildNav();
   if(navIsMobile()) navSheetOpen(path[0]);
 }
@@ -2805,7 +2812,7 @@ function opsWireCrumb(){
     if(b._opsw) return; b._opsw=true;
     b.addEventListener('click', ()=>{
       const raw=b.dataset.opsgo; if(!raw) return;
-      opsReveal(raw.split('|'), false);
+      opsReveal(raw.split('|'));
     });
   });
 }
@@ -2877,7 +2884,8 @@ function navWire(root){
   });
 }
 function navToggle(key){
-  if(state.navOpen[key]) delete state.navOpen[key]; else state.navOpen[key]=true;
+  if(state.navOpen[key]) navClosePath(key);        // klik ulang → tutup
+  else navOpenPath(key.split('|'));                // buka cabang ini saja
   buildNav();
   const sheet=document.getElementById('navSheet');
   if(sheet && sheet.classList.contains('open')) navSheetRender();
@@ -2887,7 +2895,7 @@ function navToggle(key){
 function navSheetOpen(rootKey){
   const el=document.getElementById('navSheet'); if(!el) return;
   state._navSheet=rootKey;
-  state.navOpen[rootKey]=true;
+  navOpenPath([rootKey]);
   navSheetRender();
   el.classList.add('open');
 }
@@ -2913,7 +2921,7 @@ async function opsOpenView(viewKey, path){
   state.opsHub=null;
   state.opsOpen={ path:path.slice() };
   if(v.defaultMonth){ const b=calMonthBounds(ymd(new Date()).slice(0,7)); state.dateStart=b.start; state.dateEnd=b.end; }
-  for(let i=1;i<path.length;i++) state.navOpen[path.slice(0,i).join('|')]=true;
+  navOpenPath(path.slice(0,-1));
   navSheetClose();
   buildNav();
   markActive(path[0]);
