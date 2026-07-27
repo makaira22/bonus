@@ -435,6 +435,27 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .set-arrow{color:var(--faint);flex:none}
 .set-arrow svg{width:17px;height:17px}
 
+/* ---------- NAVIGASI BERTINGKAT OPERASIONAL ---------- */
+.ops-chip{display:inline-block;margin-left:8px;padding:1px 8px;border-radius:20px;background:var(--gold-soft);
+  color:var(--gold-deep);font-size:10.5px;font-weight:800;vertical-align:1px}
+.ops-crumb{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.ops-back{width:34px;height:34px;flex:none;border-radius:10px;border:1px solid var(--line-2);background:var(--surface);
+  color:var(--ink);display:grid;place-items:center;cursor:pointer}
+.ops-back:hover{border-color:var(--petrol);color:var(--petrol)}
+.ops-back svg{width:17px;height:17px}
+.ops-crumb-t{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12.5px;min-width:0}
+.ops-crumb-b{background:none;border:none;padding:2px 4px;border-radius:7px;color:var(--muted);font-weight:700;
+  font-size:12.5px;cursor:pointer;font-family:inherit}
+.ops-crumb-b:hover{color:var(--petrol);background:var(--surface-2)}
+.ops-crumb-s{color:var(--faint)}
+.ops-crumb-c{color:var(--ink);font-weight:800;font-size:12.5px}
+/* Foto pojok kanan atas pada Beranda */
+.brnd-foto{order:9;margin-left:auto;width:62px;height:62px;border-radius:16px;overflow:hidden;flex:none;
+  background:var(--surface-2);border:1px solid var(--line);box-shadow:var(--shadow);display:grid;place-items:center}
+.brnd-foto img{width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in}
+.brnd-ini{font-family:var(--display);font-weight:600;font-size:21px;color:var(--petrol)}
+@media (max-width:620px){ .brnd-foto{width:50px;height:50px;border-radius:13px} .brnd-ini{font-size:17px} }
+
 /* ---------- DESIGNER: fly catch game ---------- */
 .fly-arena{position:relative;height:min(62vh,520px);border-radius:18px;overflow:hidden;
   background:
@@ -1648,12 +1669,13 @@ const MENUS = {
     {key:'agenda', label:'Agenda', icon:'audit'},
     {key:'__settings', label:'Pengaturan', icon:'settings'}
   ],
+  /* Menu OPERASIONAL memakai navigasi bertingkat — lihat OPS_TREE. */
   OPERASIONAL: [
-    {key:'laporanOmzet', label:'Laporan Omzet', icon:'result'},
-    {key:'reportKPI', label:'Report KPI', icon:'audit'},
-    {key:'kpiCS', label:'KPI CS', icon:'users'},
-    {key:'dataChat', label:'Data Chat', icon:'wa'},
-    {key:'agenda', label:'Agenda', icon:'audit'},
+    {key:'opsBeranda', label:'Beranda', icon:'result'},
+    {key:'opsOperasional', label:'Operasional', icon:'inbox'},
+    {key:'opsHCS', label:'HCS', icon:'users'},
+    {key:'opsHSE', label:'HSE', icon:'alert'},
+    {key:'opsRnd', label:'R&D', icon:'audit'},
     {key:'__settings', label:'Pengaturan', icon:'settings'}
   ],
   MARKETING: [
@@ -2153,12 +2175,672 @@ VIEWS.dataChat = {
   datePreset:true, dateFilterField:'Tanggal', defaultMonth:true
 };
 
+/* ============================================================
+   MODUL BARU JABATAN OPERASIONAL  (Operasional · HCS · HSE · R&D)
+   Setiap view di bawah memakai tabel Supabase baru. Jalankan berkas
+   SQL pendamping (tabel-operasional.sql) sebelum memakai menu ini.
+   Kolom "id" bertipe teks dan dibuat otomatis di sisi klien
+   (lihat properti autoId) — pola yang sama dipakai KARYAWAN & BONUS.
+   ============================================================ */
+const OPS_KATEGORI_BARANG = ['Alat','Chemical','Sparepart','Lainnya'];
+const OPS_SATUAN          = ['Pcs','Unit','Set','Liter','Mililiter','Kilogram','Gram','Botol','Galon','Jerigen','Box','Pack','Roll','Meter'];
+const OPS_JENIS_TAGIHAN   = ['Sewa','Listrik','Air','Internet','Telepon','Kebersihan','Keamanan','Pajak','Lainnya'];
+const OPS_STATUS_BAYAR    = ['Belum Bayar','Sebagian','Lunas'];
+const OPS_STATUS_AJU      = ['Diajukan','Disetujui','Ditolak','Diproses','Selesai'];
+const OPS_STATUS_PO       = ['Draft','Dikirim ke Supplier','Diterima Sebagian','Diterima Penuh','Batal'];
+const OPS_ARUS            = ['Masuk','Keluar'];
+const OPS_KATEGORI_KAS    = ['Omzet','Gaji','Operasional Kantor','Alat & Chemical','Transport','Marketing','Pajak','Lainnya'];
+const HCS_STATUS_QUOT     = ['Draft','Terkirim','Negosiasi','Deal','Batal'];
+const HSE_TINGKAT         = ['Nyaris Celaka','Ringan','Sedang','Berat','Fatal'];
+const HSE_JENIS_APD       = ['APD','Suplemen Kesehatan'];
+const HSE_JENIS_FASKES    = ['Klinik','Puskesmas','Rumah Sakit','Apotek','Laboratorium'];
+const HSE_JENIS_SIM       = ['SIM A','SIM B I','SIM B II','SIM C','SIM D'];
+const RND_STATUS_KAJIAN   = ['Usulan','Sedang Dikaji','Uji Coba','Diterapkan','Ditolak'];
+
+/* ---------- OPERASIONAL ---------- */
+VIEWS.tagihanBulanan = {
+  sheet:'OPS_TAGIHAN', title:'Data Tagihan Bulanan', sub:'Tagihan rutin tiap kantor cabang',
+  countTop:true, noSyncBtn:true, idField:'id', autoId:'TGH',
+  canAdd:true, canEdit:true, canDelete:true, delInForm:true,
+  sortBy:['Periode','Cabang'], sortDesc:true,
+  table:['Periode','Cabang','Jenis Tagihan','Nominal','Jatuh Tempo','Status Bayar'],
+  colorMap:{'Nominal':'c-orange'},
+  filters:['Cabang','Jenis Tagihan','Status Bayar'],
+  datePreset:true, dateFilterField:'Jatuh Tempo',
+  search:['Cabang','Jenis Tagihan','Keterangan'],
+  form:[
+    {sec:'Tagihan'},
+    f('Periode','month',{req:true}), f('Cabang','select',{opts:CABANG, req:true}),
+    f('Jenis Tagihan','select',{opts:OPS_JENIS_TAGIHAN, req:true}),
+    f('Nominal','money',{req:true}), f('Jatuh Tempo','date'),
+    {sec:'Pembayaran'},
+    f('Status Bayar','select',{opts:OPS_STATUS_BAYAR}),
+    f('Tanggal Bayar','date'), f('Nominal Dibayar','money'),
+    f('Keterangan','textarea',{full:true}),
+    f('Bukti Bayar','file',{accept:'image/*,application/pdf', full:true})
+  ]
+};
+VIEWS.dataAlatChemical = {
+  sheet:'OPS_BARANG', title:'Data Alat & Chemical', sub:'Master barang — acuan stock opname & pengajuan',
+  countTop:true, noSyncBtn:true, idField:'id', autoId:'BRG',
+  canAdd:true, canEdit:true, canDelete:true, delInForm:true,
+  sortBy:['Kategori','Nama Barang'],
+  table:['Foto','Kode Barang','Nama Barang','Kategori','Satuan','Stok Minimum','Harga Satuan'],
+  filters:['Kategori'],
+  search:['Kode Barang','Nama Barang','Merk'],
+  form:[
+    {sec:'Identitas Barang'},
+    f('Kode Barang','text',{req:true, help:'Kode unik, mis. CHM-001'}),
+    f('Nama Barang','text',{req:true}),
+    f('Kategori','select',{opts:OPS_KATEGORI_BARANG, req:true}),
+    f('Merk','text'), f('Satuan','select',{opts:OPS_SATUAN}),
+    {sec:'Stok & Harga'},
+    f('Stok Minimum','num',{help:'Batas bawah — di bawah ini barang perlu diajukan'}),
+    f('Harga Satuan','money'),
+    f('Keterangan','textarea',{full:true}),
+    f('Foto','file',{accept:'image/*', full:true})
+  ]
+};
+VIEWS.stockOpname = {
+  sheet:'OPS_OPNAME', title:'Sistem Stock Opname', sub:'Pencocokan stok sistem dengan stok fisik',
+  countTop:true, noSyncBtn:true, idField:'id', autoId:'OPN',
+  canAdd:true, canEdit:true, canDelete:true, delInForm:true,
+  sortBy:['Tanggal'], sortDesc:true,
+  table:['Tanggal','Cabang','Nama Barang','Stok Sistem','Stok Fisik','Selisih','Petugas'],
+  colorMap:{'Selisih':'c-red'},
+  filters:['Cabang','Kategori'],
+  datePreset:true, dateFilterField:'Tanggal', defaultMonth:true,
+  search:['Nama Barang','Petugas'],
+  form:[
+    {sec:'Opname'},
+    f('Tanggal','date',{req:true}), f('Cabang','select',{opts:CABANG, req:true}),
+    f('Periode','month'), f('Petugas','text',{help:'Nama petugas yang menghitung'}),
+    {sec:'Barang'},
+    f('Kode Barang','text'), f('Nama Barang','text',{req:true}),
+    f('Kategori','select',{opts:OPS_KATEGORI_BARANG}), f('Satuan','select',{opts:OPS_SATUAN}),
+    {sec:'Perhitungan'},
+    f('Stok Sistem','num'), f('Stok Fisik','num'),
+    f('Selisih','num',{help:'Stok Fisik dikurangi Stok Sistem. Isi manual bila perlu.'}),
+    f('Kondisi Rusak','num'), f('Keterangan','textarea',{full:true}),
+    f('Foto Bukti','file',{accept:'image/*', full:true})
+  ]
+};
+VIEWS.pengajuanAlat = {
+  sheet:'OPS_PENGAJUAN', title:'Sistem Pengajuan Alat & Chemical', sub:'Permintaan barang dari cabang',
+  countTop:true, noSyncBtn:true, idField:'id', autoId:'AJU',
+  canAdd:true, canEdit:true, canDelete:true, delInForm:true,
+  sortBy:['Tanggal Pengajuan'], sortDesc:true,
+  table:['Tanggal Pengajuan','Cabang','Nama Barang','Jumlah','Satuan','Pemohon','Status Pengajuan'],
+  filters:['Cabang','Kategori','Status Pengajuan'],
+  datePreset:true, dateFilterField:'Tanggal Pengajuan', defaultMonth:true,
+  search:['Nama Barang','Pemohon'],
+  form:[
+    {sec:'Pengajuan'},
+    f('Tanggal Pengajuan','date',{req:true}), f('Cabang','select',{opts:CABANG, req:true}),
+    f('Pemohon','text',{req:true}),
+    {sec:'Barang Diminta'},
+    f('Kode Barang','text'), f('Nama Barang','text',{req:true}),
+    f('Kategori','select',{opts:OPS_KATEGORI_BARANG}),
+    f('Jumlah','num',{req:true}), f('Satuan','select',{opts:OPS_SATUAN}),
+    f('Alasan Pengajuan','textarea',{full:true, req:true}),
+    {sec:'Persetujuan'},
+    f('Status Pengajuan','select',{opts:OPS_STATUS_AJU}),
+    f('Disetujui Oleh','text'), f('Tanggal Persetujuan','date'),
+    f('Jumlah Disetujui','num'),
+    f('Catatan Persetujuan','textarea',{full:true}),
+    f('Lampiran','file',{accept:'image/*,application/pdf', full:true})
+  ]
+};
+VIEWS.purchaseOrder = {
+  sheet:'OPS_PO', title:'Data Purchase Order', sub:'Pemesanan barang ke supplier',
+  countTop:true, noSyncBtn:true, idField:'id', autoId:'PO',
+  canAdd:true, canEdit:true, canDelete:true, delInForm:true,
+  sortBy:['Tanggal PO'], sortDesc:true,
+  table:['No PO','Tanggal PO','Cabang','Supplier','Nama Barang','Jumlah','Total Harga','Status PO'],
+  colorMap:{'Total Harga':'c-orange'},
+  filters:['Cabang','Status PO'],
+  datePreset:true, dateFilterField:'Tanggal PO', defaultMonth:true,
+  search:['No PO','Supplier','Nama Barang'],
+  form:[
+    {sec:'Purchase Order'},
+    f('No PO','text',{req:true, help:'Nomor PO, mis. PO-2026-001'}),
+    f('Tanggal PO','date',{req:true}), f('Cabang','select',{opts:CABANG, req:true}),
+    f('Supplier','text',{req:true}), f('No Telepon Supplier','text'),
+    {sec:'Barang'},
+    f('Kode Barang','text'), f('Nama Barang','text',{req:true}),
+    f('Jumlah','num',{req:true}), f('Satuan','select',{opts:OPS_SATUAN}),
+    f('Harga Satuan','money'), f('Total Harga','money'),
+    {sec:'Status & Penerimaan'},
+    f('Status PO','select',{opts:OPS_STATUS_PO}),
+    f('Tanggal Diterima','date'), f('Jumlah Diterima','num'),
+    f('Keterangan','textarea',{full:true}),
+    f('File PO','file',{accept:'image/*,application/pdf', full:true})
+  ]
+};
+VIEWS.cashflowCabang = {
+  sheet:'OPS_CASHFLOW', title:'Cashflow Cabang', sub:'Kas masuk & keluar tiap cabang',
+  countTop:true, noSyncBtn:true, idField:'id', autoId:'CF',
+  canAdd:true, canEdit:true, canDelete:true, delInForm:true,
+  sortBy:['Tanggal'], sortDesc:true,
+  table:['Tanggal','Cabang','Arus','Kategori Kas','Nominal','Keterangan'],
+  colorMap:{'Nominal':'c-blue'},
+  filters:['Cabang','Arus','Kategori Kas'],
+  datePreset:true, dateFilterField:'Tanggal', defaultMonth:true,
+  search:['Keterangan','Kategori Kas'],
+  form:[
+    {sec:'Transaksi'},
+    f('Tanggal','date',{req:true}), f('Cabang','select',{opts:CABANG, req:true}),
+    f('Arus','select',{opts:OPS_ARUS, req:true, help:'Masuk = pemasukan kas, Keluar = pengeluaran kas'}),
+    f('Kategori Kas','select',{opts:OPS_KATEGORI_KAS}),
+    f('Nominal','money',{req:true}),
+    f('Metode','select',{opts:['Tunai','Transfer','QRIS','Lainnya']}),
+    f('Keterangan','textarea',{full:true}),
+    f('Bukti','file',{accept:'image/*,application/pdf', full:true})
+  ]
+};
+
+/* ---------- HCS ---------- */
+VIEWS.quotation = {
+  sheet:'HCS_QUOTATION', title:'Quotation', sub:'Penawaran harga ke calon pelanggan',
+  countTop:true, noSyncBtn:true, idField:'id', autoId:'QUO',
+  canAdd:true, canEdit:true, canDelete:true, delInForm:true,
+  sortBy:['Tanggal'], sortDesc:true,
+  table:['No Quotation','Tanggal','Cabang','Nama Customer','Layanan','Nominal','Status Quotation'],
+  colorMap:{'Nominal':'c-green'},
+  filters:['Cabang','Status Quotation'],
+  datePreset:true, dateFilterField:'Tanggal', defaultMonth:true,
+  search:['No Quotation','Nama Customer','Layanan'],
+  form:[
+    {sec:'Penawaran'},
+    f('No Quotation','text',{req:true}), f('Tanggal','date',{req:true}),
+    f('Cabang','select',{opts:CABANG, req:true}),
+    f('Berlaku Sampai','date'),
+    {sec:'Customer'},
+    f('Nama Customer','text',{req:true}), f('No WA Customer','text'),
+    f('Alamat','textarea',{full:true}),
+    {sec:'Isi Penawaran'},
+    f('Layanan','textarea',{full:true, req:true}),
+    f('Nominal','money',{req:true}), f('Diskon','money'), f('Nominal Akhir','money'),
+    f('Status Quotation','select',{opts:HCS_STATUS_QUOT}),
+    f('Catatan','textarea',{full:true}),
+    f('File Penawaran','file',{accept:'image/*,application/pdf', full:true})
+  ]
+};
+VIEWS.arsipNomor = {
+  sheet:'HCS_ARSIP', title:'Arsip Nomor & Nominal', sub:'Rekap nomor surat penawaran dan nilainya',
+  countTop:true, noSyncBtn:true, idField:'id', autoId:'ARS',
+  canAdd:true, canEdit:true, canDelete:true, delInForm:true,
+  sortBy:['Tanggal'], sortDesc:true,
+  table:['Nomor','Tanggal','Cabang','Perihal','Nama Customer','Nominal'],
+  colorMap:{'Nominal':'c-green'},
+  filters:['Cabang'],
+  datePreset:true, dateFilterField:'Tanggal',
+  search:['Nomor','Perihal','Nama Customer'],
+  form:[
+    f('Nomor','text',{req:true, help:'Nomor surat/penawaran yang diarsipkan'}),
+    f('Tanggal','date',{req:true}), f('Cabang','select',{opts:CABANG, req:true}),
+    f('Perihal','text',{full:true, req:true}),
+    f('Nama Customer','text'), f('Nominal','money'),
+    f('Keterangan','textarea',{full:true}),
+    f('File','file',{accept:'image/*,application/pdf', full:true})
+  ]
+};
+VIEWS.rapatEvaluasi = {
+  sheet:'HCS_EVALUASI', title:'Evaluasi', sub:'Hasil evaluasi rapat bulanan',
+  countTop:true, noSyncBtn:true, idField:'id', autoId:'EVA',
+  canAdd:true, canEdit:true, canDelete:true, delInForm:true,
+  sortBy:['Tanggal'], sortDesc:true,
+  table:['Periode','Tanggal','Cabang','Topik','PIC','Status Tindak Lanjut'],
+  filters:['Cabang'],
+  datePreset:true, dateFilterField:'Tanggal',
+  search:['Topik','PIC'],
+  form:[
+    {sec:'Rapat'},
+    f('Periode','month',{req:true}), f('Tanggal','date',{req:true}),
+    f('Cabang','select',{opts:CABANG, req:true}), f('Peserta','textarea',{full:true}),
+    {sec:'Evaluasi'},
+    f('Topik','text',{full:true, req:true}),
+    f('Kendala','textarea',{full:true}),
+    f('Hasil Evaluasi','textarea',{full:true, req:true}),
+    f('Tindak Lanjut','textarea',{full:true}),
+    f('PIC','text'), f('Tenggat','date'),
+    f('Status Tindak Lanjut','select',{opts:['Belum Mulai','Berjalan','Selesai']}),
+    f('Notulen','file',{accept:'image/*,application/pdf', full:true})
+  ]
+};
+VIEWS.rapatStrategi = {
+  sheet:'HCS_STRATEGI', title:'Strategi', sub:'Rencana strategi hasil rapat bulanan',
+  countTop:true, noSyncBtn:true, idField:'id', autoId:'STR',
+  canAdd:true, canEdit:true, canDelete:true, delInForm:true,
+  sortBy:['Tanggal'], sortDesc:true,
+  table:['Periode','Tanggal','Cabang','Strategi','Target','PIC','Status Strategi'],
+  filters:['Cabang'],
+  datePreset:true, dateFilterField:'Tanggal',
+  search:['Strategi','Target','PIC'],
+  form:[
+    {sec:'Rapat'},
+    f('Periode','month',{req:true}), f('Tanggal','date',{req:true}),
+    f('Cabang','select',{opts:CABANG, req:true}),
+    {sec:'Strategi'},
+    f('Strategi','textarea',{full:true, req:true}),
+    f('Latar Belakang','textarea',{full:true}),
+    f('Target','text',{full:true}), f('Indikator Keberhasilan','textarea',{full:true}),
+    f('PIC','text'), f('Tenggat','date'),
+    f('Status Strategi','select',{opts:['Rencana','Berjalan','Tercapai','Tidak Tercapai']}),
+    f('Lampiran','file',{accept:'image/*,application/pdf', full:true})
+  ]
+};
+
+/* ---------- HSE ---------- */
+VIEWS.dataKecelakaan = {
+  sheet:'HSE_KECELAKAAN', title:'Data Kecelakaan Kerja', sub:'Catatan insiden & penanganannya',
+  countTop:true, noSyncBtn:true, idField:'id', autoId:'K3',
+  canAdd:true, canEdit:true, canDelete:true, delInForm:true,
+  sortBy:['Tanggal'], sortDesc:true,
+  table:['Tanggal','Cabang','Nama Karyawan','Lokasi','Tingkat','Hari Kerja Hilang'],
+  filters:['Cabang','Tingkat'],
+  datePreset:true, dateFilterField:'Tanggal',
+  search:['Nama Karyawan','Lokasi','Kronologi'],
+  form:[
+    {sec:'Kejadian'},
+    f('Tanggal','date',{req:true}), f('Jam','time'),
+    f('Cabang','select',{opts:CABANG, req:true}),
+    f('Nama Karyawan','text',{req:true}), f('Jabatan','select',{opts:JABATAN}),
+    f('Lokasi','text',{full:true, req:true}),
+    f('Tingkat','select',{opts:HSE_TINGKAT, req:true}),
+    {sec:'Rincian'},
+    f('Kronologi','textarea',{full:true, req:true}),
+    f('Penyebab','textarea',{full:true}),
+    f('Bagian Tubuh Terluka','text'),
+    {sec:'Penanganan'},
+    f('Penanganan','textarea',{full:true}),
+    f('Dirujuk Ke','text'), f('Hari Kerja Hilang','num'),
+    f('Biaya Pengobatan','money'),
+    f('Tindakan Pencegahan','textarea',{full:true}),
+    f('Foto Kejadian','file',{accept:'image/*', full:true})
+  ]
+};
+VIEWS.laporanLapangan = {
+  sheet:'HSE_LAPANGAN', title:'Laporan Lapangan', sub:'Temuan & kondisi tidak aman di lapangan',
+  countTop:true, noSyncBtn:true, idField:'id', autoId:'LAP',
+  canAdd:true, canEdit:true, canDelete:true, delInForm:true,
+  sortBy:['Tanggal'], sortDesc:true,
+  table:['Tanggal','Cabang','Pelapor','Lokasi','Temuan','Status Temuan'],
+  filters:['Cabang','Status Temuan'],
+  datePreset:true, dateFilterField:'Tanggal', defaultMonth:true,
+  search:['Pelapor','Lokasi','Temuan'],
+  form:[
+    {sec:'Laporan'},
+    f('Tanggal','date',{req:true}), f('Cabang','select',{opts:CABANG, req:true}),
+    f('Pelapor','text',{req:true}), f('Lokasi','text',{full:true, req:true}),
+    {sec:'Temuan'},
+    f('Temuan','textarea',{full:true, req:true}),
+    f('Tingkat Risiko','select',{opts:['Rendah','Sedang','Tinggi']}),
+    f('Tindakan Perbaikan','textarea',{full:true}),
+    f('PIC','text'), f('Tenggat','date'),
+    f('Status Temuan','select',{opts:['Terbuka','Diproses','Selesai']}),
+    f('Foto','file',{accept:'image/*', full:true})
+  ]
+};
+VIEWS.kesehatanBerkala = {
+  sheet:'HSE_KESEHATAN', title:'Data Kesehatan Berkala', sub:'Hasil pemeriksaan kesehatan karyawan',
+  countTop:true, noSyncBtn:true, idField:'id', autoId:'MCU',
+  canAdd:true, canEdit:true, canDelete:true, delInForm:true,
+  sortBy:['Tanggal Periksa'], sortDesc:true,
+  table:['Tanggal Periksa','Cabang','Nama Karyawan','Jenis Pemeriksaan','Hasil','Periksa Berikutnya'],
+  filters:['Cabang'],
+  datePreset:true, dateFilterField:'Tanggal Periksa',
+  search:['Nama Karyawan','Jenis Pemeriksaan'],
+  form:[
+    {sec:'Pemeriksaan'},
+    f('Tanggal Periksa','date',{req:true}), f('Cabang','select',{opts:CABANG, req:true}),
+    f('Nama Karyawan','text',{req:true}), f('Jabatan','select',{opts:JABATAN}),
+    f('Jenis Pemeriksaan','text',{help:'Mis. MCU tahunan, tes buta warna, rontgen'}),
+    f('Tempat Periksa','text'),
+    {sec:'Hasil'},
+    f('Hasil','select',{opts:['Sehat','Sehat dengan Catatan','Perlu Tindak Lanjut','Tidak Layak Kerja']}),
+    f('Catatan Medis','textarea',{full:true}),
+    f('Rekomendasi','textarea',{full:true}),
+    f('Periksa Berikutnya','date'),
+    f('File Hasil','file',{accept:'image/*,application/pdf', full:true})
+  ]
+};
+VIEWS.tandaTerimaApd = {
+  sheet:'HSE_APD', title:'Tanda Terima APD & Suplemen', sub:'Serah terima APD dan suplemen kesehatan',
+  countTop:true, noSyncBtn:true, idField:'id', autoId:'APD',
+  canAdd:true, canEdit:true, canDelete:true, delInForm:true,
+  sortBy:['Tanggal'], sortDesc:true,
+  table:['Tanggal','Cabang','Nama Karyawan','Jenis APD','Nama Barang','Jumlah','Diserahkan Oleh'],
+  filters:['Cabang','Jenis APD'],
+  datePreset:true, dateFilterField:'Tanggal', defaultMonth:true,
+  search:['Nama Karyawan','Nama Barang'],
+  form:[
+    {sec:'Serah Terima'},
+    f('Tanggal','date',{req:true}), f('Cabang','select',{opts:CABANG, req:true}),
+    f('Nama Karyawan','text',{req:true}), f('Jabatan','select',{opts:JABATAN}),
+    {sec:'Barang'},
+    f('Jenis APD','select',{opts:HSE_JENIS_APD, req:true}),
+    f('Nama Barang','text',{req:true}),
+    f('Jumlah','num',{req:true}), f('Satuan','select',{opts:OPS_SATUAN}),
+    f('Ukuran','text'), f('Masa Pakai','text',{help:'Mis. 6 bulan'}),
+    f('Diserahkan Oleh','text'),
+    f('Keterangan','textarea',{full:true}),
+    f('Tanda Terima','file',{accept:'image/*,application/pdf', full:true,
+      help:'Foto/scan tanda terima bertanda tangan penerima'})
+  ]
+};
+VIEWS.faskesCabang = {
+  sheet:'HSE_FASKES', title:'Layanan Kesehatan Terdekat', sub:'Faskes rujukan terdekat tiap cabang',
+  countTop:true, noSyncBtn:true, idField:'id', autoId:'FKS',
+  canAdd:true, canEdit:true, canDelete:true, delInForm:true,
+  sortBy:['Cabang','Nama Faskes'],
+  table:['Cabang','Nama Faskes','Jenis Faskes','Alamat','No Telepon','Jarak (km)'],
+  filters:['Cabang','Jenis Faskes'],
+  search:['Nama Faskes','Alamat'],
+  form:[
+    {sec:'Fasilitas Kesehatan'},
+    f('Cabang','select',{opts:CABANG, req:true}),
+    f('Nama Faskes','text',{req:true}),
+    f('Jenis Faskes','select',{opts:HSE_JENIS_FASKES, req:true}),
+    f('Alamat','textarea',{full:true, req:true}),
+    f('No Telepon','text'), f('Jarak (km)','num'),
+    f('Buka 24 Jam','select',{opts:['Ya','Tidak']}),
+    f('Kerja Sama BPJS','select',{opts:['Ya','Tidak']}),
+    f('Link Maps','text',{full:true}),
+    f('Keterangan','textarea',{full:true})
+  ]
+};
+VIEWS.simMengemudi = {
+  sheet:'HSE_SIM', title:'Surat Izin Mengemudi', sub:'Data SIM karyawan & masa berlakunya',
+  countTop:true, noSyncBtn:true, idField:'id', autoId:'SIM',
+  canAdd:true, canEdit:true, canDelete:true, delInForm:true,
+  sortBy:['Masa Berlaku'],
+  table:['Nama Karyawan','Cabang','Jenis SIM','Nomor SIM','Tanggal Terbit','Masa Berlaku'],
+  filters:['Cabang','Jenis SIM'],
+  datePreset:true, dateFilterField:'Masa Berlaku',
+  search:['Nama Karyawan','Nomor SIM'],
+  form:[
+    {sec:'Pemilik'},
+    f('Nama Karyawan','text',{req:true}), f('Cabang','select',{opts:CABANG, req:true}),
+    f('Jabatan','select',{opts:JABATAN}),
+    {sec:'SIM'},
+    f('Jenis SIM','select',{opts:HSE_JENIS_SIM, req:true}),
+    f('Nomor SIM','text',{req:true}),
+    f('Tanggal Terbit','date'), f('Masa Berlaku','date',{req:true}),
+    f('Kendaraan Dioperasikan','text',{full:true}),
+    f('Keterangan','textarea',{full:true}),
+    f('Foto SIM','file',{accept:'image/*', full:true})
+  ]
+};
+
+/* ---------- R&D ---------- */
+VIEWS.monthlyReport = {
+  sheet:'RND_MONTHLY', title:'Monthly Report', sub:'Laporan bulanan R&D',
+  countTop:true, noSyncBtn:true, idField:'id', autoId:'RPT',
+  canAdd:true, canEdit:true, canDelete:true, delInForm:true,
+  sortBy:['Periode'], sortDesc:true,
+  table:['Periode','Judul','Cabang','PIC','Status Laporan'],
+  filters:['Cabang'],
+  search:['Judul','PIC','Ringkasan'],
+  form:[
+    {sec:'Laporan'},
+    f('Periode','month',{req:true}), f('Judul','text',{full:true, req:true}),
+    f('Cabang','select',{opts:CABANG}), f('PIC','text'),
+    {sec:'Isi'},
+    f('Ringkasan','textarea',{full:true, req:true}),
+    f('Capaian','textarea',{full:true}),
+    f('Kendala','textarea',{full:true}),
+    f('Rencana Bulan Depan','textarea',{full:true}),
+    f('Status Laporan','select',{opts:['Draft','Final']}),
+    f('File Laporan','file',{accept:'image/*,application/pdf', full:true})
+  ]
+};
+VIEWS.kajianRnd = {
+  sheet:'RND_KAJIAN', title:'Kajian R&D', sub:'Kajian pengembangan produk & metode kerja',
+  countTop:true, noSyncBtn:true, idField:'id', autoId:'KJN',
+  canAdd:true, canEdit:true, canDelete:true, delInForm:true,
+  sortBy:['Tanggal'], sortDesc:true,
+  table:['Tanggal','Judul Kajian','Kategori Kajian','PIC','Status Kajian'],
+  filters:['Status Kajian'],
+  datePreset:true, dateFilterField:'Tanggal',
+  search:['Judul Kajian','PIC','Hasil Kajian'],
+  form:[
+    {sec:'Kajian'},
+    f('Tanggal','date',{req:true}), f('Judul Kajian','text',{full:true, req:true}),
+    f('Kategori Kajian','text',{help:'Mis. Chemical, Alat, Metode Kerja, Layanan Baru'}),
+    f('PIC','text'),
+    {sec:'Isi Kajian'},
+    f('Latar Belakang','textarea',{full:true}),
+    f('Metode','textarea',{full:true}),
+    f('Hasil Kajian','textarea',{full:true, req:true}),
+    f('Rekomendasi','textarea',{full:true}),
+    f('Estimasi Biaya','money'),
+    f('Status Kajian','select',{opts:RND_STATUS_KAJIAN}),
+    f('Lampiran','file',{accept:'image/*,application/pdf', full:true})
+  ]
+};
+
+/* Beranda OPERASIONAL: foto di kanan atas + isi Laporan Omzet. */
+VIEWS.opsBeranda = {
+  sheet:'ORDER', title:'Beranda', sub:'', special:'opsBeranda', countTop:true, noSyncBtn:true,
+  datePreset:true, dateRange:true, dateFilterField:'Tanggal Pengerjaan', filters:['Cabang','Status Order']
+};
+
+/* ============================================================
+   NAVIGASI BERTINGKAT — JABATAN OPERASIONAL
+   Menu utama (Beranda · Operasional · HCS · HSE · R&D) → kelompok
+   → halaman. Node tanpa "children" berarti halaman (punya "view").
+   ============================================================ */
+const OPS_TREE = [
+  { key:'opsBeranda', label:'Beranda', icon:'result', view:'opsBeranda' },
+
+  { key:'opsOperasional', label:'Operasional', icon:'inbox', children:[
+      { key:'grpKantor', label:'Data Kantor Cabang', icon:'inbox',
+        desc:'Data kantor tiap cabang beserta tagihan rutin bulanannya', children:[
+          { key:'kantor', label:'Data Kantor Cabang', icon:'inbox', view:'kantor',
+            desc:'Alamat, status sewa/aset & masa sewa tiap cabang' },
+          { key:'tagihanBulanan', label:'Data Tagihan Bulanan', icon:'salary', view:'tagihanBulanan',
+            desc:'Sewa, listrik, air, internet & tagihan rutin lainnya' } ]},
+      { key:'grpOpname', label:'Stock Opname', icon:'audit',
+        desc:'Master barang dan pencocokan stok fisik di cabang', children:[
+          { key:'dataAlatChemical', label:'Data Alat & Chemical', icon:'inbox', view:'dataAlatChemical',
+            desc:'Master barang: kode, satuan, stok minimum & harga' },
+          { key:'stockOpname', label:'Sistem Stock Opname', icon:'audit', view:'stockOpname',
+            desc:'Bandingkan stok sistem dengan stok fisik, catat selisih' } ]},
+      { key:'grpPengajuan', label:'Pengajuan Alat & Chemical', icon:'upload',
+        desc:'Permintaan barang dari cabang sampai pemesanan ke supplier', children:[
+          { key:'pengajuanAlat', label:'Sistem Pengajuan Alat & Chemical', icon:'upload', view:'pengajuanAlat',
+            desc:'Ajuan barang dari cabang beserta persetujuannya' },
+          { key:'purchaseOrder', label:'Data Purchase Order', icon:'file', view:'purchaseOrder',
+            desc:'Pemesanan barang ke supplier & status penerimaan' } ]},
+      { key:'cashflowCabang', label:'Cashflow Cabang', icon:'salary', view:'cashflowCabang',
+        desc:'Kas masuk & kas keluar tiap cabang' }
+  ]},
+
+  { key:'opsHCS', label:'HCS', icon:'users', children:[
+      { key:'grpKpiCS', label:'KPI CS', icon:'audit',
+        desc:'Report KPI dan penilaian KPI CS per cabang', children:[
+          { key:'reportKPI', label:'Report KPI', icon:'audit', view:'reportKPI',
+            desc:'Rekap capaian KPI dari data order' },
+          { key:'kpiCS', label:'KPI CS', icon:'users', view:'kpiCS',
+            desc:'Nilai KPI CS per cabang & periode' } ]},
+      { key:'dataChat', label:'Data Chat', icon:'wa', view:'dataChat',
+        desc:'Laporan chat harian per cabang' },
+      { key:'grpQuotation', label:'Penawaran / Quotation', icon:'file',
+        desc:'Penawaran harga dan arsip nomornya', children:[
+          { key:'quotation', label:'Quotation', icon:'file', view:'quotation',
+            desc:'Penawaran harga ke calon pelanggan' },
+          { key:'arsipNomor', label:'Arsip Nomor & Nominal', icon:'audit', view:'arsipNomor',
+            desc:'Rekap nomor surat penawaran beserta nilainya' } ]},
+      { key:'grpRapat', label:'Rapat Bulanan', icon:'inbox',
+        desc:'Hasil evaluasi dan rencana strategi rapat bulanan', children:[
+          { key:'rapatEvaluasi', label:'Evaluasi', icon:'audit', view:'rapatEvaluasi',
+            desc:'Kendala, hasil evaluasi & tindak lanjutnya' },
+          { key:'rapatStrategi', label:'Strategi', icon:'result', view:'rapatStrategi',
+            desc:'Rencana strategi, target & indikator keberhasilan' } ]}
+  ]},
+
+  { key:'opsHSE', label:'HSE', icon:'alert', children:[
+      { key:'grpKecelakaan', label:'Laporan Kecelakaan Kerja', icon:'alert',
+        desc:'Insiden kerja dan temuan kondisi tidak aman', children:[
+          { key:'dataKecelakaan', label:'Data Kecelakaan Kerja', icon:'alert', view:'dataKecelakaan',
+            desc:'Kronologi, tingkat keparahan & penanganan insiden' },
+          { key:'laporanLapangan', label:'Laporan Lapangan', icon:'inbox', view:'laporanLapangan',
+            desc:'Temuan risiko di lapangan & tindakan perbaikannya' } ]},
+      { key:'grpApd', label:'APD & Kesehatan', icon:'gift',
+        desc:'Pemeriksaan kesehatan, APD, dan faskes rujukan', children:[
+          { key:'kesehatanBerkala', label:'Data Kesehatan Berkala', icon:'users', view:'kesehatanBerkala',
+            desc:'Hasil pemeriksaan kesehatan karyawan & jadwal berikutnya' },
+          { key:'tandaTerimaApd', label:'Tanda Terima APD & Suplemen', icon:'gift', view:'tandaTerimaApd',
+            desc:'Serah terima APD dan suplemen kesehatan' },
+          { key:'faskesCabang', label:'Layanan Kesehatan Terdekat Cabang', icon:'map', view:'faskesCabang',
+            desc:'Klinik, puskesmas & rumah sakit terdekat tiap cabang' } ]},
+      { key:'simMengemudi', label:'Surat Izin Mengemudi', icon:'file', view:'simMengemudi',
+        desc:'Data SIM karyawan & masa berlakunya' }
+  ]},
+
+  { key:'opsRnd', label:'R&D', icon:'audit', children:[
+      { key:'monthlyReport', label:'Monthly Report', icon:'result', view:'monthlyReport',
+        desc:'Laporan bulanan R&D' },
+      { key:'kajianRnd', label:'Kajian R&D', icon:'audit', view:'kajianRnd',
+        desc:'Kajian pengembangan produk & metode kerja' }
+  ]}
+];
+
+/* Cari node berdasar jalur ['opsHSE','grpApd', ...]. */
+function opsNode(path){
+  let list=OPS_TREE, node=null;
+  for(const k of (path||[])){
+    node=(list||[]).find(n=>n.key===k);
+    if(!node) return null;
+    list=node.children;
+  }
+  return node;
+}
+function opsIsRootKey(key){ return OPS_TREE.some(n=>n.key===key); }
+function opsLabels(path){ return (path||[]).map((k,i)=>{ const n=opsNode(path.slice(0,i+1)); return n?n.label:k; }); }
+
+/* Masuk ke sebuah node: punya anak → tampilkan daftar; tidak → buka halaman. */
+async function opsGo(path){
+  const node=opsNode(path);
+  if(!node) return;
+  if(node.children && node.children.length){ opsRenderHub(path); return; }
+  if(node.view) await opsOpenView(node.view, path);
+}
+/* Halaman daftar (kelompok menu) — gaya kartu seperti Pengaturan. */
+function opsRenderHub(path){
+  const node=opsNode(path); if(!node) return;
+  state.view=null; state.opsOpen=null; state.opsHub=path.slice();
+  if(state._ch){ try{ window.sb.removeChannel(state._ch); }catch(e){} state._ch=null; }
+  markActive(path[0]);
+
+  const rows=(node.children||[]).map(c=>{
+    const isGrp=!!(c.children && c.children.length);
+    return '<button class="set-row" data-opsgo="'+esc(path.concat(c.key).join('>'))+'">'+
+      '<span class="set-ic">'+svg(c.icon||'inbox')+'</span>'+
+      '<span class="set-txt"><span class="set-t">'+esc(c.label)+
+        (isGrp?'<span class="ops-chip">'+c.children.length+' menu</span>':'')+'</span>'+
+        '<span class="set-d">'+esc(c.desc||'')+'</span></span>'+
+      '<span class="set-arrow">'+svg('edit')+'</span></button>';
+  }).join('');
+
+  $('#content').innerHTML =
+    greetingHTML()+
+    opsCrumbHtml(path.slice(0,-1), node.label)+
+    '<div class="page-head"><div><div class="page-title">'+esc(node.label)+'</div>'+
+      (node.desc?'<div class="page-sub">'+esc(node.desc)+'</div>':'')+
+      '<div class="hairline"></div></div></div>'+
+    '<div class="panel" style="padding:8px">'+rows+'</div>';
+  opsWireCrumb();
+}
+/* Baris remah-roti + tombol kembali. */
+function opsCrumbHtml(parentPath, current){
+  const parts=[];
+  parts.push('<button class="ops-crumb-b" data-opsgo="">Menu</button>');
+  (parentPath||[]).forEach((k,i)=>{
+    const p=parentPath.slice(0,i+1), n=opsNode(p);
+    parts.push('<span class="ops-crumb-s">/</span><button class="ops-crumb-b" data-opsgo="'+esc(p.join('>'))+'">'+esc(n?n.label:k)+'</button>');
+  });
+  parts.push('<span class="ops-crumb-s">/</span><span class="ops-crumb-c">'+esc(current||'')+'</span>');
+  const back=(parentPath&&parentPath.length)
+    ? '<button class="ops-back" data-opsgo="'+esc(parentPath.join('>'))+'" title="Kembali">'+
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>'
+    : '';
+  return '<div class="ops-crumb">'+back+'<div class="ops-crumb-t">'+parts.join('')+'</div></div>';
+}
+function opsWireCrumb(){
+  document.querySelectorAll('[data-opsgo]').forEach(b=>{
+    if(b._opsw) return; b._opsw=true;
+    b.addEventListener('click', ()=>{
+      const raw=b.dataset.opsgo;
+      if(!raw){ opsGo([OPS_TREE[0].key]); return; }        // "Menu" → Beranda
+      opsGo(raw.split('>'));
+    });
+  });
+}
+/* Buka halaman (view) yang berada di dalam pohon menu Operasional. */
+async function opsOpenView(viewKey, path){
+  const v=VIEWS[viewKey];
+  if(!v){ toast('Menu "'+viewKey+'" belum tersedia.','err'); return; }
+  state.view=v; state.viewKey=viewKey;
+  state.filters={}; state.search=''; state.dateStart=''; state.dateEnd='';
+  state.opsHub=null;
+  state.opsOpen={ path:path.slice() };
+  if(v.defaultMonth){ const b=calMonthBounds(ymd(new Date()).slice(0,7)); state.dateStart=b.start; state.dateEnd=b.end; }
+  markActive(path[0]);
+  renderShell();
+  if(state._ch){ try{ window.sb.removeChannel(state._ch); }catch(e){} state._ch=null; }
+  await loadList();
+  if(state.view && state.view.sheet){
+    state._ch = window.sb.channel('rt-'+state.view.sheet)
+      .on('postgres_changes', {event:'*', schema:'public', table:state.view.sheet}, ()=>{ loadList(true); })
+      .subscribe();
+  }
+}
+
+/* ---------- BERANDA OPERASIONAL ---------- */
+/* Foto profil pemakai dari tabel KARYAWAN (kolom "Foto Profil"). */
+async function opsFotoUser(){
+  const s=state.session; if(!s) return '';
+  if(s._foto!==undefined) return s._foto;
+  let url='';
+  try{
+    const rows=trimKeys((await api({action:'list', sheet:'KARYAWAN'})).data||[]);
+    const nm=k=>k['Nama Lengkap']||k['Nama']||'';
+    const jab=norm(s.jabatan||s.role), cab=norm(s.cabang);
+    let m=rows.find(k=>norm(k['Jabatan'])===jab && norm(k['Cabang'])===cab && nm(k));
+    if(!m) m=rows.find(k=>norm(k['Jabatan'])===jab && nm(k));
+    if(m) url=String(m['Foto Profil']||'');
+  }catch(e){}
+  s._foto=url;
+  return url;
+}
+function renderOpsBeranda(){
+  renderLaporanOmzet();                       // isi Beranda = Laporan Omzet
+  const box=document.getElementById('brndFoto');
+  if(!box) return;
+  const s=state.session||{};
+  box.innerHTML='<div class="brnd-ini">'+esc(initials(s.namaLengkap||s.nama||'OP'))+'</div>';
+  opsFotoUser().then(url=>{
+    const b=document.getElementById('brndFoto'); if(!b) return;
+    if(url) b.innerHTML='<img src="'+esc(url)+'" alt="Foto profil" data-imgs="'+esc(url)+'">';
+  });
+}
+
 const FILTER_OPTS = {
   'Cabang':CABANG, 'Jabatan':JABATAN, 'Status':STATUS_KARYAWAN,
   'Status Order':STATUS_ORDER, 'Chat Dari':CHAT_DARI, 'Jenis':JENIS_BONUS,
-  'Platform':AD_PLATFORM, 'Tahun':PROGRES_TAHUN, 'Tipe':['Bulanan','Tahunan']
+  'Platform':AD_PLATFORM, 'Tahun':PROGRES_TAHUN, 'Tipe':['Bulanan','Tahunan'],
+  /* modul Operasional / HCS / HSE / R&D */
+  'Jenis Tagihan':OPS_JENIS_TAGIHAN, 'Status Bayar':OPS_STATUS_BAYAR,
+  'Kategori':OPS_KATEGORI_BARANG, 'Status Pengajuan':OPS_STATUS_AJU,
+  'Status PO':OPS_STATUS_PO, 'Arus':OPS_ARUS, 'Kategori Kas':OPS_KATEGORI_KAS,
+  'Status Quotation':HCS_STATUS_QUOT, 'Tingkat':HSE_TINGKAT,
+  'Status Temuan':['Terbuka','Diproses','Selesai'],
+  'Jenis APD':HSE_JENIS_APD, 'Jenis Faskes':HSE_JENIS_FASKES,
+  'Jenis SIM':HSE_JENIS_SIM, 'Status Kajian':RND_STATUS_KAJIAN
 };
-const MONEY_HINT = ['Gaji','Bonus','Potongan','Harga','Total','Nominal','Tagihan','Tunjangan','Premi','Cashbon','Saldo','Take Home','Diterima','BPJS','Akhir'];
+const MONEY_HINT = ['Gaji','Bonus','Potongan','Harga','Total','Nominal','Tagihan','Tunjangan','Premi','Cashbon','Saldo','Take Home','Diterima','BPJS','Akhir','Biaya'];
 
 /* ---------- STATE ---------- */
 const $ = s=>document.querySelector(s);
@@ -2497,7 +3179,9 @@ function markActive(key){
    LIST / TABLE
    ============================================================ */
 async function selectMenu(key){
+  state.opsHub=null; state.opsOpen=null;
   if(key==='__settings'){ renderSettings(); markActive('__settings'); return; }
+  if(opsIsRootKey(key)) return opsGo([key]);   // Beranda/Operasional/HCS/HSE/R&D
   if(key==='audit'){ return openAuditTab(state.auditTab||'auditOrder'); }
   if(key==='gaji'){ return openGajiTab(state.gajiTab||'gaji'); }
   if(key==='gajiFinance'){ return openGajiTab(/Finance$/.test(state.gajiTab||'') ? state.gajiTab : 'gajiFinance'); }
@@ -2578,11 +3262,16 @@ function renderShell(){
         ? [['gajiFinance','Bulanan'],['gajiHarianFinance','Harian']]
         : [['gaji','Bulanan'],['gajiHarian','Harian']])
       .map(t=>'<button class="hub-tab'+(state.viewKey===t[0]?' active':'')+'" data-gajitab="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>' : '';
+  /* Halaman di dalam pohon menu Operasional: tampilkan remah-roti + tombol kembali. */
+  const crumb = state.opsOpen
+    ? opsCrumbHtml(state.opsOpen.path.slice(0,-1), v.title) : '';
   $('#content').innerHTML =
     greetingHTML()+
+    crumb+
     tabs+
     '<div class="page-head">'+
-      (v.inSettings ? '<button class="icon-btn" id="btnBackSet" title="Kembali ke Pengaturan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>' : '')+
+      (v.special==='opsBeranda' ? '<div class="brnd-foto" id="brndFoto"></div>' : '')+
+      (v.inSettings && !state.opsOpen ? '<button class="icon-btn" id="btnBackSet" title="Kembali ke Pengaturan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>' : '')+
       '<div><div class="page-title">'+v.title+'</div>'+(v.sub?'<div class="page-sub">'+v.sub+'</div>':'')+'<div class="hairline"></div></div>'+
       '<span class="count-chip'+(v.countTop?' count-chip-force':'')+'" id="headCount"></span>'+
       '<div class="spacer"></div>'+
@@ -2597,6 +3286,7 @@ function renderShell(){
   document.querySelectorAll('[data-captab]').forEach(b=>b.addEventListener('click',()=>openCapTab(b.dataset.captab)));
   document.querySelectorAll('[data-gajitab]').forEach(b=>b.addEventListener('click',()=>openGajiTab(b.dataset.gajitab)));
   const bk=$('#btnBackSet'); if(bk) bk.addEventListener('click', ()=>{ if(state.session && state.session.role==='DESIGNER') renderDesigner(); else renderSettings(); });
+  opsWireCrumb();
   buildToolbar();
 }
 function greetTime(){ const h=new Date().getHours(); return h<11?'pagi':h<15?'siang':h<18?'sore':'malam'; }
@@ -3029,6 +3719,7 @@ function renderView(){
   else if(v.special==='capOmzet') renderCapOmzet();
   else if(v.special==='capKpi') renderCapKpi();
   else if(v.special==='laporanOmzet') renderLaporanOmzet();
+  else if(v.special==='opsBeranda') renderOpsBeranda();
   else if(v.special==='reportKPI') renderReportKPI();
   else if(v.special==='kpiCS') renderKpiCS();
   else if(v.special==='spendAds') renderSpendAds();
@@ -6700,6 +7391,10 @@ async function saveForm(){
   if(v.sheet==='KARYAWAN' && !state.editing && !String(data['ID Karyawan']||'').trim()){
     data['ID Karyawan']=genId('KRY');
   }
+  // Tabel modul Operasional/HCS/HSE/R&D: kolom id berupa teks, dibuat di sisi klien.
+  if(v.autoId && v.idField && !state.editing && !String(data[v.idField]||'').trim()){
+    data[v.idField]=genId(v.autoId);
+  }
   // Pastikan bonus selalu membawa Cleaner/Customer/Tanggal dari order (agar tampil & terhitung).
   if(v.sheet==='BONUS' && data['No Order']){
     const o=(state.cache.order||[]).find(x=>String(x['ID Order'])===String(data['No Order']));
@@ -6838,7 +7533,7 @@ async function selectMenuKeepFilters(key, snap){
    SETTINGS
    ============================================================ */
 function renderSettings(){
-  state.view=null;
+  state.view=null; state.opsHub=null; state.opsOpen=null;
   const s=state.session||{};
   const role=s.role;
   // Menu sub-pengaturan per jabatan
@@ -6848,9 +7543,10 @@ function renderSettings(){
     {key:'aturanAbsen', label:'Aturan Absensi', desc:'Jam masuk, toleransi telat, jam pulang & titik lokasi kantor tiap cabang — acuan absen portal cleaner', icon:'map'},
     {key:'layanan', label:'Layanan', desc:'Daftar layanan untuk pilihan order', icon:'inbox'},
     {key:'gajiPokok', label:'Gaji Pokok', desc:'Setting gaji pokok, bonus & premi per cabang/jabatan/status', icon:'salary'});
+  /* Kantor Klinklin sekarang berada di menu Operasional → Data Kantor Cabang. */
   if(role==='OPERASIONAL') entries.push(
     {key:'targetOmzet', label:'Target Omzet', desc:'Setting target omzet bulanan tiap cabang', icon:'result'},
-    {key:'kantor', label:'Kantor Klinklin', desc:'Data cabang, alamat, status sewa/aset & masa sewa', icon:'inbox'});
+    {key:'agenda', label:'Agenda', desc:'Agenda & jadwal kegiatan', icon:'audit'});
   if(role==='CS') entries.push(
     {key:'chatHarian', label:'Chat Harian', desc:'Laporan chat harian per cabang: customer baru/lama, closing, orderan, telp, SDM', icon:'audit'},
     {key:'konten', label:'Konten', desc:'Link Konten Story, Promo & Follow Up', icon:'inbox'},
@@ -6885,7 +7581,7 @@ function renderSettings(){
   document.querySelectorAll('[data-setkey]').forEach(b=>b.addEventListener('click',()=>openSettingsView(b.dataset.setkey)));
 }
 async function openSettingsView(key){
-  state.view=VIEWS[key]; state.viewKey=key;
+  state.view=VIEWS[key]; state.viewKey=key; state.opsHub=null; state.opsOpen=null;
   state.filters={}; state.search=''; state.dateStart=''; state.dateEnd='';
   markActive('__settings');
   renderShell();
