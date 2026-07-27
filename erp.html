@@ -439,10 +439,48 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .ops-chip{display:inline-block;margin-left:8px;padding:1px 8px;border-radius:20px;background:var(--gold-soft);
   color:var(--gold-deep);font-size:10.5px;font-weight:800;vertical-align:1px}
 .ops-crumb{display:flex;align-items:center;gap:10px;margin-bottom:14px}
-.ops-back{width:34px;height:34px;flex:none;border-radius:10px;border:1px solid var(--line-2);background:var(--surface);
-  color:var(--ink);display:grid;place-items:center;cursor:pointer}
-.ops-back:hover{border-color:var(--petrol);color:var(--petrol)}
-.ops-back svg{width:17px;height:17px}
+
+/* ---------- MENU DROPDOWN BERTINGKAT ---------- */
+.nav-grp{margin-bottom:2px}
+.nav-parent .nav-chev{margin-left:auto;width:16px;height:16px;flex:none;opacity:.7;transition:transform .18s ease}
+.nav-parent.open .nav-chev{transform:rotate(180deg)}
+.nav-item.nav-parent.open{color:var(--ink);background:var(--surface-2)}
+.nav-item.nav-parent.active{color:#fff;background:var(--petrol)}
+/* Daftar anak: tertutup rapat, terbuka dengan animasi */
+.nav-sub{display:grid;grid-template-rows:0fr;transition:grid-template-rows .2s ease;overflow:hidden}
+.nav-sub.open{grid-template-rows:1fr}
+.nav-sub>*{min-height:0;overflow:hidden}
+.nav-sub .nav-sub{padding-left:13px;border-left:1px solid var(--line);margin-left:12px}
+.nav-sub-item{width:100%;display:flex;align-items:center;gap:9px;text-align:left;cursor:pointer;
+  padding:9px 12px 9px 14px;margin:2px 0 2px 10px;border:none;background:none;border-radius:10px;
+  font-family:inherit;font-size:12.8px;font-weight:600;color:var(--muted);line-height:1.35}
+.nav-sub-item:hover{background:var(--surface-2);color:var(--ink)}
+.nav-sub-item .nav-lbl{flex:1;min-width:0}
+.nav-sub-item.nav-parent{font-weight:700;color:var(--ink)}
+.nav-sub-item.nav-parent .nav-chev{width:15px;height:15px}
+.nav-dot{width:5px;height:5px;border-radius:50%;background:var(--line-2);flex:none}
+.nav-leaf.active{background:var(--gold-soft);color:var(--gold-deep);font-weight:800}
+.nav-leaf.active .nav-dot{background:var(--gold-deep)}
+
+/* ---------- LEMBAR MENU (LAYAR KECIL) ---------- */
+.navsheet{position:fixed;inset:0;z-index:88;display:none;align-items:flex-end;justify-content:center;
+  background:rgba(10,23,48,.55);backdrop-filter:blur(3px)}
+.navsheet.open{display:flex}
+.navsheet-card{width:100%;max-width:520px;max-height:76vh;display:flex;flex-direction:column;
+  background:var(--surface);border-radius:20px 20px 0 0;box-shadow:var(--shadow-lg);
+  animation:rise .2s ease;padding-bottom:env(safe-area-inset-bottom)}
+.navsheet-head{display:flex;align-items:center;padding:15px 18px;border-bottom:1px solid var(--line);
+  background:var(--petrol);color:#fff;border-radius:20px 20px 0 0}
+.navsheet-t{flex:1;font-family:var(--display);font-weight:600;font-size:17px}
+.navsheet-x{width:34px;height:34px;border:none;background:none;color:#fff;font-size:25px;line-height:1;
+  border-radius:10px;display:grid;place-items:center;cursor:pointer}
+.navsheet-x:hover{background:rgba(255,255,255,.16)}
+.navsheet-body{padding:10px 12px 18px;overflow:auto}
+.navsheet-body .nav-sub-item{margin-left:0;font-size:14px;padding:12px 12px}
+.navsheet-body .nav-sub .nav-sub{margin-left:10px;padding-left:11px}
+.bn-item.bn-grp span{position:relative}
+.bn-item.bn-grp span::after{content:"";display:inline-block;margin-left:4px;border:3px solid transparent;
+  border-top-color:currentColor;vertical-align:1px}
 .ops-crumb-t{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12.5px;min-width:0}
 .ops-crumb-b{background:none;border:none;padding:2px 4px;border-radius:7px;color:var(--muted);font-weight:700;
   font-size:12.5px;cursor:pointer;font-family:inherit}
@@ -1301,6 +1339,17 @@ td.c-green, td.c-red, td.c-orange, td.c-blue{font-weight:700}
     <div class="chat-input" id="chatInput">
       <input id="chatMsg" placeholder="Tulis pesan…" autocomplete="off">
       <button class="chat-send" id="chatSend" aria-label="Kirim"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4Z"/></svg></button>
+    </div>
+  </div>
+
+  <!-- Lembar menu bertingkat untuk layar kecil -->
+  <div class="navsheet" id="navSheet">
+    <div class="navsheet-card">
+      <div class="navsheet-head">
+        <span class="navsheet-t" id="navSheetTitle"></span>
+        <button class="navsheet-x" id="navSheetX" aria-label="Tutup">&times;</button>
+      </div>
+      <div class="navsheet-body" id="navSheetBody"></div>
     </div>
   </div>
 
@@ -2720,64 +2769,141 @@ function opsNode(path){
 function opsIsRootKey(key){ return OPS_TREE.some(n=>n.key===key); }
 function opsLabels(path){ return (path||[]).map((k,i)=>{ const n=opsNode(path.slice(0,i+1)); return n?n.label:k; }); }
 
-/* Masuk ke sebuah node: punya anak → tampilkan daftar; tidak → buka halaman. */
+/* Masuk ke sebuah node.
+   Punya anak  → cukup buka/tutup dropdown-nya di menu samping (atau
+                 lembar menu di HP). Tidak ada lagi halaman perantara.
+   Tanpa anak  → langsung buka halamannya.                              */
 async function opsGo(path){
   const node=opsNode(path);
   if(!node) return;
-  if(node.children && node.children.length){ opsRenderHub(path); return; }
+  if(node.children && node.children.length){ opsReveal(path, true); return; }
   if(node.view) await opsOpenView(node.view, path);
 }
-/* Halaman daftar (kelompok menu) — gaya kartu seperti Pengaturan. */
-function opsRenderHub(path){
-  const node=opsNode(path); if(!node) return;
-  state.view=null; state.opsOpen=null; state.opsHub=path.slice();
-  if(state._ch){ try{ window.sb.removeChannel(state._ch); }catch(e){} state._ch=null; }
-  markActive(path[0]);
-
-  const rows=(node.children||[]).map(c=>{
-    const isGrp=!!(c.children && c.children.length);
-    return '<button class="set-row" data-opsgo="'+esc(path.concat(c.key).join('>'))+'">'+
-      '<span class="set-ic">'+svg(c.icon||'inbox')+'</span>'+
-      '<span class="set-txt"><span class="set-t">'+esc(c.label)+
-        (isGrp?'<span class="ops-chip">'+c.children.length+' menu</span>':'')+'</span>'+
-        '<span class="set-d">'+esc(c.desc||'')+'</span></span>'+
-      '<span class="set-arrow">'+svg('edit')+'</span></button>';
-  }).join('');
-
-  $('#content').innerHTML =
-    greetingHTML()+
-    opsCrumbHtml(path.slice(0,-1), node.label)+
-    '<div class="page-head"><div><div class="page-title">'+esc(node.label)+'</div>'+
-      (node.desc?'<div class="page-sub">'+esc(node.desc)+'</div>':'')+
-      '<div class="hairline"></div></div></div>'+
-    '<div class="panel" style="padding:8px">'+rows+'</div>';
-  opsWireCrumb();
+/* Buka dropdown sepanjang jalur (dan tutup lagi bila diklik ulang). */
+function opsReveal(path, toggle){
+  const key=path.join('|');
+  if(toggle && state.navOpen[key]) delete state.navOpen[key];
+  else {
+    for(let i=1;i<=path.length;i++) state.navOpen[path.slice(0,i).join('|')]=true;
+  }
+  buildNav();
+  if(navIsMobile()) navSheetOpen(path[0]);
 }
-/* Baris remah-roti + tombol kembali. */
+/* Remah-roti: penunjuk posisi. Mengklik kelompok akan membuka dropdown-nya. */
 function opsCrumbHtml(parentPath, current){
-  const parts=[];
-  parts.push('<button class="ops-crumb-b" data-opsgo="">Menu</button>');
-  (parentPath||[]).forEach((k,i)=>{
-    const p=parentPath.slice(0,i+1), n=opsNode(p);
-    parts.push('<span class="ops-crumb-s">/</span><button class="ops-crumb-b" data-opsgo="'+esc(p.join('>'))+'">'+esc(n?n.label:k)+'</button>');
+  const parts=['<button class="ops-crumb-b" data-opsgo="'+esc((parentPath[0]||''))+'">'+
+    esc(parentPath.length?opsLabels([parentPath[0]])[0]:'Menu')+'</button>'];
+  (parentPath||[]).slice(1).forEach((k,i)=>{
+    const p=parentPath.slice(0,i+2), n=opsNode(p);
+    parts.push('<span class="ops-crumb-s">/</span><button class="ops-crumb-b" data-opsgo="'+esc(p.join('|'))+'">'+esc(n?n.label:k)+'</button>');
   });
   parts.push('<span class="ops-crumb-s">/</span><span class="ops-crumb-c">'+esc(current||'')+'</span>');
-  const back=(parentPath&&parentPath.length)
-    ? '<button class="ops-back" data-opsgo="'+esc(parentPath.join('>'))+'" title="Kembali">'+
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>'
-    : '';
-  return '<div class="ops-crumb">'+back+'<div class="ops-crumb-t">'+parts.join('')+'</div></div>';
+  return '<div class="ops-crumb"><div class="ops-crumb-t">'+parts.join('')+'</div></div>';
 }
 function opsWireCrumb(){
   document.querySelectorAll('[data-opsgo]').forEach(b=>{
     if(b._opsw) return; b._opsw=true;
     b.addEventListener('click', ()=>{
-      const raw=b.dataset.opsgo;
-      if(!raw){ opsGo([OPS_TREE[0].key]); return; }        // "Menu" → Beranda
-      opsGo(raw.split('>'));
+      const raw=b.dataset.opsgo; if(!raw) return;
+      opsReveal(raw.split('|'), false);
     });
   });
 }
+
+/* ---------- MENU DROPDOWN BERTINGKAT ---------- */
+function navIsMobile(){
+  try{ return window.matchMedia('(max-width:880px)').matches; }catch(e){ return false; }
+}
+function navChev(){
+  return '<svg class="nav-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" '+
+         'stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
+}
+/* Daftar anak (tingkat 2 & 3). */
+function navTreeHtml(nodes, path){
+  return (nodes||[]).map(n=>{
+    const p=path.concat(n.key), ps=p.join('|');
+    const has=!!(n.children && n.children.length);
+    if(has){
+      const open=!!state.navOpen[ps];
+      return '<div class="nav-grp">'+
+        '<button class="nav-sub-item nav-parent'+(open?' open':'')+'" data-navtoggle="'+esc(ps)+'">'+
+          '<span class="nav-lbl">'+esc(n.label)+'</span>'+navChev()+'</button>'+
+        '<div class="nav-sub'+(open?' open':'')+'">'+navTreeHtml(n.children, p)+'</div>'+
+      '</div>';
+    }
+    const act = (state.viewKey===n.view) ? ' active' : '';
+    return '<button class="nav-sub-item nav-leaf'+act+'" data-navopen="'+esc(ps)+'">'+
+      '<span class="nav-dot"></span><span class="nav-lbl">'+esc(n.label)+'</span></button>';
+  }).join('');
+}
+/* Satu baris menu utama di panel samping. */
+function navRootHtml(m){
+  const node = opsIsRootKey(m.key) ? opsNode([m.key]) : null;
+  if(!node || !node.children || !node.children.length)
+    return '<button class="nav-item" data-key="'+esc(m.key)+'">'+svg(m.icon)+'<span>'+esc(m.label)+'</span></button>';
+  const open=!!state.navOpen[m.key];
+  return '<div class="nav-grp">'+
+    '<button class="nav-item nav-parent'+(open?' open':'')+'" data-key="'+esc(m.key)+'" data-navtoggle="'+esc(m.key)+'">'+
+      svg(m.icon)+'<span>'+esc(m.label)+'</span>'+navChev()+'</button>'+
+    '<div class="nav-sub'+(open?' open':'')+'">'+navTreeHtml(node.children,[m.key])+'</div>'+
+  '</div>';
+}
+/* Pasang aksi klik untuk seluruh tombol menu (samping & lembar HP). */
+function navWire(root){
+  (root||document).querySelectorAll('[data-navtoggle]').forEach(b=>{
+    if(b._nw) return; b._nw=true;
+    b.addEventListener('click', e=>{ e.stopPropagation(); navToggle(b.dataset.navtoggle); });
+  });
+  (root||document).querySelectorAll('[data-navopen]').forEach(b=>{
+    if(b._nw) return; b._nw=true;
+    b.addEventListener('click', e=>{
+      e.stopPropagation();
+      const path=b.dataset.navopen.split('|');
+      const n=opsNode(path);
+      navSheetClose();
+      if(n && n.view) opsOpenView(n.view, path);
+    });
+  });
+  (root||document).querySelectorAll('.nav-item[data-key]:not([data-navtoggle]),.bn-item[data-key]').forEach(b=>{
+    if(b._nw) return; b._nw=true;
+    b.addEventListener('click', ()=>{
+      const k=b.dataset.key;
+      if(b.classList.contains('bn-item')){
+        const n=opsIsRootKey(k)?opsNode([k]):null;
+        if(n && n.children && n.children.length){ navSheetOpen(k); return; }
+      }
+      selectMenu(k);
+    });
+  });
+}
+function navToggle(key){
+  if(state.navOpen[key]) delete state.navOpen[key]; else state.navOpen[key]=true;
+  buildNav();
+  const sheet=document.getElementById('navSheet');
+  if(sheet && sheet.classList.contains('open')) navSheetRender();
+}
+
+/* ---------- LEMBAR MENU UNTUK LAYAR KECIL ---------- */
+function navSheetOpen(rootKey){
+  const el=document.getElementById('navSheet'); if(!el) return;
+  state._navSheet=rootKey;
+  state.navOpen[rootKey]=true;
+  navSheetRender();
+  el.classList.add('open');
+}
+function navSheetRender(){
+  const rootKey=state._navSheet; if(!rootKey) return;
+  const node=opsNode([rootKey]); if(!node) return;
+  const t=document.getElementById('navSheetTitle');
+  const b=document.getElementById('navSheetBody');
+  if(t) t.textContent=node.label;
+  if(b){ b.innerHTML=navTreeHtml(node.children||[],[rootKey]); navWire(b); }
+}
+function navSheetClose(){
+  const el=document.getElementById('navSheet'); if(el) el.classList.remove('open');
+  state._navSheet=null;
+}
+
 /* Buka halaman (view) yang berada di dalam pohon menu Operasional. */
 async function opsOpenView(viewKey, path){
   const v=VIEWS[viewKey];
@@ -2787,6 +2913,9 @@ async function opsOpenView(viewKey, path){
   state.opsHub=null;
   state.opsOpen={ path:path.slice() };
   if(v.defaultMonth){ const b=calMonthBounds(ymd(new Date()).slice(0,7)); state.dateStart=b.start; state.dateEnd=b.end; }
+  for(let i=1;i<path.length;i++) state.navOpen[path.slice(0,i).join('|')]=true;
+  navSheetClose();
+  buildNav();
   markActive(path[0]);
   renderShell();
   if(state._ch){ try{ window.sb.removeChannel(state._ch); }catch(e){} state._ch=null; }
@@ -2845,7 +2974,8 @@ const MONEY_HINT = ['Gaji','Bonus','Potongan','Harga','Total','Nominal','Tagihan
 /* ---------- STATE ---------- */
 const $ = s=>document.querySelector(s);
 const state = { session:null, view:null, rows:[], filters:{}, search:'', dateStart:'', dateEnd:'',
-  editing:null, files:{}, cache:{}, listCache:{} };
+  editing:null, files:{}, cache:{}, listCache:{},
+  navOpen:{}, navActive:'', _navSheet:null };
 
 function getApiUrl(){ return 'supabase'; }
 function setApiUrl(u){ /* tidak dipakai lagi — backend = Supabase */ }
@@ -3116,6 +3246,7 @@ async function logout(){
   if(state._chatCh){ try{ window.sb.removeChannel(state._chatCh); }catch(e){} state._chatCh=null; }
   if(window._flyIdle){ clearInterval(window._flyIdle); window._flyIdle=null; }
   absnStop();
+  navSheetClose(); state.navOpen={}; state.navActive='';
   if(state._finTimer){ clearInterval(state._finTimer); state._finTimer=null; }
   { const fn=document.getElementById('finNotif'); if(fn) fn.classList.remove('show'); }
   const cp=$('#chatPanel'); if(cp) cp.classList.remove('open');
@@ -3145,6 +3276,10 @@ function enterApp(){
   }
   $('#roleLabel').textContent = s.role==='CS' ? ('CS · '+s.cabang) : s.role;
   buildNav();
+  { const sh=document.getElementById('navSheet'), x=document.getElementById('navSheetX');
+    if(sh && !sh._wired){ sh._wired=true;
+      sh.addEventListener('click', e=>{ if(e.target===sh) navSheetClose(); }); }
+    if(x && !x._wired){ x._wired=true; x.addEventListener('click', navSheetClose); } }
   startClock();
   loadKantor();
   initChat();
@@ -3159,20 +3294,26 @@ function enterApp(){
 }
 function buildNav(){
   const menus = MENUS[state.session.role];
-  $('#navDesktop').innerHTML = menus.map(m=>
-    '<button class="nav-item" data-key="'+m.key+'">'+svg(m.icon)+'<span>'+m.label+'</span></button>'
-  ).join('');
-  $('#navMobile').innerHTML = menus.map(m=>
-    '<button class="bn-item" data-key="'+m.key+'">'+svg(m.icon)+'<span>'+m.label+'</span></button>'
-  ).join('');
-  document.querySelectorAll('[data-key]').forEach(b=>{
-    if(b.classList.contains('nav-item')||b.classList.contains('bn-item'))
-      b.addEventListener('click', ()=>selectMenu(b.dataset.key));
-  });
+  $('#navDesktop').innerHTML = menus.map(navRootHtml).join('');
+  $('#navMobile').innerHTML = menus.map(m=>{
+    const n = opsIsRootKey(m.key) ? opsNode([m.key]) : null;
+    const grp = !!(n && n.children && n.children.length);
+    return '<button class="bn-item'+(grp?' bn-grp':'')+'" data-key="'+esc(m.key)+'">'+
+      svg(m.icon)+'<span>'+esc(m.label)+'</span></button>';
+  }).join('');
+  navWire(document.getElementById('navDesktop'));
+  navWire(document.getElementById('navMobile'));
+  if(state.navActive) markActive(state.navActive);
 }
 function markActive(key){
+  state.navActive=key;
   document.querySelectorAll('.nav-item,.bn-item').forEach(b=>
     b.classList.toggle('active', b.dataset.key===key));
+  // Sorot halaman yang sedang dibuka di dalam dropdown.
+  document.querySelectorAll('[data-navopen]').forEach(b=>{
+    const n=opsNode(b.dataset.navopen.split('|'));
+    b.classList.toggle('active', !!(n && n.view && n.view===state.viewKey));
+  });
 }
 
 /* ============================================================
@@ -3181,7 +3322,7 @@ function markActive(key){
 async function selectMenu(key){
   state.opsHub=null; state.opsOpen=null;
   if(key==='__settings'){ renderSettings(); markActive('__settings'); return; }
-  if(opsIsRootKey(key)) return opsGo([key]);   // Beranda/Operasional/HCS/HSE/R&D
+  if(opsIsRootKey(key)) return opsGo([key]);   // bercabang → buka dropdown; tunggal → buka halaman
   if(key==='audit'){ return openAuditTab(state.auditTab||'auditOrder'); }
   if(key==='gaji'){ return openGajiTab(state.gajiTab||'gaji'); }
   if(key==='gajiFinance'){ return openGajiTab(/Finance$/.test(state.gajiTab||'') ? state.gajiTab : 'gajiFinance'); }
