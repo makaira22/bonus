@@ -440,20 +440,39 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
   color:var(--gold-deep);font-size:10.5px;font-weight:800;vertical-align:1px}
 .ops-crumb{display:flex;align-items:center;gap:10px;margin-bottom:14px}
 
+/* ---------- PRATINJAU QUOTATION ---------- */
+.quo-ov{position:fixed;inset:0;z-index:97;display:none;align-items:flex-start;justify-content:center;
+  padding:20px 12px;overflow:auto;background:rgba(10,23,48,.6);backdrop-filter:blur(3px)}
+.quo-ov.open{display:flex}
+.quo-card{width:min(820px,100%);background:var(--surface);border-radius:18px;overflow:hidden;
+  box-shadow:var(--shadow-lg);animation:rise .2s ease;display:flex;flex-direction:column;max-height:94vh}
+.quo-head{display:flex;align-items:center;padding:14px 18px;background:var(--petrol);color:#fff}
+.quo-t{flex:1;font-family:var(--display);font-weight:600;font-size:17px}
+.quo-x{width:34px;height:34px;border:none;background:none;color:#fff;font-size:25px;line-height:1;
+  border-radius:10px;display:grid;place-items:center;cursor:pointer}
+.quo-x:hover{background:rgba(255,255,255,.16)}
+.quo-scroll{overflow:auto;padding:16px;background:var(--surface-2)}
+.quo-doc{width:760px;transform-origin:top left;margin:0 auto}
+.quo-foot{display:flex;gap:9px;padding:13px 18px;border-top:1px solid var(--line);background:var(--surface);flex-wrap:wrap}
+.quo-lock{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;line-height:1.5;color:var(--warn)}
+.quo-lock svg{width:17px;height:17px;flex:none;margin-top:2px}
+@media (max-width:880px){ .quo-doc{transform:scale(.46);width:760px;height:auto}
+  .quo-scroll{padding:8px;overflow-x:hidden} }
+
 /* ---------- MENU DROPDOWN BERTINGKAT ---------- */
-.nav-grp{margin-bottom:2px}
+.nav-grp{margin-bottom:4px}
 .nav-parent .nav-chev{margin-left:auto;width:16px;height:16px;flex:none;opacity:.7;transition:transform .18s ease}
 .nav-parent.open .nav-chev{transform:rotate(180deg)}
 .nav-item.nav-parent.open{color:var(--ink);background:var(--surface-2)}
 .nav-item.nav-parent.active{color:#fff;background:var(--petrol)}
 /* Daftar anak: tertutup rapat, terbuka dengan animasi */
 .nav-sub{display:none}
-.nav-sub.open{display:block;animation:navDrop .16s ease}
+.nav-sub.open{display:block;animation:navDrop .16s ease;padding:6px 0 10px;margin-bottom:4px}
 @keyframes navDrop{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
-.nav-sub .nav-sub{padding-left:13px;border-left:1px solid var(--line);margin-left:12px}
-.nav-sub-item{width:100%;display:flex;align-items:center;gap:9px;text-align:left;cursor:pointer;
-  padding:9px 12px 9px 14px;margin:2px 0 2px 10px;border:none;background:none;border-radius:10px;
-  font-family:inherit;font-size:12.8px;font-weight:600;color:var(--muted);line-height:1.35}
+.nav-sub .nav-sub{padding-left:12px;border-left:1px solid var(--line);margin-left:14px}
+.nav-sub-item{width:100%;display:flex;align-items:center;gap:10px;text-align:left;cursor:pointer;
+  padding:11px 12px 11px 14px;margin:5px 0 5px 10px;border:none;background:none;border-radius:10px;
+  font-family:inherit;font-size:12.8px;font-weight:600;color:var(--muted);line-height:1.45}
 .nav-sub-item:hover{background:var(--surface-2);color:var(--ink)}
 .nav-sub-item .nav-lbl{flex:1;min-width:0}
 .nav-sub-item.nav-parent{font-weight:700;color:var(--ink)}
@@ -476,7 +495,7 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
   border-radius:10px;display:grid;place-items:center;cursor:pointer}
 .navsheet-x:hover{background:rgba(255,255,255,.16)}
 .navsheet-body{padding:10px 12px 18px;overflow:auto}
-.navsheet-body .nav-sub-item{margin-left:0;font-size:14px;padding:12px 12px}
+.navsheet-body .nav-sub-item{margin-left:0;font-size:14px;padding:14px 12px;margin:6px 0}
 .navsheet-body .nav-sub .nav-sub{margin-left:10px;padding-left:11px}
 .bn-item.bn-grp span{position:relative}
 .bn-item.bn-grp span::after{content:"";display:inline-block;margin-left:4px;border:3px solid transparent;
@@ -2239,7 +2258,6 @@ const OPS_STATUS_AJU      = ['Diajukan','Disetujui','Ditolak','Diproses','Selesa
 const OPS_STATUS_PO       = ['Draft','Dikirim ke Supplier','Diterima Sebagian','Diterima Penuh','Batal'];
 const OPS_ARUS            = ['Masuk','Keluar'];
 const OPS_KATEGORI_KAS    = ['Omzet','Gaji','Operasional Kantor','Alat & Chemical','Transport','Marketing','Pajak','Lainnya'];
-const HCS_STATUS_QUOT     = ['Draft','Terkirim','Negosiasi','Deal','Batal'];
 const HSE_TINGKAT         = ['Nyaris Celaka','Ringan','Sedang','Berat','Fatal'];
 const HSE_JENIS_APD       = ['APD','Suplemen Kesehatan'];
 const HSE_JENIS_FASKES    = ['Klinik','Puskesmas','Rumah Sakit','Apotek','Laboratorium'];
@@ -2389,32 +2407,70 @@ VIEWS.cashflowCabang = {
 };
 
 /* ---------- HCS ---------- */
+/* Baris barang penawaran: 5 slot tetap (pola yang sama dipakai invoice). */
+function quoItemFields(){
+  const out=[];
+  for(let i=1;i<=5;i++){
+    out.push(f('Deskripsi '+i,'text',{full:true, help:i===1?'Baris barang/jasa ke-'+i+' pada penawaran':''}));
+    out.push(f('Qty '+i,'num'));
+    out.push(f('Harga '+i,'money'));
+  }
+  return out;
+}
+const QUO_STATUS = ['Menunggu Persetujuan','Disetujui','Ditolak'];
+const QUO_FORM = [
+  {sec:'Penawaran'},
+  f('No Quotation','text',{req:true, help:'Terisi otomatis, mis. QUO/KLINKLIN/VII/2026/198'}),
+  f('Tanggal','date',{req:true}),
+  f('Exp Date','date',{help:'Tanggal penawaran berakhir'}),
+  f('Cabang','select',{opts:CABANG, req:true}),
+  {sec:'Customer'},
+  f('Nama Customer','text',{req:true}),
+  f('No WA Customer','text'),
+  f('Alamat','textarea',{full:true, req:true}),
+  f('Job Location','textarea',{full:true, help:'Kosongkan bila sama dengan alamat customer'}),
+  {sec:'Rincian Penawaran'},
+  ...quoItemFields(),
+  {sec:'Total'},
+  f('Note','textarea',{full:true, help:'Mis. Alat & Chemical dari Klinklin'}),
+  f('Diskon','money'),
+  f('PPN (%)','num',{help:'Kosong atau 0 = tanpa PPN'}),
+  {sec:'Persetujuan'},
+  f('Status Quotation','select',{opts:QUO_STATUS}),
+  f('Dibuat Oleh','text'),
+  f('Disetujui Oleh','text'),
+  f('Tanggal Persetujuan','date'),
+  f('Catatan Persetujuan','textarea',{full:true})
+];
+const QUO_TABLE = ['No Quotation','Tanggal','Cabang','Nama Customer','Grand Total','Dibuat Oleh','Status Quotation'];
+
+/* Dipakai OPERASIONAL: seluruh cabang, boleh menyetujui & mengunduh. */
 VIEWS.quotation = {
-  sheet:'HCS_QUOTATION', title:'Quotation', sub:'Penawaran harga ke calon pelanggan',
-  countTop:true, noSyncBtn:true, idField:'id', autoId:'QUO',
+  sheet:'HCS_QUOTATION', title:'Quotation', sub:'Penawaran dari seluruh CS — setujui agar bisa diunduh',
+  countTop:true, noSyncBtn:true, idField:'id', autoId:'QUO', quo:true, quoApprove:true,
   canAdd:true, canEdit:true, canDelete:true, delInForm:true,
   sortBy:['Tanggal'], sortDesc:true,
-  table:['No Quotation','Tanggal','Cabang','Nama Customer','Layanan','Nominal','Status Quotation'],
-  colorMap:{'Nominal':'c-green'},
+  table:QUO_TABLE, colorMap:{'Grand Total':'c-green'},
   filters:['Cabang','Status Quotation'],
   datePreset:true, dateFilterField:'Tanggal', defaultMonth:true,
-  search:['No Quotation','Nama Customer','Layanan'],
-  form:[
-    {sec:'Penawaran'},
-    f('No Quotation','text',{req:true}), f('Tanggal','date',{req:true}),
-    f('Cabang','select',{opts:CABANG, req:true}),
-    f('Berlaku Sampai','date'),
-    {sec:'Customer'},
-    f('Nama Customer','text',{req:true}), f('No WA Customer','text'),
-    f('Alamat','textarea',{full:true}),
-    {sec:'Isi Penawaran'},
-    f('Layanan','textarea',{full:true, req:true}),
-    f('Nominal','money',{req:true}), f('Diskon','money'), f('Nominal Akhir','money'),
-    f('Status Quotation','select',{opts:HCS_STATUS_QUOT}),
-    f('Catatan','textarea',{full:true}),
-    f('File Penawaran','file',{accept:'image/*,application/pdf', full:true})
-  ]
+  search:['No Quotation','Nama Customer','Dibuat Oleh'],
+  form:QUO_FORM
 };
+/* Dipakai CS: hanya cabang sendiri, bisa lihat desain tapi unduh
+   baru terbuka setelah OPERASIONAL menyetujui. */
+VIEWS.quotationCS = {
+  sheet:'HCS_QUOTATION', title:'Quotation', sub:'Buat penawaran — unduh terbuka setelah disetujui Operasional',
+  countTop:true, noSyncBtn:true, idField:'id', autoId:'QUO', quo:true, inSettings:true,
+  branchLock:true,
+  canAdd:true, canEdit:true, canDelete:true, delInForm:true,
+  sortBy:['Tanggal'], sortDesc:true,
+  table:QUO_TABLE, colorMap:{'Grand Total':'c-green'},
+  filters:['Status Quotation'],
+  datePreset:true, dateFilterField:'Tanggal', defaultMonth:true,
+  search:['No Quotation','Nama Customer'],
+  form:QUO_FORM
+};
+
 VIEWS.arsipNomor = {
   sheet:'HCS_ARSIP', title:'Arsip Nomor & Nominal', sub:'Rekap nomor surat penawaran dan nilainya',
   countTop:true, noSyncBtn:true, idField:'id', autoId:'ARS',
@@ -2779,10 +2835,9 @@ async function opsGo(path){
   if(node.children && node.children.length){ opsReveal(path, true); return; }
   if(node.view) await opsOpenView(node.view, path);
 }
-/* Buka HANYA cabang ini: seluruh dropdown lain ditutup supaya daftar
-   menu tetap pendek. Dipanggil saat memilih menu maupun membuka halaman. */
+/* Buka cabang ini beserta seluruh leluhurnya. Dropdown lain yang sudah
+   terbuka DIBIARKAN terbuka — pengguna bisa membuka beberapa sekaligus. */
 function navOpenPath(path){
-  state.navOpen={};
   for(let i=1;i<=(path||[]).length;i++) state.navOpen[path.slice(0,i).join('|')]=true;
 }
 /* Tutup sebuah cabang beserta seluruh anak-anaknya. */
@@ -2921,7 +2976,7 @@ async function opsOpenView(viewKey, path){
   state.opsHub=null;
   state.opsOpen={ path:path.slice() };
   if(v.defaultMonth){ const b=calMonthBounds(ymd(new Date()).slice(0,7)); state.dateStart=b.start; state.dateEnd=b.end; }
-  navOpenPath(path.slice(0,-1));
+  navOpenPath(path.slice(0,-1));   // dropdown lain dibiarkan tetap terbuka
   navSheetClose();
   buildNav();
   markActive(path[0]);
@@ -2972,7 +3027,7 @@ const FILTER_OPTS = {
   'Jenis Tagihan':OPS_JENIS_TAGIHAN, 'Status Bayar':OPS_STATUS_BAYAR,
   'Kategori':OPS_KATEGORI_BARANG, 'Status Pengajuan':OPS_STATUS_AJU,
   'Status PO':OPS_STATUS_PO, 'Arus':OPS_ARUS, 'Kategori Kas':OPS_KATEGORI_KAS,
-  'Status Quotation':HCS_STATUS_QUOT, 'Tingkat':HSE_TINGKAT,
+  'Status Quotation':QUO_STATUS, 'Tingkat':HSE_TINGKAT,
   'Status Temuan':['Terbuka','Diproses','Selesai'],
   'Jenis APD':HSE_JENIS_APD, 'Jenis Faskes':HSE_JENIS_FASKES,
   'Jenis SIM':HSE_JENIS_SIM, 'Status Kajian':RND_STATUS_KAJIAN
@@ -3255,6 +3310,8 @@ async function logout(){
   if(window._flyIdle){ clearInterval(window._flyIdle); window._flyIdle=null; }
   absnStop();
   navSheetClose(); state.navOpen={}; state.navActive='';
+  clearInterval(state._quoTimer); state._quoTimer=null; state._quoPrev=null;
+  { const q=document.getElementById('quoNotif'); if(q) q.classList.remove('show'); }
   if(state._finTimer){ clearInterval(state._finTimer); state._finTimer=null; }
   { const fn=document.getElementById('finNotif'); if(fn) fn.classList.remove('show'); }
   const cp=$('#chatPanel'); if(cp) cp.classList.remove('open');
@@ -3294,6 +3351,7 @@ function enterApp(){
   resolveNamaLengkap();
   initFinanceNotif();
   absnInit();                 // tombol melayang Absen (khusus jabatan CS)
+  initQuoNotif();             // notifikasi quotation menunggu persetujuan (OPERASIONAL)
   runLoginPopups();
   document.body.classList.toggle('is-designer', s.role==='DESIGNER');
   if(!MENUS[s.role].length){ renderDesigner(); return; }
@@ -4097,6 +4155,18 @@ function rowActions(v,r){
   if(v.approve && (norm(r['Status Order'])==='pending' || norm(r['Status Order'])==='done')){
     act += '<button class="btn btn-gold btn-sm" data-approve="'+esc(oid)+'">'+svg('check')+'Approve</button>';
   }
+  if(v.quo){
+    const rid=v.idField?esc(r[v.idField]):('#'+state.rows.indexOf(r));
+    act += '<button class="btn btn-ghost btn-sm" data-quoview="'+rid+'" title="Lihat desain penawaran">'+svg('file')+'Lihat</button>';
+    if(quoCanDownload(r))
+      act += '<button class="btn btn-gold btn-sm" data-quodl="'+rid+'" title="Unduh PDF">'+svg('file')+'Unduh</button>';
+    else
+      act += '<span class="act-ic" title="Unduh terkunci — menunggu persetujuan Operasional" style="opacity:.4;cursor:not-allowed">'+svg('file')+'</span>';
+    if(v.quoApprove && quoStatus(r)!=='disetujui')
+      act += '<button class="btn btn-gold btn-sm" data-quook="'+rid+'">'+svg('check')+'Setujui</button>';
+    if(v.quoApprove && quoStatus(r)==='menunggu persetujuan')
+      act += '<button class="btn btn-ghost btn-sm" data-quono="'+rid+'" style="color:var(--danger)">Tolak</button>';
+  }
   if(v.invoice && (norm(r['Status Order'])==='done' || norm(r['Status Order'])==='complete' || r['Bukti Transfer'])){
     act += '<button class="btn btn-ghost btn-sm" data-invoice="'+esc(oid)+'">'+svg('file')+'Invoice</button>';
   }
@@ -4236,6 +4306,16 @@ function wireRowHandlers(v){
     const row=key.charAt(0)==='#'?state.rows[+key.slice(1)]:state.rows.find(x=>String(x[v.idField])===key);
     openForm(row);
   }));
+  const quoRow=b=>{ const v=state.view, k=b.dataset.quoview||b.dataset.quodl||b.dataset.quook||b.dataset.quono;
+    return (k&&k[0]==='#') ? state.rows[Number(k.slice(1))] : state.rows.find(x=>String(x[v.idField])===k); };
+  document.querySelectorAll('[data-quoview]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation();
+    const r=quoRow(b); if(r) previewQuotation(r); }));
+  document.querySelectorAll('[data-quodl]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation();
+    const r=quoRow(b); if(r) downloadQuotation(r); }));
+  document.querySelectorAll('[data-quook]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation();
+    const r=quoRow(b); if(r) quoSetStatus(r,'Disetujui'); }));
+  document.querySelectorAll('[data-quono]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation();
+    const r=quoRow(b); if(r) quoSetStatus(r,'Ditolak'); }));
   document.querySelectorAll('[data-invoice]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation();
     const row=state.rows.find(x=>String(x['ID Order'])===b.dataset.invoice); if(row) showInvoiceChoice(b, row);
   }));
@@ -6593,6 +6673,15 @@ function defaults(v){
   }
   if(v.sheet==='TODO'){ d['Jabatan']=state.session.role; d['Tanggal']=today; d['Status']='Belum'; d['Warna']='Biru'; }
   if(v.sheet==='CHAT_HARIAN'){ d['Cabang']=state.session.cabang; d['Tanggal']=today; }
+  if(v.sheet==='HCS_QUOTATION'){
+    d['Tanggal']=today;
+    d['Exp Date']=ymd(new Date(Date.now()+7*864e5));
+    d['Status Quotation']='Menunggu Persetujuan';
+    d['Dibuat Oleh']=state.session.namaLengkap||state.session.nama||'';
+    if(state.session.cabang) d['Cabang']=state.session.cabang;
+    d['PPN (%)']=0;
+    quoFillNo();                       // nomor otomatis diisi setelah form tampil
+  }
   if(v.sheet==='REMINDER'){ d['Aktif']=1; d['Tujuan']='SEMUA'; }
   if(v.sheet==='UPDATE_FITUR'){ d['Aktif']=1; d['Tujuan']='SEMUA'; d['Tipe']='Update Fitur'; }
   return d;
@@ -7544,6 +7633,17 @@ async function saveForm(){
   if(v.autoId && v.idField && !state.editing && !String(data[v.idField]||'').trim()){
     data[v.idField]=genId(v.autoId);
   }
+  if(v.sheet==='HCS_QUOTATION'){
+    const T=quoTotals(data);
+    data['Gross Total']=T.gross; data['Net Total']=T.net;
+    data['Nilai PPN']=T.ppn;     data['Grand Total']=T.grand;
+    // CS tidak boleh menyetujui penawarannya sendiri.
+    if(state.session && state.session.role==='CS' && !v.quoApprove){
+      data['Status Quotation'] = state.editing
+        ? (state.editing['Status Quotation']||'Menunggu Persetujuan')
+        : 'Menunggu Persetujuan';
+    }
+  }
   // Pastikan bonus selalu membawa Cleaner/Customer/Tanggal dari order (agar tampil & terhitung).
   if(v.sheet==='BONUS' && data['No Order']){
     const o=(state.cache.order||[]).find(x=>String(x['ID Order'])===String(data['No Order']));
@@ -7697,6 +7797,7 @@ function renderSettings(){
     {key:'targetOmzet', label:'Target Omzet', desc:'Setting target omzet bulanan tiap cabang', icon:'result'},
     {key:'agenda', label:'Agenda', desc:'Agenda & jadwal kegiatan', icon:'audit'});
   if(role==='CS') entries.push(
+    {key:'quotationCS', label:'Quotation', desc:'Buat penawaran harga — unduh setelah disetujui Operasional', icon:'file'},
     {key:'chatHarian', label:'Chat Harian', desc:'Laporan chat harian per cabang: customer baru/lama, closing, orderan, telp, SDM', icon:'audit'},
     {key:'konten', label:'Konten', desc:'Link Konten Story, Promo & Follow Up', icon:'inbox'},
     {key:'suratTDP', label:'Surat TDP', desc:'Pembuatan Surat TDP (segera)', icon:'file'});
@@ -8502,6 +8603,364 @@ function showCleanerInsentif(name){
   const cc=$('#modalCancel'); if(cc){ cc.textContent='Tutup'; cc.classList.add('btn-danger'); }
   openOverlay();
 }
+
+/* ============================================================
+   QUOTATION — dokumen penawaran, persetujuan & notifikasi.
+
+   Alur: CS membuat penawaran (status "Menunggu Persetujuan") dan
+   boleh melihat desainnya, tetapi tombol Unduh masih terkunci.
+   OPERASIONAL menerima notifikasi, lalu menyetujui — setelah itu
+   CS bisa mengunduh. OPERASIONAL & CEO selalu bisa mengunduh.
+   ============================================================ */
+const QUO_COMPANY = {
+  nama:'PT. KLINKLIN INDONESIA GROUP',
+  alamat:'Jl. Mojo Kidul No. 23, Mojo, Gubeng, Surabaya, Jawa Timur 62085',
+  telp:'(+62) 889-9141-1785',
+  email:'divisimarketing@klinklin.co.id',
+  web:'www.klinklin.co.id'
+};
+const QUO_SIGN_KEY = 'klinklin_quo_sign';           // URL gambar tanda tangan (opsional)
+function quoSignUrl(){ try{ return localStorage.getItem(QUO_SIGN_KEY)||''; }catch(e){ return ''; } }
+const QUO_ROMAN = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
+
+/* ---------- NOMOR OTOMATIS ---------- */
+async function quoNextNo(){
+  const now=new Date(), yr=now.getFullYear(), rom=QUO_ROMAN[now.getMonth()];
+  let max=0;
+  try{
+    const rows=(await api({action:'list', sheet:'HCS_QUOTATION'})).data||[];
+    rows.forEach(r=>{
+      const no=String(r['No Quotation']||'');
+      if(no.indexOf('/'+yr+'/')<0) return;
+      const m=no.match(/(\d+)\s*$/);
+      if(m) max=Math.max(max, Number(m[1])||0);
+    });
+  }catch(e){}
+  return 'QUO/KLINKLIN/'+rom+'/'+yr+'/'+(max+1);
+}
+/* Isi nomor setelah form tampil (defaults() tidak bisa menunggu jaringan). */
+function quoFillNo(){
+  setTimeout(async ()=>{
+    const el=getEl('No Quotation');
+    if(!el || String(el.value||'').trim()) return;
+    el.value='memuat…'; el.disabled=true;
+    try{ el.value=await quoNextNo(); }catch(e){ el.value=''; }
+    el.disabled=false;
+  }, 60);
+}
+
+/* ---------- PERHITUNGAN ---------- */
+function quoNum(x){ const n=Number(String(x==null?'':x).replace(/[^0-9.-]/g,'')); return isFinite(n)?n:0; }
+function quoItems(o){
+  const out=[];
+  for(let i=1;i<=5;i++){
+    const d=String(o['Deskripsi '+i]||'').trim();
+    const q=quoNum(o['Qty '+i]), h=quoNum(o['Harga '+i]);
+    if(!d && !q && !h) continue;
+    out.push({ desc:d, qty:q||1, harga:h, amount:(q||1)*h });
+  }
+  return out;
+}
+function quoTotals(o){
+  const items=quoItems(o);
+  const gross=items.reduce((a,b)=>a+b.amount,0);
+  const diskon=quoNum(o['Diskon']);
+  const net=Math.max(0, gross-diskon);
+  const pct=quoNum(o['PPN (%)']);
+  const ppn=Math.round(net*pct/100);
+  return { items, gross, diskon, net, pct, ppn, grand:net+ppn };
+}
+function quoStatus(o){ return norm(o&&o['Status Quotation']); }
+function quoCanDownload(o){
+  const role=state.session && state.session.role;
+  if(role==='OPERASIONAL' || role==='CEO') return true;
+  return quoStatus(o)==='disetujui';
+}
+
+/* ---------- DOKUMEN ---------- */
+function buildQuotationHTML(o){
+  o=o||{};
+  const T=quoTotals(o);
+  const nf=n=>Number(n||0).toLocaleString('id-ID');
+  const amt=n=>n?nf(n):'';
+  const dt=v=>{ const d=parseAnyDate(v); if(!d) return String(v||''); const p=d.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; };
+  const B='#000', BRN='#7B3F16', LN='1px solid #000';
+  const cell='font-size:11px;font-family:Arial,Helvetica,sans-serif;color:'+B;
+
+  const rows=T.items.map((it,i)=>
+    '<tr>'+
+      '<td style="'+cell+';text-align:center;padding:7px 4px;color:'+BRN+';font-weight:700">'+(i+1)+'</td>'+
+      '<td style="'+cell+';padding:7px 8px;color:'+BRN+';font-weight:700">'+esc(it.desc||'-')+'</td>'+
+      '<td style="'+cell+';text-align:center;padding:7px 4px;color:'+BRN+';font-weight:700">'+nf(it.qty)+'</td>'+
+      '<td style="'+cell+';text-align:left;padding:7px 8px;color:'+BRN+';font-weight:700;width:44px">IDR</td>'+
+      '<td style="'+cell+';text-align:right;padding:7px 8px;color:'+BRN+';font-weight:700">'+nf(it.harga)+'</td>'+
+      '<td style="'+cell+';text-align:left;padding:7px 8px;color:'+BRN+';font-weight:700;width:44px">IDR</td>'+
+      '<td style="'+cell+';text-align:right;padding:7px 10px;color:'+BRN+';font-weight:700">'+nf(it.amount)+'</td>'+
+    '</tr>').join('');
+  const blank=Array.from({length:Math.max(0,4-T.items.length)}).map(()=>
+    '<tr><td style="padding:7px">&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>').join('');
+
+  const totRow=(label,val,opt)=>{
+    const bt=(opt&&opt.top)?'border-top:'+LN+';':'';
+    const bb=(opt&&opt.bottom)?'border-bottom:'+LN+';':'';
+    const fw=(opt&&opt.bold)?'font-weight:700;':'';
+    return '<tr>'+
+      '<td style="'+cell+';padding:4px 8px;'+bt+bb+fw+'">'+label+'</td>'+
+      '<td style="'+cell+';padding:4px 6px;'+bt+bb+fw+'">IDR</td>'+
+      '<td style="'+cell+';padding:4px 10px;text-align:right;'+bt+bb+fw+'">'+amt(val)+'</td></tr>';
+  };
+  const info=(l,v)=>'<tr><td style="'+cell+';padding:1px 0;width:78px">'+l+'</td>'+
+    '<td style="'+cell+';padding:1px 6px;width:10px">:</td>'+
+    '<td style="'+cell+';padding:1px 0">'+v+'</td></tr>';
+
+  const jobLoc = String(o['Job Location']||'').trim() || String(o['Alamat']||'');
+
+  return ''+
+  '<div style="width:760px;box-sizing:border-box;background:#fff;border:'+LN+';font-family:Arial,Helvetica,sans-serif;color:'+B+'">'+
+    /* kop surat */
+    '<table style="width:100%;border-collapse:collapse"><tr>'+
+      '<td style="width:270px;border-right:'+LN+';border-bottom:'+LN+';padding:10px 14px;text-align:center;vertical-align:middle">'+
+        (logoUrl()
+          ? '<img src="'+esc(logoUrl())+'" crossorigin="anonymous" style="max-height:56px;max-width:230px;object-fit:contain;display:block;margin:0 auto">'
+          : '<div style="font-size:30px;font-weight:800;letter-spacing:-1px">KlinKlin</div>'+
+            '<div style="font-size:12px;letter-spacing:3px;color:#1B3A6B">CLEANING SERVICE</div>')+
+      '</td>'+
+      '<td style="border-bottom:'+LN+';padding:9px 14px;vertical-align:middle">'+
+        '<div style="font-size:11.5px;font-weight:800">'+esc(QUO_COMPANY.nama)+'</div>'+
+        '<div style="font-size:10px;font-weight:700;color:#7B3F16;margin-top:2px">'+esc(QUO_COMPANY.alamat)+'</div>'+
+        '<div style="font-size:10px;margin-top:2px">Phone '+esc(QUO_COMPANY.telp)+' email : <span style="color:#1B4FA0">'+esc(QUO_COMPANY.email)+'</span></div>'+
+        '<div style="font-size:10px;margin-top:1px">web : <span style="color:#1B4FA0">'+esc(QUO_COMPANY.web)+'</span></div>'+
+      '</td>'+
+    '</tr></table>'+
+
+    '<div style="text-align:center;font-size:15px;font-weight:800;padding:14px 0 12px">QUOTATION</div>'+
+
+    /* identitas penawaran */
+    '<table style="width:100%;border-collapse:collapse"><tr>'+
+      '<td style="vertical-align:top;padding:0 14px"><table style="border-collapse:collapse">'+
+        info('No. Quo', esc(o['No Quotation']||'-'))+
+        info('Date', esc(dt(o['Tanggal'])))+
+        info('Exp Date', esc(dt(o['Exp Date'])))+
+        info('Currency','IDR')+
+      '</table></td>'+
+      '<td style="vertical-align:top;padding:0 14px;text-align:right">'+
+        '<span style="'+cell+';font-weight:700">Branch</span>'+
+        '<span style="'+cell+';padding:0 22px 0 34px">:</span>'+
+        '<span style="'+cell+';font-weight:700">'+esc(o['Cabang']||'-')+'</span>'+
+      '</td>'+
+    '</tr></table>'+
+
+    '<table style="width:100%;border-collapse:collapse;margin-top:18px"><tr>'+
+      '<td style="vertical-align:top;padding:0 14px"><table style="border-collapse:collapse">'+
+        info('To','<b>'+esc(o['Nama Customer']||'-')+'</b>')+
+        info('', esc(o['Alamat']||''))+
+      '</table></td>'+
+    '</tr></table>'+
+    '<table style="width:100%;border-collapse:collapse;margin-top:10px"><tr>'+
+      '<td style="vertical-align:top;padding:0 14px"><table style="border-collapse:collapse">'+
+        info('Job Location', esc(jobLoc))+
+      '</table></td>'+
+    '</tr></table>'+
+
+    /* rincian */
+    '<table style="width:100%;border-collapse:collapse;margin-top:16px">'+
+      '<tr>'+
+        '<th style="'+cell+';font-weight:700;border-top:'+LN+';border-bottom:'+LN+';padding:6px 4px;width:44px">No</th>'+
+        '<th style="'+cell+';font-weight:700;border-top:'+LN+';border-bottom:'+LN+';padding:6px 8px">Description</th>'+
+        '<th style="'+cell+';font-weight:700;border-top:'+LN+';border-bottom:'+LN+';padding:6px 4px;width:70px">Qty</th>'+
+        '<th colspan="2" style="'+cell+';font-weight:700;border-top:'+LN+';border-bottom:'+LN+';padding:6px 8px;width:150px">Price</th>'+
+        '<th colspan="2" style="'+cell+';font-weight:700;border-top:'+LN+';border-bottom:'+LN+';padding:6px 10px;width:150px;text-align:right">Amount</th>'+
+      '</tr>'+
+      rows+blank+
+    '</table>'+
+
+    /* catatan + total */
+    '<table style="width:100%;border-collapse:collapse;border-top:'+LN+'"><tr>'+
+      '<td style="vertical-align:top;padding:9px 14px;'+cell+';font-weight:700">'+
+        (o['Note'] ? 'Note : '+esc(o['Note']) : '')+'</td>'+
+      '<td style="width:330px;vertical-align:top;padding:4px 4px 8px"><table style="width:100%;border-collapse:collapse">'+
+        totRow('Gross Total', T.gross)+
+        totRow('Diskon', T.diskon)+
+        totRow('Net Total', T.net, {top:true})+
+        totRow('PPN '+(T.pct||11)+'%', T.ppn)+
+        totRow('Grand Total', T.grand, {top:true, bottom:true, bold:true})+
+      '</table></td>'+
+    '</tr></table>'+
+
+    /* terbilang + tanda tangan */
+    '<table style="width:100%;border-collapse:collapse;margin-top:26px"><tr>'+
+      '<td style="vertical-align:top;padding:0 14px">'+
+        '<table style="border-collapse:collapse">'+info('Inword', esc(terbilangRp(T.grand)))+'</table>'+
+      '</td>'+
+      '<td style="width:250px;text-align:center;vertical-align:top">'+
+        '<div style="'+cell+'">Sincerely,</div>'+
+        (quoSignUrl()
+          ? '<img src="'+esc(quoSignUrl())+'" crossorigin="anonymous" style="height:56px;object-fit:contain;display:block;margin:2px auto">'
+          : '<div style="height:56px"></div>')+
+        '<div style="'+cell+';font-weight:700;text-decoration:underline">'+esc(INVOICE_SIGNER)+'</div>'+
+      '</td>'+
+    '</tr></table>'+
+
+    /* pembayaran */
+    '<div style="padding:26px 14px 16px">'+
+      '<div style="'+cell+';font-weight:700">Pembayaran Cash / Transfer via</div>'+
+      INVOICE_BANK.map(b=>
+        '<table style="border-collapse:collapse"><tr>'+
+          '<td style="'+cell+';font-weight:700;width:78px;padding:1px 0">'+esc(b.bank)+'</td>'+
+          '<td style="'+cell+';padding:1px 6px;width:10px">:</td>'+
+          '<td style="'+cell+';font-weight:700;padding:1px 0">'+esc(b.no)+' a.n '+esc(String(b.an).toUpperCase())+'</td>'+
+        '</tr></table>').join('')+
+    '</div>'+
+  '</div>';
+}
+
+/* ---------- PRATINJAU (boleh untuk semua, termasuk CS) ---------- */
+function previewQuotation(o){
+  let ov=document.getElementById('quoOv');
+  if(!ov){
+    ov=document.createElement('div'); ov.id='quoOv'; ov.className='quo-ov';
+    ov.innerHTML='<div class="quo-card">'+
+      '<div class="quo-head"><span class="quo-t" id="quoTitle">Pratinjau Quotation</span>'+
+        '<button class="quo-x" id="quoX" aria-label="Tutup">&times;</button></div>'+
+      '<div class="quo-scroll"><div class="quo-doc" id="quoDoc"></div></div>'+
+      '<div class="quo-foot" id="quoFoot"></div></div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', e=>{ if(e.target===ov) ov.classList.remove('open'); });
+    document.getElementById('quoX').addEventListener('click', ()=>ov.classList.remove('open'));
+  }
+  document.getElementById('quoTitle').textContent='Quotation '+(o['No Quotation']||'');
+  document.getElementById('quoDoc').innerHTML=buildQuotationHTML(o);
+  const foot=document.getElementById('quoFoot');
+  const boleh=quoCanDownload(o);
+  foot.innerHTML = boleh
+    ? '<button class="btn btn-gold" id="quoDl">'+svg('file')+'Unduh PDF</button>'+
+      '<button class="btn btn-ghost" id="quoPr">'+svg('file')+'Cetak</button>'
+    : '<div class="quo-lock">'+svg('alert')+'<span>Menunggu persetujuan Operasional. Desain sudah bisa dilihat, '+
+      'tombol unduh terbuka setelah penawaran ini disetujui.</span></div>';
+  if(boleh){
+    document.getElementById('quoDl').onclick=()=>downloadQuotation(o);
+    document.getElementById('quoPr').onclick=()=>printQuotation(o);
+  }
+  ov.classList.add('open');
+}
+
+/* ---------- UNDUH / CETAK (mengikuti pipeline invoice) ---------- */
+async function quotationToCanvas(o){
+  const canRender=(typeof html2pdf!=='undefined')||(typeof window.html2canvas!=='undefined');
+  if(!canRender) return null;
+  const holder=document.createElement('div');
+  holder.style.cssText='position:absolute;left:0;top:0;width:760px;background:#fff;z-index:-1;opacity:1';
+  holder.innerHTML=buildQuotationHTML(o);
+  document.body.appendChild(holder);
+  const el=holder.firstElementChild;
+  const px=window.pageXOffset||0, py=window.pageYOffset||0;
+  try{
+    window.scrollTo(0,0);
+    if(document.fonts && document.fonts.ready){ try{ await Promise.race([document.fonts.ready, new Promise(r=>setTimeout(r,1200))]); }catch(e){} }
+    try{ await Promise.all(Array.from(el.querySelectorAll('img')).map(img=>(img.complete&&img.naturalWidth)?Promise.resolve()
+      : new Promise(res=>{ img.addEventListener('load',res,{once:true}); img.addEventListener('error',res,{once:true}); setTimeout(res,2500); }))); }catch(e){}
+    await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+    const w=el.offsetWidth||760, h=Math.max(el.scrollHeight, el.offsetHeight);
+    const opt={ scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false,
+      width:w, height:h, windowWidth:w, windowHeight:h, scrollX:0, scrollY:0, x:0, y:0 };
+    if(typeof window.html2canvas!=='undefined') return await window.html2canvas(el, opt);
+    return await html2pdf().set({html2canvas:opt}).from(el).toCanvas().get('canvas');
+  }catch(e){ return null; }
+  finally{ holder.remove(); window.scrollTo(px,py); }
+}
+function quoPrintImage(o, canvas){
+  const url=canvas.toDataURL('image/jpeg',0.96);
+  const w=window.open('','_blank');
+  if(!w){ toast('Popup diblokir — izinkan popup untuk cetak.','err'); return; }
+  w.document.open();
+  w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Quotation</title>'+
+    '<style>@page{size:A4;margin:0} html,body{margin:0;padding:0;background:#fff}'+
+    '.wrap{width:210mm;min-height:297mm;box-sizing:border-box;padding:10mm;display:flex;align-items:flex-start;justify-content:center}'+
+    '.wrap img{max-width:100%;max-height:277mm;object-fit:contain;display:block}</style>'+
+    '</head><body onload="setTimeout(function(){window.focus();window.print();},300)">'+
+    '<div class="wrap"><img src="'+url+'"></div></body></html>');
+  w.document.close();
+}
+async function downloadQuotation(o){
+  if(!quoCanDownload(o)){ toast('Penawaran ini belum disetujui Operasional.','err'); return; }
+  const fname='Quotation-'+String(o['No Quotation']||'KLINKLIN').replace(/[^A-Za-z0-9]+/g,'_')+'.pdf';
+  setSync(true,'Membuat quotation…');
+  try{
+    const canvas=await quotationToCanvas(o);
+    if(!canvas || !canvas.width){ setSync(false); toast('Gagal membuat dokumen','err'); return; }
+    let JsPDF=(window.jspdf && window.jspdf.jsPDF)||window.jsPDF||null;
+    if(!JsPDF){ setSync(false); quoPrintImage(o,canvas); return; }
+    const pdf=new JsPDF({unit:'mm',format:'a4',orientation:'portrait'});
+    const pw=pdf.internal.pageSize.getWidth(), ph=pdf.internal.pageSize.getHeight(), m=10;
+    const ratio=Math.min((pw-m*2)/canvas.width, (ph-m*2)/canvas.height);
+    const iw=canvas.width*ratio, ih=canvas.height*ratio;
+    pdf.addImage(canvas.toDataURL('image/jpeg',0.96),'JPEG',(pw-iw)/2,m,iw,ih);
+    pdf.save(fname);
+    toast('Quotation diunduh','ok');
+  }catch(e){ toast('Gagal: '+((e&&e.message)||e),'err'); }
+  finally{ setSync(false); }
+}
+async function printQuotation(o){
+  if(!quoCanDownload(o)){ toast('Penawaran ini belum disetujui Operasional.','err'); return; }
+  setSync(true,'Menyiapkan…');
+  try{
+    const canvas=await quotationToCanvas(o);
+    if(canvas && canvas.width) quoPrintImage(o,canvas);
+    else toast('Gagal membuat dokumen','err');
+  } finally{ setSync(false); }
+}
+
+/* ---------- PERSETUJUAN (OPERASIONAL) ---------- */
+async function quoSetStatus(o, status){
+  const v=state.view; if(!v) return;
+  const nama=(state.session&&(state.session.namaLengkap||state.session.nama))||'';
+  const data={ 'Status Quotation':status, 'Disetujui Oleh':nama, 'Tanggal Persetujuan':ymd(new Date()) };
+  setSync(true, status==='Disetujui'?'Menyetujui…':'Menyimpan…');
+  try{
+    const r=await api({action:'update', sheet:v.sheet, idField:v.idField, id:o[v.idField], data});
+    if(r && r.ok===false) throw new Error(r.error||'gagal');
+    toast('Quotation '+status.toLowerCase(),'ok');
+    await loadList(true);
+  }catch(e){ toast('Gagal: '+((e&&e.message)||e),'err'); }
+  finally{ setSync(false); }
+}
+
+/* ---------- NOTIFIKASI KE OPERASIONAL ---------- */
+async function quoPendingCount(){
+  try{
+    const rows=(await api({action:'list', sheet:'HCS_QUOTATION'})).data||[];
+    return rows.filter(r=>norm(r['Status Quotation'])==='menunggu persetujuan').length;
+  }catch(e){ return null; }
+}
+function showQuoNotif(count){
+  if(!(count>0)) return;
+  let el=document.getElementById('quoNotif');
+  if(!el){ el=document.createElement('div'); el.id='quoNotif'; el.className='fin-notif'; document.body.appendChild(el); }
+  el.innerHTML='<div class="fin-notif-ic">📄</div>'+
+    '<div class="fin-notif-body">Ada <span class="fn-big" id="quoNotifCount">'+count+'</span> '+
+    '<b>Quotation</b> dari CS yang menunggu <b>persetujuan</b> Anda.</div>'+
+    '<button class="fin-notif-x" id="quoNotifX" title="Tutup">✕</button>';
+  el.classList.add('show');
+  document.getElementById('quoNotifX').onclick=()=>el.classList.remove('show');
+}
+async function quoNotifTick(){
+  if(!state.session || state.session.role!=='OPERASIONAL') return;
+  const count=await quoPendingCount();
+  if(count==null) return;
+  if(state._quoPrev!=null && count>state._quoPrev) showQuoNotif(count);   // ada penawaran BARU
+  state._quoPrev=count;
+  const c=document.getElementById('quoNotifCount'); if(c) c.textContent=count;
+  const el=document.getElementById('quoNotif');
+  if(el && el.classList.contains('show') && count<=0) el.classList.remove('show');
+}
+function initQuoNotif(){
+  clearInterval(state._quoTimer);
+  if(!state.session || state.session.role!=='OPERASIONAL') return;
+  state._quoPrev=null;
+  quoNotifTick().then(()=>{ if(state._quoPrev>0) showQuoNotif(state._quoPrev); });  // saat login
+  state._quoTimer=setInterval(quoNotifTick, 45*1000);
+}
+
 /* ============================================================
    ABSEN CS — tombol melayang (pojok kanan bawah) + panel selfie.
 
