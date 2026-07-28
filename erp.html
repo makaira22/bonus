@@ -373,7 +373,20 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 #imgPop{position:fixed;inset:0;z-index:95;display:none;align-items:center;justify-content:center;
   padding:24px;background:rgba(8,24,23,.82);backdrop-filter:blur(4px);cursor:zoom-out}
 #imgPop.show{display:flex;animation:rise .18s ease}
-#imgPopBody{display:flex;gap:14px;flex-wrap:wrap;align-items:center;justify-content:center;max-width:96vw;max-height:90vh}
+#imgPopBody{display:flex;gap:14px;flex-wrap:wrap;align-items:center;justify-content:center;max-width:96vw;max-height:90vh;overflow:auto}
+#imgPopBody img{transition:transform .12s ease;transform-origin:center center}
+#imgPopBody.zoomed{align-items:flex-start;justify-content:flex-start;cursor:grab}
+#imgPopBody.zoomed.drag{cursor:grabbing}
+.imgpop-zoom{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:3;display:flex;
+  align-items:center;gap:4px;padding:6px;border-radius:14px;background:rgba(10,23,48,.86);
+  backdrop-filter:blur(6px);box-shadow:0 12px 30px -12px rgba(0,0,0,.7)}
+.imgpop-zoom button{min-width:38px;height:34px;padding:0 10px;border:none;border-radius:10px;cursor:pointer;
+  background:rgba(255,255,255,.14);color:#fff;font-family:var(--ui);font-size:15px;font-weight:800;line-height:1}
+.imgpop-zoom button:hover{background:rgba(255,255,255,.28)}
+.imgpop-zoom button:disabled{opacity:.35;cursor:not-allowed}
+.imgpop-zoom #imgZoomReset{font-size:11.5px}
+#imgZoomVal{min-width:52px;text-align:center;color:#fff;font-family:var(--ui);font-size:12px;font-weight:700}
+@media (max-width:620px){ .imgpop-zoom{bottom:14px} }
 #imgPopBody img{border-radius:14px;background:#fff;box-shadow:var(--shadow-lg);object-fit:contain;cursor:default}
 #imgPopBody:not(.multi) img{max-width:92vw;max-height:88vh}
 #imgPopBody.multi img{max-width:46vw;max-height:82vh}
@@ -438,6 +451,9 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 /* ---------- NAVIGASI BERTINGKAT OPERASIONAL ---------- */
 .ops-chip{display:inline-block;margin-left:8px;padding:1px 8px;border-radius:20px;background:var(--gold-soft);
   color:var(--gold-deep);font-size:10.5px;font-weight:800;vertical-align:1px}
+.abs-jab{display:inline-block;margin-left:7px;padding:1px 7px;border-radius:20px;font-size:9.5px;
+  font-weight:800;letter-spacing:.03em;background:var(--surface-2);color:var(--muted);border:1px solid var(--line)}
+.abs-jab.cs{background:var(--gold-soft);color:var(--gold-deep);border-color:transparent}
 .ops-crumb{display:flex;align-items:center;gap:10px;margin-bottom:14px}
 
 /* ---------- PRATINJAU QUOTATION ---------- */
@@ -1435,7 +1451,16 @@ td.c-green, td.c-red, td.c-orange, td.c-blue{font-weight:700}
 </div>
 
 <div id="sync"><span class="s"></span><span class="t"></span></div>
-<div id="imgPop"><button id="imgPopClose" class="imgpop-close" aria-label="Tutup">&times;</button><div id="imgPopBody"></div></div>
+<div id="imgPop">
+  <button id="imgPopClose" class="imgpop-close" aria-label="Tutup">&times;</button>
+  <div class="imgpop-zoom">
+    <button id="imgZoomOut" title="Perkecil">&minus;</button>
+    <span id="imgZoomVal">100%</span>
+    <button id="imgZoomIn" title="Perbesar">+</button>
+    <button id="imgZoomReset" title="Ukuran asal">Reset</button>
+  </div>
+  <div id="imgPopBody"></div>
+</div>
 <div id="toast"></div>
 
 <script>
@@ -1719,6 +1744,7 @@ const MENUS = {
   HRD: [
     {key:'gaji', label:'Gaji', icon:'salary'},
     {key:'absensi', label:'Absensi', icon:'users'},
+    {key:'izin', label:'Izin', icon:'file'},
     {key:'insentif', label:'Insentif', icon:'gift'},
     {key:'agenda', label:'Agenda', icon:'audit'},
     {key:'__settings', label:'Pengaturan', icon:'settings'}
@@ -1969,7 +1995,8 @@ const VIEWS = {
   editOrder:{
     sheet:'ORDER', title:'Edit Order', sub:'', countTop:true, hub:'audit',
     idField:'ID Order', canEdit:true, special:'order', statusBadge:true, invoice:true, revertPending:true,
-    statusClient:['done','complete'], statusPrio:['done','complete'], paged:true,
+    // pending ikut tampil agar Finance bisa memperbaiki order sebelum di-approve
+    statusClient:['pending','done','complete'], statusPrio:['pending','done','complete'], paged:true,
     table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Metode Pembayaran','Nama Cleaner','Total Akhir Setelah Diskon'],
     filters:['Cabang','Status Order'], dynCleaner:true,
     datePreset:true, dateFilterField:'Tanggal Pengerjaan',
@@ -2411,10 +2438,13 @@ VIEWS.cashflowCabang = {
 function quoItemFields(){
   const out=[];
   for(let i=1;i<=5;i++){
-    out.push(f('Deskripsi '+i,'text',{full:true, help:i===1?'Baris barang/jasa ke-'+i+' pada penawaran':''}));
-    out.push(f('Qty '+i,'num'));
-    out.push(f('Harga '+i,'money'));
+    // Baris 2-5 disembunyikan sampai tombol "Tambah baris" ditekan.
+    const ex = i===1 ? {} : {svc:i};
+    out.push(f('Deskripsi '+i,'text',Object.assign({full:true},ex)));
+    out.push(f('Qty '+i,'num',Object.assign({},ex)));
+    out.push(f('Harga '+i,'money',Object.assign({},ex)));
   }
+  out.push({btn:'addSvc'});
   return out;
 }
 const QUO_STATUS = ['Menunggu Persetujuan','Disetujui','Ditolak'];
@@ -2435,6 +2465,7 @@ const QUO_FORM = [
   f('Note','textarea',{full:true, help:'Mis. Alat & Chemical dari Klinklin'}),
   f('Diskon','money'),
   f('PPN (%)','num',{help:'Kosong atau 0 = tanpa PPN'}),
+  f('PPh (%)','num',{help:'Mengurangi total. Hanya bisa diisi bila PPN terisi.'}),
   {sec:'Persetujuan'},
   f('Status Quotation','select',{opts:QUO_STATUS}),
   f('Dibuat Oleh','text'),
@@ -2442,6 +2473,9 @@ const QUO_FORM = [
   f('Tanggal Persetujuan','date'),
   f('Catatan Persetujuan','textarea',{full:true})
 ];
+/* CS tidak mengisi bagian persetujuan — seluruh isian itu disembunyikan. */
+const QUO_HIDE_CS = ['Status Quotation','Dibuat Oleh','Disetujui Oleh',
+                     'Tanggal Persetujuan','Catatan Persetujuan'];
 const QUO_TABLE = ['No Quotation','Tanggal','Cabang','Nama Customer','Grand Total','Dibuat Oleh','Status Quotation'];
 
 /* Dipakai OPERASIONAL: seluruh cabang, boleh menyetujui & mengunduh. */
@@ -2454,6 +2488,7 @@ VIEWS.quotation = {
   filters:['Cabang','Status Quotation'],
   datePreset:true, dateFilterField:'Tanggal', defaultMonth:true,
   search:['No Quotation','Nama Customer','Dibuat Oleh'],
+  svcKey:'Deskripsi', svcLabel:'Tambah baris rincian',
   form:QUO_FORM
 };
 /* Dipakai CS: hanya cabang sendiri, bisa lihat desain tapi unduh
@@ -2468,6 +2503,7 @@ VIEWS.quotationCS = {
   filters:['Status Quotation'],
   datePreset:true, dateFilterField:'Tanggal', defaultMonth:true,
   search:['No Quotation','Nama Customer'],
+  hideFormFields:QUO_HIDE_CS, svcKey:'Deskripsi', svcLabel:'Tambah baris rincian',
   form:QUO_FORM
 };
 
@@ -3019,6 +3055,31 @@ function renderOpsBeranda(){
   });
 }
 
+const AJUAN_JENIS  = ['Izin','Cuti','Sakit','Tukar Libur'];
+const AJUAN_STATUS = ['Baru','Disetujui','Ditolak'];
+/* Ajuan izin/cuti/sakit yang dikirim cleaner lewat portal cleaner. */
+VIEWS.izin = {
+  sheet:'AJUAN', title:'Izin', sub:'Ajuan izin, cuti, sakit & tukar libur dari cleaner',
+  countTop:true, noSyncBtn:true, idField:'id',
+  canAdd:false, canEdit:true, canDelete:true,
+  sortBy:['Tanggal'], sortDesc:true,
+  table:['Tanggal','Nama','Cabang','Jenis','Nama Cleaner','Pesan','Status'],
+  colLabel:{'Nama Cleaner':'Tukar Dengan'},
+  filters:['Cabang','Jenis Ajuan','Status Ajuan'],
+  datePreset:true, dateFilterField:'Tanggal',
+  search:['Nama','Pesan','Jenis'],
+  form:[
+    {sec:'Ajuan Cleaner'},
+    f('Nama','text',{ro:true}), f('Cabang','text',{ro:true}),
+    f('Jenis','text',{ro:true}), f('Tanggal','date',{ro:true}),
+    f('Nama Cleaner','text',{ro:true, help:'Terisi bila jenisnya Tukar Libur'}),
+    f('Pesan','textarea',{full:true, ro:true}),
+    {sec:'Keputusan HRD'},
+    f('Status','select',{opts:AJUAN_STATUS, req:true}),
+    f('Catatan HRD','textarea',{full:true})
+  ]
+};
+
 const FILTER_OPTS = {
   'Cabang':CABANG, 'Jabatan':JABATAN, 'Status':STATUS_KARYAWAN,
   'Status Order':STATUS_ORDER, 'Chat Dari':CHAT_DARI, 'Jenis':JENIS_BONUS,
@@ -3030,8 +3091,12 @@ const FILTER_OPTS = {
   'Status Quotation':QUO_STATUS, 'Tingkat':HSE_TINGKAT,
   'Status Temuan':['Terbuka','Diproses','Selesai'],
   'Jenis APD':HSE_JENIS_APD, 'Jenis Faskes':HSE_JENIS_FASKES,
-  'Jenis SIM':HSE_JENIS_SIM, 'Status Kajian':RND_STATUS_KAJIAN
+  'Jenis SIM':HSE_JENIS_SIM, 'Status Kajian':RND_STATUS_KAJIAN,
+  'Jenis Ajuan':AJUAN_JENIS, 'Status Ajuan':AJUAN_STATUS
 };
+/* Kolom sumber untuk dua saringan di atas (nama saringan dibedakan agar
+   tidak bentrok dengan 'Jenis' bonus & 'Status' karyawan). */
+const FILTER_FIELD = { 'Jenis Ajuan':'Jenis', 'Status Ajuan':'Status' };
 const MONEY_HINT = ['Gaji','Bonus','Potongan','Harga','Total','Nominal','Tagihan','Tunjangan','Premi','Cashbon','Saldo','Take Home','Diterima','BPJS','Akhir','Biaya'];
 
 /* ---------- STATE ---------- */
@@ -3179,14 +3244,22 @@ async function api(payload){
       const map={'Kilometer':'Total Kilometer','Bonus Deepclean':'Total DeepClean','Bonus Salon':'Total Salon',
         'Tips':'Total Tips','Parkir':'Total Parkir','Lembur':'Total Lembur','Uang Makan':'Total Uang Makan','Bonus Lainnya':'Total Bonus Lainnya'};
       const totals={}; Object.values(map).forEach(v=>totals[v]=0);
-      const has=field=>!cleaner||String(field||'').split(',').map(s=>s.trim()).indexOf(cleaner)>-1;
+      const nz=x=>String(x==null?'':x).trim().toLowerCase();
+      const target=nz(cleaner);
+      // Satu bonus bisa dibagi ke beberapa cleaner (dipisah koma).
+      const has=field=>!target||String(field||'').split(',').map(nz).indexOf(target)>-1;
+      // Tanggal disamakan ke YYYY-MM-DD dulu — data lama bisa berformat lain.
+      const dnorm=x=>{ const d=parseAnyDate(x); return d||String(x||''); };
+      // Nominal bisa tersimpan sebagai teks berformat ("Rp 1.400" / "1.400").
+      const nom=x=>Number(moneyDigits(x))||0;
+      const jmap={}; Object.keys(map).forEach(k=>{ jmap[nz(k)]=map[k]; });
       const {data:bonus,error}=await sb.from('BONUS').select('*'); if(error) throw error;
       (bonus||[]).forEach(b=>{ if(!has(b['Nama Cleaner']))return;
-        const t=String(b['Tanggal Pengerjaan']||''); if(start&&t&&t<start)return; if(end&&t&&t>end)return;
-        const k=map[String(b['Jenis'])]; if(k) totals[k]+=Number(b['Nominal']||0); });
+        const t=dnorm(b['Tanggal Pengerjaan']); if(start&&t&&t<start)return; if(end&&t&&t>end)return;
+        const k=jmap[nz(b['Jenis'])]; if(k) totals[k]+=nom(b['Nominal']); });
       const {data:orders}=await sb.from('ORDER').select('"Nama Cleaner","Tanggal Pengerjaan"');
       let min='',max=''; (orders||[]).forEach(o=>{ if(!has(o['Nama Cleaner']))return;
-        const t=String(o['Tanggal Pengerjaan']||''); if(!t)return; if(start&&t<start)return; if(end&&t>end)return;
+        const t=dnorm(o['Tanggal Pengerjaan']); if(!t)return; if(start&&t<start)return; if(end&&t>end)return;
         if(!min||t<min)min=t; if(!max||t>max)max=t; });
       return {ok:true, totals, awal:min, akhir:max};
     }
@@ -3222,6 +3295,39 @@ function syncDone(n){
 }
 const showLoad = on => setSync(on);
 function openImg(url){ openImgs([url]); }
+let imgZoom=1;
+function imgZoomApply(){
+  const body=$('#imgPopBody'); if(!body) return;
+  body.querySelectorAll('img').forEach(im=>{ im.style.transform='scale('+imgZoom+')'; });
+  body.classList.toggle('zoomed', imgZoom>1);
+  const v=document.getElementById('imgZoomVal'); if(v) v.textContent=Math.round(imgZoom*100)+'%';
+  const bi=document.getElementById('imgZoomIn'), bo=document.getElementById('imgZoomOut');
+  if(bi) bi.disabled = imgZoom>=4;
+  if(bo) bo.disabled = imgZoom<=0.5;
+}
+function imgZoomSet(z){ imgZoom=Math.min(4, Math.max(0.5, Math.round(z*100)/100)); imgZoomApply(); }
+function imgZoomWire(){
+  const io_=document.getElementById('imgZoomIn'), oo=document.getElementById('imgZoomOut'),
+        rr=document.getElementById('imgZoomReset'), body=$('#imgPopBody');
+  if(io_&&!io_._w){ io_._w=1; io_.addEventListener('click',e=>{e.stopPropagation(); imgZoomSet(imgZoom+0.25);}); }
+  if(oo&&!oo._w){ oo._w=1; oo.addEventListener('click',e=>{e.stopPropagation(); imgZoomSet(imgZoom-0.25);}); }
+  if(rr&&!rr._w){ rr._w=1; rr.addEventListener('click',e=>{e.stopPropagation(); imgZoomSet(1); body.scrollTo(0,0);}); }
+  if(body&&!body._w){
+    body._w=1;
+    // scroll + Ctrl/pinch untuk zoom
+    body.addEventListener('wheel', e=>{
+      if(!e.ctrlKey && Math.abs(e.deltaY)<0) return;
+      if(e.ctrlKey){ e.preventDefault(); imgZoomSet(imgZoom + (e.deltaY>0?-0.15:0.15)); }
+    }, {passive:false});
+    // geser gambar saat diperbesar
+    let dx=0, dy=0, sx=0, sy=0, on=false;
+    body.addEventListener('mousedown', e=>{ if(imgZoom<=1) return; on=true; body.classList.add('drag');
+      sx=e.clientX; sy=e.clientY; dx=body.scrollLeft; dy=body.scrollTop; e.preventDefault(); });
+    window.addEventListener('mousemove', e=>{ if(!on) return;
+      body.scrollLeft=dx-(e.clientX-sx); body.scrollTop=dy-(e.clientY-sy); });
+    window.addEventListener('mouseup', ()=>{ on=false; body.classList.remove('drag'); });
+  }
+}
 function openImgs(urls){
   urls=(Array.isArray(urls)?urls:[urls]).filter(Boolean);
   if(!urls.length) return;
@@ -3230,12 +3336,14 @@ function openImgs(urls){
   const body=$('#imgPopBody'); if(!body) return;
   body.className = imgs.length>1 ? 'multi' : '';
   body.innerHTML = imgs.map(u=>'<img alt="Bukti" src="'+esc(u)+'">').join('');
+  imgZoom=1; imgZoomWire(); imgZoomApply();
   // jika sebuah gambar gagal dimuat → buka gambar itu di tab baru (tanpa mengganggu yg lain)
   body.querySelectorAll('img').forEach((im,i)=>{ im.addEventListener('error', function onErr(){ im.removeEventListener('error',onErr); im.remove(); window.open(imgs[i],'_blank','noopener'); }); });
   $('#imgPop').classList.add('show');
 }
 function closeImg(){
-  const b=$('#imgPopBody'); if(b) b.innerHTML='';   // hapus elemen (tanpa memicu error → tidak buka tab baru)
+  imgZoom=1;
+  const b=$('#imgPopBody'); if(b){ b.innerHTML=''; b.classList.remove('zoomed','drag'); b.scrollTo(0,0); }
   $('#imgPop').classList.remove('show');
 }
 let toastT;
@@ -3833,10 +3941,13 @@ function applyClientFilters(rows){
   }
   Object.keys(state.filters).forEach(k=>{
     const val=state.filters[k]; if(!val) return;
+    // Beberapa saringan sengaja diberi nama lain agar tidak bentrok antar-menu
+    // (mis. 'Jenis Ajuan' menyaring kolom 'Jenis'). FILTER_FIELD memetakannya.
+    const col = FILTER_FIELD[k] || k;
     if(Array.isArray(val)){                       // filter pilih-banyak
       if(!val.length) return;                     // kosong = tampilkan semua
       const allow=val.map(norm);
-      out = out.filter(r=>allow.indexOf(norm(r[k]))>-1);
+      out = out.filter(r=>allow.indexOf(norm(r[col]))>-1);
     }else if(k==='Cabang' && v.bonusCabangFilter){
       // BONUS: kolom Cabang kosong → turunkan dari kode No Order.
       out = out.filter(r=>cabangOfBonus(r)===String(val).toUpperCase());
@@ -3849,7 +3960,7 @@ function applyClientFilters(rows){
       const want=parseAnyMonth(val);
       out = out.filter(r=>parseAnyMonth(r['Periode Bulan'])===want);
     }else{
-      out = out.filter(r=>norm(r[k])===norm(val));
+      out = out.filter(r=>norm(r[col])===norm(val));
     }
   });
   if(v.dateFilterField && (state.dateStart||state.dateEnd)){
@@ -6556,6 +6667,7 @@ async function openForm(row, pre){
   wireFields(v);
   if(v.special==='gaji'){ populateKselect(); recomputeGaji(); }
   if(v.special==='order'){ recomputeOrder(); wireSvcRows(); if(row && row['Bukti Transfer']) showInvoiceBtn(); }
+  if(v.sheet==='HCS_QUOTATION'){ wireSvcRows(); quoWireForm(); }
   if(v.special==='bonus'){
     // Aktifkan tombol Map bila No Order sudah terisi (mis. dibuka dari tombol "Input Bonus" di baris order).
     const _id=data['No Order'];
@@ -6688,7 +6800,8 @@ function defaults(v){
 }
 function renderField(fd, val){
   if(fd.btn==='addSvc'){
-    return '<div class="field full"><button type="button" class="btn btn-ghost btn-sm" id="addSvcBtn">'+svg('plus')+'Tambah layanan</button></div>';
+    const lbl=(state.view && state.view.svcLabel) || 'Tambah layanan';
+    return '<div class="field full"><button type="button" class="btn btn-ghost btn-sm" id="addSvcBtn">'+svg('plus')+esc(lbl)+'</button></div>';
   }
   if(fd.btn==='mapCust'){
     // Tombol peta alamat customer (Input Bonus). Aktif setelah No Order dipilih.
@@ -6982,10 +7095,14 @@ function setVal(k,v){ const e=getEl(k); if(!e) return;
 function revealSvc(n){ document.querySelectorAll('.svc-'+n).forEach(el=>el.classList.remove('hide')); }
 function wireSvcRows(){
   const btn=document.getElementById('addSvcBtn'); if(!btn) return;
-  [2,3].forEach(n=>{ if(getVal('Layanan '+n) || numVal('Harga '+n)) revealSvc(n); });
+  const v=state.view||{};
+  const key=v.svcKey||'Layanan';
+  // Nomor baris diambil dari definisi form → berlaku untuk Order maupun Quotation.
+  const nums=[...new Set((v.form||[]).map(fd=>fd&&fd.svc).filter(Boolean))].sort((a,b)=>a-b);
+  nums.forEach(n=>{ if(getVal(key+' '+n) || numVal('Harga '+n)) revealSvc(n); });
   btn.addEventListener('click', ()=>{
-    if(document.querySelector('.svc-2.hide')) revealSvc(2);
-    else if(document.querySelector('.svc-3.hide')) revealSvc(3);
+    const next=nums.find(n=>document.querySelector('.svc-'+n+'.hide'));
+    if(next!=null) revealSvc(next);
     if(!document.querySelector('.svc-row.hide')) btn.style.display='none';
   });
   if(!document.querySelector('.svc-row.hide')) btn.style.display='none';
@@ -7636,7 +7753,9 @@ async function saveForm(){
   if(v.sheet==='HCS_QUOTATION'){
     const T=quoTotals(data);
     data['Gross Total']=T.gross; data['Net Total']=T.net;
-    data['Nilai PPN']=T.ppn;     data['Grand Total']=T.grand;
+    data['Nilai PPN']=T.ppn;     data['Nilai PPh']=T.pph;
+    data['Grand Total']=T.grand;
+    if(!T.pctPpn) data['PPh (%)']=0;          // PPh tanpa PPN tidak berlaku
     // CS tidak boleh menyetujui penawarannya sendiri.
     if(state.session && state.session.role==='CS' && !v.quoApprove){
       data['Status Quotation'] = state.editing
@@ -8624,19 +8743,22 @@ function quoSignUrl(){ try{ return localStorage.getItem(QUO_SIGN_KEY)||''; }catc
 const QUO_ROMAN = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
 
 /* ---------- NOMOR OTOMATIS ---------- */
-async function quoNextNo(){
+async function quoNextNo(cabang){
   const now=new Date(), yr=now.getFullYear(), rom=QUO_ROMAN[now.getMonth()];
+  const cab=String(cabang||(state.session&&state.session.cabang)||'').toUpperCase();
+  const kode=CABANG_CODE[cab] || cab.slice(0,3) || 'KLK';
   let max=0;
   try{
     const rows=(await api({action:'list', sheet:'HCS_QUOTATION'})).data||[];
     rows.forEach(r=>{
       const no=String(r['No Quotation']||'');
-      if(no.indexOf('/'+yr+'/')<0) return;
+      // Urutan dihitung per cabang + per tahun.
+      if(no.indexOf('/'+kode+'/')<0 || no.indexOf('/'+yr+'/')<0) return;
       const m=no.match(/(\d+)\s*$/);
       if(m) max=Math.max(max, Number(m[1])||0);
     });
   }catch(e){}
-  return 'QUO/KLINKLIN/'+rom+'/'+yr+'/'+(max+1);
+  return 'QUO/KLINKLIN/'+kode+'/'+rom+'/'+yr+'/'+String(max+1).padStart(4,'0');
 }
 /* Isi nomor setelah form tampil (defaults() tidak bisa menunggu jaringan). */
 function quoFillNo(){
@@ -8644,9 +8766,47 @@ function quoFillNo(){
     const el=getEl('No Quotation');
     if(!el || String(el.value||'').trim()) return;
     el.value='memuat…'; el.disabled=true;
-    try{ el.value=await quoNextNo(); }catch(e){ el.value=''; }
+    try{ el.value=await quoNextNo(getVal('Cabang')); }catch(e){ el.value=''; }
     el.disabled=false;
   }, 60);
+}
+/* Exp Date mengikuti Tanggal (+7 hari) selama belum diubah manual. */
+function quoWireForm(){
+  const tgl=getEl('Tanggal'), exp=getEl('Exp Date');
+  if(exp && !exp._quoTouch){
+    exp._quoTouch=true;
+    exp.addEventListener('input', ()=>{ exp.dataset.manual='1'; });
+  }
+  if(tgl && !tgl._quoWired){
+    tgl._quoWired=true;
+    tgl.addEventListener('change', ()=>{
+      const e=getEl('Exp Date'); if(!e || e.dataset.manual==='1') return;
+      const d=parseAnyDate(tgl.value); if(!d) return;
+      const p=d.split('-').map(Number);
+      e.value=ymd(new Date(p[0], p[1]-1, p[2]+7));   // +1 minggu dari Tanggal
+    });
+  }
+  // Cabang mengikuti akun yang login dan tidak bisa diganti (selain OPERASIONAL/CEO).
+  const role=state.session && state.session.role;
+  const cab=getEl('Cabang');
+  if(cab && state.session && state.session.cabang && role!=='OPERASIONAL' && role!=='CEO'){
+    cab.value=state.session.cabang;
+    cab.disabled=true;
+    cab.style.background='var(--surface-2)';
+    cab.style.cursor='not-allowed';
+  }
+  // PPh hanya aktif bila PPN diisi.
+  const ppn=getEl('PPN (%)'), pph=getEl('PPh (%)');
+  const syncPph=()=>{
+    if(!pph) return;
+    const on=quoNum(ppn?ppn.value:0)>0;
+    pph.disabled=!on;
+    pph.title=on?'':'Isi PPN dulu — PPh hanya berlaku bila ada PPN.';
+    pph.style.background=on?'':'var(--surface-2)';
+    if(!on) pph.value='';
+  };
+  if(ppn && !ppn._quoWired){ ppn._quoWired=true; ppn.addEventListener('input', syncPph); }
+  syncPph();
 }
 
 /* ---------- PERHITUNGAN ---------- */
@@ -8666,9 +8826,16 @@ function quoTotals(o){
   const gross=items.reduce((a,b)=>a+b.amount,0);
   const diskon=quoNum(o['Diskon']);
   const net=Math.max(0, gross-diskon);
-  const pct=quoNum(o['PPN (%)']);
-  const ppn=Math.round(net*pct/100);
-  return { items, gross, diskon, net, pct, ppn, grand:net+ppn };
+  const pctPpn=quoNum(o['PPN (%)']);
+  let pctPph=quoNum(o['PPh (%)']);
+  // PPh hanya berlaku bila PPN dikenakan.
+  if(!pctPpn) pctPph=0;
+  const ppn=Math.round(net*pctPpn/100);
+  const pph=Math.round(net*pctPph/100);
+  return { items, gross, diskon, net,
+           pctPpn, ppn, pctPph, pph,
+           pct:pctPpn,                       // nama lama, dipertahankan
+           grand:net+ppn-pph };
 }
 function quoStatus(o){ return norm(o&&o['Status Quotation']); }
 function quoCanDownload(o){
@@ -8685,135 +8852,158 @@ function buildQuotationHTML(o){
   const amt=n=>n?nf(n):'';
   const dt=v=>{ const d=parseAnyDate(v); if(!d) return String(v||''); const p=d.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; };
   const B='#000', BRN='#7B3F16', LN='1px solid #000';
-  const cell='font-size:11px;font-family:Arial,Helvetica,sans-serif;color:'+B;
+  const F='font-family:Arial,Helvetica,sans-serif';
+  const cell=F+';font-size:11px;color:'+B;
+  const PAD=22;                       // jarak tepi kiri/kanan dokumen (dipakai konsisten)
+
+  /* Lebar kolom dikunci lewat <colgroup> supaya isi tidak pernah melebar
+     keluar halaman — penyebab teks terpotong pada versi sebelumnya. */
+  const COLS='<colgroup>'+
+    '<col style="width:40px"><col>'+                     /* No | Description   */
+    '<col style="width:52px">'+                          /* Qty               */
+    '<col style="width:34px"><col style="width:104px">'+ /* IDR | Price       */
+    '<col style="width:34px"><col style="width:112px">'+ /* IDR | Amount      */
+  '</colgroup>';
 
   const rows=T.items.map((it,i)=>
     '<tr>'+
       '<td style="'+cell+';text-align:center;padding:7px 4px;color:'+BRN+';font-weight:700">'+(i+1)+'</td>'+
-      '<td style="'+cell+';padding:7px 8px;color:'+BRN+';font-weight:700">'+esc(it.desc||'-')+'</td>'+
-      '<td style="'+cell+';text-align:center;padding:7px 4px;color:'+BRN+';font-weight:700">'+nf(it.qty)+'</td>'+
-      '<td style="'+cell+';text-align:left;padding:7px 8px;color:'+BRN+';font-weight:700;width:44px">IDR</td>'+
-      '<td style="'+cell+';text-align:right;padding:7px 8px;color:'+BRN+';font-weight:700">'+nf(it.harga)+'</td>'+
-      '<td style="'+cell+';text-align:left;padding:7px 8px;color:'+BRN+';font-weight:700;width:44px">IDR</td>'+
-      '<td style="'+cell+';text-align:right;padding:7px 10px;color:'+BRN+';font-weight:700">'+nf(it.amount)+'</td>'+
+      '<td style="'+cell+';padding:7px 8px;color:'+BRN+';font-weight:700;word-break:break-word">'+esc(it.desc||'-')+'</td>'+
+      '<td style="'+cell+';text-align:center;padding:7px 2px;color:'+BRN+';font-weight:700">'+nf(it.qty)+'</td>'+
+      '<td style="'+cell+';text-align:left;padding:7px 0 7px 6px;color:'+BRN+';font-weight:700">IDR</td>'+
+      '<td style="'+cell+';text-align:right;padding:7px 6px;color:'+BRN+';font-weight:700;white-space:nowrap">'+nf(it.harga)+'</td>'+
+      '<td style="'+cell+';text-align:left;padding:7px 0 7px 6px;color:'+BRN+';font-weight:700">IDR</td>'+
+      '<td style="'+cell+';text-align:right;padding:7px '+PAD+'px 7px 6px;color:'+BRN+';font-weight:700;white-space:nowrap">'+nf(it.amount)+'</td>'+
     '</tr>').join('');
-  const blank=Array.from({length:Math.max(0,4-T.items.length)}).map(()=>
+  const blank=Array.from({length:Math.max(0,3-T.items.length)}).map(()=>
     '<tr><td style="padding:7px">&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>').join('');
 
+  /* Judul kolom "Price" & "Amount" duduk TEPAT DI ATAS angkanya
+     (rata kanan pada kolom nominal), bukan di tengah gabungan IDR+angka. */
+  const th=(txt,al,pr)=>'<th style="'+cell+';font-weight:700;border-top:'+LN+';border-bottom:'+LN+
+    ';padding:6px '+(pr==null?4:pr)+'px 6px 4px;text-align:'+al+'">'+txt+'</th>';
+
+  /* Blok total: lebar tetap & menempel ke tepi kanan dokumen. */
   const totRow=(label,val,opt)=>{
     const bt=(opt&&opt.top)?'border-top:'+LN+';':'';
     const bb=(opt&&opt.bottom)?'border-bottom:'+LN+';':'';
     const fw=(opt&&opt.bold)?'font-weight:700;':'';
     return '<tr>'+
-      '<td style="'+cell+';padding:4px 8px;'+bt+bb+fw+'">'+label+'</td>'+
-      '<td style="'+cell+';padding:4px 6px;'+bt+bb+fw+'">IDR</td>'+
-      '<td style="'+cell+';padding:4px 10px;text-align:right;'+bt+bb+fw+'">'+amt(val)+'</td></tr>';
+      '<td style="'+cell+';padding:4px 6px 4px 0;'+bt+bb+fw+'white-space:nowrap">'+label+'</td>'+
+      '<td style="'+cell+';padding:4px 0 4px 6px;'+bt+bb+fw+'">IDR</td>'+
+      '<td style="'+cell+';padding:4px 0 4px 6px;text-align:right;'+bt+bb+fw+'white-space:nowrap">'+amt(val)+'</td></tr>';
   };
-  const info=(l,v)=>'<tr><td style="'+cell+';padding:1px 0;width:78px">'+l+'</td>'+
-    '<td style="'+cell+';padding:1px 6px;width:10px">:</td>'+
-    '<td style="'+cell+';padding:1px 0">'+v+'</td></tr>';
+  const info=(l,v)=>'<tr><td style="'+cell+';padding:1px 0;width:80px;vertical-align:top">'+l+'</td>'+
+    '<td style="'+cell+';padding:1px 6px;width:10px;vertical-align:top">'+(l?':':'')+'</td>'+
+    '<td style="'+cell+';padding:1px 0;vertical-align:top">'+v+'</td></tr>';
 
   const jobLoc = String(o['Job Location']||'').trim() || String(o['Alamat']||'');
+  const totalsBody =
+    totRow('Gross Total', T.gross)+
+    totRow('Diskon', T.diskon)+
+    totRow('Net Total', T.net, {top:true})+
+    (T.pctPpn ? totRow('PPN '+T.pctPpn+'%', T.ppn) : '')+
+    (T.pctPph ? totRow('PPh '+T.pctPph+'% (−)', T.pph) : '')+
+    totRow('Grand Total', T.grand, {top:true, bottom:true, bold:true});
 
   return ''+
-  '<div style="width:760px;box-sizing:border-box;background:#fff;border:'+LN+';font-family:Arial,Helvetica,sans-serif;color:'+B+'">'+
-    /* kop surat */
-    '<table style="width:100%;border-collapse:collapse"><tr>'+
-      '<td style="width:270px;border-right:'+LN+';border-bottom:'+LN+';padding:10px 14px;text-align:center;vertical-align:middle">'+
+  '<div style="width:760px;box-sizing:border-box;background:#fff;border:'+LN+';'+F+';color:'+B+'">'+
+    /* ---------- kop surat ---------- */
+    '<table style="width:100%;border-collapse:collapse;table-layout:fixed">'+
+      '<colgroup><col style="width:262px"><col></colgroup><tr>'+
+      '<td style="border-right:'+LN+';border-bottom:'+LN+';padding:10px 14px;text-align:center;vertical-align:middle">'+
         (logoUrl()
-          ? '<img src="'+esc(logoUrl())+'" crossorigin="anonymous" style="max-height:56px;max-width:230px;object-fit:contain;display:block;margin:0 auto">'
-          : '<div style="font-size:30px;font-weight:800;letter-spacing:-1px">KlinKlin</div>'+
-            '<div style="font-size:12px;letter-spacing:3px;color:#1B3A6B">CLEANING SERVICE</div>')+
+          ? '<img src="'+esc(logoUrl())+'" crossorigin="anonymous" style="max-height:56px;max-width:222px;object-fit:contain;display:block;margin:0 auto">'
+          : '<div style="font-size:29px;font-weight:800;letter-spacing:-1px">KlinKlin</div>'+
+            '<div style="font-size:11px;letter-spacing:3px;color:#1B3A6B">CLEANING SERVICE</div>')+
       '</td>'+
       '<td style="border-bottom:'+LN+';padding:9px 14px;vertical-align:middle">'+
         '<div style="font-size:11.5px;font-weight:800">'+esc(QUO_COMPANY.nama)+'</div>'+
-        '<div style="font-size:10px;font-weight:700;color:#7B3F16;margin-top:2px">'+esc(QUO_COMPANY.alamat)+'</div>'+
-        '<div style="font-size:10px;margin-top:2px">Phone '+esc(QUO_COMPANY.telp)+' email : <span style="color:#1B4FA0">'+esc(QUO_COMPANY.email)+'</span></div>'+
-        '<div style="font-size:10px;margin-top:1px">web : <span style="color:#1B4FA0">'+esc(QUO_COMPANY.web)+'</span></div>'+
+        '<div style="font-size:9.5px;font-weight:700;color:'+BRN+';margin-top:2px;line-height:1.35">'+esc(QUO_COMPANY.alamat)+'</div>'+
+        '<div style="font-size:9.5px;margin-top:2px;line-height:1.35">Phone '+esc(QUO_COMPANY.telp)+' email : <span style="color:#1B4FA0">'+esc(QUO_COMPANY.email)+'</span></div>'+
+        '<div style="font-size:9.5px;margin-top:1px">web : <span style="color:#1B4FA0">'+esc(QUO_COMPANY.web)+'</span></div>'+
       '</td>'+
     '</tr></table>'+
 
     '<div style="text-align:center;font-size:15px;font-weight:800;padding:14px 0 12px">QUOTATION</div>'+
 
-    /* identitas penawaran */
-    '<table style="width:100%;border-collapse:collapse"><tr>'+
-      '<td style="vertical-align:top;padding:0 14px"><table style="border-collapse:collapse">'+
+    /* ---------- identitas + branch ----------
+       Branch memakai tabel kanan berlebar tetap agar tidak pernah keluar tepi. */
+    '<table style="width:100%;border-collapse:collapse;table-layout:fixed">'+
+      '<colgroup><col><col style="width:250px"></colgroup><tr>'+
+      '<td style="vertical-align:top;padding:0 0 0 '+PAD+'px"><table style="border-collapse:collapse">'+
         info('No. Quo', esc(o['No Quotation']||'-'))+
         info('Date', esc(dt(o['Tanggal'])))+
         info('Exp Date', esc(dt(o['Exp Date'])))+
         info('Currency','IDR')+
       '</table></td>'+
-      '<td style="vertical-align:top;padding:0 14px;text-align:right">'+
-        '<span style="'+cell+';font-weight:700">Branch</span>'+
-        '<span style="'+cell+';padding:0 22px 0 34px">:</span>'+
-        '<span style="'+cell+';font-weight:700">'+esc(o['Cabang']||'-')+'</span>'+
-      '</td>'+
+      '<td style="vertical-align:top;padding:0 '+PAD+'px 0 0"><table style="border-collapse:collapse;width:100%">'+
+        '<tr><td style="'+cell+';font-weight:700;width:58px">Branch</td>'+
+            '<td style="'+cell+';width:10px">:</td>'+
+            '<td style="'+cell+';font-weight:700;word-break:break-word">'+esc(o['Cabang']||'-')+'</td></tr>'+
+      '</table></td>'+
     '</tr></table>'+
 
-    '<table style="width:100%;border-collapse:collapse;margin-top:18px"><tr>'+
-      '<td style="vertical-align:top;padding:0 14px"><table style="border-collapse:collapse">'+
+    '<table style="width:100%;border-collapse:collapse;table-layout:fixed;margin-top:16px"><tr>'+
+      '<td style="vertical-align:top;padding:0 '+PAD+'px"><table style="border-collapse:collapse;width:100%">'+
         info('To','<b>'+esc(o['Nama Customer']||'-')+'</b>')+
         info('', esc(o['Alamat']||''))+
       '</table></td>'+
     '</tr></table>'+
-    '<table style="width:100%;border-collapse:collapse;margin-top:10px"><tr>'+
-      '<td style="vertical-align:top;padding:0 14px"><table style="border-collapse:collapse">'+
+    '<table style="width:100%;border-collapse:collapse;table-layout:fixed;margin-top:10px"><tr>'+
+      '<td style="vertical-align:top;padding:0 '+PAD+'px"><table style="border-collapse:collapse;width:100%">'+
         info('Job Location', esc(jobLoc))+
       '</table></td>'+
     '</tr></table>'+
 
-    /* rincian */
-    '<table style="width:100%;border-collapse:collapse;margin-top:16px">'+
+    /* ---------- rincian ---------- */
+    '<table style="width:100%;border-collapse:collapse;table-layout:fixed;margin-top:16px">'+COLS+
       '<tr>'+
-        '<th style="'+cell+';font-weight:700;border-top:'+LN+';border-bottom:'+LN+';padding:6px 4px;width:44px">No</th>'+
-        '<th style="'+cell+';font-weight:700;border-top:'+LN+';border-bottom:'+LN+';padding:6px 8px">Description</th>'+
-        '<th style="'+cell+';font-weight:700;border-top:'+LN+';border-bottom:'+LN+';padding:6px 4px;width:70px">Qty</th>'+
-        '<th colspan="2" style="'+cell+';font-weight:700;border-top:'+LN+';border-bottom:'+LN+';padding:6px 8px;width:150px">Price</th>'+
-        '<th colspan="2" style="'+cell+';font-weight:700;border-top:'+LN+';border-bottom:'+LN+';padding:6px 10px;width:150px;text-align:right">Amount</th>'+
+        th('No','center')+ th('Description','left')+ th('Qty','center')+
+        th('','left')+ th('Price','right',6)+
+        th('','left')+ th('Amount','right',PAD)+
       '</tr>'+
       rows+blank+
     '</table>'+
 
-    /* catatan + total */
-    '<table style="width:100%;border-collapse:collapse;border-top:'+LN+'"><tr>'+
-      '<td style="vertical-align:top;padding:9px 14px;'+cell+';font-weight:700">'+
+    /* ---------- catatan + total ---------- */
+    '<table style="width:100%;border-collapse:collapse;table-layout:fixed;border-top:'+LN+'">'+
+      '<colgroup><col><col style="width:300px"></colgroup><tr>'+
+      '<td style="vertical-align:top;padding:9px 10px 9px '+PAD+'px;'+cell+';font-weight:700;word-break:break-word">'+
         (o['Note'] ? 'Note : '+esc(o['Note']) : '')+'</td>'+
-      '<td style="width:330px;vertical-align:top;padding:4px 4px 8px"><table style="width:100%;border-collapse:collapse">'+
-        totRow('Gross Total', T.gross)+
-        totRow('Diskon', T.diskon)+
-        totRow('Net Total', T.net, {top:true})+
-        totRow('PPN '+(T.pct||11)+'%', T.ppn)+
-        totRow('Grand Total', T.grand, {top:true, bottom:true, bold:true})+
-      '</table></td>'+
+      '<td style="vertical-align:top;padding:6px '+PAD+'px 8px 0">'+
+        '<table style="width:100%;border-collapse:collapse;table-layout:fixed">'+
+        '<colgroup><col><col style="width:32px"><col style="width:104px"></colgroup>'+
+        totalsBody+'</table></td>'+
     '</tr></table>'+
 
-    /* terbilang + tanda tangan */
-    '<table style="width:100%;border-collapse:collapse;margin-top:26px"><tr>'+
-      '<td style="vertical-align:top;padding:0 14px">'+
-        '<table style="border-collapse:collapse">'+info('Inword', esc(terbilangRp(T.grand)))+'</table>'+
+    /* ---------- terbilang + tanda tangan ---------- */
+    '<table style="width:100%;border-collapse:collapse;table-layout:fixed;margin-top:24px">'+
+      '<colgroup><col><col style="width:230px"></colgroup><tr>'+
+      '<td style="vertical-align:top;padding:0 10px 0 '+PAD+'px">'+
+        '<table style="border-collapse:collapse;width:100%">'+info('Inword', esc(terbilangRp(T.grand)))+'</table>'+
       '</td>'+
-      '<td style="width:250px;text-align:center;vertical-align:top">'+
+      '<td style="text-align:center;vertical-align:top;padding:0 '+PAD+'px 0 0">'+
         '<div style="'+cell+'">Sincerely,</div>'+
         (quoSignUrl()
-          ? '<img src="'+esc(quoSignUrl())+'" crossorigin="anonymous" style="height:56px;object-fit:contain;display:block;margin:2px auto">'
-          : '<div style="height:56px"></div>')+
-        '<div style="'+cell+';font-weight:700;text-decoration:underline">'+esc(INVOICE_SIGNER)+'</div>'+
+          ? '<img src="'+esc(quoSignUrl())+'" crossorigin="anonymous" style="height:54px;max-width:100%;object-fit:contain;display:block;margin:2px auto">'
+          : '<div style="height:54px"></div>')+
+        '<div style="'+cell+';font-weight:700;text-decoration:underline;word-break:break-word">'+esc(INVOICE_SIGNER)+'</div>'+
       '</td>'+
     '</tr></table>'+
 
-    /* pembayaran */
-    '<div style="padding:26px 14px 16px">'+
+    /* ---------- pembayaran ---------- */
+    '<div style="padding:24px '+PAD+'px 16px">'+
       '<div style="'+cell+';font-weight:700">Pembayaran Cash / Transfer via</div>'+
       INVOICE_BANK.map(b=>
         '<table style="border-collapse:collapse"><tr>'+
-          '<td style="'+cell+';font-weight:700;width:78px;padding:1px 0">'+esc(b.bank)+'</td>'+
+          '<td style="'+cell+';font-weight:700;width:80px;padding:1px 0">'+esc(b.bank)+'</td>'+
           '<td style="'+cell+';padding:1px 6px;width:10px">:</td>'+
           '<td style="'+cell+';font-weight:700;padding:1px 0">'+esc(b.no)+' a.n '+esc(String(b.an).toUpperCase())+'</td>'+
         '</tr></table>').join('')+
     '</div>'+
   '</div>';
 }
-
 /* ---------- PRATINJAU (boleh untuk semua, termasuk CS) ---------- */
 function previewQuotation(o){
   let ov=document.getElementById('quoOv');
@@ -9459,12 +9649,28 @@ function absenTelat(jamMasuk, cab){
 }
 
 /* Daftar cleaner (tabel KARYAWAN) untuk mendeteksi yang "tidak absen". */
+/* Daftar karyawan yang WAJIB absen: cleaner + CS. */
+const ABSEN_JABATAN = ['cleaner','cs'];
 async function loadCleanerList(){
   if(state.cache.cleanerList) return;
   try{
     const k=trimKeys((await api({action:'list', sheet:'KARYAWAN'})).data||[]);
-    state.cache.cleanerList = k.filter(e=>norm(e['Jabatan'])==='cleaner');
+    state.cache.cleanerList = k.filter(e=>ABSEN_JABATAN.indexOf(norm(e['Jabatan']))>-1);
   }catch(e){ state.cache.cleanerList=[]; }
+}
+/* Jabatan pemilik baris absen (dicocokkan dari daftar karyawan). */
+function absenJabatan(g){
+  const list=state.cache.cleanerList||[];
+  const byId=g.idkar && list.find(e=>norm(e['ID Karyawan'])===norm(g.idkar));
+  const byNm=!byId && g.nama && list.find(e=>norm(e['Nama Lengkap']||e['Nama'])===norm(g.nama));
+  const e=byId||byNm;
+  return e ? String(e['Jabatan']||'').toUpperCase() : '';
+}
+function absenJabChip(g){
+  const j=g.jabatan||absenJabatan(g);
+  if(!j) return '';
+  const cs = j==='CS';
+  return '<span class="abs-jab'+(cs?' cs':'')+'">'+esc(j)+'</span>';
 }
 
 /* Gabungkan baris ABSEN → satu baris per (cleaner + tanggal). */
@@ -9502,9 +9708,14 @@ function renderAbsensi(){
   const rows   = applyClientFilters(state.rows);   // filter Cabang + tanggal + cari nama
   const groups = absenGroups(rows);
 
-  /* Cleaner yang TIDAK absen pada rentang terpilih. */
+  /* Tandai jabatan tiap baris, lalu saring bila HRD memilih jabatan tertentu. */
+  groups.forEach(g=>{ g.jabatan=absenJabatan(g); });
+  const jabFilter=state.absJab||'';
+  const jabOK=x=>!jabFilter || norm(x)===jabFilter;
+
+  /* Cleaner & CS yang TIDAK absen pada rentang terpilih. */
   const cabFilter=state.filters['Cabang']||'';
-  const clList=(state.cache.cleanerList||[]).filter(c=>!cabFilter || norm(c['Cabang'])===norm(cabFilter));
+  const clList=(state.cache.cleanerList||[]).filter(c=>(!cabFilter || norm(c['Cabang'])===norm(cabFilter)));
   const hadir=new Set(); groups.forEach(g=>{ if(g.idkar) hadir.add(norm(g.idkar)); if(g.nama) hadir.add(norm(g.nama)); });
   const tidakAbsen=[];
   clList.forEach(c=>{
@@ -9512,20 +9723,24 @@ function renderAbsensi(){
     if((idk && hadir.has(idk)) || (nm && hadir.has(norm(nm)))) return;
     if(state.search && String(nm).toLowerCase().indexOf(state.search)<0) return;
     tidakAbsen.push({ nama:nm, idkar:c['ID Karyawan']||'', cabang:c['Cabang']||'',
+      jabatan:String(c['Jabatan']||'').toUpperCase(),
       tanggal:(state.dateStart||''), masuk:null, pulang:null, telat:false, absent:true });
   });
 
-  const sMasuk=groups.filter(g=>g.masuk).length;
-  const sPulang=groups.filter(g=>g.pulang).length;
-  const sTelat=groups.filter(g=>g.telat).length;
-  const sTidak=tidakAbsen.length;
+  // Saringan jabatan diterapkan setelah penandaan.
+  const groupsF=groups.filter(g=>jabOK(g.jabatan));
+  const tidakAbsenF=tidakAbsen.filter(g=>jabOK(g.jabatan));
+  const sMasuk=groupsF.filter(g=>g.masuk).length;
+  const sPulang=groupsF.filter(g=>g.pulang).length;
+  const sTelat=groupsF.filter(g=>g.telat).length;
+  const sTidak=tidakAbsenF.length;
 
   let list;
-  if(status==='masuk')            list=groups.filter(g=>g.masuk);
-  else if(status==='pulang')      list=groups.filter(g=>g.pulang);
-  else if(status==='telat')       list=groups.filter(g=>g.telat);
-  else if(status==='tidakabsen')  list=tidakAbsen;
-  else                            list=groups.concat(tidakAbsen);
+  if(status==='masuk')            list=groupsF.filter(g=>g.masuk);
+  else if(status==='pulang')      list=groupsF.filter(g=>g.pulang);
+  else if(status==='telat')       list=groupsF.filter(g=>g.telat);
+  else if(status==='tidakabsen')  list=tidakAbsenF;
+  else                            list=groupsF.concat(tidakAbsenF);
   list=list.slice().sort((a,b)=> String(b.tanggal).localeCompare(String(a.tanggal))
       || String(a.cabang).localeCompare(String(b.cabang),'id')
       || String(a.nama).localeCompare(String(b.nama),'id'));
@@ -9533,7 +9748,10 @@ function renderAbsensi(){
 
   const segs=[['','Semua'],['masuk','Absen Masuk'],['pulang','Absen Keluar'],['telat','Telat'],['tidakabsen','Tidak Absen']];
   const seg='<div class="date-tabs abs-seg" id="absSeg">'+segs.map(s=>
-      '<button class="dt'+(status===s[0]?' on':'')+'" data-absst="'+s[0]+'">'+s[1]+'</button>').join('')+'</div>';
+      '<button class="dt'+(status===s[0]?' on':'')+'" data-absst="'+s[0]+'">'+s[1]+'</button>').join('')+'</div>'+
+    '<div class="date-tabs abs-seg" id="absJab">'+
+      [['','Semua Jabatan'],['cleaner','Cleaner'],['cs','CS']].map(j=>
+      '<button class="dt'+(jabFilter===j[0]?' on':'')+'" data-absjab="'+j[0]+'">'+j[1]+'</button>').join('')+'</div>';
 
   const stats='<div class="cap-stats abs-stats">'+
     '<div class="cap-stat"><div class="cap-stat-l">Absen Masuk</div><div class="cap-stat-v">'+sMasuk+'</div></div>'+
@@ -9562,14 +9780,14 @@ function renderAbsensi(){
   const idxOf=g=>state._absList.indexOf(g);
   const trows=pageRows.map(g=>'<tr class="rowclick" data-absrow="'+idxOf(g)+'">'+
       '<td class="l">'+esc(tglPanjangId(g.tanggal)||'-')+'</td>'+
-      '<td>'+esc(g.nama||'-')+'</td>'+
+      '<td>'+esc(g.nama||'-')+absenJabChip(g)+'</td>'+
       '<td>'+esc(g.cabang||'-')+'</td>'+
       '<td class="c">'+(g.masuk?esc(jamShort(g.masuk['Jam'])):'<span style="color:var(--faint)">—</span>')+'</td>'+
       '<td class="c">'+(g.pulang?esc(jamShort(g.pulang['Jam'])):'<span style="color:var(--faint)">—</span>')+'</td>'+
       '<td class="c">'+absenBadge(g)+'</td></tr>').join('');
 
   const cards=cardRows.map(g=>'<div class="ocard" data-absrow="'+idxOf(g)+'">'+
-      '<div class="ocard-top"><span class="ocard-name">'+esc(g.nama||'-')+'</span>'+absenBadge(g)+'</div>'+
+      '<div class="ocard-top"><span class="ocard-name">'+esc(g.nama||'-')+absenJabChip(g)+'</span>'+absenBadge(g)+'</div>'+
       '<div class="ocard-meta">'+svg('result')+'<span>'+esc(tglPanjangId(g.tanggal)||'-')+
         (g.cabang?(' · '+esc(g.cabang)):'')+'</span></div>'+
       '<div class="ocard-meta sub"><span>Masuk: '+(g.masuk?esc(jamShort(g.masuk['Jam'])):'—')+
@@ -9580,7 +9798,7 @@ function renderAbsensi(){
     stats+seg+
     '<div class="cap-card"><div class="cap-card-t">Kehadiran — ketuk nama untuk rincian</div>'+
       '<div class="tbl-wrap desk-only"><table class="ops-tbl"><thead><tr>'+
-        '<th class="l">Tanggal</th><th>Nama Cleaner</th><th>Cabang</th><th class="c">Masuk</th><th class="c">Keluar</th><th class="c">Status</th>'+
+        '<th class="l">Tanggal</th><th>Nama</th><th>Cabang</th><th class="c">Masuk</th><th class="c">Keluar</th><th class="c">Status</th>'+
       '</tr></thead><tbody>'+(trows||'<tr><td colspan="6" class="cap-empty">Tidak ada data</td></tr>')+'</tbody></table></div>'+
       (cardRows.length?'<div class="card-list abs-cards">'+cards+'</div>':'')+
       pagerHtml+moreHtml+
@@ -9595,6 +9813,9 @@ function renderAbsensi(){
   if(m) m.onclick=()=>{ state.page=(state.page||0)+1; renderAbsensi(); };
   document.querySelectorAll('#absSeg [data-absst]').forEach(b=>b.addEventListener('click',()=>{
     state.absStatus=b.dataset.absst; state.page=0; renderAbsensi();
+  }));
+  document.querySelectorAll('#absJab [data-absjab]').forEach(b=>b.addEventListener('click',()=>{
+    state.absJab=b.dataset.absjab; state.page=0; renderAbsensi();
   }));
   setCount(list.length,'data');
 }
