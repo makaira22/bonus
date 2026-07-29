@@ -451,6 +451,9 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 /* ---------- NAVIGASI BERTINGKAT OPERASIONAL ---------- */
 .ops-chip{display:inline-block;margin-left:8px;padding:1px 8px;border-radius:20px;background:var(--gold-soft);
   color:var(--gold-deep);font-size:10.5px;font-weight:800;vertical-align:1px}
+.ks-wrap{display:flex;flex-direction:column;gap:6px}
+.ks-wrap .ks-search{width:100%}
+.ks-wrap .ks-search:disabled{background:var(--surface-2);cursor:not-allowed}
 .ins-var{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:20px;font-size:9.5px;
   font-weight:800;background:var(--gold-soft);color:var(--gold-deep)}
 .gaji-info .gb-head{display:flex;align-items:baseline;gap:10px;font-size:12.5px;font-weight:700;color:var(--ink)}
@@ -3206,6 +3209,26 @@ async function api(payload){
   const sb = window.sb;
   const a = payload.action;
   try{
+    /* Ambil SELURUH baris sebuah tabel secara bertahap.
+       Wajib dipakai untuk tabel besar (BONUS, ORDER) — sekali select
+       hanya mengembalikan 1000 baris pertama. */
+    async function _fetchAll(sheet, cols){
+      const PAGE=1000; let from=0, all=[];
+      const orderCol=TABLE_ID[sheet]||'';
+      let useOrder=!!orderCol;
+      while(true){
+        let q=sb.from(sheet).select(cols||'*');
+        if(useOrder) q=q.order(orderCol,{ascending:true});
+        q=q.range(from, from+PAGE-1);
+        const {data,error}=await q;
+        if(error){ if(useOrder){ useOrder=false; continue; } throw error; }
+        all=all.concat(data||[]);
+        if(!data || data.length<PAGE) break;
+        from+=PAGE;
+        if(from>200000) break;
+      }
+      return all;
+    }
     if(a==='list'){
       const f = payload.filters||{};
       const PAGE=1000; let from=0, all=[];
@@ -3308,11 +3331,12 @@ async function api(payload){
     }
     if(a==='bonusSummary'){
       const cleaner=String(payload.namaCleaner||''), start=payload.start||'', end=payload.end||'';
-      const {data:bonus,error}=await sb.from('BONUS').select('*'); if(error) throw error;
+      // Bertahap — tabel BONUS biasanya jauh lebih dari 1000 baris.
+      const bonus=await _fetchAll('BONUS');
       // Jalur yang SAMA PERSIS dengan menu Insentif.
       const mine=bonusRowsFor(bonus||[], cleaner, start, end);
       const br=bonusBreakdown(mine);
-      const {data:orders}=await sb.from('ORDER').select('"Nama Cleaner","Tanggal Pengerjaan"');
+      const orders=await _fetchAll('ORDER', '"Nama Cleaner","Tanggal Pengerjaan"');
       let min='',max='';
       (orders||[]).forEach(o=>{
         if(cleaner && !bonusNames(o).some(t=>bonusNameMatch(t, cleaner))) return;
@@ -3321,7 +3345,8 @@ async function api(payload){
         if(!min||t<min)min=t; if(!max||t>max)max=t;
       });
       return {ok:true, totals:br.totals, perJenis:br.perJenis,
-              totalBonus:br.total, jumlahBaris:br.count, awal:min, akhir:max};
+              totalBonus:br.total, jumlahBaris:br.count,
+              totalBarisBonus:(bonus||[]).length, awal:min, akhir:max};
     }
     if(a==='gajiPokok'){
       const {data:rows,error}=await sb.from('GAJI_POKOK').select('*'); if(error) throw error;
@@ -6952,7 +6977,12 @@ function renderField(fd, val){
     inner = '<input type="hidden" data-k="'+esc(fd.k)+'" data-multi="1" value="'+esc(chosen.join(', '))+'">'+
       '<div class="chips" data-chips="'+esc(fd.k)+'">'+chips+'</div>';
   } else if(fd.t==='kselect'){
-    inner = '<select data-k="'+esc(fd.k)+'" data-kselect="1"'+ro+'><option value=""></option></select>';
+    // Dropdown + kotak pencarian: ketik nama atau ID untuk menyaring daftar.
+    inner = '<div class="ks-wrap">'+
+        '<input type="text" class="ks-search" data-kssearch="'+esc(fd.k)+'" autocomplete="off" '+
+          'placeholder="Cari nama atau ID karyawan…">'+
+        '<select data-k="'+esc(fd.k)+'" data-kselect="1"'+ro+'><option value=""></option></select>'+
+      '</div>';
   } else if(fd.t==='money'){
     inner = '<input type="text" inputmode="numeric" data-k="'+esc(fd.k)+'" data-money="1"'+ro+' value="'+esc(fmtRp(val))+'">';
   } else {
@@ -7272,12 +7302,36 @@ function setPremiBpjs(nominal, aktif){
 function populateKselect(){
   const sel=getEl('ID Karyawan'); if(!sel || !sel.dataset.kselect) return;
   const cab=norm(getVal('Cabang'));
-  const cur=state.editing ? String(state.editing['ID Karyawan']||'') : '';
-  if(!cab){ sel.innerHTML='<option value="">— pilih cabang dulu —</option>'; return; }
-  const list=(state.cache.karyawan||[]).filter(e=>norm(e['Cabang'])===cab);
+  const cur=sel.value || (state.editing ? String(state.editing['ID Karyawan']||'') : '');
+  const box=document.querySelector('[data-kssearch="ID Karyawan"]');
+  if(!cab){
+    sel.innerHTML='<option value="">— pilih cabang dulu —</option>';
+    if(box){ box.value=''; box.disabled=true; box.placeholder='Pilih cabang dulu'; }
+    return;
+  }
+  if(box){ box.disabled=false; box.placeholder='Cari nama atau ID karyawan…'; }
+  const q=norm(box?box.value:'');
+  const all=(state.cache.karyawan||[]).filter(e=>norm(e['Cabang'])===cab);
+  // Saring sesuai kata kunci, tapi pilihan yang sedang aktif tetap ditampilkan.
+  const list=!q ? all : all.filter(e=>
+    norm(e['ID Karyawan']).indexOf(q)>-1 ||
+    norm(e['Nama Lengkap']||e['Nama']).indexOf(q)>-1 ||
+    String(e['ID Karyawan'])===cur);
   sel.innerHTML='<option value=""></option>'+list.map(e=>
     '<option value="'+esc(e['ID Karyawan'])+'"'+(String(e['ID Karyawan'])===cur?' selected':'')+'>'+
-    esc(e['ID Karyawan']+' — '+e['Nama Lengkap'])+'</option>').join('');
+    esc(e['ID Karyawan']+' — '+(e['Nama Lengkap']||e['Nama']||''))+'</option>').join('');
+  if(box && !box._ksw){
+    box._ksw=true;
+    box.addEventListener('input', ()=>{
+      populateKselect();
+      const s2=getEl('ID Karyawan');
+      const opts=s2?Array.from(s2.options).filter(o=>o.value):[];
+      // Satu hasil saja → langsung dipilih supaya tidak perlu klik lagi.
+      if(opts.length===1 && s2.value!==opts[0].value){ s2.value=opts[0].value; onPickKaryawan(); }
+    });
+  }
+  const cnt=list.length;
+  if(box) box.title=cnt+' karyawan di cabang ini';
 }
 async function onPickPeriode(){
   const per=getVal('Periode Bulan'); const nama=getVal('Nama Karyawan');
@@ -7313,7 +7367,8 @@ function paintBonusInfo(r, nama, start, end){
   const chips=keys.map(k=>'<span class="gb-chip">'+esc(k)+' <b>'+rp(pj[k])+'</b></span>').join('');
   box.innerHTML =
     '<div class="gb-head"><span>Bonus dari menu Insentif</span><b class="gb-total">'+rp(r.totalBonus||0)+'</b></div>'+
-    '<div class="gb-sub">'+(r.jumlahBaris||0)+' baris bonus · nama <b>'+esc(nama)+'</b> · '+
+    '<div class="gb-sub">'+(r.jumlahBaris||0)+' baris bonus'+
+      (r.totalBarisBonus?(' (dari '+r.totalBarisBonus+' data bonus)'):'')+' · nama <b>'+esc(nama)+'</b> · '+
       'tanggal pengerjaan <b>'+esc(tglPanjangId(start)||'-')+'</b> s/d <b>'+esc(tglPanjangId(end)||'-')+'</b></div>'+
     (chips?'<div class="gb-chips">'+chips+'</div>':'<div class="gb-sub">Tidak ada bonus pada rentang ini.</div>')+
     '<div class="gb-note">Angka di atas harus sama dengan total di menu <b>Insentif</b> '+
