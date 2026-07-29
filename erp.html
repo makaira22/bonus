@@ -451,6 +451,17 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 /* ---------- NAVIGASI BERTINGKAT OPERASIONAL ---------- */
 .ops-chip{display:inline-block;margin-left:8px;padding:1px 8px;border-radius:20px;background:var(--gold-soft);
   color:var(--gold-deep);font-size:10.5px;font-weight:800;vertical-align:1px}
+.ins-var{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:20px;font-size:9.5px;
+  font-weight:800;background:var(--gold-soft);color:var(--gold-deep)}
+.gaji-info .gb-head{display:flex;align-items:baseline;gap:10px;font-size:12.5px;font-weight:700;color:var(--ink)}
+.gaji-info .gb-total{margin-left:auto;font-size:15px;color:var(--success)}
+.gaji-info .gb-sub{font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.5}
+.gaji-info .gb-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.gaji-info .gb-chip{font-size:11px;padding:3px 9px;border-radius:20px;background:var(--surface);
+  border:1px solid var(--line);color:var(--muted)}
+.gaji-info .gb-chip b{color:var(--ink)}
+.gaji-info .gb-note{font-size:11px;color:var(--faint);margin-top:8px;line-height:1.5}
+.gaji-info .gb-muted{font-size:12px;color:var(--muted)}
 .abs-jab{display:inline-block;margin-left:7px;padding:1px 7px;border-radius:20px;font-size:9.5px;
   font-weight:800;letter-spacing:.03em;background:var(--surface-2);color:var(--muted);border:1px solid var(--line)}
 .abs-jab.cs{background:var(--gold-soft);color:var(--gold-deep);border-color:transparent}
@@ -1690,6 +1701,59 @@ const GAJI_BONUS_FIELDS = ['Bonus Bulanan','Bonus Review','Bonus Tanggal Merah',
 const GAJI_POTONGAN_FIELDS = ['Cashbon','Potongan Tidak Absen','Potongan Keterlambatan',
   'Potongan Absen','BPJS Ketenagakerjaan','Potongan Lainnya'];
 const GAJI_TUNJANGAN_FIELDS = ['Tunjangan Kos','Tunjangan Kerja','Premi BPJS'];
+/* ============================================================
+   PERHITUNGAN BONUS PER CLEANER — dipakai bersama oleh menu
+   Insentif dan form Gaji. Sebelumnya keduanya punya kode sendiri
+   sehingga totalnya bisa berbeda; sekarang satu jalur saja.
+   ============================================================ */
+/* Satu baris bonus bisa memuat beberapa cleaner (dipisah koma). */
+function bonusNames(row){
+  return String((row&&row['Nama Cleaner'])||'').split(',').map(x=>x.trim()).filter(Boolean);
+}
+/* Nominal bisa tersimpan sebagai angka atau teks berformat ("Rp 1.400"). */
+function bonusNominal(row){ return Number(moneyDigits(row&&row['Nominal']))||0; }
+/* Tanggal disamakan ke YYYY-MM-DD (data lama bisa "06/07/2026"). */
+function bonusTanggal(row){
+  const v=(row&&row['Tanggal Pengerjaan'])||'';
+  return parseAnyDate(v)||String(v||'');
+}
+/* Pencocokan nama dibuat DUA ARAH: nama di tabel BONUS sering ditulis
+   lebih pendek daripada nama lengkap di data KARYAWAN (mis. "Salam"
+   vs "Salam Abdullah"). Pencocokan persis membuat bonus tidak terbaca
+   sama sekali di form Gaji — inilah penyebab total berbeda. */
+function bonusNameMatch(token, want){
+  const a=norm(token).replace(/\s+/g,' ');
+  const b=norm(want).replace(/\s+/g,' ');
+  if(!b) return true;
+  return a===b || a.indexOf(b)>-1 || b.indexOf(a)>-1;
+}
+/* Saring baris BONUS milik seorang cleaner pada rentang tanggal. */
+function bonusRowsFor(rows, cleaner, start, end){
+  return (rows||[]).filter(r=>{
+    if(cleaner && !bonusNames(r).some(t=>bonusNameMatch(t, cleaner))) return false;
+    const t=bonusTanggal(r);
+    if(start && t && t<start) return false;
+    if(end   && t && t>end)   return false;
+    return true;
+  });
+}
+/* Pecah per jenis untuk mengisi kolom gaji.
+   Jenis yang tidak dikenal TETAP dihitung dan masuk "Bonus Lainnya",
+   supaya jumlah seluruh kolom = total yang tampil di menu Insentif. */
+function bonusBreakdown(rows){
+  const totals={}; Object.values(BONUS_JENIS_TO_GAJI).forEach(v=>totals[v]=0);
+  const jmap={}; Object.keys(BONUS_JENIS_TO_GAJI).forEach(k=>{ jmap[norm(k)]=BONUS_JENIS_TO_GAJI[k]; });
+  const perJenis={}; let total=0;
+  (rows||[]).forEach(r=>{
+    const n=bonusNominal(r); total+=n;
+    const label=String(r['Jenis']||'Bonus Lainnya');
+    perJenis[label]=(perJenis[label]||0)+n;
+    const k=jmap[norm(r['Jenis'])] || 'Total Bonus Lainnya';
+    totals[k]=(totals[k]||0)+n;
+  });
+  return { totals, perJenis, total, count:(rows||[]).length };
+}
+
 const BONUS_JENIS_TO_GAJI = {
   'Kilometer':'Total Kilometer','Bonus Deepclean':'Total DeepClean','Bonus Salon':'Total Salon',
   'Tips':'Total Tips','Parkir':'Total Parkir','Lembur':'Total Lembur',
@@ -1848,7 +1912,8 @@ const VIEWS = {
     form:[
       {sec:'Identitas Slip'},
       f('Tanggal Cetak','date',{ro:true}), f('Periode Bulan','month'),
-      f('Awal Periode','date',{ro:true}), f('Akhir Periode','date',{ro:true}),
+      f('Awal Periode','date',{help:'Rentang TANGGAL PENGERJAAN untuk menarik bonus. Boleh diubah.'}),
+      f('Akhir Periode','date'),
       f('Cabang','select',{opts:CABANG, req:true}),
       f('ID Karyawan','kselect',{req:true, list:'karyawan'}),
       f('Nama Karyawan','text',{ro:true}),
@@ -1863,6 +1928,7 @@ const VIEWS = {
       f('Tunjangan Kos','money'), f('Tunjangan Kerja','money'),
       f('Premi BPJS','check',{label:'Premi BPJS aktif (+Rp 35.000)'}),
       f('Total Bonus','money',{computed:true}),
+      {info:'gajiBonusInfo'},
       {sec:'Potongan'},
       f('Cashbon','money'), f('Potongan Tidak Absen','money'),
       f('Potongan Keterlambatan','money'), f('Potongan Absen','money'),
@@ -1899,6 +1965,7 @@ const VIEWS = {
       f('Tunjangan Kos','money'), f('Tunjangan Kerja','money'),
       f('Premi BPJS','check',{label:'Premi BPJS aktif (+Rp 35.000)'}),
       f('Total Bonus','money',{computed:true}),
+      {info:'gajiBonusInfo'},
       {sec:'Potongan'},
       f('Cashbon','money'), f('Potongan Tidak Absen','money'),
       f('Potongan Keterlambatan','money'), f('Potongan Absen','money'),
@@ -1914,7 +1981,7 @@ const VIEWS = {
   insentif:{
     sheet:'BONUS', title:'Insentif', sub:'', countTop:true, noSyncBtn:true, readOnly:true, special:'insentifSum',
     idField:'ID Insentif',
-    dynCleaner:true, filters:['Cabang'], bonusCabangFilter:true,
+    dynCleaner:true, filters:['Cabang','Jenis'], bonusCabangFilter:true,
     search:['Nama Cleaner','No Order','Nama Customer'],
     datePreset:true, dateRange:true, dateFilterField:'Tanggal Pengerjaan', defaultMonth:true
   },
@@ -3241,27 +3308,20 @@ async function api(payload){
     }
     if(a==='bonusSummary'){
       const cleaner=String(payload.namaCleaner||''), start=payload.start||'', end=payload.end||'';
-      const map={'Kilometer':'Total Kilometer','Bonus Deepclean':'Total DeepClean','Bonus Salon':'Total Salon',
-        'Tips':'Total Tips','Parkir':'Total Parkir','Lembur':'Total Lembur','Uang Makan':'Total Uang Makan','Bonus Lainnya':'Total Bonus Lainnya'};
-      const totals={}; Object.values(map).forEach(v=>totals[v]=0);
-      const nz=x=>String(x==null?'':x).trim().toLowerCase();
-      const target=nz(cleaner);
-      // Satu bonus bisa dibagi ke beberapa cleaner (dipisah koma).
-      const has=field=>!target||String(field||'').split(',').map(nz).indexOf(target)>-1;
-      // Tanggal disamakan ke YYYY-MM-DD dulu — data lama bisa berformat lain.
-      const dnorm=x=>{ const d=parseAnyDate(x); return d||String(x||''); };
-      // Nominal bisa tersimpan sebagai teks berformat ("Rp 1.400" / "1.400").
-      const nom=x=>Number(moneyDigits(x))||0;
-      const jmap={}; Object.keys(map).forEach(k=>{ jmap[nz(k)]=map[k]; });
       const {data:bonus,error}=await sb.from('BONUS').select('*'); if(error) throw error;
-      (bonus||[]).forEach(b=>{ if(!has(b['Nama Cleaner']))return;
-        const t=dnorm(b['Tanggal Pengerjaan']); if(start&&t&&t<start)return; if(end&&t&&t>end)return;
-        const k=jmap[nz(b['Jenis'])]; if(k) totals[k]+=nom(b['Nominal']); });
+      // Jalur yang SAMA PERSIS dengan menu Insentif.
+      const mine=bonusRowsFor(bonus||[], cleaner, start, end);
+      const br=bonusBreakdown(mine);
       const {data:orders}=await sb.from('ORDER').select('"Nama Cleaner","Tanggal Pengerjaan"');
-      let min='',max=''; (orders||[]).forEach(o=>{ if(!has(o['Nama Cleaner']))return;
-        const t=dnorm(o['Tanggal Pengerjaan']); if(!t)return; if(start&&t<start)return; if(end&&t>end)return;
-        if(!min||t<min)min=t; if(!max||t>max)max=t; });
-      return {ok:true, totals, awal:min, akhir:max};
+      let min='',max='';
+      (orders||[]).forEach(o=>{
+        if(cleaner && !bonusNames(o).some(t=>bonusNameMatch(t, cleaner))) return;
+        const t=bonusTanggal(o); if(!t) return;
+        if(start&&t<start) return; if(end&&t>end) return;
+        if(!min||t<min)min=t; if(!max||t>max)max=t;
+      });
+      return {ok:true, totals:br.totals, perJenis:br.perJenis,
+              totalBonus:br.total, jumlahBaris:br.count, awal:min, akhir:max};
     }
     if(a==='gajiPokok'){
       const {data:rows,error}=await sb.from('GAJI_POKOK').select('*'); if(error) throw error;
@@ -3952,10 +4012,8 @@ function applyClientFilters(rows){
       // BONUS: kolom Cabang kosong → turunkan dari kode No Order.
       out = out.filter(r=>cabangOfBonus(r)===String(val).toUpperCase());
     }else if(k==='Nama Cleaner'){
-      // Cocok persis (dipilih dari daftar) ATAU sebagian (diketik manual).
-      const want=norm(val);
-      out = out.filter(r=>String(r['Nama Cleaner']||'').split(',').map(s=>norm(s))
-        .some(n=> n===want || n.indexOf(want)>-1));
+      // Pencocokan yang sama dengan form Gaji (dua arah) agar totalnya seragam.
+      out = out.filter(r=>bonusNames(r).some(t=>bonusNameMatch(t, val)));
     }else if(k==='Periode Bulan'){
       const want=parseAnyMonth(val);
       out = out.filter(r=>parseAnyMonth(r['Periode Bulan'])===want);
@@ -6667,6 +6725,12 @@ async function openForm(row, pre){
   wireFields(v);
   if(v.special==='gaji'){ populateKselect(); recomputeGaji(); }
   if(v.special==='order'){ recomputeOrder(); wireSvcRows(); if(row && row['Bukti Transfer']) showInvoiceBtn(); }
+  if(v.sheet==='GAJI'){
+    ['Awal Periode','Akhir Periode'].forEach(k=>{
+      const el=getEl(k); if(!el || el._gbw) return; el._gbw=true;
+      el.addEventListener('change', ()=>{ tarikBonusGaji(); });
+    });
+  }
   if(v.sheet==='HCS_QUOTATION'){ wireSvcRows(); quoWireForm(); }
   if(v.special==='bonus'){
     // Aktifkan tombol Map bila No Order sudah terisi (mis. dibuka dari tombol "Input Bonus" di baris order).
@@ -7193,6 +7257,7 @@ async function onPickKaryawan(){
     setPremiBpjs(gp.premiBpjs || 35000, harian ? false : true);
   }catch(e){}
   if(!(state.view && state.view.gajiTipe==='Harian')) await onPickPeriode();
+  else await tarikBonusGaji();      // Gaji Harian: rentangnya diisi HRD sendiri
   recomputeGaji();
 }
 /* Atur nominal & status checkbox Premi BPJS. */
@@ -7218,16 +7283,41 @@ async function onPickPeriode(){
   const per=getVal('Periode Bulan'); const nama=getVal('Nama Karyawan');
   if(!per){ recomputeGaji(); return; }
   const [y,m]=per.split('-').map(Number);
-  // Periode pengerjaan: 28 bulan sebelumnya s/d 27 bulan terpilih.
-  const start=ymd(new Date(y, m-2, 28));
-  const end=ymd(new Date(y, m-1, 27));
+  // Rentang bawaan: 28 bulan sebelumnya s/d 27 bulan terpilih.
+  setVal('Awal Periode', ymd(new Date(y, m-2, 28)));
+  setVal('Akhir Periode', ymd(new Date(y, m-1, 27)));
+  await tarikBonusGaji();
+}
+/* Tarik bonus sesuai rentang yang sedang terisi di form. */
+async function tarikBonusGaji(){
+  const nama=getVal('Nama Karyawan');
+  const start=parseAnyDate(getVal('Awal Periode'))||'';
+  const end  =parseAnyDate(getVal('Akhir Periode'))||'';
+  const box=document.getElementById('gajiBonusInfo');
+  if(!nama){ if(box) box.innerHTML=''; recomputeGaji(); return; }
+  if(box) box.innerHTML='<span class="gb-muted">Mengambil bonus…</span>';
   try{
     const r=await api({action:'bonusSummary', namaCleaner:nama, start, end});
     Object.keys(r.totals||{}).forEach(k=>setVal(k, r.totals[k]));
-    setVal('Awal Periode', start);
-    setVal('Akhir Periode', end);
-  }catch(e){ setVal('Awal Periode',start); setVal('Akhir Periode',end); }
+    paintBonusInfo(r, nama, start, end);
+  }catch(e){
+    if(box) box.innerHTML='<span class="gb-muted">Gagal mengambil bonus: '+esc((e&&e.message)||e)+'</span>';
+  }
   recomputeGaji();
+}
+/* Panel pemeriksaan: samakan angka ini dengan menu Insentif. */
+function paintBonusInfo(r, nama, start, end){
+  const box=document.getElementById('gajiBonusInfo'); if(!box) return;
+  const pj=r.perJenis||{};
+  const keys=Object.keys(pj).sort((a,b)=>pj[b]-pj[a]);
+  const chips=keys.map(k=>'<span class="gb-chip">'+esc(k)+' <b>'+rp(pj[k])+'</b></span>').join('');
+  box.innerHTML =
+    '<div class="gb-head"><span>Bonus dari menu Insentif</span><b class="gb-total">'+rp(r.totalBonus||0)+'</b></div>'+
+    '<div class="gb-sub">'+(r.jumlahBaris||0)+' baris bonus · nama <b>'+esc(nama)+'</b> · '+
+      'tanggal pengerjaan <b>'+esc(tglPanjangId(start)||'-')+'</b> s/d <b>'+esc(tglPanjangId(end)||'-')+'</b></div>'+
+    (chips?'<div class="gb-chips">'+chips+'</div>':'<div class="gb-sub">Tidak ada bonus pada rentang ini.</div>')+
+    '<div class="gb-note">Angka di atas harus sama dengan total di menu <b>Insentif</b> '+
+      'bila rentang tanggalnya disamakan. Ubah <b>Awal/Akhir Periode</b> untuk menyesuaikan.</div>';
 }
 function onPickOrder(){
   const id=getVal('No Order');
@@ -8664,9 +8754,18 @@ function renderSuratTDP(){
 function renderInsentifSum(){
   const rows=applyClientFilters(state.rows);
   const map={};
-  rows.forEach(b=>{ String(b['Nama Cleaner']||'-').split(',').map(x=>x.trim()).filter(Boolean).forEach(nm=>{
-    if(!map[nm]) map[nm]={n:0,val:0}; map[nm].n++; map[nm].val+=Number(moneyDigits(b['Nominal']))||0; }); });
-  const arr=Object.keys(map).map(k=>({k,n:map[k].n,val:map[k].val})).sort((a,b)=>b.val-a.val);
+  rows.forEach(b=>{ const nl=bonusNames(b); (nl.length?nl:['-']).forEach(nm=>{
+    const key=norm(nm).replace(/\s+/g,' ');
+    if(!map[key]) map[key]={n:0,val:0,ejaan:{}};
+    map[key].n++; map[key].val+=bonusNominal(b);
+    map[key].ejaan[nm]=(map[key].ejaan[nm]||0)+1;      // catat variasi penulisan
+  }); });
+  const arr=Object.keys(map).map(k=>{
+    const e=map[k].ejaan||{};
+    // Tampilkan ejaan yang paling sering muncul.
+    const nama=Object.keys(e).sort((a,b)=>e[b]-e[a]||a.localeCompare(b,'id'))[0]||k;
+    return {k:nama, n:map[k].n, val:map[k].val, varian:Object.keys(e).length};
+  }).sort((a,b)=>b.val-a.val);
   const total=arr.reduce((s,a)=>s+a.val,0);
   state._insDetail=rows;
 
@@ -8678,7 +8777,8 @@ function renderInsentifSum(){
   const pageArr=arr.slice(state.insPage*PAGE,(state.insPage+1)*PAGE);   // tabel desktop
   const cardArr=arr.slice(0,(state.insPage+1)*PAGE);                    // kartu HP (kumulatif)
 
-  const trows=pageArr.map(a=>'<tr class="rowclick" data-inscl="'+esc(a.k)+'"><td class="l">'+esc(a.k)+'</td><td class="c">'+a.n+'</td><td class="money">'+rp(a.val)+'</td></tr>').join('');
+  const varTag=a=>a.varian>1?'<span class="ins-var" title="Nama ini ditulis dalam '+a.varian+' ejaan berbeda di data bonus — sudah digabung">'+a.varian+' ejaan</span>':'';
+  const trows=pageArr.map(a=>'<tr class="rowclick" data-inscl="'+esc(a.k)+'"><td class="l">'+esc(a.k)+varTag(a)+'</td><td class="c">'+a.n+'</td><td class="money">'+rp(a.val)+'</td></tr>').join('');
   const cards=cardArr.map(a=>'<div class="ocard" data-inscl="'+esc(a.k)+'">'+
     '<div class="ocard-top"><span class="ocard-name">'+esc(a.k)+'</span><span class="pay-chip">'+rp(a.val)+'</span></div>'+
     '<div class="ocard-meta"><span>'+a.n+' bonus · ketuk untuk rincian</span></div></div>').join('');
@@ -8707,8 +8807,9 @@ function renderInsentifSum(){
   setCount(arr.length,'cleaner');
 }
 function showCleanerInsentif(name){
-  const list=(state._insDetail||[]).filter(b=>String(b['Nama Cleaner']||'').split(',').map(x=>x.trim()).indexOf(name)>=0);
-  const tot=list.reduce((s,b)=>s+(Number(moneyDigits(b['Nominal']))||0),0);
+  const want=norm(name).replace(/\s+/g,' ');
+  const list=(state._insDetail||[]).filter(b=>bonusNames(b).some(t=>norm(t).replace(/\s+/g,' ')===want));
+  const tot=list.reduce((s,b)=>s+bonusNominal(b),0);
   $('#modalTitle').textContent='Insentif — '+name;
   const row=(l,v)=>'<div class="dt-row"><span class="dt-l">'+esc(l)+'</span><span class="dt-v">'+v+'</span></div>';
   let h='<div class="detail">';
