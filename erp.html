@@ -717,6 +717,8 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .ops-tbl th.r,.ops-tbl td.r{text-align:right}
 .ops-tbl .cab-cell{font-weight:700;color:var(--petrol);white-space:nowrap}
 .ops-tbl .ops-total td{font-weight:800;border-top:2px solid var(--line-2);background:var(--surface-2)}
+/* Judul kolom yang menempati dua baris header. */
+.ops-tbl th.rowspan2{vertical-align:bottom}
 .ops-tbl th.rk-sort{cursor:pointer;user-select:none;white-space:nowrap}
 .ops-tbl th.rk-sort:hover{color:var(--petrol)}
 .rk-car{font-size:10px;opacity:.55;margin-left:3px}
@@ -732,6 +734,17 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .g-up{color:var(--success)} .g-down{color:var(--danger)} .g-flat{color:var(--muted)}
 .kpi-badge{display:inline-block;font-weight:800;font-size:12.5px;padding:4px 11px;border-radius:16px;color:#fff}
 .k-green{background:var(--success)} .k-yellow{background:#C99A28} .k-red{background:var(--danger)}
+/* Rincian harian per cabang: judul kolom tetap terlihat saat digulir. */
+.dc-pop-scroll{max-height:58vh;overflow:auto}
+.dc-pop-scroll .ops-tbl thead th{position:sticky;background:var(--surface-2);z-index:2;
+  box-shadow:inset 0 -1px 0 var(--line)}
+.dc-pop-scroll .ops-tbl thead tr:first-child th{top:0}
+.dc-pop-scroll .ops-tbl thead tr:nth-child(2) th{top:31px}
+.dc-pop-scroll .ops-tbl thead tr:first-child th[rowspan]{z-index:3}
+.dc-pop-scroll .ops-tbl tbody td:first-child{position:sticky;left:0;background:var(--surface);z-index:1}
+.dc-pop-scroll .ops-tbl tr.dc-tot td{position:sticky;bottom:0;background:var(--surface-2);z-index:2;
+  box-shadow:inset 0 1px 0 var(--line)}
+@media (max-width:620px){ .dc-pop-scroll{max-height:52vh} }
 /* ===== DATA CHAT ===== */
 .dc-hero{display:flex;gap:16px;align-items:stretch;background:linear-gradient(135deg,var(--petrol),var(--petrol-2));
   color:#fff;border-radius:16px;padding:20px 22px;margin-bottom:14px;flex-wrap:wrap}
@@ -5556,7 +5569,7 @@ async function loadChatAll(){
 }
 function kpiItems(){
   return [
-    {key:'Omzet',        tKey:'Target Omzet',        bKey:'Bobot Omzet',        money:true, auto:true, defB:40},
+    {key:'Omzet',        tKey:'Target Omzet',        bKey:'Bobot Omzet',        money:true, auto:true, defB:40, uncap:true},
     {key:'Closing Rate', tKey:'Target Closing Rate', bKey:'Bobot Closing Rate', nKey:'Nilai Closing Rate', pct:true, defB:20, autoRate:true},
     {key:'Closing Chat', tKey:'Target Closing Chat', bKey:'Bobot Closing Chat', nKey:'Nilai Closing Chat', defB:20, autoChat:true},
     {key:'Stock Opname', tKey:'Target Stock Opname', bKey:'Bobot Stock Opname', nKey:'Nilai Stock Opname', defB:10},
@@ -5616,11 +5629,15 @@ function kpiNilai(it, cfg, cab, ym){
   if(it.autoChat) return kpiCloseChat(cab, ym);
   return num(cfg[it.nKey]);
 }
-/* Skor satu item = (nilai ÷ target) × bobot, DIBATASI maksimal sebesar bobot.
-   Capaian di atas 100% tidak menambah skor — bobot 20% maksimal tetap 20%. */
-function kpiSkor(nilai, target, bobot){
+/* Skor satu item = (nilai ÷ target) × bobot.
+   Umumnya DIBATASI maksimal sebesar bobot — capaian di atas 100% tidak
+   menambah skor (bobot 20% maksimal tetap 20%).
+   KECUALI item bertanda "uncap" (Omzet): capaiannya boleh melampaui bobot,
+   mis. target 10 jt bobot 50% lalu tercapai 60 jt → 300%. */
+function kpiSkor(nilai, target, bobot, uncap){
   if(!(target>0)) return 0;
-  return Math.min(nilai/target, 1) * bobot;
+  const rasio = nilai/target;
+  return (uncap ? rasio : Math.min(rasio, 1)) * bobot;
 }
 function kpiTotalFor(cab, ym){
   const cfg=(state.cache.kpiCfg||{})[String(cab).toUpperCase()+'|'+ym]||{};
@@ -5629,7 +5646,7 @@ function kpiTotalFor(cab, ym){
   kpiItems().forEach(it=>{
     const target=num(cfg[it.tKey]);
     const bobot=(cfg[it.bKey]!=null&&String(cfg[it.bKey]).trim()!=='')?num(cfg[it.bKey]):it.defB;
-    total += kpiSkor(kpiNilai(it, cfg, cab, ym), target, bobot);
+    total += kpiSkor(kpiNilai(it, cfg, cab, ym), target, bobot, it.uncap);
   });
   return total;
 }
@@ -5675,7 +5692,7 @@ function renderKpiCS(){
       const target = num(c[it.tKey]);
       const bobot  = (c[it.bKey]!=null && String(c[it.bKey]).trim()!=='') ? num(c[it.bKey]) : it.defB;
       const nilai  = kpiNilai(it, c, cab, ym);
-      const pros   = kpiSkor(nilai, target, bobot);      // dibatasi maksimal = bobot
+      const pros   = kpiSkor(nilai, target, bobot, it.uncap);   // Omzet boleh lewat bobot
       total += pros;
       const nRnd = Math.round(nilai*10)/10;              // rapikan desimal (mis. 11,1)
       const fT = it.money?rp(target):(it.pct?target+'%':target);
@@ -10252,7 +10269,9 @@ function chatAgg(rows){
 const pctS=(n,d)=> d>0 ? (n/d*100) : 0;
 const pctTxt=(n,d)=> d>0 ? (n/d*100).toFixed(0)+'%' : '—';
 /* Warna badge closing rate: ≥70% hijau · ≥40% kuning · sisanya merah. */
-const rateCls=p=> p>=70?'k-green':(p>=40?'k-yellow':'k-red');
+/* Ambang warna closing rate: 50% ke atas hijau, 40–49% kuning, di bawah 40% merah. */
+const RATE_HIJAU=50, RATE_KUNING=40;
+const rateCls=p=> p>=RATE_HIJAU?'k-green':(p>=RATE_KUNING?'k-yellow':'k-red');
 
 /* Kartu besar closing rate — dipakai Data Chat (OPERASIONAL) & Chat Harian (CS). */
 function chatHeroHTML(A, judul){
@@ -10325,11 +10344,25 @@ function renderDataChat(){
   // ---- Tabel per cabang (klik → rincian harian) ----
   const byCab={};
   rows.forEach(r=>{ const c=String(r['Cabang']||'-').toUpperCase(); (byCab[c]=byCab[c]||[]).push(r); });
-  const cabs=Object.keys(byCab).sort();
-  const trs=cabs.map(c=>{
+  // Siapkan nilai tiap kolom dulu supaya bisa diurutkan.
+  let baris=Object.keys(byCab).map(c=>{
     const g=chatAgg(byCab[c]);
-    return '<tr class="rowclick" data-dccab="'+esc(c)+'">'+
-      '<td class="cab-cell l det-cabcol">'+esc(c)+'</td>'+
+    return { cab:c, g,
+      chat:g.chatBaru, closing:g.closeBaru, rate:g.chatBaru?g.rate:-1,
+      iklan:   g.chat.iklan   >0 ? pctS(g.close.iklan,   g.chat.iklan)   : -1,
+      organik: g.chat.organik >0 ? pctS(g.close.organik, g.chat.organik) : -1,
+      lama:g.close.lama, order:g.order, hari:g.hari };
+  });
+  const S=state.dcSort||{col:'cab', dir:1};
+  baris.sort((a,b)=>{
+    const x=a[S.col], y=b[S.col];
+    const c = (typeof x==='string') ? String(x).localeCompare(String(y),'id') : (x-y);
+    return c*S.dir;
+  });
+  const trs=baris.map(d=>{
+    const g=d.g;
+    return '<tr class="rowclick" data-dccab="'+esc(d.cab)+'">'+
+      '<td class="cab-cell l det-cabcol">'+esc(d.cab)+'</td>'+
       '<td class="c">'+g.chatBaru+'</td>'+
       '<td class="c">'+g.closeBaru+'</td>'+
       '<td class="c"><span class="kpi-badge '+rateCls(g.rate)+'">'+(g.chatBaru?g.rate.toFixed(0)+'%':'—')+'</span></td>'+
@@ -10339,17 +10372,28 @@ function renderDataChat(){
       '<td class="c">'+g.order+'</td>'+
       '<td class="c">'+g.hari+'</td></tr>';
   }).join('');
+  /* Judul kolom yang bisa diklik. Klik pertama = terbesar ke terkecil,
+     klik lagi = sebaliknya. */
+  const dcTh=(label, col, span2)=>{
+    const on=S.col===col;
+    const car=on?(S.dir>0?' ▲':' ▼'):' ⇅';
+    return '<th class="c rk-sort'+(span2?' rowspan2':'')+'"'+(span2?' rowspan="2"':'')+
+      ' data-dcsort="'+col+'">'+label+'<span class="rk-car">'+car+'</span></th>';
+  };
   const tabel='<div class="cap-card"><div class="cap-card-t">Closing Rate per Cabang — ketuk baris untuk rincian harian</div>'+
-    '<div class="tbl-wrap"><table class="ops-tbl freeze-cab"><thead><tr>'+
-      '<th class="l det-cabcol" rowspan="2">Cabang</th><th class="c" colspan="3">Customer Baru</th>'+
+    '<div class="tbl-wrap"><table class="ops-tbl freeze-cab dc-cab"><thead><tr>'+
+      '<th class="l det-cabcol rk-sort" rowspan="2" data-dcsort="cab">Cabang<span class="rk-car">'+
+        (S.col==='cab'?(S.dir>0?' ▲':' ▼'):' ⇅')+'</span></th>'+
+      '<th class="c" colspan="3">Customer Baru</th>'+
       '<th class="c" colspan="2">Rate per Sumber</th>'+
-      '<th class="c" rowspan="2">Order<br>Cust Lama</th>'+
-      '<th class="c" rowspan="2">Total<br>Orderan</th><th class="c" rowspan="2">Hari</th></tr>'+
-      '<tr><th class="c">Chat</th><th class="c">Closing</th><th class="c">Rate</th>'+
-        '<th class="c">Iklan</th><th class="c">Organik</th></tr>'+
+      dcTh('Order<br>Cust Lama','lama',true)+
+      dcTh('Total<br>Orderan','order',true)+
+      dcTh('Hari','hari',true)+'</tr>'+
+      '<tr>'+dcTh('Chat','chat')+dcTh('Closing','closing')+dcTh('Rate','rate')+
+        dcTh('Iklan','iklan')+dcTh('Organik','organik')+'</tr>'+
     '</thead><tbody>'+trs+'</tbody></table></div>'+
-    '<div class="kpi-legend"><span class="kpi-badge k-green">≥70%</span> · <span class="kpi-badge k-yellow">40–69%</span> · '+
-      '<span class="kpi-badge k-red">&lt;40%</span> &nbsp;·&nbsp; <span style="color:var(--faint)">Closing rate = closing ÷ chat, <b>customer baru saja</b> (organik + iklan)</span></div></div>';
+    '<div class="kpi-legend"><span class="kpi-badge k-green">≥50%</span> · <span class="kpi-badge k-yellow">40–49%</span> · '+
+      '<span class="kpi-badge k-red">&lt;40%</span> &nbsp;·&nbsp; <span style="color:var(--faint)">Closing rate = closing ÷ chat, <b>customer baru saja</b> (organik + iklan) · klik judul kolom untuk mengurutkan</span></div></div>';
 
   $('#panel').innerHTML=
     '<div class="ops-note">Sumber: laporan <b>Chat Harian</b> yang diinput CS. Angka mengikuti filter cabang &amp; tanggal di atas.<br>'+
@@ -10358,6 +10402,12 @@ function renderDataChat(){
 
   document.querySelectorAll('[data-chan]').forEach(b=>b.addEventListener('click',()=>showChanDetail(b.dataset.chan)));
   document.querySelectorAll('[data-dccab]').forEach(b=>b.addEventListener('click',()=>showCabChatDetail(b.dataset.dccab)));
+  document.querySelectorAll('[data-dcsort]').forEach(t=>t.addEventListener('click',()=>{
+    const col=t.dataset.dcsort, cur=state.dcSort||{};
+    // Kolom baru → langsung terbesar ke terkecil. Kolom sama → dibalik.
+    state.dcSort = (cur.col===col) ? {col, dir:-cur.dir} : {col, dir:(col==='cab'?1:-1)};
+    renderDataChat();
+  }));
   setCount(rows.length,'laporan');
 }
 
@@ -10421,7 +10471,7 @@ function showCabChatDetail(cab){
       '<div class="dc-pop-v">'+(A.chatBaru?A.rate.toFixed(1)+'%':'—')+'</div></div>'+
       '<div class="dc-pop-x"><b>'+A.chatBaru+'</b> chat baru → <b>'+A.closeBaru+'</b> closing · <b>'+A.close.lama+'</b> order cust lama · <b>'+A.order+'</b> total orderan</div></div>'+
     '<div class="dt-sec">Rincian Harian</div>'+
-    '<div class="tbl-wrap"><table class="ops-tbl dc-day"><thead>'+
+    '<div class="tbl-wrap dc-pop-scroll"><table class="ops-tbl dc-day"><thead>'+
       '<tr><th class="l" rowspan="2">Tanggal</th><th class="c" colspan="4">Chat Masuk</th>'+
         '<th class="c" colspan="4">Closing</th>'+
         '<th class="c" rowspan="2">Order</th><th class="c" rowspan="2">Telp</th></tr>'+
