@@ -646,6 +646,9 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 }
 .count-chip{align-self:center;background:var(--petrol);color:#fff;font-size:12px;font-weight:700;
   padding:5px 11px;border-radius:20px;white-space:nowrap}
+/* Chip "Total THP" — tampil di sebelah jumlah data pada menu Gaji */
+.thp-chip{background:var(--gold-soft);color:var(--petrol);border:1px solid var(--gold);margin-left:7px}
+.thp-chip b{color:var(--gold-deep)}
 
 /* ---------- capaian dashboard ---------- */
 .cap-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px}
@@ -1952,15 +1955,15 @@ const VIEWS = {
       f('Keterangan Potongan Lainnya','text',{full:true}),
       f('Total Potongan','money',{computed:true}),
       {sec:'Hasil'},
-      f('Take Home Pay','money',{computed:true}), f('Gaji Diterima','money',{computed:true}),
+      f('Gaji Diterima','money',{computed:true}), f('Take Home Pay','money',{computed:true}),
       f('Saldo JHT','money')
     ]
   },
   gajiHarian:{
     sheet:'GAJI', title:'Gaji Harian', sub:'', countTop:true, noSyncBtn:true, hub:'gaji', gajiTipe:'Harian',
     idField:'ID Slip', canAdd:true, canEdit:true, canDelete:true, rowDetail:true, gajiSort:true, special:'gaji', slip:true, paged:true,
-    table:['Awal Periode','Akhir Periode','Jumlah Hari','Nama Karyawan','No. Rekening','Total Bonus','Total Potongan','Take Home Pay'],
-    colorMap:{'Total Bonus':'c-green','Total Potongan':'c-red','Take Home Pay':'c-blue'},
+    table:['Awal Periode','Akhir Periode','Jumlah Hari','Nama Karyawan','No. Rekening','Total Bonus','Total Potongan','Gaji Diterima','Take Home Pay'],
+    colorMap:{'Total Bonus':'c-green','Total Potongan':'c-red','Gaji Diterima':'c-orange','Take Home Pay':'c-blue'},
     filters:['Cabang'],
     search:['Nama Karyawan','ID Slip'],
     form:[
@@ -1990,7 +1993,7 @@ const VIEWS = {
       f('Total Potongan','money',{computed:true}),
       {sec:'Hasil'},
       {info:'gajiHarianInfo'},
-      f('Take Home Pay','money',{computed:true}), f('Gaji Diterima','money',{computed:true}),
+      f('Gaji Diterima','money',{computed:true}), f('Take Home Pay','money',{computed:true}),
       f('Saldo JHT','money')
     ]
   },
@@ -3687,6 +3690,7 @@ function renderShell(){
       (v.inSettings && !state.opsOpen ? '<button class="icon-btn" id="btnBackSet" title="Kembali ke Pengaturan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>' : '')+
       '<div><div class="page-title">'+v.title+'</div>'+(v.sub?'<div class="page-sub">'+v.sub+'</div>':'')+'<div class="hairline"></div></div>'+
       '<span class="count-chip'+(v.countTop?' count-chip-force':'')+'" id="headCount"></span>'+
+      '<span class="count-chip thp-chip'+(v.countTop?' count-chip-force':'')+'" id="headThp" style="display:none"></span>'+
       '<div class="spacer"></div>'+
       (v.repeatBtn ? '<button class="btn btn-ghost" id="btnRepeat">'+svg('users')+'Pelanggan Lama</button>' : '')+
       (v.canAdd ? '<button class="btn btn-primary" id="btnAdd">'+svg('plus')+'Tambah</button>' : '')+
@@ -3741,7 +3745,8 @@ function startClock(){ if(window._clk) return;
 function buildToolbar(){
   const v=state.view;
   let row='<div class="tbar-row">';
-  if(!v.countTop){ row += '<span class="count-chip mob-count" id="headCountM"></span>'; }
+  if(!v.countTop){ row += '<span class="count-chip mob-count" id="headCountM"></span>'+
+    '<span class="count-chip thp-chip mob-count" id="headThpM" style="display:none"></span>'; }
   if(v.search){ row += '<div class="search">'+svg('search')+'<input id="q" placeholder="Cari…" value="'+esc(state.search||'')+'" /></div>'; }
   else { row += '<div class="spacer"></div>'; }
   if(v.multiApprove){ row += '<button class="btn btn-gold btn-sm" id="btnApproveSel">'+svg('check')+'Approve<span class="hide-sm"> terpilih</span></button>'; }
@@ -4152,6 +4157,16 @@ function setCount(n, noun){
   const c=$('#headCount'); if(c) c.textContent = txt;
   const cm=$('#headCountM'); if(cm) cm.textContent = txt;
 }
+/* Chip "Total THP" di sebelah jumlah data (menu Gaji).
+   total = null → chip disembunyikan. */
+function setThpTotal(total){
+  const txt = (total==null) ? '' : 'Total THP '+rp(total);
+  ['headThp','headThpM'].forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    el.textContent = txt;
+    el.style.display = (total==null) ? 'none' : 'inline-flex';
+  });
+}
 /* Teks hitungan bebas (mis. "577 order · 812 transaksi"). */
 function setCountText(txt){
   const c=$('#headCount'); if(c) c.textContent = txt;
@@ -4176,6 +4191,7 @@ function renderTable(){
   if(v.chatSum) summary += chatCsSummary(rows);
   if(!rows.length){ $('#panel').innerHTML=summary+emptyState('Belum ada data');
     if(v.trxCount) setCountText('0 order · 0 transaksi'); else setCount(0,countNoun());
+    setThpTotal(v.sheet==='GAJI' ? 0 : null);
     wireSummary(); return; }
   const cols=v.table.filter(c=>HIDDEN_COLS.indexOf(c)<0);
   const PAGE=15; const total=rows.length;
@@ -4299,8 +4315,10 @@ function renderTable(){
           '<span class="pay-chip">'+esc(per)+'</span></div>'+
         _rentang+
         '<div class="ocard-meta"><span>'+svg('file')+'</span><span>Rek: '+(_rek?('<b>'+esc(_rek)+'</b>'):'<span style="color:var(--faint)">belum diisi</span>')+'</span></div>'+
+        '<div class="ocard-meta sub"><span>Gaji Diterima '+esc(rp(gajiDiterimaOf(r)))+
+          ' − Potongan '+esc(rp(gajiNum(r,'Total Potongan')))+'</span></div>'+
         '<div class="gaji-thp"><span class="gt-l">Take Home Pay</span>'+
-          '<span class="gt-v">'+esc(rp(r['Take Home Pay']||0))+'</span></div>'+
+          '<span class="gt-v">'+esc(rp(thpOf(r)))+'</span></div>'+
         '<div class="ocard-act">'+
           '<button class="btn btn-gold btn-sm" data-slip="'+sid+'">'+svg('file')+'Cetak Slip</button>'+
           '<button class="act-ic" data-slippdf="'+sid+'" title="Download PDF">'+svg('file')+'</button>'+
@@ -4341,6 +4359,8 @@ function renderTable(){
   }
   if(v.trxCount) setCountText(rows.length+' order · '+countTrx(rows)+' transaksi');
   else setCount(rows.length,countNoun());
+  // Menu Gaji: total Take Home Pay dari SELURUH baris yang lolos filter (bukan hanya halaman ini)
+  setThpTotal(v.sheet==='GAJI' ? rows.reduce((s,r)=>s+thpOf(r),0) : null);
   wireSummary();
   wireRowHandlers(v);
   const pgP=$('#pgPrev'), pgN=$('#pgNext'), pgM=$('#pgMore');
@@ -4763,8 +4783,9 @@ function showGajiDetail(g){
   GAJI_POTONGAN_FIELDS.forEach(k=>{ const val=md(g[k]); if(val) h+=row(k, '− '+rp(val)); });
   h+='<div class="dt-sec">Total</div>';
   h+=row('Total Bonus', rp(md(g['Total Bonus'])));
+  h+=row('Gaji Diterima', '<b>'+rp(gajiDiterimaOf(g))+'</b>');
   h+=row('Total Potongan', '− '+rp(md(g['Total Potongan'])));
-  h+=row('Take Home Pay', '<b>'+rp(md(g['Take Home Pay']||g['Gaji Diterima']))+'</b>');
+  h+=row('Take Home Pay', '<b>'+rp(thpOf(g))+'</b>');
   if(g['ID Slip']) h+=row('ID Slip', esc(g['ID Slip']));
   h+='</div>';
   $('#modalBody').innerHTML=h;
@@ -6258,7 +6279,7 @@ function dashTabHRD(){
     '<span class="pager-info">'+(P.p*PAGE+1)+'–'+Math.min(P.total,(P.p+1)*PAGE)+' dari '+P.total+'</span>'+
     '<button class="btn btn-ghost btn-sm" id="'+id+'Next"'+(P.p>=P.mx?' disabled':'')+'>Selanjutnya ›</button></div>':'';
   const gajiRows=gP.rows.map(g=>'<tr class="rowclick" data-dgid="'+esc(g['ID Slip']||'')+'"><td class="l">'+esc(g['Nama Karyawan']||'-')+'</td><td>'+esc(g['Cabang']||'-')+'</td>'+
-    '<td>'+esc(g['Periode Bulan']||'-')+'</td><td class="money">'+rp(g['Take Home Pay']||0)+'</td></tr>').join('');
+    '<td>'+esc(g['Periode Bulan']||'-')+'</td><td class="money">'+rp(thpOf(g))+'</td></tr>').join('');
   const insRows=cP.rows.map(c=>'<tr class="rowclick" data-dcleaner="'+esc(c.k)+'"><td class="l">'+esc(c.k)+'</td><td class="c">'+c.n+'</td><td class="money">'+rp(c.val)+'</td></tr>').join('');
   return '<div class="cap-card"><div class="cap-card-t">Gaji ('+gP.total+') — klik untuk detail</div>'+
     '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr><th class="l">Nama</th><th>Cabang</th><th>Periode</th><th class="r">Take Home Pay</th></tr></thead>'+
@@ -6634,7 +6655,11 @@ function cell(v,c,r){
   if(c==='Status Order' && v.statusBadge){
     const s=norm(val)||'pending'; return '<span class="badge b-'+s+'"><span class="d"></span>'+s+'</span>';
   }
-  if(c==='Take Home Pay') return '<span class="thp">'+rp(val)+'</span>';
+  if(c==='Take Home Pay'){
+    return '<span class="thp">'+rp(v.sheet==='GAJI' ? thpOf(r) : val)+'</span>';
+  }
+  // GAJI: Gaji Diterima = Take Home Pay + Total Potongan (bruto sebelum potongan)
+  if(c==='Gaji Diterima' && v.sheet==='GAJI') return rp(gajiDiterimaOf(r));
   if(c==='Nama Cleaner'){
     const names=String(val||'').split(',').map(s=>s.trim()).filter(Boolean);
     if(!names.length) return '<span style="color:var(--faint)">—</span>';
@@ -7257,31 +7282,50 @@ function recomputeOrder(){
 function recomputeGaji(){
   let bonus=0; GAJI_BONUS_FIELDS.forEach(k=>bonus+=numVal(k));
   let pot=0; GAJI_POTONGAN_FIELDS.forEach(k=>pot+=numVal(k));
+  // Tunjangan Kos + Tunjangan Kerja + Premi BPJS.
+  // Premi BPJS bernilai 0 bila checkbox-nya TIDAK dicentang (lihat getVal untuk checkbox).
   let tun=0; GAJI_TUNJANGAN_FIELDS.forEach(k=>tun+=numVal(k));
   const pokok=numVal('Gaji Pokok');
   const harian = !!(state.view && state.view.gajiTipe==='Harian');
-  let thp;
+  // Gaji Pokok yang dipakai: Bulanan → apa adanya, Harian → jumlah hari × tarif harian
+  let pokokTotal = pokok, hari = 0;
   if(harian){
-    // Harian: (jumlah hari × gaji pokok harian) + total bonus − total potongan
-    const hari = periodeHari(getVal('Awal Periode'), getVal('Akhir Periode'));
-    thp = (pokok * (hari>0?hari:0)) + bonus + tun - pot;
+    hari = periodeHari(getVal('Awal Periode'), getVal('Akhir Periode'));
+    pokokTotal = pokok * (hari>0?hari:0);
+  }
+  /* RUMUS BAKU (dipakai HRD & Finance):
+       Gaji Diterima  = Gaji Pokok + Total Bonus + Tunjangan (Premi BPJS ikut bila dicentang)
+       Take Home Pay  = Gaji Diterima − Total Potongan                                     */
+  const diterima = pokokTotal + bonus + tun;
+  const thp      = diterima - pot;
+  if(harian){
     // Tampilkan hitungannya agar HRD bisa memverifikasi sendiri
     const info=document.getElementById('gajiHarianInfo');
     if(info){
       info.innerHTML = hari>0
-        ? '<b>'+hari+' hari</b> × '+rp(pokok)+' = <b>'+rp(pokok*hari)+'</b>'+
-          (bonus+tun? ' + bonus '+rp(bonus+tun):'')+(pot? ' − potongan '+rp(pot):'')+
-          ' = <b>'+rp(thp)+'</b>'
+        ? '<b>'+hari+' hari</b> × '+rp(pokok)+' = <b>'+rp(pokokTotal)+'</b>'+
+          (bonus+tun? ' + bonus '+rp(bonus+tun):'')+
+          ' = Gaji Diterima <b>'+rp(diterima)+'</b>'+
+          (pot? ' − potongan '+rp(pot):'')+
+          ' = THP <b>'+rp(thp)+'</b>'
         : 'Isi <b>Awal Periode</b> & <b>Akhir Periode</b> untuk menghitung jumlah hari.';
     }
-  }else{
-    thp = pokok + bonus + tun - pot;
   }
   setVal('Total Bonus', bonus);
   setVal('Total Potongan', pot);
+  setVal('Gaji Diterima', diterima);
   setVal('Take Home Pay', thp);
-  setVal('Gaji Diterima', thp);
 }
+/* Nilai Gaji Diterima & Take Home Pay untuk BARIS TERSIMPAN (tabel, kartu, detail, slip).
+   Data lama menyimpan Gaji Diterima = Take Home Pay (sebelum rumus dipisah), maka
+   Gaji Diterima selalu diturunkan ulang dari Take Home Pay + Total Potongan supaya
+   dua kolomnya konsisten untuk data lama maupun baru. */
+function gajiNum(r,k){ return Number(moneyDigits(r&&r[k]))||0; }
+function thpOf(r){
+  const t=gajiNum(r,'Take Home Pay');
+  return t || gajiNum(r,'Gaji Diterima');
+}
+function gajiDiterimaOf(r){ return thpOf(r) + gajiNum(r,'Total Potongan'); }
 async function onPickKaryawan(){
   const id=getVal('ID Karyawan');
   const emp=(state.cache.karyawan||[]).find(e=>String(e['ID Karyawan'])===id);
@@ -7768,7 +7812,7 @@ function buildSlipHTML(g){
   const totPend = pendapatan.reduce((s,x)=>s+Number(moneyDigits(x[1])),0);
   const totPot  = potongan.reduce((s,x)=>s+Number(moneyDigits(x[1])),0);
   // Pakai Take Home Pay yang tersimpan bila ada; bila kosong, hitung dari rincian.
-  const thpSimpan = Number(moneyDigits(g['Take Home Pay']))||0;
+  const thpSimpan = thpOf(g);
   const thp = thpSimpan>0 ? thpSimpan : (totPend - totPot);
   const line=(l,val)=>'<tr><td style="padding:3px 0;font-size:12px">'+esc(l)+'</td>'+
     '<td style="padding:3px 0;font-size:12px;text-align:right;font-variant-numeric:tabular-nums">'+rp_(val)+'</td></tr>';
@@ -7895,6 +7939,25 @@ async function saveForm(){
   // GAJI: ID Slip juga NOT NULL tanpa default → buat di sisi klien.
   if(v.sheet==='GAJI' && !state.editing && !String(data['ID Slip']||'').trim()){
     data['ID Slip']=genId('SLIP');
+  }
+  /* GAJI: kunci rumus baku sebelum disimpan, supaya nilai yang tersimpan tidak pernah
+     tertinggal dari isian terakhir.
+       Gaji Diterima = Gaji Pokok + Total Bonus + Tunjangan (+ Premi BPJS bila dicentang)
+       Take Home Pay = Gaji Diterima − Total Potongan                                     */
+  if(v.sheet==='GAJI'){
+    const n=k=>Number(moneyDigits(data[k]))||0;
+    const bonus = GAJI_BONUS_FIELDS.reduce((s,k)=>s+n(k),0);
+    const pot   = GAJI_POTONGAN_FIELDS.reduce((s,k)=>s+n(k),0);
+    const tun   = GAJI_TUNJANGAN_FIELDS.reduce((s,k)=>s+n(k),0);
+    let pokok   = n('Gaji Pokok');
+    if(v.gajiTipe==='Harian'){
+      const h=periodeHari(data['Awal Periode'], data['Akhir Periode']);
+      pokok = pokok * (h>0?h:0);
+    }
+    data['Total Bonus']    = bonus;
+    data['Total Potongan'] = pot;
+    data['Gaji Diterima']  = pokok + bonus + tun;
+    data['Take Home Pay']  = data['Gaji Diterima'] - pot;
   }
   // TODO: Jabatan bukan field form → set eksplisit agar roleLock bisa menampilkannya.
   if(v.sheet==='TODO' && !state.editing && !String(data['Jabatan']||'').trim()){
@@ -8526,7 +8589,7 @@ const DL_COLS = {
   ORDER: ['Nama Hari','Tanggal Pengerjaan','Nama Cleaner','Jam Pengerjaan','Nama Customer',
           'Alamat Customer','Nomor WA Customer','Layanan Yang Dipesan','Qty','Nominal Layanan',
           'Metode Pembayaran','Status Order'],
-  GAJI:  ['Nama Cleaner','Take Home Pay','Total Bonus','Total Potongan']
+  GAJI:  ['Nama Cleaner','Total Bonus','Gaji Diterima','Total Potongan','Take Home Pay']
 };
 function dlLayananOf(r){
   return [1,2,3].map(i=>String(r['Layanan '+i]||'').trim()).filter(Boolean).join(', ');
@@ -8597,9 +8660,10 @@ function dlBuildRows(sheet, ym, cab, st){
     }).sort((x,y)=>String(x['Nama Karyawan']||'').localeCompare(String(y['Nama Karyawan']||''),'id'))
     .map(g=>[
       g['Nama Karyawan']||'',
-      Number(moneyDigits(g['Take Home Pay']))||0,
       Number(moneyDigits(g['Total Bonus']))||0,
-      Number(moneyDigits(g['Total Potongan']))||0
+      gajiDiterimaOf(g),
+      Number(moneyDigits(g['Total Potongan']))||0,
+      thpOf(g)
     ]);
   }
   return [];
