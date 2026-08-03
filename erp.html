@@ -9126,20 +9126,25 @@ function buildQuotationHTML(o){
   /* Blok total: lebar tetap & menempel ke tepi kanan dokumen.
      Nominal SELALU dicetak (0 pun ditulis "0") supaya tidak ada baris kosong
      yang terlihat seperti nilainya hilang.
-     Blok ini memakai SATU tabel dengan lebar kolom piksel tetap (bukan tabel
-     bersarang berlebar persen), supaya kolom nominal tidak pernah melar ke
-     kanan sampai keluar tepi dokumen. */
-  const TOT_LBL=150, TOT_CUR=34, TOT_AMT=126;   // label | IDR | nominal
+     PENTING: baris total memakai colgroup YANG SAMA PERSIS dengan tabel rincian
+     (COLS) dan menggabungkan kolom lewat colspan. Dengan begitu kolom "IDR"
+     dan kolom nominal jatuh tepat di bawah "IDR" dan "Amount" di atasnya,
+     dan tidak mungkin melebar keluar tepi kanan dokumen.
+       kolom 1-2  → Note        (No + Description)
+       kolom 3-5  → label total (Qty + IDR + Price)
+       kolom 6    → IDR
+       kolom 7    → nominal     (sejajar kolom Amount)                        */
   const totRow=(label,val,opt)=>{
     const bt=(opt&&opt.top)?'border-top:'+LN+';':'';
     const bb=(opt&&opt.bottom)?'border-bottom:'+LN+';':'';
     const fw=(opt&&opt.bold)?'font-weight:700;':'';
-    const fs=(opt&&opt.bold)?'font-size:12px;':'';
+    const fs=(opt&&opt.bold)?'font-size:11.5px;':'';
     const neg=(opt&&opt.minus);
     const first=(opt&&opt.first)||'';    // sel Note (rowspan) hanya di baris pertama
     return '<tr>'+first+
-      '<td style="'+cell+';'+fs+'padding:5px 6px 5px 0;'+bt+bb+fw+'white-space:nowrap;overflow:hidden">'+label+'</td>'+
-      '<td style="'+cell+';'+fs+'padding:5px 0 5px 4px;'+bt+bb+fw+'white-space:nowrap">IDR</td>'+
+      '<td colspan="3" style="'+cell+';'+fs+'padding:5px 6px 5px 0;'+bt+bb+fw+
+        'white-space:nowrap;overflow:hidden">'+label+'</td>'+
+      '<td style="'+cell+';'+fs+'padding:5px 0 5px 6px;'+bt+bb+fw+'white-space:nowrap">IDR</td>'+
       '<td style="'+cell+';'+fs+'padding:5px '+PAD+'px 5px 4px;text-align:right;'+bt+bb+fw+
         'white-space:nowrap;overflow:hidden;font-variant-numeric:tabular-nums">'+
         (neg&&val?'(':'')+nf(val)+(neg&&val?')':'')+'</td></tr>';
@@ -9163,7 +9168,7 @@ function buildQuotationHTML(o){
   totalsList.push(['Grand Total', T.grand, {top:true, bottom:true, bold:true}]);
   /* Sel "Note" memakai rowspan agar tetap satu tabel — tidak ada tabel
      bersarang yang bisa membuat kolom nominal melar keluar tepi. */
-  const noteCell='<td rowspan="'+totalsList.length+'" style="vertical-align:top;padding:9px 10px 9px '+PAD+
+  const noteCell='<td colspan="2" rowspan="'+totalsList.length+'" style="vertical-align:top;padding:9px 10px 9px '+PAD+
     'px;'+cell+';font-weight:700;word-break:break-word">'+(o['Note'] ? 'Note : '+esc(o['Note']) : '')+'</td>';
   const totalsBody = totalsList.map((r,i)=>
     totRow(r[0], r[1], Object.assign({}, r[2], i===0?{first:noteCell}:{}))).join('');
@@ -9229,14 +9234,9 @@ function buildQuotationHTML(o){
     '</table>'+
 
     /* ---------- catatan + total ----------
-       Satu tabel saja. Lebar tiap kolom dikunci dalam piksel sehingga kolom
-       nominal selalu berakhir tepat di tepi kanan dokumen. */
-    '<table style="width:100%;border-collapse:collapse;table-layout:fixed;border-top:'+LN+'">'+
-      '<colgroup><col>'+
-        '<col style="width:'+TOT_LBL+'px">'+
-        '<col style="width:'+TOT_CUR+'px">'+
-        '<col style="width:'+(TOT_AMT+PAD)+'px">'+
-      '</colgroup>'+
+       Memakai COLS yang sama dengan tabel rincian di atas → kolom IDR dan
+       nominal sejajar lurus dengan kolom IDR dan Amount. */
+    '<table style="width:100%;border-collapse:collapse;table-layout:fixed;border-top:'+LN+'">'+COLS+
       totalsBody+
     '</table>'+
 
