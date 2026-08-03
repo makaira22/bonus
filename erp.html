@@ -9125,18 +9125,24 @@ function buildQuotationHTML(o){
 
   /* Blok total: lebar tetap & menempel ke tepi kanan dokumen.
      Nominal SELALU dicetak (0 pun ditulis "0") supaya tidak ada baris kosong
-     yang terlihat seperti nilainya hilang. */
+     yang terlihat seperti nilainya hilang.
+     Blok ini memakai SATU tabel dengan lebar kolom piksel tetap (bukan tabel
+     bersarang berlebar persen), supaya kolom nominal tidak pernah melar ke
+     kanan sampai keluar tepi dokumen. */
+  const TOT_LBL=150, TOT_CUR=34, TOT_AMT=126;   // label | IDR | nominal
   const totRow=(label,val,opt)=>{
     const bt=(opt&&opt.top)?'border-top:'+LN+';':'';
     const bb=(opt&&opt.bottom)?'border-bottom:'+LN+';':'';
     const fw=(opt&&opt.bold)?'font-weight:700;':'';
     const fs=(opt&&opt.bold)?'font-size:12px;':'';
     const neg=(opt&&opt.minus);
-    return '<tr>'+
-      '<td style="'+cell+';'+fs+'padding:5px 6px 5px 0;'+bt+bb+fw+'white-space:nowrap">'+label+'</td>'+
-      '<td style="'+cell+';'+fs+'padding:5px 0 5px 6px;'+bt+bb+fw+'white-space:nowrap">IDR</td>'+
-      '<td style="'+cell+';'+fs+'padding:5px 0 5px 6px;text-align:right;'+bt+bb+fw+
-        'white-space:nowrap;font-variant-numeric:tabular-nums">'+(neg&&val?'(':'')+nf(val)+(neg&&val?')':'')+'</td></tr>';
+    const first=(opt&&opt.first)||'';    // sel Note (rowspan) hanya di baris pertama
+    return '<tr>'+first+
+      '<td style="'+cell+';'+fs+'padding:5px 6px 5px 0;'+bt+bb+fw+'white-space:nowrap;overflow:hidden">'+label+'</td>'+
+      '<td style="'+cell+';'+fs+'padding:5px 0 5px 4px;'+bt+bb+fw+'white-space:nowrap">IDR</td>'+
+      '<td style="'+cell+';'+fs+'padding:5px '+PAD+'px 5px 4px;text-align:right;'+bt+bb+fw+
+        'white-space:nowrap;overflow:hidden;font-variant-numeric:tabular-nums">'+
+        (neg&&val?'(':'')+nf(val)+(neg&&val?')':'')+'</td></tr>';
   };
   const info=(l,v)=>'<tr><td style="'+cell+';padding:1px 0;width:80px;vertical-align:top">'+l+'</td>'+
     '<td style="'+cell+';padding:1px 6px;width:10px;vertical-align:top">'+(l?':':'')+'</td>'+
@@ -9147,13 +9153,20 @@ function buildQuotationHTML(o){
      sehingga nilainya tidak pernah hilang dari dokumen. */
   const adaPpn = !!(T.pctPpn || T.ppn);
   const adaPph = !!(T.pctPph || T.pph);
-  const totalsBody =
-    totRow('Gross Total', T.gross)+
-    totRow('Diskon', T.diskon, {minus:true})+
-    totRow('Net Total', T.net, {top:true})+
-    (adaPpn ? totRow('PPN'+(T.pctPpn?' '+T.pctPpn+'%':''), T.ppn) : '')+
-    (adaPph ? totRow('PPh'+(T.pctPph?' '+T.pctPph+'%':''), T.pph, {minus:true}) : '')+
-    totRow('Grand Total', T.grand, {top:true, bottom:true, bold:true});
+  const totalsList = [
+    ['Gross Total', T.gross, {}],
+    ['Diskon',      T.diskon, {minus:true}]
+  ];
+  totalsList.push(['Net Total', T.net, {top:true}]);
+  if(adaPpn) totalsList.push(['PPN'+(T.pctPpn?' '+T.pctPpn+'%':''), T.ppn, {}]);
+  if(adaPph) totalsList.push(['PPh'+(T.pctPph?' '+T.pctPph+'%':''), T.pph, {minus:true}]);
+  totalsList.push(['Grand Total', T.grand, {top:true, bottom:true, bold:true}]);
+  /* Sel "Note" memakai rowspan agar tetap satu tabel — tidak ada tabel
+     bersarang yang bisa membuat kolom nominal melar keluar tepi. */
+  const noteCell='<td rowspan="'+totalsList.length+'" style="vertical-align:top;padding:9px 10px 9px '+PAD+
+    'px;'+cell+';font-weight:700;word-break:break-word">'+(o['Note'] ? 'Note : '+esc(o['Note']) : '')+'</td>';
+  const totalsBody = totalsList.map((r,i)=>
+    totRow(r[0], r[1], Object.assign({}, r[2], i===0?{first:noteCell}:{}))).join('');
 
   return ''+
   '<div style="width:760px;box-sizing:border-box;background:#fff;border:'+LN+';'+F+';color:'+B+'">'+
@@ -9215,16 +9228,17 @@ function buildQuotationHTML(o){
       rows+blank+
     '</table>'+
 
-    /* ---------- catatan + total ---------- */
+    /* ---------- catatan + total ----------
+       Satu tabel saja. Lebar tiap kolom dikunci dalam piksel sehingga kolom
+       nominal selalu berakhir tepat di tepi kanan dokumen. */
     '<table style="width:100%;border-collapse:collapse;table-layout:fixed;border-top:'+LN+'">'+
-      '<colgroup><col><col style="width:330px"></colgroup><tr>'+
-      '<td style="vertical-align:top;padding:9px 10px 9px '+PAD+'px;'+cell+';font-weight:700;word-break:break-word">'+
-        (o['Note'] ? 'Note : '+esc(o['Note']) : '')+'</td>'+
-      '<td style="vertical-align:top;padding:6px '+PAD+'px 8px 0">'+
-        '<table style="width:100%;border-collapse:collapse;table-layout:fixed">'+
-        '<colgroup><col><col style="width:32px"><col style="width:126px"></colgroup>'+
-        totalsBody+'</table></td>'+
-    '</tr></table>'+
+      '<colgroup><col>'+
+        '<col style="width:'+TOT_LBL+'px">'+
+        '<col style="width:'+TOT_CUR+'px">'+
+        '<col style="width:'+(TOT_AMT+PAD)+'px">'+
+      '</colgroup>'+
+      totalsBody+
+    '</table>'+
 
     /* ---------- terbilang + tanda tangan ---------- */
     '<table style="width:100%;border-collapse:collapse;table-layout:fixed;margin-top:24px">'+
