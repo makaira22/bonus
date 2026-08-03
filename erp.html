@@ -468,6 +468,8 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .abs-jab{display:inline-block;margin-left:7px;padding:1px 7px;border-radius:20px;font-size:9.5px;
   font-weight:800;letter-spacing:.03em;background:var(--surface-2);color:var(--muted);border:1px solid var(--line)}
 .abs-jab.cs{background:var(--gold-soft);color:var(--gold-deep);border-color:transparent}
+/* Chip status kepegawaian (TETAP/SEMI/TETAP KOOR) di samping chip jabatan */
+.abs-jab.abs-st{margin-left:5px;background:transparent;color:var(--faint);border-style:dashed}
 .ops-crumb{display:flex;align-items:center;gap:10px;margin-bottom:14px}
 
 /* ---------- PRATINJAU QUOTATION ---------- */
@@ -2124,7 +2126,7 @@ VIEWS.gajiHarianFinance = Object.assign({}, VIEWS.gajiHarian, { canAdd:false, ca
 
 /* ===== ABSENSI (HRD) — rekap kehadiran cleaner dari tabel ABSEN ===== */
 VIEWS.absensi = {
-  sheet:'ABSEN', title:'Absensi Cleaner', sub:'', special:'absensi', countTop:true, noSyncBtn:true,
+  sheet:'ABSEN', title:'Absensi Cleaner & CS', sub:'Vendor & Freelance tidak diwajibkan absen', special:'absensi', countTop:true, noSyncBtn:true,
   datePreset:true, dateFilterField:'Tanggal',
   filters:['Cabang'],
   search:['Nama']
@@ -3605,7 +3607,7 @@ async function selectMenu(key){
   state.view = VIEWS[key]; state.viewKey=key;
   state.filters={}; state.search=''; state.dateStart=''; state.dateEnd='';
   if(state.view && state.view.defaultMonth){ const b=calMonthBounds(ymd(new Date()).slice(0,7)); state.dateStart=b.start; state.dateEnd=b.end; }
-  if(state.view && state.view.special==='absensi'){ const t=ymd(new Date()); state.dateStart=t; state.dateEnd=t; state.absStatus=''; }
+  if(state.view && state.view.special==='absensi'){ const t=ymd(new Date()); state.dateStart=t; state.dateEnd=t; state.absStatus=''; state.absJab=''; state.absSt=''; }
   markActive(key);
   renderShell();
   if(state.view && state.view.special==='konten'){
@@ -8976,7 +8978,9 @@ const QUO_COMPANY = {
   web:'www.klinklin.co.id'
 };
 const QUO_SIGN_KEY = 'klinklin_quo_sign';           // URL gambar tanda tangan (opsional)
-function quoSignUrl(){ try{ return localStorage.getItem(QUO_SIGN_KEY)||''; }catch(e){ return ''; } }
+/* Tanda tangan bawaan — dipakai bila belum ada yang disimpan sendiri. */
+const QUO_SIGN_DEFAULT = 'https://klinklin.online/Screenshot_2026-07-07_095820-removebg-preview.png';
+function quoSignUrl(){ try{ return localStorage.getItem(QUO_SIGN_KEY)||QUO_SIGN_DEFAULT; }catch(e){ return QUO_SIGN_DEFAULT; } }
 const QUO_ROMAN = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
 
 /* ---------- NOMOR OTOMATIS ---------- */
@@ -9086,7 +9090,6 @@ function buildQuotationHTML(o){
   o=o||{};
   const T=quoTotals(o);
   const nf=n=>Number(n||0).toLocaleString('id-ID');
-  const amt=n=>n?nf(n):'';
   const dt=v=>{ const d=parseAnyDate(v); if(!d) return String(v||''); const p=d.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; };
   const B='#000', BRN='#7B3F16', LN='1px solid #000';
   const F='font-family:Arial,Helvetica,sans-serif';
@@ -9120,27 +9123,36 @@ function buildQuotationHTML(o){
   const th=(txt,al,pr)=>'<th style="'+cell+';font-weight:700;border-top:'+LN+';border-bottom:'+LN+
     ';padding:6px '+(pr==null?4:pr)+'px 6px 4px;text-align:'+al+'">'+txt+'</th>';
 
-  /* Blok total: lebar tetap & menempel ke tepi kanan dokumen. */
+  /* Blok total: lebar tetap & menempel ke tepi kanan dokumen.
+     Nominal SELALU dicetak (0 pun ditulis "0") supaya tidak ada baris kosong
+     yang terlihat seperti nilainya hilang. */
   const totRow=(label,val,opt)=>{
     const bt=(opt&&opt.top)?'border-top:'+LN+';':'';
     const bb=(opt&&opt.bottom)?'border-bottom:'+LN+';':'';
     const fw=(opt&&opt.bold)?'font-weight:700;':'';
+    const fs=(opt&&opt.bold)?'font-size:12px;':'';
+    const neg=(opt&&opt.minus);
     return '<tr>'+
-      '<td style="'+cell+';padding:4px 6px 4px 0;'+bt+bb+fw+'white-space:nowrap">'+label+'</td>'+
-      '<td style="'+cell+';padding:4px 0 4px 6px;'+bt+bb+fw+'">IDR</td>'+
-      '<td style="'+cell+';padding:4px 0 4px 6px;text-align:right;'+bt+bb+fw+'white-space:nowrap">'+amt(val)+'</td></tr>';
+      '<td style="'+cell+';'+fs+'padding:5px 6px 5px 0;'+bt+bb+fw+'white-space:nowrap">'+label+'</td>'+
+      '<td style="'+cell+';'+fs+'padding:5px 0 5px 6px;'+bt+bb+fw+'white-space:nowrap">IDR</td>'+
+      '<td style="'+cell+';'+fs+'padding:5px 0 5px 6px;text-align:right;'+bt+bb+fw+
+        'white-space:nowrap;font-variant-numeric:tabular-nums">'+(neg&&val?'(':'')+nf(val)+(neg&&val?')':'')+'</td></tr>';
   };
   const info=(l,v)=>'<tr><td style="'+cell+';padding:1px 0;width:80px;vertical-align:top">'+l+'</td>'+
     '<td style="'+cell+';padding:1px 6px;width:10px;vertical-align:top">'+(l?':':'')+'</td>'+
     '<td style="'+cell+';padding:1px 0;vertical-align:top">'+v+'</td></tr>';
 
   const jobLoc = String(o['Job Location']||'').trim() || String(o['Alamat']||'');
+  /* PPN & PPh ditampilkan bila persentasenya diisi ATAU nominalnya ada,
+     sehingga nilainya tidak pernah hilang dari dokumen. */
+  const adaPpn = !!(T.pctPpn || T.ppn);
+  const adaPph = !!(T.pctPph || T.pph);
   const totalsBody =
     totRow('Gross Total', T.gross)+
-    totRow('Diskon', T.diskon)+
+    totRow('Diskon', T.diskon, {minus:true})+
     totRow('Net Total', T.net, {top:true})+
-    (T.pctPpn ? totRow('PPN '+T.pctPpn+'%', T.ppn) : '')+
-    (T.pctPph ? totRow('PPh '+T.pctPph+'% (−)', T.pph) : '')+
+    (adaPpn ? totRow('PPN'+(T.pctPpn?' '+T.pctPpn+'%':''), T.ppn) : '')+
+    (adaPph ? totRow('PPh'+(T.pctPph?' '+T.pctPph+'%':''), T.pph, {minus:true}) : '')+
     totRow('Grand Total', T.grand, {top:true, bottom:true, bold:true});
 
   return ''+
@@ -9205,12 +9217,12 @@ function buildQuotationHTML(o){
 
     /* ---------- catatan + total ---------- */
     '<table style="width:100%;border-collapse:collapse;table-layout:fixed;border-top:'+LN+'">'+
-      '<colgroup><col><col style="width:300px"></colgroup><tr>'+
+      '<colgroup><col><col style="width:330px"></colgroup><tr>'+
       '<td style="vertical-align:top;padding:9px 10px 9px '+PAD+'px;'+cell+';font-weight:700;word-break:break-word">'+
         (o['Note'] ? 'Note : '+esc(o['Note']) : '')+'</td>'+
       '<td style="vertical-align:top;padding:6px '+PAD+'px 8px 0">'+
         '<table style="width:100%;border-collapse:collapse;table-layout:fixed">'+
-        '<colgroup><col><col style="width:32px"><col style="width:104px"></colgroup>'+
+        '<colgroup><col><col style="width:32px"><col style="width:126px"></colgroup>'+
         totalsBody+'</table></td>'+
     '</tr></table>'+
 
@@ -9223,8 +9235,10 @@ function buildQuotationHTML(o){
       '<td style="text-align:center;vertical-align:top;padding:0 '+PAD+'px 0 0">'+
         '<div style="'+cell+'">Sincerely,</div>'+
         (quoSignUrl()
-          ? '<img src="'+esc(quoSignUrl())+'" crossorigin="anonymous" style="height:54px;max-width:100%;object-fit:contain;display:block;margin:2px auto">'
-          : '<div style="height:54px"></div>')+
+          ? '<img src="'+esc(quoSignUrl())+'" crossorigin="anonymous" alt="" '+
+            'style="height:64px;max-width:190px;object-fit:contain;display:block;margin:4px auto 2px" '+
+            'onerror="this.style.visibility=\'hidden\'">'
+          : '<div style="height:64px"></div>')+
         '<div style="'+cell+';font-weight:700;text-decoration:underline;word-break:break-word">'+esc(INVOICE_SIGNER)+'</div>'+
       '</td>'+
     '</tr></table>'+
@@ -9888,26 +9902,45 @@ function absenTelat(jamMasuk, cab){
 /* Daftar cleaner (tabel KARYAWAN) untuk mendeteksi yang "tidak absen". */
 /* Daftar karyawan yang WAJIB absen: cleaner + CS. */
 const ABSEN_JABATAN = ['cleaner','cs'];
+/* Status yang TIDAK diwajibkan absen → tidak ditampilkan di menu Absensi. */
+const ABSEN_STATUS_SKIP = ['vendor','fendor','freelance'];
+/* Status yang boleh tampil (dipakai untuk tombol filter Status). */
+const ABSEN_STATUS_OPTS = STATUS_KARYAWAN.filter(s=>ABSEN_STATUS_SKIP.indexOf(norm(s))<0);
+function absenStatusSkip(st){ return ABSEN_STATUS_SKIP.indexOf(norm(st))>-1; }
 async function loadCleanerList(){
   if(state.cache.cleanerList) return;
   try{
     const k=trimKeys((await api({action:'list', sheet:'KARYAWAN'})).data||[]);
-    state.cache.cleanerList = k.filter(e=>ABSEN_JABATAN.indexOf(norm(e['Jabatan']))>-1);
-  }catch(e){ state.cache.cleanerList=[]; }
+    // Semua cleaner & CS (termasuk vendor/freelance) — dipakai untuk mencocokkan
+    // jabatan & status baris absen yang masuk.
+    state.cache.absenKarAll = k.filter(e=>ABSEN_JABATAN.indexOf(norm(e['Jabatan']))>-1);
+    // Yang WAJIB absen: cleaner & CS selain vendor/freelance.
+    state.cache.cleanerList = state.cache.absenKarAll.filter(e=>!absenStatusSkip(e['Status']));
+  }catch(e){ state.cache.cleanerList=[]; state.cache.absenKarAll=[]; }
+}
+/* Data karyawan pemilik baris absen (dicocokkan dari ID, lalu nama). */
+function absenKar(g){
+  const list=state.cache.absenKarAll||state.cache.cleanerList||[];
+  const byId=g.idkar && list.find(e=>norm(e['ID Karyawan'])===norm(g.idkar));
+  if(byId) return byId;
+  return (g.nama && list.find(e=>norm(e['Nama Lengkap']||e['Nama'])===norm(g.nama))) || null;
 }
 /* Jabatan pemilik baris absen (dicocokkan dari daftar karyawan). */
 function absenJabatan(g){
-  const list=state.cache.cleanerList||[];
-  const byId=g.idkar && list.find(e=>norm(e['ID Karyawan'])===norm(g.idkar));
-  const byNm=!byId && g.nama && list.find(e=>norm(e['Nama Lengkap']||e['Nama'])===norm(g.nama));
-  const e=byId||byNm;
+  const e=absenKar(g);
   return e ? String(e['Jabatan']||'').toUpperCase() : '';
+}
+/* Status kepegawaian pemilik baris absen. */
+function absenStatusOf(g){
+  const e=absenKar(g);
+  return e ? String(e['Status']||'').toUpperCase() : '';
 }
 function absenJabChip(g){
   const j=g.jabatan||absenJabatan(g);
-  if(!j) return '';
+  const st=g.status||absenStatusOf(g);
   const cs = j==='CS';
-  return '<span class="abs-jab'+(cs?' cs':'')+'">'+esc(j)+'</span>';
+  return (j?'<span class="abs-jab'+(cs?' cs':'')+'">'+esc(j)+'</span>':'')+
+         (st?'<span class="abs-jab abs-st">'+esc(st)+'</span>':'');
 }
 
 /* Gabungkan baris ABSEN → satu baris per (cleaner + tanggal). */
@@ -9945,10 +9978,20 @@ function renderAbsensi(){
   const rows   = applyClientFilters(state.rows);   // filter Cabang + tanggal + cari nama
   const groups = absenGroups(rows);
 
-  /* Tandai jabatan tiap baris, lalu saring bila HRD memilih jabatan tertentu. */
-  groups.forEach(g=>{ g.jabatan=absenJabatan(g); });
+  /* Tandai jabatan & status tiap baris, lalu saring sesuai pilihan HRD. */
+  groups.forEach(g=>{ g.jabatan=absenJabatan(g); g.status=absenStatusOf(g); });
   const jabFilter=state.absJab||'';
+  const stFilter=state.absSt||'';
   const jabOK=x=>!jabFilter || norm(x)===jabFilter;
+  const stOK=x=>!stFilter || norm(x)===stFilter;
+  /* Vendor & Freelance tidak diwajibkan absen → tidak ditampilkan.
+     Baris yang namanya tidak cocok dengan data Karyawan tetap ditampilkan
+     agar tidak ada absen yang hilang diam-diam. */
+  const wajibAbsen=g=>{
+    if(absenStatusSkip(g.status)) return false;
+    if(g.jabatan && ABSEN_JABATAN.indexOf(norm(g.jabatan))<0) return false;
+    return true;
+  };
 
   /* Cleaner & CS yang TIDAK absen pada rentang terpilih. */
   const cabFilter=state.filters['Cabang']||'';
@@ -9961,12 +10004,14 @@ function renderAbsensi(){
     if(state.search && String(nm).toLowerCase().indexOf(state.search)<0) return;
     tidakAbsen.push({ nama:nm, idkar:c['ID Karyawan']||'', cabang:c['Cabang']||'',
       jabatan:String(c['Jabatan']||'').toUpperCase(),
+      status:String(c['Status']||'').toUpperCase(),
       tanggal:(state.dateStart||''), masuk:null, pulang:null, telat:false, absent:true });
   });
 
-  // Saringan jabatan diterapkan setelah penandaan.
-  const groupsF=groups.filter(g=>jabOK(g.jabatan));
-  const tidakAbsenF=tidakAbsen.filter(g=>jabOK(g.jabatan));
+  // Saringan jabatan & status diterapkan setelah penandaan.
+  const lolos=g=>wajibAbsen(g) && jabOK(g.jabatan) && stOK(g.status);
+  const groupsF=groups.filter(lolos);
+  const tidakAbsenF=tidakAbsen.filter(lolos);
   const sMasuk=groupsF.filter(g=>g.masuk).length;
   const sPulang=groupsF.filter(g=>g.pulang).length;
   const sTelat=groupsF.filter(g=>g.telat).length;
@@ -9988,7 +10033,10 @@ function renderAbsensi(){
       '<button class="dt'+(status===s[0]?' on':'')+'" data-absst="'+s[0]+'">'+s[1]+'</button>').join('')+'</div>'+
     '<div class="date-tabs abs-seg" id="absJab">'+
       [['','Semua Jabatan'],['cleaner','Cleaner'],['cs','CS']].map(j=>
-      '<button class="dt'+(jabFilter===j[0]?' on':'')+'" data-absjab="'+j[0]+'">'+j[1]+'</button>').join('')+'</div>';
+      '<button class="dt'+(jabFilter===j[0]?' on':'')+'" data-absjab="'+j[0]+'">'+j[1]+'</button>').join('')+'</div>'+
+    '<div class="date-tabs abs-seg" id="absSt">'+
+      [['','Semua Status']].concat(ABSEN_STATUS_OPTS.map(s=>[norm(s), s])).map(s=>
+      '<button class="dt'+(stFilter===s[0]?' on':'')+'" data-absst2="'+esc(s[0])+'">'+esc(s[1])+'</button>').join('')+'</div>';
 
   const stats='<div class="cap-stats abs-stats">'+
     '<div class="cap-stat"><div class="cap-stat-l">Absen Masuk</div><div class="cap-stat-v">'+sMasuk+'</div></div>'+
@@ -10053,6 +10101,9 @@ function renderAbsensi(){
   }));
   document.querySelectorAll('#absJab [data-absjab]').forEach(b=>b.addEventListener('click',()=>{
     state.absJab=b.dataset.absjab; state.page=0; renderAbsensi();
+  }));
+  document.querySelectorAll('#absSt [data-absst2]').forEach(b=>b.addEventListener('click',()=>{
+    state.absSt=b.dataset.absst2; state.page=0; renderAbsensi();
   }));
   setCount(list.length,'data');
 }
