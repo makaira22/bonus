@@ -896,16 +896,17 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 /* ---------- ABSEN CS (tombol melayang + panel selfie) ----------
    Tampilan & aturan mengikuti portal cleaner. Acuan jam/toleransi/titik
    kantor diambil dari ABSEN_ATURAN sesuai CABANG si CS (diatur HRD).      */
-.absn-fab{position:fixed;right:22px;bottom:90px;z-index:70;display:none;align-items:center;gap:9px;
-  height:52px;padding:0 20px 0 17px;border-radius:26px;border:none;cursor:pointer;
+/* Tombol absen melayang: ikon kamera saja, tanpa teks (bundar). */
+.absn-fab{position:fixed;right:22px;bottom:90px;z-index:70;display:none;
+  align-items:center;justify-content:center;
+  width:56px;height:56px;padding:0;border-radius:50%;border:none;cursor:pointer;
   background:linear-gradient(180deg,#d4b878,var(--gold-deep));color:#3a2e10;
-  font-family:var(--ui);font-size:13.5px;font-weight:800;white-space:nowrap;
   box-shadow:0 16px 34px -14px rgba(168,135,66,.9),0 2px 6px rgba(16,26,48,.18);
   transition:transform .15s ease,box-shadow .15s ease}
 .absn-fab.show{display:inline-flex;animation:absnPop .26s cubic-bezier(.2,.9,.3,1.15)}
 .absn-fab:hover{transform:translateY(-2px)}
 .absn-fab:active{transform:translateY(1px) scale(.98)}
-.absn-fab svg{width:21px;height:21px;flex:none}
+.absn-fab svg{width:25px;height:25px;flex:none}
 @keyframes absnPop{from{opacity:0;transform:translateY(12px) scale(.9)}to{opacity:1;transform:none}}
 
 .absn-ov{position:fixed;inset:0;z-index:96;display:none;align-items:flex-start;justify-content:center;
@@ -1421,10 +1422,11 @@ td.c-green, td.c-red, td.c-orange, td.c-blue{font-weight:700}
   </div>
 
   <!-- Absen CS: tombol melayang (pojok kanan bawah) + panel selfie.
-       Muncul mulai jam 6 pagi (Masuk) & jam 12 siang (Pulang); hilang setelah absen. -->
+       Muncul mulai jam 6 pagi (Masuk) & jam 12 siang (Pulang); hilang setelah absen.
+       Tampilan tombol: ikon kamera saja. Jenis absennya (Masuk/Pulang) ada di
+       tooltip & aria-label agar tetap terbaca pembaca layar. -->
   <button class="absn-fab" id="absnFab" type="button" title="Absen" aria-label="Absen">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg>
-    <span id="absnFabLbl">Absen</span>
   </button>
   <div class="absn-ov" id="absnOv">
     <div class="absn-card">
@@ -9673,8 +9675,9 @@ async function absnRefresh(force){
 }
 function absnFabShow(tipe){
   const b=document.getElementById('absnFab'); if(!b) return;
-  const l=document.getElementById('absnFabLbl'); if(l) l.textContent='Absen '+tipe;
-  b.title='Absen '+tipe; b.classList.add('show');
+  // Tombol tanpa teks — jenis absen hanya disampaikan lewat tooltip & aria-label.
+  b.title='Absen '+tipe; b.setAttribute('aria-label','Absen '+tipe);
+  b.classList.add('show');
 }
 function absnFabHide(){
   const b=document.getElementById('absnFab'); if(b) b.classList.remove('show');
