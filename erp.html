@@ -8685,7 +8685,7 @@ function csvFormList(){
 const DL_COLS = {
   ORDER: ['Nama Hari','Tanggal Pengerjaan','Nama Cleaner','Jam Pengerjaan','Nama Customer',
           'Alamat Customer','Nomor WA Customer','Layanan Yang Dipesan','Qty','Nominal Layanan',
-          'Metode Pembayaran','Status Order'],
+          'PPn','Nominal PPn','Metode Pembayaran','Status Order'],
   GAJI:  ['Nama Cleaner','Total Bonus','Gaji Diterima','Total Potongan','Take Home Pay']
 };
 function dlLayananOf(r){
@@ -8725,20 +8725,37 @@ function dlBuildRows(sheet, ym, cab, st){
         r['Alamat']||'',
         r['No WA Customer']||'',
         null, null, null,            // layanan, qty, nominal — diisi di bawah
+        null, null,                  // PPn (YA/TIDAK) & Nominal PPn — diisi di bawah
         r['Metode Pembayaran']||'',
         r['Status Order']||''
       ];
       const totOrder=omzetOf_(r);
-      if(!lays.length){ const b=base.slice(); b[7]=''; b[8]=''; b[9]=totOrder; out.push(b); return out; }
+      /* PPn order. Kolom "PPn" = YA/TIDAK, kolom "Nominal PPn" = rupiahnya.
+         Nominalnya ikut dipecah per layanan seperti kolom Nominal Layanan,
+         supaya jumlah kolom ini tetap sama dengan PPn satu order. */
+      const ppnPersen = Number(moneyDigits(r['PPn']))||0;
+      const kenaPpn   = ppnPersen>0;
+      const ppnTotal  = kenaPpn ? orderTotals(r).ppnNilai : 0;
+      if(!lays.length){
+        const b=base.slice(); b[7]=''; b[8]=''; b[9]=totOrder;
+        b[10]= kenaPpn?'YA':'TIDAK'; b[11]= ppnTotal;
+        out.push(b); return out;
+      }
       const sumHarga=lays.reduce((s,x)=>s+x.harga,0);
-      let sisa=totOrder;
+      let sisa=totOrder, sisaPpn=ppnTotal;
       lays.forEach((x,i)=>{
         const b=base.slice();
+        const akhir = (i===lays.length-1);
         b[7]=x.nm; b[8]=x.qty;
         // baris terakhir mengambil sisa → jumlah kolom pasti sama dgn total order
-        b[9]= (i===lays.length-1) ? sisa
+        b[9]= akhir ? sisa
             : (sumHarga>0 ? Math.round(totOrder*x.harga/sumHarga) : Math.round(totOrder/lays.length));
         sisa -= b[9];
+        b[10]= kenaPpn?'YA':'TIDAK';
+        b[11]= !kenaPpn ? 0
+             : (akhir ? sisaPpn
+                      : (sumHarga>0 ? Math.round(ppnTotal*x.harga/sumHarga) : Math.round(ppnTotal/lays.length)));
+        sisaPpn -= b[11];
         out.push(b);
       });
       return out;
