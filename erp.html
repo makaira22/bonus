@@ -2109,8 +2109,12 @@ const VIEWS = {
     filters:['Cabang','Status Order'], multiFilters:['Status Order']
   },
   capKpi:{  // TAB 2 — Ringkasan Nilai KPI per Cabang + KPI Omzet per Cabang
+    /* Filter & periode DISAMAKAN dengan Report KPI (Operasional) supaya angka
+       KPI Omzet kedua jabatan tidak pernah berbeda: preset tanggal + rentang
+       Dari–Sampai + saringan Cabang & Status Order. */
     sheet:'ORDER', title:'Capaian', sub:'', special:'capKpi', hub:'capfin', countTop:true, noSyncBtn:true,
-    monthFilter:true, monthField:'Tanggal Pengerjaan'
+    datePreset:true, dateRange:true, dateFilterField:'Tanggal Pengerjaan',
+    filters:['Cabang','Status Order']
   },
   capMarketing:{  // TAB 3 — Spend Ads (sesuai isian Marketing)
     sheet:'SPEND_ADS', title:'Capaian', sub:'', special:'spendAds', hub:'capfin', countTop:true, noSyncBtn:true,
@@ -5496,7 +5500,11 @@ function kpiOmzetCardHTML(cur){
     return '<th class="'+(cls||'')+' rk-sort" data-rksort="'+col+'">'+label+'<span class="rk-car">'+car+'</span></th>';
   };
   const hasTarget=Object.keys(targets).length>0;
+  /* Keterangan status ditampilkan supaya jelas baris mana yang ikut dihitung —
+     ini yang dulu membuat angka Finance & Operasional terlihat berbeda. */
+  const stLbl=statusFilterLabel();
   return '<div class="ops-note">Periode: <b>'+esc(tglPanjangId(cur.start)+' – '+tglPanjangId(cur.end))+'</b> · Pembanding (−1 bulan): <b>'+esc(tglPanjangId(prev.start)+' – '+tglPanjangId(prev.end))+'</b> · Target aman: <b>'+safePct+'%</b>'+
+      '<br>Status dihitung: <b>'+esc(stLbl || 'Pending + Done + Complete')+'</b>'+
       (hasTarget?'':' · <span style="color:var(--danger)">Target omzet belum diatur (Pengaturan → Target Omzet)</span>')+'</div>'+
     '<div class="cap-card"><div class="cap-card-t">KPI Omzet per Cabang</div>'+
       '<div class="tbl-wrap"><table class="ops-tbl freeze-cab"><thead><tr>'+
@@ -5944,11 +5952,14 @@ function renderCapOmzet(){
 }
 /* TAB 2 — KPI: Ringkasan Nilai KPI per Cabang + KPI Omzet per Cabang */
 function renderCapKpi(){
-  const ym = state.kpiMonth || ymd(new Date()).slice(0,7);
+  /* Periode diambil dengan cara yang SAMA PERSIS seperti Report KPI
+     (Operasional), yaitu reportKpiCur(): pakai rentang tanggal bila dipilih,
+     bila tidak → tanggal 1 bulan berjalan s/d hari ini. */
+  const cur=reportKpiCur();
+  /* Kartu "Ringkasan Nilai KPI" bersifat bulanan (konfigurasi KPI disimpan per
+     bulan), jadi bulannya diturunkan dari awal periode terpilih. */
+  const ym = cur.start.slice(0,7);
   state.kpiMonth = ym;
-  const todayYmd=ymd(new Date());
-  const mb=calMonthBounds(ym);
-  const cur={ start:mb.start, end:(ym===todayYmd.slice(0,7)?todayYmd:mb.end) };
   $('#panel').innerHTML =
     kpiSummaryCardHTML(ym) +
     kpiOmzetCardHTML(cur);
