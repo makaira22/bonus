@@ -380,6 +380,33 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
   color:var(--gold-deep);font-family:var(--ui);font-size:11.5px;font-weight:800;
   padding:5px 12px;border-radius:20px;cursor:pointer}
 .fn-go:hover{background:var(--gold);color:#3a2e10}
+/* ---------- LONCENG NOTIFIKASI (header) ---------- */
+.bell-btn{position:relative}
+.bell-dot{position:absolute;top:5px;right:5px;min-width:16px;height:16px;padding:0 4px;
+  border-radius:9px;background:var(--danger);color:#fff;font-family:var(--ui);font-size:9.5px;
+  font-weight:800;line-height:16px;text-align:center;display:none;box-shadow:0 0 0 2px var(--petrol)}
+.bell-dot.on{display:block}
+.bell-pop{position:fixed;top:58px;right:14px;z-index:120;width:min(360px,calc(100% - 20px));
+  background:var(--surface);border:1px solid var(--line);border-radius:15px;
+  box-shadow:0 20px 46px -16px rgba(10,23,48,.5);display:none;overflow:hidden}
+.bell-pop.open{display:block;animation:finPop .2s ease}
+.bell-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;
+  border-bottom:1px solid var(--line);font-family:var(--ui);font-size:13px;font-weight:800;color:var(--ink)}
+.bell-x{border:none;background:none;color:var(--muted);font-size:15px;cursor:pointer;padding:2px 4px;line-height:1}
+.bell-x:hover{color:var(--ink)}
+.bell-list{max-height:min(60vh,420px);overflow:auto}
+.bell-item{display:flex;gap:11px;align-items:flex-start;padding:12px 14px;cursor:pointer;
+  border-bottom:1px solid var(--line);transition:background .12s ease}
+.bell-item:last-child{border-bottom:none}
+.bell-item:hover{background:var(--surface-2)}
+.bell-ic{font-size:18px;line-height:1;flex:none;margin-top:1px}
+.bell-tx{flex:1;min-width:0;font-size:12.5px;line-height:1.5;color:var(--ink)}
+.bell-tx b{color:var(--petrol)}
+.bell-sub{font-size:11px;color:var(--faint);margin-top:3px}
+.bell-n{flex:none;min-width:20px;height:20px;padding:0 6px;border-radius:11px;background:var(--danger);
+  color:#fff;font-family:var(--ui);font-size:10.5px;font-weight:800;line-height:20px;text-align:center}
+.bell-empty{padding:26px 14px;text-align:center;font-size:12.5px;color:var(--faint)}
+@media (max-width:880px){ .bell-pop{top:52px;right:8px;left:8px;width:auto} }
 @media (max-width:880px){ .fin-notif{top:62px;right:8px;left:8px;max-width:none} }
 
 /* ---------- IMAGE POPUP ---------- */
@@ -1161,6 +1188,12 @@ tr.rowclick:hover td{background:var(--surface-2)}
 .aju-foto svg{width:14px;height:14px}
 .aju-thumbs{display:flex;gap:8px;flex-wrap:wrap;padding:8px 0}
 .aju-thumbs img{width:82px;height:82px;object-fit:cover;border-radius:10px;border:1px solid var(--line);cursor:zoom-in}
+/* Panel keputusan persetujuan di pop up detail */
+.aju-appr{margin-top:14px;padding:13px 14px;background:var(--surface-2);
+  border:1px solid var(--line);border-radius:13px}
+.aju-appr-note{font-size:12.5px;color:var(--muted);margin-bottom:10px}
+.aju-appr-note b{color:var(--ink)}
+.aju-appr-b{display:flex;gap:9px;flex-wrap:wrap}
 /* ---------- order cards (mobile) ---------- */
 .card-list{display:none;flex-direction:column;gap:11px}
 @media (max-width:880px){ .card-list{display:flex} }
@@ -1407,9 +1440,19 @@ td.c-green, td.c-red, td.c-orange, td.c-blue{font-weight:700}
     <div class="role-chip">
       <span class="dot"></span><span class="txt" id="roleLabel"></span>
     </div>
+    <!-- Lonceng notifikasi: menyimpan seluruh notifikasi agar bisa dibuka
+         kembali kapan pun, meski gelembungnya sudah ditutup. -->
+    <button class="icon-btn bell-btn" id="btnBell" title="Notifikasi" aria-label="Notifikasi">
+      <span class="bell-dot" id="bellDot"></span>
+    </button>
     <button class="icon-btn" id="btnSync" title="Sinkronkan" aria-label="Sinkronkan"></button>
     <button class="icon-btn" id="btnSettings" title="Pengaturan" aria-label="Pengaturan"></button>
     <button class="icon-btn" id="btnLogout" title="Keluar" aria-label="Keluar"></button>
+  </div>
+  <!-- Daftar notifikasi (muncul saat lonceng diklik) -->
+  <div class="bell-pop" id="bellPop">
+    <div class="bell-head">Notifikasi<button class="bell-x" id="bellX" title="Tutup">✕</button></div>
+    <div class="bell-list" id="bellList"></div>
   </div>
 
   <div class="layout">
@@ -1855,7 +1898,8 @@ const IC = {
   clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3.2 2"/>',
   sunrise:'<path d="M17 18a5 5 0 0 0-10 0"/><path d="M2.5 18h19"/><path d="M12 3v5"/><path d="M9.4 5.6 12 3l2.6 2.6"/>',
   sunset:'<path d="M17 18a5 5 0 0 0-10 0"/><path d="M2.5 18h19"/><path d="M12 8V3"/><path d="M9.4 5.4 12 8l2.6-2.6"/>',
-  target:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/>'
+  target:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/>',
+  bell:'<path d="M18 8.5a6 6 0 0 0-12 0c0 6-2.5 7.5-2.5 7.5h17S18 14.5 18 8.5z"/><path d="M13.7 19.5a2 2 0 0 1-3.4 0"/>'
 };
 function svg(name, cls){
   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '+
@@ -2550,6 +2594,7 @@ VIEWS.pengajuanAlat = {
   sortBy:['Tanggal Pengajuan'], sortDesc:true,
   table:AJU_TABLE,
   colorMap:{'Tingkat Urgensi':'c-red'},
+  ajuApprove:true,                 // tombol Setujui/Tolak di pop up detail
   filters:['Cabang','Jenis Pembelian','Tingkat Urgensi','Status Pengajuan'],
   datePreset:true, dateFilterField:'Tanggal Pengajuan', defaultMonth:true,
   search:['Nama Barang','Merk / Spesifikasi','Pemohon'],
@@ -3694,6 +3739,8 @@ async function logout(){
   { const q=document.getElementById('quoNotif'); if(q) q.classList.remove('show'); }
   clearInterval(state._ajuTimer); state._ajuTimer=null; state._ajuPrev=null;
   { const aj=document.getElementById('ajuNotif'); if(aj) aj.classList.remove('show'); }
+  clearInterval(state._todoTimer); state._todoTimer=null;
+  NOTIF.length=0; catNotifBell(); bellTutup();
   if(state._finTimer){ clearInterval(state._finTimer); state._finTimer=null; }
   { const fn=document.getElementById('finNotif'); if(fn) fn.classList.remove('show'); }
   const cp=$('#chatPanel'); if(cp) cp.classList.remove('open');
@@ -3733,8 +3780,11 @@ function enterApp(){
   resolveNamaLengkap();
   initFinanceNotif();
   absnInit();                 // tombol melayang Absen (khusus jabatan CS)
+  wireBell();                 // lonceng notifikasi di header (semua jabatan)
+  NOTIF.length=0; catNotifBell();
   initQuoNotif();             // notifikasi quotation menunggu persetujuan (OPERASIONAL)
   initAjuNotif();             // notifikasi pengajuan alat & chemical (OPERASIONAL)
+  initTodoNotif();            // notifikasi To Do List (semua jabatan)
   runLoginPopups();
   document.body.classList.toggle('is-designer', s.role==='DESIGNER');
   if(!MENUS[s.role].length){ renderDesigner(); return; }
@@ -5022,7 +5072,64 @@ function showAjuDetail(a){
   const sv=$('#modalSave'); if(sv) sv.style.display='none';
   const dl0=$('#modalDel'); if(dl0) dl0.style.display='none';
   const cc=$('#modalCancel'); if(cc){ cc.textContent='Tutup'; cc.classList.add('btn-danger'); }
+  /* Tombol persetujuan — hanya di view yang berhak memutuskan (OPERASIONAL). */
+  if(state.view && state.view.ajuApprove && a.id){
+    const bar=document.createElement('div');
+    bar.className='aju-appr';
+    const isiTombol=()=>{
+      bar.innerHTML='<div class="aju-appr-note">Keputusan Anda:</div>'+
+        '<div class="aju-appr-b">'+
+          '<button class="btn btn-gold" id="ajuOk">'+svg('check')+'Setujui</button>'+
+          '<button class="btn btn-danger" id="ajuNo">Tolak</button>'+
+        '</div>';
+      document.getElementById('ajuOk').onclick=()=>ajuPutuskan(a,'Disetujui');
+      document.getElementById('ajuNo').onclick=()=>ajuPutuskan(a,'Ditolak');
+    };
+    const st=norm(a['Status Pengajuan']||'baru');
+    if(st==='disetujui' || st==='ditolak'){
+      bar.innerHTML='<div class="aju-appr-note">Sudah <b>'+esc(a['Status Pengajuan'])+'</b>'+
+        (a['Disetujui Oleh']?' oleh '+esc(a['Disetujui Oleh']):'')+'.</div>'+
+        '<button class="btn btn-ghost btn-sm" id="ajuUlang">Ubah Keputusan</button>';
+      $('#modalBody').appendChild(bar);
+      document.getElementById('ajuUlang').onclick=isiTombol;
+    }else{
+      $('#modalBody').appendChild(bar);
+      isiTombol();
+    }
+  }
   openOverlay();
+}
+/* Simpan keputusan persetujuan pengajuan (OPERASIONAL). */
+async function ajuPutuskan(a, keputusan){
+  const setuju = keputusan==='Disetujui';
+  const jml = setuju
+    ? prompt('Jumlah yang disetujui\n(kosongkan = sesuai permintaan: '+(a['Jumlah']||'-')+' '+ajuSatuan(a)+')',
+             a['Jumlah']||'')
+    : '0';
+  if(jml===null) return;                        // dibatalkan
+  const catatan = prompt(setuju ? 'Catatan persetujuan (boleh dikosongkan):'
+                                : 'Alasan penolakan (boleh dikosongkan):',
+                         a['Catatan Persetujuan']||'');
+  if(catatan===null) return;
+  const s=state.session||{};
+  const data={
+    'Status Pengajuan':keputusan,
+    'Disetujui Oleh': s.namaLengkap||s.nama||s.role||'',
+    'Tanggal Persetujuan': ymd(new Date()),
+    'Jumlah Disetujui': setuju ? (String(jml).trim()===''?(a['Jumlah']||''):jml) : 0,
+    'Catatan Persetujuan': catatan
+  };
+  setSync(true);
+  try{
+    const res=await api({action:'update', sheet:'OPS_PENGAJUAN', idField:'id', id:a.id, data});
+    if(res && res.stripped && res.stripped.length) peringatanKolomHilang(res.stripped,'OPS_PENGAJUAN');
+    else toast('Pengajuan '+keputusan.toLowerCase()+'.','ok');
+    closeOverlay();
+    invalidateLists();
+    await loadList(true);
+    ajuNotifTick();                             // segarkan lonceng & gelembung
+  }catch(e){ toast('Gagal menyimpan: '+(e.message||e),'err'); }
+  finally{ setSync(false); }
 }
 function showGajiDetail(g){
   g=g||{};
@@ -9762,6 +9869,11 @@ async function quoNotifTick(){
   if(count==null) return;
   if(state._quoPrev!=null && count>state._quoPrev) showQuoNotif(count);   // ada penawaran BARU
   state._quoPrev=count;
+  notifSet('quo', count>0 ? {
+    jumlah:count, ikon:'📄',
+    teks:'<b>'+count+' Quotation</b> dari CS menunggu persetujuan',
+    buka:()=>opsGo(['opsHCS','quotation'])
+  } : null);
   const c=document.getElementById('quoNotifCount'); if(c) c.textContent=count;
   const el=document.getElementById('quoNotif');
   if(el && el.classList.contains('show') && count<=0) el.classList.remove('show');
@@ -9783,6 +9895,108 @@ function aturNotifStack(){
   const qTampil = q && q.classList.contains('show');
   a.classList.toggle('stack-2', !!qTampil);
 }
+/* ============================================================
+   PUSAT NOTIFIKASI (lonceng di header) — SEMUA JABATAN
+
+   Gelembung notifikasi yang muncul sendiri bisa ditutup, tetapi isinya
+   TIDAK hilang: semuanya tetap terdaftar di lonceng dan bisa dibuka lagi
+   kapan saja. Tiap butir bisa diklik untuk langsung menuju menunya.
+   ============================================================ */
+const NOTIF = [];          // daftar notifikasi yang sedang berlaku
+
+/* Daftarkan/segarkan satu jenis notifikasi. jumlah<=0 → dihapus dari daftar. */
+function notifSet(kode, data){
+  const i = NOTIF.findIndex(n=>n.kode===kode);
+  if(!data || !(data.jumlah>0)){ if(i>-1) NOTIF.splice(i,1); }
+  else if(i>-1) NOTIF[i]=Object.assign({kode}, data);
+  else NOTIF.push(Object.assign({kode}, data));
+  catNotifBell();
+}
+function notifTotal(){ return NOTIF.reduce((s,n)=>s+(n.jumlah||0),0); }
+/* Perbarui angka merah di lonceng + isi panelnya bila sedang terbuka. */
+function catNotifBell(){
+  const dot=document.getElementById('bellDot');
+  const t=notifTotal();
+  if(dot){ dot.textContent = t>99?'99+':String(t); dot.classList.toggle('on', t>0); }
+  const pop=document.getElementById('bellPop');
+  if(pop && pop.classList.contains('open')) isiBellList();
+}
+function isiBellList(){
+  const box=document.getElementById('bellList'); if(!box) return;
+  if(!NOTIF.length){
+    box.innerHTML='<div class="bell-empty">Tidak ada notifikasi.</div>';
+    return;
+  }
+  box.innerHTML = NOTIF.map((n,i)=>
+    '<div class="bell-item" data-notif="'+i+'">'+
+      '<span class="bell-ic">'+(n.ikon||'🔔')+'</span>'+
+      '<span class="bell-tx">'+n.teks+(n.sub?'<div class="bell-sub">'+esc(n.sub)+'</div>':'')+'</span>'+
+      '<span class="bell-n">'+n.jumlah+'</span>'+
+    '</div>').join('');
+  box.querySelectorAll('[data-notif]').forEach(el=>el.addEventListener('click',()=>{
+    const n=NOTIF[+el.dataset.notif];
+    bellTutup();
+    if(n && typeof n.buka==='function') n.buka();
+  }));
+}
+function bellBuka(){
+  const p=document.getElementById('bellPop'); if(!p) return;
+  isiBellList(); p.classList.add('open');
+}
+function bellTutup(){ const p=document.getElementById('bellPop'); if(p) p.classList.remove('open'); }
+function wireBell(){
+  const b=document.getElementById('btnBell');
+  if(b && !b._wired){ b._wired=true;
+    b.innerHTML = svg('bell') + '<span class="bell-dot" id="bellDot"></span>';
+    b.addEventListener('click', e=>{
+      e.stopPropagation();
+      const p=document.getElementById('bellPop');
+      if(p && p.classList.contains('open')) bellTutup(); else bellBuka();
+    });
+  }
+  const x=document.getElementById('bellX');
+  if(x && !x._wired){ x._wired=true; x.addEventListener('click', bellTutup); }
+  // klik di luar panel → tutup
+  if(!document._bellOut){ document._bellOut=true;
+    document.addEventListener('click', e=>{
+      const p=document.getElementById('bellPop');
+      if(p && p.classList.contains('open') && !e.target.closest('#bellPop') && !e.target.closest('#btnBell')) bellTutup();
+    });
+  }
+  catNotifBell();
+}
+
+/* ---------- NOTIFIKASI TO DO LIST — BERLAKU UNTUK SEMUA JABATAN ----------
+   Menghitung tugas milik jabatan sendiri yang belum selesai dan sudah jatuh
+   tempo (hari ini atau terlewat). Inilah yang membuat lonceng berguna di
+   jabatan yang tidak punya notifikasi persetujuan. */
+async function todoNotifTick(){
+  if(!state.session) return;
+  try{
+    const rows=(await api({action:'list', sheet:'TODO',
+      filters:{'Jabatan':state.session.role}})).data||[];
+    const hariIni=ymd(new Date());
+    const belum=rows.filter(r=>{
+      const st=norm(r['Status']);
+      const tg=String(r['Tanggal']||'').slice(0,10);
+      return st!=='selesai' && tg && tg<=hariIni;
+    });
+    const telat=belum.filter(r=>String(r['Tanggal']||'').slice(0,10)<hariIni).length;
+    notifSet('todo', belum.length>0 ? {
+      jumlah:belum.length, ikon:'📝',
+      teks:'<b>'+belum.length+' tugas</b> di To Do List belum selesai',
+      sub: telat>0 ? (telat+' sudah lewat tanggal') : 'Jatuh tempo hari ini',
+      buka:()=>openSettingsView('todo')
+    } : null);
+  }catch(e){ /* tabel belum ada / jaringan → jangan tampilkan apa pun */ }
+}
+function initTodoNotif(){
+  clearInterval(state._todoTimer);
+  if(!state.session) return;
+  todoNotifTick();
+  state._todoTimer=setInterval(todoNotifTick, 60*1000);
+}
+
 /* ---------- NOTIFIKASI PENGAJUAN ALAT & CHEMICAL (ke OPERASIONAL) ----------
    Pola persis seperti notifikasi Quotation: menghitung pengajuan yang belum
    ditinjau, muncul saat login bila sudah ada yang menunggu, dan muncul lagi
@@ -9828,6 +10042,12 @@ async function ajuNotifTick(){
   }catch(e){}
   if(state._ajuPrev!=null && count>state._ajuPrev) showAjuNotif(count, mendesak);  // ada pengajuan BARU
   state._ajuPrev=count;
+  notifSet('aju', count>0 ? {
+    jumlah:count, ikon:'📦',
+    teks:'<b>'+count+' Pengajuan Alat &amp; Chemical</b> menunggu persetujuan',
+    sub: mendesak>0 ? (mendesak+' di antaranya mendesak') : '',
+    buka:()=>opsGo(['opsOperasional','grpPengajuan','pengajuanAlat'])
+  } : null);
   const c=document.getElementById('ajuNotifCount'); if(c) c.textContent=count;
   const el=document.getElementById('ajuNotif');
   if(el && el.classList.contains('show') && count<=0) el.classList.remove('show');
@@ -11110,6 +11330,11 @@ async function finNotifTick(){
   // Muncul saat ada order Done BARU dari kondisi 0 → >0
   if(state._finPrevDone===0 && count>0){ showFinNotif(count); }
   state._finPrevDone=count;
+  notifSet('fin', count>0 ? {
+    jumlah:count, ikon:'💰',
+    teks:'<b>'+count+' order</b> berstatus Done menunggu approve',
+    buka:()=>openAuditTab('auditOrder')
+  } : null);
   // Perbarui angka jika notif sedang tampil
   const c=document.getElementById('finNotifCount'); if(c) c.textContent=count;
   const el=document.getElementById('finNotif');
