@@ -1194,6 +1194,14 @@ tr.rowclick:hover td{background:var(--surface-2)}
 .aju-appr-note{font-size:12.5px;color:var(--muted);margin-bottom:10px}
 .aju-appr-note b{color:var(--ink)}
 .aju-appr-b{display:flex;gap:9px;flex-wrap:wrap}
+/* Tombol persetujuan di kartu */
+.aju-cact{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+/* Kepala form persetujuan */
+.aju-appr-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+  background:var(--surface-2);border:1px solid var(--line);border-radius:12px;
+  padding:11px 13px;margin-bottom:14px;font-size:13px;color:var(--ink)}
+.aju-appr-sub{font-size:11.5px;color:var(--muted);margin-top:3px;font-weight:400}
+.aju-appr-qty{font-size:12px;color:var(--muted);white-space:nowrap}
 /* ---------- order cards (mobile) ---------- */
 .card-list{display:none;flex-direction:column;gap:11px}
 @media (max-width:880px){ .card-list{display:flex} }
@@ -3740,6 +3748,7 @@ async function logout(){
   clearInterval(state._ajuTimer); state._ajuTimer=null; state._ajuPrev=null;
   { const aj=document.getElementById('ajuNotif'); if(aj) aj.classList.remove('show'); }
   clearInterval(state._todoTimer); state._todoTimer=null;
+  clearInterval(state._csHasilTimer); state._csHasilTimer=null;
   NOTIF.length=0; catNotifBell(); bellTutup();
   if(state._finTimer){ clearInterval(state._finTimer); state._finTimer=null; }
   { const fn=document.getElementById('finNotif'); if(fn) fn.classList.remove('show'); }
@@ -3785,6 +3794,7 @@ function enterApp(){
   initQuoNotif();             // notifikasi quotation menunggu persetujuan (OPERASIONAL)
   initAjuNotif();             // notifikasi pengajuan alat & chemical (OPERASIONAL)
   initTodoNotif();            // notifikasi To Do List (semua jabatan)
+  initCsHasilNotif();         // hasil keputusan pengajuan & quotation (CS)
   runLoginPopups();
   document.body.classList.toggle('is-designer', s.role==='DESIGNER');
   if(!MENUS[s.role].length){ renderDesigner(); return; }
@@ -4516,6 +4526,7 @@ function renderTable(){
       const urg = String(r['Tingkat Urgensi']||'');
       const urgent = /mendesak/i.test(urg) && !/tidak\s*mendesak/i.test(urg);
       const st = String(r['Status Pengajuan']||'Baru');
+      const sudahPutus = norm(st)==='disetujui' || norm(st)==='ditolak';
       const fotoN = ajuFotoList(r).length;
       const satuan = ajuSatuan(r);
       return '<div class="ocard aju-card'+(urgent?' aju-urgent':'')+'" data-detailaju="'+aid+'">'+
@@ -4533,6 +4544,13 @@ function renderTable(){
           /* Hapus hanya muncul untuk OPERASIONAL (canDelete). CS tidak melihatnya. */
           (v.canDelete?'<button class="act-ic ocard-del aju-del" data-del="'+aid+'" title="Hapus pengajuan">✕</button>':'')+
         '</div>'+
+        /* Tombol persetujuan langsung di kartu — hanya untuk OPERASIONAL. */
+        (v.ajuApprove ? '<div class="aju-cact">'+
+            (sudahPutus
+              ? '<button class="btn btn-ghost btn-sm" data-ajuappr="'+aid+'">Ubah Keputusan</button>'
+              : '<button class="btn btn-gold btn-sm" data-ajuok="'+aid+'">'+svg('check')+'Setujui</button>'+
+                '<button class="btn btn-danger btn-sm" data-ajuno="'+aid+'">Tolak</button>')+
+          '</div>' : '')+
       '</div>';
     }).join('')+'</div>';
   }
@@ -4838,6 +4856,18 @@ function wireRowHandlers(v){
     const row=key.charAt(0)==='#'?state.rows[+key.slice(1)]:state.rows.find(x=>String(x[v.idField])===key);
     if(row) showAjuDetail(row);
   }));
+  /* Tombol Setujui / Tolak / Ubah langsung dari kartu (OPERASIONAL). */
+  const cariAju=key=> key.charAt(0)==='#' ? state.rows[+key.slice(1)]
+                    : state.rows.find(x=>String(x[v.idField])===key);
+  document.querySelectorAll('[data-ajuok]').forEach(b=>b.addEventListener('click',e=>{
+    e.stopPropagation(); const r=cariAju(b.dataset.ajuok); if(r) showAjuApprove(r,'Disetujui');
+  }));
+  document.querySelectorAll('[data-ajuno]').forEach(b=>b.addEventListener('click',e=>{
+    e.stopPropagation(); const r=cariAju(b.dataset.ajuno); if(r) showAjuApprove(r,'Ditolak');
+  }));
+  document.querySelectorAll('[data-ajuappr]').forEach(b=>b.addEventListener('click',e=>{
+    e.stopPropagation(); const r=cariAju(b.dataset.ajuappr); if(r) showAjuApprove(r);
+  }));
   if(v.rowDetail){
     document.querySelectorAll('tr[data-detailrow]').forEach(tr=>tr.addEventListener('click',e=>{
       if(e.target.closest('button, a, input, .row-act')) return;
@@ -5082,8 +5112,8 @@ function showAjuDetail(a){
           '<button class="btn btn-gold" id="ajuOk">'+svg('check')+'Setujui</button>'+
           '<button class="btn btn-danger" id="ajuNo">Tolak</button>'+
         '</div>';
-      document.getElementById('ajuOk').onclick=()=>ajuPutuskan(a,'Disetujui');
-      document.getElementById('ajuNo').onclick=()=>ajuPutuskan(a,'Ditolak');
+      document.getElementById('ajuOk').onclick=()=>showAjuApprove(a,'Disetujui');
+      document.getElementById('ajuNo').onclick=()=>showAjuApprove(a,'Ditolak');
     };
     const st=norm(a['Status Pengajuan']||'baru');
     if(st==='disetujui' || st==='ditolak'){
@@ -5099,35 +5129,80 @@ function showAjuDetail(a){
   }
   openOverlay();
 }
-/* Simpan keputusan persetujuan pengajuan (OPERASIONAL). */
-async function ajuPutuskan(a, keputusan){
-  const setuju = keputusan==='Disetujui';
-  const jml = setuju
-    ? prompt('Jumlah yang disetujui\n(kosongkan = sesuai permintaan: '+(a['Jumlah']||'-')+' '+ajuSatuan(a)+')',
-             a['Jumlah']||'')
-    : '0';
-  if(jml===null) return;                        // dibatalkan
-  const catatan = prompt(setuju ? 'Catatan persetujuan (boleh dikosongkan):'
-                                : 'Alasan penolakan (boleh dikosongkan):',
-                         a['Catatan Persetujuan']||'');
-  if(catatan===null) return;
+/* Form Persetujuan pengajuan (OPERASIONAL).
+   Kolomnya persis seperti bagian Persetujuan pada form pengajuan:
+   Status, Disetujui Oleh, Tanggal Persetujuan, Jumlah Disetujui,
+   Catatan Persetujuan. Wajib diisi sebelum keputusan bisa disimpan. */
+function showAjuApprove(a, awal){
+  a=a||{};
   const s=state.session||{};
+  state.editing=null; state.files={};
+  const satuan=ajuSatuan(a);
+  $('#modalTitle').textContent='Persetujuan — '+(a['Nama Barang']||'-');
+  $('#modalBody').innerHTML=
+    '<div class="aju-appr-hd">'+
+      '<div><b>'+esc(a['Nama Barang']||'-')+'</b>'+
+        (a['Merk / Spesifikasi']?'<div class="aju-appr-sub">'+esc(a['Merk / Spesifikasi'])+'</div>':'')+'</div>'+
+      '<div class="aju-appr-qty">Diminta <b>'+esc(String(a['Jumlah']||'-'))+'</b> '+esc(satuan)+'</div>'+
+    '</div>'+
+    '<div class="form-grid">'+
+      '<div class="sec-title">Persetujuan</div>'+
+      '<div class="field"><label>Status <span class="req">*</span></label>'+
+        '<select id="apStatus">'+
+          ['Baru','Disetujui','Ditolak'].map(o=>
+            '<option'+(norm(o)===norm(awal||a['Status Pengajuan']||'Baru')?' selected':'')+'>'+o+'</option>').join('')+
+        '</select></div>'+
+      '<div class="field"><label>Disetujui Oleh <span class="req">*</span></label>'+
+        '<input id="apOleh" value="'+esc(a['Disetujui Oleh']||s.namaLengkap||s.nama||'')+'"></div>'+
+      '<div class="field"><label>Tanggal Persetujuan <span class="req">*</span></label>'+
+        '<input type="date" id="apTgl" value="'+esc(a['Tanggal Persetujuan']||ymd(new Date()))+'"></div>'+
+      '<div class="field"><label>Jumlah Disetujui <span class="req">*</span></label>'+
+        '<input type="number" id="apJml" min="0" value="'+
+          esc(String(a['Jumlah Disetujui']!=null&&a['Jumlah Disetujui']!==''?a['Jumlah Disetujui']:(a['Jumlah']||'')))+'">'+
+        '<div class="bs-sub" style="margin-top:5px">Isi 0 bila ditolak, atau kurang dari jumlah diminta bila disetujui sebagian.</div></div>'+
+      '<div class="field full"><label>Catatan Persetujuan <span class="req">*</span></label>'+
+        '<textarea id="apNote" placeholder="Alasan menyetujui / menolak">'+esc(a['Catatan Persetujuan']||'')+'</textarea></div>'+
+    '</div>';
+  const sv=$('#modalSave');
+  if(sv){ sv.style.display=''; sv.textContent='Simpan Keputusan';
+    sv.onclick=()=>ajuSimpanKeputusan(a); }
+  const dl0=$('#modalDel'); if(dl0) dl0.style.display='none';
+  const cc=$('#modalCancel'); if(cc){ cc.textContent='Batal'; cc.classList.remove('btn-danger'); }
+  /* Status Ditolak → jumlah otomatis 0 agar tidak perlu diketik ulang. */
+  const st=document.getElementById('apStatus'), jm=document.getElementById('apJml');
+  if(st) st.addEventListener('change',()=>{
+    if(norm(st.value)==='ditolak') jm.value='0';
+    else if(jm.value==='0') jm.value=String(a['Jumlah']||'');
+  });
+  openOverlay();
+}
+/* Simpan keputusan — seluruh kolom wajib diisi. */
+async function ajuSimpanKeputusan(a){
+  const g=id=>{ const e=document.getElementById(id); return e?String(e.value||'').trim():''; };
   const data={
-    'Status Pengajuan':keputusan,
-    'Disetujui Oleh': s.namaLengkap||s.nama||s.role||'',
-    'Tanggal Persetujuan': ymd(new Date()),
-    'Jumlah Disetujui': setuju ? (String(jml).trim()===''?(a['Jumlah']||''):jml) : 0,
-    'Catatan Persetujuan': catatan
+    'Status Pengajuan':    g('apStatus'),
+    'Disetujui Oleh':      g('apOleh'),
+    'Tanggal Persetujuan': g('apTgl'),
+    'Jumlah Disetujui':    g('apJml'),
+    'Catatan Persetujuan': g('apNote')
   };
+  const kurang=[];
+  if(!data['Status Pengajuan'] || norm(data['Status Pengajuan'])==='baru')
+    kurang.push('Status (pilih Disetujui atau Ditolak)');
+  if(!data['Disetujui Oleh'])      kurang.push('Disetujui Oleh');
+  if(!data['Tanggal Persetujuan']) kurang.push('Tanggal Persetujuan');
+  if(data['Jumlah Disetujui']==='') kurang.push('Jumlah Disetujui');
+  if(!data['Catatan Persetujuan']) kurang.push('Catatan Persetujuan');
+  if(kurang.length){ toast('Lengkapi dulu: '+kurang.join(', '),'err'); return; }
   setSync(true);
   try{
     const res=await api({action:'update', sheet:'OPS_PENGAJUAN', idField:'id', id:a.id, data});
     if(res && res.stripped && res.stripped.length) peringatanKolomHilang(res.stripped,'OPS_PENGAJUAN');
-    else toast('Pengajuan '+keputusan.toLowerCase()+'.','ok');
+    else toast('Pengajuan '+data['Status Pengajuan'].toLowerCase()+'.','ok');
     closeOverlay();
     invalidateLists();
     await loadList(true);
-    ajuNotifTick();                             // segarkan lonceng & gelembung
+    ajuNotifTick();
   }catch(e){ toast('Gagal menyimpan: '+(e.message||e),'err'); }
   finally{ setSync(false); }
 }
@@ -9964,6 +10039,85 @@ function wireBell(){
     });
   }
   catNotifBell();
+}
+
+/* ---------- NOTIFIKASI HASIL KEPUTUSAN — UNTUK CS ----------
+   Memberi tahu CS begitu pengajuan atau quotation miliknya diputuskan
+   Operasional. Yang sudah dibuka ditandai supaya tidak muncul terus:
+   penanda disimpan per akun di perangkat masing-masing. */
+function csSeenKey(jenis){
+  const s=state.session||{};
+  return 'klinklin_seen_'+jenis+'_'+norm(s.nama||s.role||'');
+}
+function csSeen(jenis){
+  try{ return JSON.parse(localStorage.getItem(csSeenKey(jenis))||'[]'); }catch(e){ return []; }
+}
+function csSeenSet(jenis, ids){
+  try{ localStorage.setItem(csSeenKey(jenis), JSON.stringify(ids.slice(-300))); }catch(e){}
+}
+/* Baris ini milik CS yang sedang login? (dicocokkan nama, lalu cabang) */
+function milikSaya(r, kolomNama){
+  const s=state.session||{};
+  const nm=norm(s.nama||'');
+  const pemilik=norm(r[kolomNama]||'');
+  if(pemilik && nm && pemilik===nm) return true;
+  if(!pemilik) return norm(r['Cabang']||'')===norm(s.cabang||'');   // data lama tanpa nama
+  return false;
+}
+async function csHasilNotifTick(){
+  if(!state.session || state.session.role!=='CS') return;
+
+  /* --- Pengajuan Alat & Chemical --- */
+  try{
+    const rows=(await api({action:'list', sheet:'OPS_PENGAJUAN',
+      filters:{'Cabang':state.session.cabang}})).data||[];
+    const putus=rows.filter(r=>{
+      const st=norm(r['Status Pengajuan']);
+      return (st==='disetujui'||st==='ditolak') && milikSaya(r,'Pemohon');
+    });
+    const lihat=csSeen('aju');
+    const baru=putus.filter(r=>lihat.indexOf(String(r.id))<0);
+    const ok=baru.filter(r=>norm(r['Status Pengajuan'])==='disetujui').length;
+    notifSet('csAju', baru.length>0 ? {
+      jumlah:baru.length, ikon:'📦',
+      teks:'<b>'+baru.length+' pengajuan</b> Anda sudah diputuskan',
+      sub: ok+' disetujui · '+(baru.length-ok)+' ditolak',
+      buka:()=>{
+        csSeenSet('aju', lihat.concat(baru.map(r=>String(r.id))));
+        notifSet('csAju', null);
+        openSettingsView('pengajuanAlatCS');
+      }
+    } : null);
+  }catch(e){}
+
+  /* --- Quotation --- */
+  try{
+    const rows=(await api({action:'list', sheet:'HCS_QUOTATION',
+      filters:{'Cabang':state.session.cabang}})).data||[];
+    const putus=rows.filter(r=>{
+      const st=norm(r['Status Quotation']);
+      return (st==='disetujui'||st==='ditolak') && milikSaya(r,'Dibuat Oleh');
+    });
+    const lihat=csSeen('quo');
+    const baru=putus.filter(r=>lihat.indexOf(String(r.id))<0);
+    const ok=baru.filter(r=>norm(r['Status Quotation'])==='disetujui').length;
+    notifSet('csQuo', baru.length>0 ? {
+      jumlah:baru.length, ikon:'📄',
+      teks:'<b>'+baru.length+' quotation</b> Anda sudah diputuskan',
+      sub: ok>0 ? (ok+' disetujui — sudah bisa diunduh') : 'Ditolak, periksa catatannya',
+      buka:()=>{
+        csSeenSet('quo', lihat.concat(baru.map(r=>String(r.id))));
+        notifSet('csQuo', null);
+        openSettingsView('quotationCS');
+      }
+    } : null);
+  }catch(e){}
+}
+function initCsHasilNotif(){
+  clearInterval(state._csHasilTimer);
+  if(!state.session || state.session.role!=='CS') return;
+  csHasilNotifTick();
+  state._csHasilTimer=setInterval(csHasilNotifTick, 45*1000);
 }
 
 /* ---------- NOTIFIKASI TO DO LIST — BERLAKU UNTUK SEMUA JABATAN ----------
