@@ -260,6 +260,9 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .field input:focus,.field select:focus,.field textarea:focus{
   border-color:var(--petrol); box-shadow:0 0 0 4px rgba(20,38,74,.07)}
 .field input[readonly],.field.computed input{background:var(--surface-2); color:var(--muted); font-weight:600}
+/* Select yang dikunci (mis. Cabang pada form pengajuan CS) */
+.field select.is-ro{background:var(--surface-2); color:var(--muted); font-weight:600;
+  pointer-events:none; appearance:none; -webkit-appearance:none}
 .field.computed input{color:var(--petrol)}
 .field textarea{resize:vertical;min-height:62px}
 .field label.chk{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:600;color:var(--ink);
@@ -1119,6 +1122,26 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 tr.rowclick{cursor:pointer}
 tr.rowclick:hover td{background:var(--surface-2)}
 
+/* ---------- Kartu Pengajuan Alat & Chemical ---------- */
+/* Tampil di semua ukuran layar; tabelnya disembunyikan. */
+.card-list.aju-cards{display:flex}
+.tbl-wrap.aju-hide{display:none}
+.aju-cards .ocard{cursor:pointer; transition:border-color .15s ease, transform .12s ease}
+.aju-cards .ocard:hover{border-color:var(--gold); transform:translateY(-1px)}
+.aju-card.aju-urgent{border-left:4px solid var(--danger)}
+.aju-st{font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:20px;white-space:nowrap;
+  background:var(--surface-2);color:var(--muted);border:1px solid var(--line)}
+.aju-st-disetujui{background:#E7F6EC;color:#1B7F45;border-color:transparent}
+.aju-st-ditolak{background:#FDECEC;color:#B3261E;border-color:transparent}
+.aju-st-baru{background:var(--gold-soft);color:var(--gold-deep);border-color:transparent}
+.aju-foot{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:9px}
+.aju-urg{font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:20px;
+  background:var(--surface-2);color:var(--muted);border:1px dashed var(--line)}
+.aju-urg.on{background:#FDECEC;color:#B3261E;border-style:solid;border-color:transparent}
+.aju-foto{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--faint);font-weight:600}
+.aju-foto svg{width:14px;height:14px}
+.aju-thumbs{display:flex;gap:8px;flex-wrap:wrap;padding:8px 0}
+.aju-thumbs img{width:82px;height:82px;object-fit:cover;border-radius:10px;border:1px solid var(--line);cursor:zoom-in}
 /* ---------- order cards (mobile) ---------- */
 .card-list{display:none;flex-direction:column;gap:11px}
 @media (max-width:880px){ .card-list{display:flex} }
@@ -2459,28 +2482,36 @@ const AJU_JENIS   = ['Alat','Chemical','Inventaris'];
 const AJU_SATUAN  = ['Pcs','Liter','Kg','Other'];
 const AJU_URGENSI = ['Tidak Mendesak ( Untuk Stock )','Mendesak ( Urgent )'];
 /* Bagian yang diisi CS. Dipakai bersama oleh view CS & OPERASIONAL agar
-   isiannya tidak pernah beda. */
-const AJU_FORM_CS = [
-  {sec:'Pengajuan'},
-  f('Tanggal Pengajuan','date',{req:true}),
-  f('Cabang','select',{opts:CABANG, req:true, label:'Nama Cabang'}),
-  f('Pemohon','text',{req:true, help:'Nama pemohon'}),
-  {sec:'Barang Diminta'},
-  f('Jenis Pembelian','select',{opts:AJU_JENIS, req:true}),
-  f('Nama Barang','text',{req:true}),
-  f('Merk / Spesifikasi','text',{req:true, full:true}),
-  f('Jumlah','num',{req:true}),
-  f('Satuan','select',{opts:AJU_SATUAN, req:true}),
-  f('Satuan Lainnya','text',{help:'Isi bila Satuan dipilih "Other"'}),
-  f('Alasan Pengajuan','textarea',{full:true, req:true}),
-  f('Tingkat Urgensi','select',{opts:AJU_URGENSI, req:true, full:true}),
-  {sec:'Foto Barang Lama / Rusak'},
-  f('Foto 1','file',{accept:'image/*', req:true}),
-  f('Foto 2','file',{accept:'image/*'}),
-  f('Foto 3','file',{accept:'image/*'}),
-  f('Foto 4','file',{accept:'image/*'}),
-  f('Foto 5','file',{accept:'image/*'})
-];
+   isiannya tidak pernah beda.
+   kunci=true → tiga kolom identitas dikunci (dipakai form CS): tanggal selalu
+   hari ini, cabang & pemohon mengikuti akun yang login. Operasional memakai
+   kunci=false supaya masih bisa mengoreksi data yang salah. */
+function ajuFormCS(kunci){
+  return [
+    {sec:'Pengajuan'},
+    f('Tanggal Pengajuan','date',{req:true, ro:!!kunci,
+      help: kunci ? 'Otomatis terisi tanggal hari ini' : ''}),
+    f('Cabang','select',{opts:CABANG, req:true, label:'Nama Cabang', ro:!!kunci,
+      help: kunci ? 'Otomatis mengikuti cabang akun Anda' : ''}),
+    f('Pemohon','text',{req:true, ro:!!kunci,
+      help: kunci ? 'Otomatis mengikuti nama akun Anda' : 'Nama pemohon'}),
+    {sec:'Barang Diminta'},
+    f('Jenis Pembelian','select',{opts:AJU_JENIS, req:true}),
+    f('Nama Barang','text',{req:true}),
+    f('Merk / Spesifikasi','text',{req:true, full:true}),
+    f('Jumlah','num',{req:true}),
+    f('Satuan','select',{opts:AJU_SATUAN, req:true}),
+    f('Satuan Lainnya','text',{help:'Isi bila Satuan dipilih "Other"'}),
+    f('Alasan Pengajuan','textarea',{full:true, req:true}),
+    f('Tingkat Urgensi','select',{opts:AJU_URGENSI, req:true, full:true}),
+    {sec:'Foto Barang Lama / Rusak'},
+    f('Foto 1','file',{accept:'image/*', req:true}),
+    f('Foto 2','file',{accept:'image/*'}),
+    f('Foto 3','file',{accept:'image/*'}),
+    f('Foto 4','file',{accept:'image/*'}),
+    f('Foto 5','file',{accept:'image/*'})
+  ];
+}
 /* Bagian persetujuan — hanya OPERASIONAL. */
 const AJU_FORM_APPROVE = [
   {sec:'Persetujuan'},
@@ -2503,7 +2534,7 @@ VIEWS.pengajuanAlat = {
   filters:['Cabang','Jenis Pembelian','Tingkat Urgensi','Status Pengajuan'],
   datePreset:true, dateFilterField:'Tanggal Pengajuan', defaultMonth:true,
   search:['Nama Barang','Merk / Spesifikasi','Pemohon'],
-  form: AJU_FORM_CS.concat(AJU_FORM_APPROVE)
+  form: ajuFormCS(false).concat(AJU_FORM_APPROVE)
 };
 /* Dipakai CS lewat Pengaturan: hanya cabang sendiri, tanpa bagian persetujuan. */
 const AJU_HIDE_CS = ['Status Pengajuan','Disetujui Oleh','Tanggal Persetujuan',
@@ -2521,7 +2552,7 @@ VIEWS.pengajuanAlatCS = {
   datePreset:true, dateFilterField:'Tanggal Pengajuan', defaultMonth:true,
   search:['Nama Barang','Merk / Spesifikasi'],
   hideFormFields:AJU_HIDE_CS,
-  form: AJU_FORM_CS.concat(AJU_FORM_APPROVE)
+  form: ajuFormCS(true).concat(AJU_FORM_APPROVE)
 };
 VIEWS.purchaseOrder = {
   sheet:'OPS_PO', title:'Data Purchase Order', sub:'Pemesanan barang ke supplier',
@@ -3340,16 +3371,16 @@ async function api(payload){
       return {ok:true, data:all};
     }
     if(a==='create'){
-      let data=payload.data, res, tries=0;
+      let data=payload.data, res, tries=0; const stripped=[];
       while(true){
         res=await sb.from(payload.sheet).insert(data).select().single();
         if(!res.error) break;
         const col=missingColName(res.error);
-        if(col && tries<15 && dataHasCol(data,col)){ data=dataStripCol(data,col); tries++; continue; }
+        if(col && tries<15 && dataHasCol(data,col)){ data=dataStripCol(data,col); stripped.push(col); tries++; continue; }
         throw res.error;
       }
       const idf=TABLE_ID[payload.sheet];
-      return {ok:true, id: idf? res.data[idf] : '', data:res.data};
+      return {ok:true, id: idf? res.data[idf] : '', data:res.data, stripped};
     }
     if(a==='update'){
       const idf=payload.idField||TABLE_ID[payload.sheet];
@@ -4280,7 +4311,10 @@ function renderTable(){
   }
   const showAct=v.canEdit||v.approve||v.invoice||v.wa||v.slip||v.canDelete||v.revertPending;
   const chk=v.multiApprove;
-  const tblClass = (v.sheet==='ORDER'||v.sheet==='GAJI'||v.sheet==='KARYAWAN'||v.sheet==='BONUS'||v.sheet==='CHAT_HARIAN') ? 'tbl-wrap desk-only' : 'tbl-wrap';
+  /* OPS_PENGAJUAN memakai tampilan kartu di semua ukuran layar, jadi tabelnya
+     disembunyikan sepenuhnya (bukan hanya di HP). */
+  const tblClass = (v.sheet==='OPS_PENGAJUAN') ? 'tbl-wrap aju-hide'
+    : ((v.sheet==='ORDER'||v.sheet==='GAJI'||v.sheet==='KARYAWAN'||v.sheet==='BONUS'||v.sheet==='CHAT_HARIAN') ? 'tbl-wrap desk-only' : 'tbl-wrap');
   let html='<div class="'+tblClass+'"><table><thead><tr>'+
     (chk?'<th class="chkcol"><input type="checkbox" id="checkAll"></th>':'')+
     cols.map(c=>'<th>'+esc(colLabel(v,c))+'</th>').join('')+(showAct?'<th></th>':'')+'</tr></thead><tbody>';
@@ -4341,6 +4375,34 @@ function renderTable(){
           (r['Status']?'<span class="kar-tag">'+esc(r['Status'])+'</span>':'')+
           (r['Cabang']?'<span class="kar-tag kar-tag-cab">'+esc(r['Cabang'])+'</span>':'')+
           (r['No WA']?'<span class="kar-tag">'+esc(r['No WA'])+'</span>':'')+
+        '</div>'+
+      '</div>';
+    }).join('')+'</div>';
+  }
+  /* Kartu Pengajuan Alat & Chemical — tampil di semua ukuran layar (bukan
+     hanya HP), karena isinya lebih enak dibaca sebagai kartu. Klik kartu →
+     pop up detail lengkap. */
+  if(v.sheet==='OPS_PENGAJUAN'){
+    cardHtml='<div class="card-list aju-cards">'+cardRows.map(r=>{
+      const aid=(v.idField && r[v.idField]!=null && String(r[v.idField]).trim()!=='')
+        ? esc(r[v.idField]) : ('#'+state.rows.indexOf(r));
+      const urg = String(r['Tingkat Urgensi']||'');
+      const urgent = /mendesak/i.test(urg) && !/tidak\s*mendesak/i.test(urg);
+      const st = String(r['Status Pengajuan']||'Baru');
+      const fotoN = ajuFotoList(r).length;
+      const satuan = ajuSatuan(r);
+      return '<div class="ocard aju-card'+(urgent?' aju-urgent':'')+'" data-detailaju="'+aid+'">'+
+        '<div class="ocard-top"><span class="ocard-name">'+esc(r['Nama Barang']||'-')+'</span>'+
+          '<span class="aju-st aju-st-'+esc(norm(st).replace(/[^a-z]/g,''))+'">'+esc(st)+'</span></div>'+
+        '<div class="ocard-meta">'+svg('result')+'<span>'+esc(tglPanjangId(r['Tanggal Pengajuan']))+'</span>'+
+          (r['Cabang']?'<span class="pay-chip">'+esc(r['Cabang'])+'</span>':'')+
+          (r['Jenis Pembelian']?'<span class="pay-chip">'+esc(r['Jenis Pembelian'])+'</span>':'')+'</div>'+
+        (r['Merk / Spesifikasi']?'<div class="ocard-meta sub"><span>'+esc(r['Merk / Spesifikasi'])+'</span></div>':'')+
+        '<div class="ocard-meta sub"><span>Jumlah <b>'+esc(String(r['Jumlah']||'-'))+'</b>'+
+          (satuan?(' '+esc(satuan)):'')+(r['Pemohon']?(' · '+esc(r['Pemohon'])):'')+'</span></div>'+
+        '<div class="aju-foot">'+
+          (urg?'<span class="aju-urg'+(urgent?' on':'')+'">'+esc(urg)+'</span>':'')+
+          (fotoN?'<span class="aju-foto">'+svg('file')+fotoN+' foto</span>':'')+
         '</div>'+
       '</div>';
     }).join('')+'</div>';
@@ -4637,6 +4699,12 @@ function wireRowHandlers(v){
     const row=key.charAt(0)==='#'?state.rows[+key.slice(1)]:state.rows.find(x=>String(x[v.idField])===key);
     if(row) showGajiDetail(row);
   }));
+  document.querySelectorAll('.ocard[data-detailaju]').forEach(c=>c.addEventListener('click',e=>{
+    if(e.target.closest('button, a, input, .ocard-act')) return;
+    const key=c.dataset.detailaju;
+    const row=key.charAt(0)==='#'?state.rows[+key.slice(1)]:state.rows.find(x=>String(x[v.idField])===key);
+    if(row) showAjuDetail(row);
+  }));
   if(v.rowDetail){
     document.querySelectorAll('tr[data-detailrow]').forEach(tr=>tr.addEventListener('click',e=>{
       if(e.target.closest('button, a, input, .row-act')) return;
@@ -4817,6 +4885,55 @@ function showBonusDetail(b){
   if(b['Cabang']) h+=row('Cabang', esc(b['Cabang']));
   if(b['Tanggal Input']) h+=row('Tanggal Input', esc(fmtTgl(b['Tanggal Input'])));
   if(b['ID Insentif']) h+=row('ID Insentif', esc(b['ID Insentif']));
+  h+='</div>';
+  $('#modalBody').innerHTML=h;
+  const sv=$('#modalSave'); if(sv) sv.style.display='none';
+  const dl0=$('#modalDel'); if(dl0) dl0.style.display='none';
+  const cc=$('#modalCancel'); if(cc){ cc.textContent='Tutup'; cc.classList.add('btn-danger'); }
+  openOverlay();
+}
+/* ---------- PENGAJUAN ALAT & CHEMICAL: helper tampilan ---------- */
+/* Daftar URL foto yang benar-benar terisi (Foto 1..5). */
+function ajuFotoList(r){
+  return [1,2,3,4,5].map(i=>String((r&&r['Foto '+i])||'').trim()).filter(Boolean);
+}
+/* Satuan yang ditampilkan: bila dipilih "Other", pakai isian Satuan Lainnya. */
+function ajuSatuan(r){
+  const s=String((r&&r['Satuan'])||'').trim();
+  if(/^other$/i.test(s)) return String((r&&r['Satuan Lainnya'])||'').trim() || s;
+  return s;
+}
+/* Pop up detail pengajuan (dipakai Operasional & CS). */
+function showAjuDetail(a){
+  a=a||{};
+  state.editing=null; state.files={};
+  $('#modalTitle').textContent='Detail Pengajuan — '+(a['Nama Barang']||'-');
+  const row=(l,val)=> '<div class="dt-row"><span class="dt-l">'+esc(l)+'</span><span class="dt-v">'+val+'</span></div>';
+  const txt=x=>{ const s=String(x==null?'':x).trim(); return s?esc(s):'<span style="color:var(--faint)">—</span>'; };
+  let h='<div class="detail">';
+  h+=row('Tanggal Pengajuan', txt(tglPanjangId(a['Tanggal Pengajuan'])));
+  h+=row('Cabang', txt(a['Cabang']));
+  h+=row('Pemohon', txt(a['Pemohon']));
+  h+='<div class="dt-sec">Barang Diminta</div>';
+  h+=row('Jenis Pembelian', txt(a['Jenis Pembelian']));
+  h+=row('Nama Barang', txt(a['Nama Barang']));
+  h+=row('Merk / Spesifikasi', txt(a['Merk / Spesifikasi']));
+  h+=row('Jumlah', '<b>'+esc(String(a['Jumlah']||'-'))+'</b> '+esc(ajuSatuan(a)));
+  h+=row('Alasan Pengajuan', txt(a['Alasan Pengajuan']));
+  { const urg=String(a['Tingkat Urgensi']||'');
+    const on=/mendesak/i.test(urg) && !/tidak\s*mendesak/i.test(urg);
+    h+=row('Tingkat Urgensi', urg?('<span class="aju-urg'+(on?' on':'')+'">'+esc(urg)+'</span>'):txt('')); }
+  const fotos=ajuFotoList(a);
+  h+='<div class="dt-sec">Foto Barang Lama / Rusak</div>';
+  h+= fotos.length
+    ? '<div class="aju-thumbs">'+fotos.map(u=>'<img src="'+esc(u)+'" alt="" data-imgs="'+esc(fotos.join('|||'))+'">').join('')+'</div>'
+    : '<div class="dt-row"><span class="dt-v" style="color:var(--faint)">Tidak ada foto.</span></div>';
+  h+='<div class="dt-sec">Persetujuan</div>';
+  h+=row('Status', txt(a['Status Pengajuan']||'Baru'));
+  h+=row('Disetujui Oleh', txt(a['Disetujui Oleh']));
+  h+=row('Tanggal Persetujuan', txt(a['Tanggal Persetujuan']?tglPanjangId(a['Tanggal Persetujuan']):''));
+  h+=row('Jumlah Disetujui', txt(a['Jumlah Disetujui']));
+  h+=row('Catatan Persetujuan', txt(a['Catatan Persetujuan']));
   h+='</div>';
   $('#modalBody').innerHTML=h;
   const sv=$('#modalSave'); if(sv) sv.style.display='none';
@@ -7001,6 +7118,14 @@ function defaults(v){
   }
   if(v.sheet==='TODO'){ d['Jabatan']=state.session.role; d['Tanggal']=today; d['Status']='Belum'; d['Warna']='Biru'; }
   if(v.sheet==='CHAT_HARIAN'){ d['Cabang']=state.session.cabang; d['Tanggal']=today; }
+  /* Pengajuan Alat & Chemical: tiga kolom identitas diisi otomatis dari sesi CS
+     yang sedang login dan dikunci (lihat opsi ro pada AJU_FORM_CS). */
+  if(v.sheet==='OPS_PENGAJUAN'){
+    d['Tanggal Pengajuan']=today;
+    d['Cabang']=state.session.cabang||'';
+    d['Pemohon']=state.session.namaLengkap||state.session.nama||'';
+    d['Status Pengajuan']=d['Status Pengajuan']||'Baru';
+  }
   if(v.sheet==='HCS_QUOTATION'){
     d['Tanggal']=today;
     d['Exp Date']=ymd(new Date(Date.now()+7*864e5));
@@ -7074,9 +7199,18 @@ function renderField(fd, val){
     let opts=(fd.opts||[]).slice();
     // auto-baca nilai dari sheet meski beda huruf besar/kecil; jika tak ada, tampilkan apa adanya.
     if(val!=='' && !opts.some(o=>norm(o)===norm(val))) opts=[val].concat(opts);
-    inner = '<select data-k="'+esc(fd.k)+'"'+ro+'>'+
-      '<option value=""></option>'+
-      opts.map(o=>'<option'+(norm(o)===norm(val)?' selected':'')+'>'+esc(o)+'</option>').join('')+'</select>';
+    /* <select> tidak mengenal atribut readonly. Untuk mengunci pilihan, sisakan
+       satu opsi saja + kelas is-ro (nilainya tetap terkirim saat disimpan,
+       berbeda dengan disabled yang membuat nilainya hilang). */
+    if(ro){
+      inner = '<select data-k="'+esc(fd.k)+'" class="is-ro" tabindex="-1" '+
+        'onmousedown="return false" onkeydown="return false">'+
+        '<option selected>'+esc(val)+'</option></select>';
+    }else{
+      inner = '<select data-k="'+esc(fd.k)+'">'+
+        '<option value=""></option>'+
+        opts.map(o=>'<option'+(norm(o)===norm(val)?' selected':'')+'>'+esc(o)+'</option>').join('')+'</select>';
+    }
   } else if(fd.t==='textarea'){
     inner = '<textarea data-k="'+esc(fd.k)+'"'+ro+'>'+esc(val)+'</textarea>';
   } else if(fd.t==='file'){
@@ -8015,6 +8149,18 @@ function genId(prefix){
   const rnd=Math.random().toString(36).slice(2,5).toUpperCase();
   return prefix+'-'+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'-'+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds())+'-'+rnd;
 }
+/* Kolom yang tidak ada di database dibuang diam-diam oleh lapisan penyimpanan
+   (supaya data lain tetap tersimpan). Dulu ini membuat isian seperti Jenis
+   Pembelian & Foto "hilang" tanpa pesan apa pun. Sekarang selalu diberitahukan,
+   lengkap dengan perintah SQL untuk menambah kolomnya. */
+function peringatanKolomHilang(cols, sheet){
+  const list=(cols||[]).filter(Boolean);
+  if(!list.length) return;
+  const sql=list.map(c=>'ALTER TABLE "'+sheet+'" ADD COLUMN IF NOT EXISTS "'+c+'" text;').join('\n');
+  console.warn('Kolom belum ada di tabel '+sheet+':\n'+sql);
+  toast('Tersimpan, TAPI '+list.length+' kolom belum ada di database: '+list.join(', ')+
+        ' — jalankan SQL penambahan kolom (lihat Console).','err');
+}
 async function saveForm(){
   const v=state.view;
   const data = state.editing ? Object.assign({}, state.editing) : {};
@@ -8145,14 +8291,15 @@ async function saveForm(){
         data['Waktu Bukti Transfer']=state.files['Waktu Bukti Transfer'];
       }
       const res=await api({action:'update', sheet:v.sheet, idField:v.idField, id:state.editing[v.idField], data});
-      if(res && res.stripped && res.stripped.indexOf('Waktu Bukti Transfer')>=0){
-        toast('Tersimpan, TAPI kolom "Waktu Bukti Transfer" belum ada di database — jalankan SQL penambahan kolom.','err');
+      if(res && res.stripped && res.stripped.length){
+        peringatanKolomHilang(res.stripped, v.sheet);
       }else{
         toast('Perubahan tersimpan','ok');
       }
     }else{
-      await api({action:'create', sheet:v.sheet, data});
-      toast('Data ditambahkan','ok');
+      const res=await api({action:'create', sheet:v.sheet, data});
+      if(res && res.stripped && res.stripped.length) peringatanKolomHilang(res.stripped, v.sheet);
+      else toast('Data ditambahkan','ok');
       // Chat Harian: langsung buka WhatsApp berisi laporan hari itu.
       if(v.sheet==='CHAT_HARIAN'){ closeOverlay(); kirimChatHarianWa(data); invalidateLists(); await loadList(true); return; }
       if(v.keepOpen && !state.editing){
