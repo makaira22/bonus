@@ -1122,6 +1122,14 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 tr.rowclick{cursor:pointer}
 tr.rowclick:hover td{background:var(--surface-2)}
 
+/* Spanduk peringatan kolom database belum ada (Pengajuan Alat & Chemical) */
+.aju-warn{background:#FFF8E6;border:1px solid #E8C766;border-radius:14px;padding:13px 15px;margin-bottom:14px}
+.aju-warn-t{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:800;color:#8A6412}
+.aju-warn-t svg{width:16px;height:16px}
+.aju-warn-b{font-size:12.5px;color:#6B5210;line-height:1.55;margin:6px 0 9px}
+.aju-sql{background:#2B2411;color:#F3E4BE;border-radius:9px;padding:10px 12px;margin:0 0 9px;
+  font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;line-height:1.6;
+  white-space:pre;overflow:auto;max-height:190px}
 /* ---------- Kartu Pengajuan Alat & Chemical ---------- */
 /* Tampil di semua ukuran layar; tabelnya disembunyikan. */
 .card-list.aju-cards{display:flex}
@@ -3304,6 +3312,57 @@ function nowStr_(){ const d=new Date(), p=n=>String(n).padStart(2,'0');
 
 /* Deteksi kolom yang belum ada di tabel (Supabase PGRST204) agar penyimpanan
    tidak gagal total — kolom yang tidak dikenali otomatis dilewati. */
+/* ---------- PENGAJUAN ALAT & CHEMICAL: pemeriksa kolom database ----------
+   Kunci "anon" yang dipakai aplikasi tidak boleh mengubah struktur tabel
+   (ini memang disengaja demi keamanan), jadi penambahan kolom harus dijalankan
+   sekali di Supabase. Fungsi ini mendeteksi kolom mana yang belum ada supaya
+   tidak perlu menebak, lalu menyiapkan SQL-nya. */
+const AJU_KOLOM_WAJIB = ['Jenis Pembelian','Merk / Spesifikasi','Tingkat Urgensi',
+  'Satuan Lainnya','Foto 1','Foto 2','Foto 3','Foto 4','Foto 5'];
+async function ajuCekKolom(){
+  const hilang=[];
+  for(const c of AJU_KOLOM_WAJIB){
+    try{
+      const {error}=await window.sb.from('OPS_PENGAJUAN').select('"'+c+'"').limit(1);
+      if(error && /column|does not exist|schema cache/i.test(String(error.message||''))) hilang.push(c);
+    }catch(e){ /* jaringan bermasalah → jangan tampilkan peringatan palsu */ }
+  }
+  state.cache.ajuKolomHilang=hilang;
+  return hilang;
+}
+function ajuSqlPerbaikan(cols){
+  return (cols||[]).map(c=>'ALTER TABLE "OPS_PENGAJUAN" ADD COLUMN IF NOT EXISTS "'+c+'" text;').join('\n');
+}
+/* Spanduk peringatan di atas daftar pengajuan. */
+function ajuBannerHTML(){
+  const h=state.cache.ajuKolomHilang||[];
+  if(!h.length) return '';
+  return '<div class="aju-warn">'+
+    '<div class="aju-warn-t">'+svg('file')+' '+h.length+' kolom belum ada di database</div>'+
+    '<div class="aju-warn-b">Isian <b>'+esc(h.join(', '))+'</b> tidak akan tersimpan sampai kolomnya ditambahkan. '+
+      'Buka Supabase → SQL Editor, tempel perintah di bawah, lalu jalankan sekali.</div>'+
+    '<pre class="aju-sql" id="ajuSql">'+esc(ajuSqlPerbaikan(h))+'</pre>'+
+    '<button class="btn btn-ghost btn-sm" id="ajuSqlCopy">Salin SQL</button> '+
+    '<button class="btn btn-ghost btn-sm" id="ajuSqlCek">Periksa Ulang</button>'+
+  '</div>';
+}
+function wireAjuBanner(){
+  const c=document.getElementById('ajuSqlCopy');
+  if(c) c.addEventListener('click',()=>{
+    const t=(document.getElementById('ajuSql')||{}).textContent||'';
+    if(navigator.clipboard) navigator.clipboard.writeText(t).then(()=>toast('SQL disalin','ok'),()=>toast('Gagal menyalin','err'));
+    else toast('Salin manual dari kotak di atas','err');
+  });
+  const k=document.getElementById('ajuSqlCek');
+  if(k) k.addEventListener('click',async()=>{
+    setSync(true);
+    const h=await ajuCekKolom();
+    setSync(false);
+    if(!h.length) toast('Semua kolom sudah ada. Data akan tersimpan lengkap.','ok');
+    else toast('Masih ada '+h.length+' kolom yang belum dibuat.','err');
+    renderView();
+  });
+}
 function missingColName(err){
   const m=String((err&&err.message)||'');
   const mm = m.match(/Could not find the '([^']+)' column/i)
@@ -4063,6 +4122,7 @@ async function loadList(force){
     if(v.special==='dashboard') await loadDashData();
     if(v.special==='grafik') await loadDashData();
     if(v.special==='absensi'){ await loadCleanerList(); await loadAturanAbsen(); }
+    if(v.sheet==='OPS_PENGAJUAN' && !state.cache.ajuKolomHilang) await ajuCekKolom();
     if(v.special==='gaji') await loadHrdNama();
     if(v.bonusBtn) await ensureBonusOrderSet(true);
     renderView();
@@ -4287,10 +4347,10 @@ function renderTable(){
   if(v.sheet==='BONUS') rows=rows.slice().sort((a,b)=>String(a['Tanggal Pengerjaan']||'').localeCompare(String(b['Tanggal Pengerjaan']||'')));
   let summary=(v.sheet==='BONUS' && state.filters['Nama Cleaner']) ? bonusSummaryCard(rows, state.filters['Nama Cleaner']) : '';
   if(v.chatSum) summary += chatCsSummary(rows);
-  if(!rows.length){ $('#panel').innerHTML=summary+emptyState('Belum ada data');
+  if(!rows.length){ $('#panel').innerHTML=summary+(v.sheet==='OPS_PENGAJUAN'?ajuBannerHTML():'')+emptyState('Belum ada data');
     if(v.trxCount) setCountText('0 order · 0 transaksi'); else setCount(0,countNoun());
     setThpTotal(v.sheet==='GAJI' ? 0 : null);
-    wireSummary(); return; }
+    wireSummary(); if(v.sheet==='OPS_PENGAJUAN') wireAjuBanner(); return; }
   const cols=v.table.filter(c=>HIDDEN_COLS.indexOf(c)<0);
   const PAGE=15; const total=rows.length;
   let pageRows=rows, cardRows=rows, pagerHtml='', moreHtml='';
@@ -4483,6 +4543,10 @@ function renderTable(){
   if(v.sheet==='BONUS'){
     // Input Bonus: tabel disembunyikan (kartu di desktop & HP). Pager desktop tampil setelah kartu.
     $('#panel').innerHTML=summary+cardHtml+pagerHtml+moreHtml;
+  } else if(v.sheet==='OPS_PENGAJUAN'){
+    // Pengajuan: kartu sebagai tampilan utama + peringatan bila ada kolom yang belum dibuat.
+    $('#panel').innerHTML=summary+ajuBannerHTML()+html+cardHtml+moreHtml;
+    wireAjuBanner();
   } else {
     $('#panel').innerHTML=summary+html+cardHtml+moreHtml;
   }
@@ -8158,6 +8222,8 @@ function peringatanKolomHilang(cols, sheet){
   if(!list.length) return;
   const sql=list.map(c=>'ALTER TABLE "'+sheet+'" ADD COLUMN IF NOT EXISTS "'+c+'" text;').join('\n');
   console.warn('Kolom belum ada di tabel '+sheet+':\n'+sql);
+  // Segarkan daftar kolom hilang supaya spanduk di layar ikut mutakhir.
+  if(sheet==='OPS_PENGAJUAN'){ state.cache.ajuKolomHilang=list; }
   toast('Tersimpan, TAPI '+list.length+' kolom belum ada di database: '+list.join(', ')+
         ' — jalankan SQL penambahan kolom (lihat Console).','err');
 }
