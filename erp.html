@@ -370,6 +370,16 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .fin-notif-body .fn-big{font-size:17px;color:var(--danger);font-weight:800}
 .fin-notif-x{flex:none;border:none;background:none;color:var(--muted);font-size:15px;cursor:pointer;padding:2px 4px;line-height:1}
 .fin-notif-x:hover{color:var(--ink)}
+/* Notifikasi kedua diturunkan agar tidak menimpa notifikasi Quotation
+   (posisinya diatur oleh aturNotifStack di JS, karena urutan elemen di DOM
+   tidak selalu sama). */
+.fin-notif.stack-2{top:176px}
+@media (max-width:880px){ .fin-notif.stack-2{top:168px} }
+.fn-urg{margin-top:5px;font-size:11.5px;color:var(--danger);font-weight:700}
+.fn-go{margin-top:9px;display:inline-block;border:1px solid var(--gold);background:var(--gold-soft);
+  color:var(--gold-deep);font-family:var(--ui);font-size:11.5px;font-weight:800;
+  padding:5px 12px;border-radius:20px;cursor:pointer}
+.fn-go:hover{background:var(--gold);color:#3a2e10}
 @media (max-width:880px){ .fin-notif{top:62px;right:8px;left:8px;max-width:none} }
 
 /* ---------- IMAGE POPUP ---------- */
@@ -3682,6 +3692,8 @@ async function logout(){
   navSheetClose(); state.navOpen={}; state.navActive='';
   clearInterval(state._quoTimer); state._quoTimer=null; state._quoPrev=null;
   { const q=document.getElementById('quoNotif'); if(q) q.classList.remove('show'); }
+  clearInterval(state._ajuTimer); state._ajuTimer=null; state._ajuPrev=null;
+  { const aj=document.getElementById('ajuNotif'); if(aj) aj.classList.remove('show'); }
   if(state._finTimer){ clearInterval(state._finTimer); state._finTimer=null; }
   { const fn=document.getElementById('finNotif'); if(fn) fn.classList.remove('show'); }
   const cp=$('#chatPanel'); if(cp) cp.classList.remove('open');
@@ -3722,6 +3734,7 @@ function enterApp(){
   initFinanceNotif();
   absnInit();                 // tombol melayang Absen (khusus jabatan CS)
   initQuoNotif();             // notifikasi quotation menunggu persetujuan (OPERASIONAL)
+  initAjuNotif();             // notifikasi pengajuan alat & chemical (OPERASIONAL)
   runLoginPopups();
   document.body.classList.toggle('is-designer', s.role==='DESIGNER');
   if(!MENUS[s.role].length){ renderDesigner(); return; }
@@ -9740,7 +9753,8 @@ function showQuoNotif(count){
     '<b>Quotation</b> dari CS yang menunggu <b>persetujuan</b> Anda.</div>'+
     '<button class="fin-notif-x" id="quoNotifX" title="Tutup">✕</button>';
   el.classList.add('show');
-  document.getElementById('quoNotifX').onclick=()=>el.classList.remove('show');
+  aturNotifStack();
+  document.getElementById('quoNotifX').onclick=()=>{ el.classList.remove('show'); aturNotifStack(); };
 }
 async function quoNotifTick(){
   if(!state.session || state.session.role!=='OPERASIONAL') return;
@@ -9758,6 +9772,81 @@ function initQuoNotif(){
   state._quoPrev=null;
   quoNotifTick().then(()=>{ if(state._quoPrev>0) showQuoNotif(state._quoPrev); });  // saat login
   state._quoTimer=setInterval(quoNotifTick, 45*1000);
+}
+
+/* Menjaga notifikasi tidak saling menimpa: yang kedua digeser ke bawah,
+   dan bila yang pertama ditutup, yang kedua naik lagi ke atas. */
+function aturNotifStack(){
+  const q=document.getElementById('quoNotif');
+  const a=document.getElementById('ajuNotif');
+  if(!a) return;
+  const qTampil = q && q.classList.contains('show');
+  a.classList.toggle('stack-2', !!qTampil);
+}
+/* ---------- NOTIFIKASI PENGAJUAN ALAT & CHEMICAL (ke OPERASIONAL) ----------
+   Pola persis seperti notifikasi Quotation: menghitung pengajuan yang belum
+   ditinjau, muncul saat login bila sudah ada yang menunggu, dan muncul lagi
+   setiap ada pengajuan BARU dari CS. */
+async function ajuPendingCount(){
+  try{
+    const rows=(await api({action:'list', sheet:'OPS_PENGAJUAN'})).data||[];
+    /* "Menunggu" = status masih Baru ATAU belum diisi sama sekali. */
+    return rows.filter(r=>{
+      const s=norm(r['Status Pengajuan']);
+      return s==='' || s==='baru';
+    }).length;
+  }catch(e){ return null; }
+}
+function showAjuNotif(count, mendesak){
+  if(!(count>0)) return;
+  let el=document.getElementById('ajuNotif');
+  if(!el){ el=document.createElement('div'); el.id='ajuNotif'; el.className='fin-notif'; document.body.appendChild(el); }
+  el.innerHTML='<div class="fin-notif-ic">📦</div>'+
+    '<div class="fin-notif-body">Ada <span class="fn-big" id="ajuNotifCount">'+count+'</span> '+
+    '<b>Pengajuan Alat &amp; Chemical</b> dari CS yang menunggu <b>persetujuan</b> Anda.'+
+    (mendesak>0?'<div class="fn-urg">'+mendesak+' di antaranya <b>Mendesak</b></div>':'')+
+    '<button type="button" class="fn-go" id="ajuNotifGo">Buka pengajuan</button></div>'+
+    '<button class="fin-notif-x" id="ajuNotifX" title="Tutup">✕</button>';
+  el.classList.add('show');
+  aturNotifStack();
+  document.getElementById('ajuNotifX').onclick=()=>{ el.classList.remove('show'); aturNotifStack(); };
+  const go=document.getElementById('ajuNotifGo');
+  if(go) go.onclick=()=>{ el.classList.remove('show'); aturNotifStack();
+    opsGo(['opsOperasional','grpPengajuan','pengajuanAlat']); };
+}
+async function ajuNotifTick(){
+  if(!state.session || state.session.role!=='OPERASIONAL') return;
+  const count=await ajuPendingCount();
+  if(count==null) return;
+  let mendesak=0;
+  try{
+    const rows=(await api({action:'list', sheet:'OPS_PENGAJUAN'})).data||[];
+    mendesak=rows.filter(r=>{
+      const s=norm(r['Status Pengajuan']); const u=String(r['Tingkat Urgensi']||'');
+      return (s===''||s==='baru') && /mendesak/i.test(u) && !/tidak\s*mendesak/i.test(u);
+    }).length;
+  }catch(e){}
+  if(state._ajuPrev!=null && count>state._ajuPrev) showAjuNotif(count, mendesak);  // ada pengajuan BARU
+  state._ajuPrev=count;
+  const c=document.getElementById('ajuNotifCount'); if(c) c.textContent=count;
+  const el=document.getElementById('ajuNotif');
+  if(el && el.classList.contains('show') && count<=0) el.classList.remove('show');
+  aturNotifStack();
+}
+function initAjuNotif(){
+  clearInterval(state._ajuTimer);
+  if(!state.session || state.session.role!=='OPERASIONAL') return;
+  state._ajuPrev=null;
+  ajuNotifTick().then(()=>{ if(state._ajuPrev>0) showAjuNotifAwal(); });   // saat login
+  state._ajuTimer=setInterval(ajuNotifTick, 45*1000);
+}
+/* Tampilkan sekali saat login bila sudah ada yang menunggu. */
+async function showAjuNotifAwal(){
+  const rows=(await api({action:'list', sheet:'OPS_PENGAJUAN'})).data||[];
+  const belum=rows.filter(r=>{ const s=norm(r['Status Pengajuan']); return s===''||s==='baru'; });
+  const mendesak=belum.filter(r=>{ const u=String(r['Tingkat Urgensi']||'');
+    return /mendesak/i.test(u) && !/tidak\s*mendesak/i.test(u); }).length;
+  showAjuNotif(belum.length, mendesak);
 }
 
 /* ============================================================
