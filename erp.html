@@ -268,6 +268,34 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .field label.chk{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:600;color:var(--ink);
   cursor:pointer;padding:11px 12px;border:1px solid var(--line-2);border-radius:11px;background:var(--surface)}
 .field label.chk input{width:18px;height:18px;accent-color:var(--petrol);cursor:pointer}
+/* Ceklist yang dikunci (mis. PPn pada order baru) */
+.field label.chk.chk-lock{cursor:default;background:var(--surface-2);border-style:dashed}
+.field label.chk.chk-lock input{cursor:default}
+.chk-lock-b{margin-left:auto;font-size:10px;font-weight:800;letter-spacing:.03em;
+  padding:2px 8px;border-radius:20px;background:var(--gold-soft);color:var(--gold-deep)}
+/* Penanda "Bayar Sesuai PPn" (jawaban CS saat unggah bukti) */
+.ppn-chip{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.02em;
+  padding:2px 9px;border-radius:20px;white-space:nowrap}
+.ppn-chip.ya{background:#E7F6EC;color:#1B7F45}
+.ppn-chip.no{background:#FDECEC;color:#B3261E}
+/* Dialog konfirmasi PPn */
+.ppn-rinci{background:var(--surface-2);border:1px solid var(--line);border-radius:11px;
+  padding:10px 13px;margin:11px 0}
+.ppn-rinci>div{display:flex;justify-content:space-between;gap:12px;font-size:12.5px;
+  color:var(--muted);padding:3px 0}
+.ppn-rinci>div b{color:var(--ink);font-variant-numeric:tabular-nums}
+.ppn-rinci .ppn-tot{border-top:1px solid var(--line);margin-top:5px;padding-top:7px;font-weight:700}
+.ppn-rinci .ppn-tot span{color:var(--ink)}
+.ppn-pil{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:13px}
+.ppn-b{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;
+  padding:13px 10px;border-radius:12px;border:1.5px solid var(--line-2);background:var(--surface);
+  font-family:var(--ui);transition:border-color .12s ease,background .12s ease}
+.ppn-b b{font-size:15px;letter-spacing:.03em}
+.ppn-b span{font-size:10.5px;color:var(--muted);text-align:center;line-height:1.4}
+.ppn-b.ya b{color:#1B7F45}
+.ppn-b.no b{color:#B3261E}
+.ppn-b.ya:hover{border-color:#1B7F45;background:#E7F6EC}
+.ppn-b.no:hover{border-color:#B3261E;background:#FDECEC}
 .os-wrap{position:relative}
 .os-input{cursor:text}
 .os-list{display:none;position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:50;max-height:260px;overflow:auto;
@@ -1989,7 +2017,8 @@ const ORDER_FORM = [
   f('Layanan 2','dynselect',{list:'layanan', svc:2}), f('Qty 2','text',{svc:2}), f('Harga 2','money',{svc:2}),
   f('Layanan 3','dynselect',{list:'layanan', svc:3}), f('Qty 3','text',{svc:3}), f('Harga 3','money',{svc:3}),
   f('Metode Pembayaran','select',{opts:METODE}),
-  f('Diskon (%)','num'), f('PPn','check',{label:'Kena PPn 11%'}),
+  f('Diskon (%)','num'), f('PPn','check',{label:'Kena PPn 11%', lockNew:true,
+    help:'Order baru selalu kena PPn 11%'}),
   f('Total Akhir','money',{computed:true}),
   f('Total Akhir Setelah Diskon','money',{computed:true}),
   f('Total Tagihan','money',{computed:true}),
@@ -2161,8 +2190,8 @@ const VIEWS = {
     sheet:'ORDER', title:'Audit Order', sub:'', branchLock:false, hub:'audit', trxCount:true,
     idField:'ID Order', statusClient:['done'], statusPrio:['done'], paged:true, revertPending:true,
     approve:true, multiApprove:true, statusBadge:true, invoice:true, rowDetail:true, countTop:true, noSyncBtn:true,
-    table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Metode Pembayaran','PPn','Total Akhir Setelah Diskon','Waktu Bukti Transfer','Bukti Transfer'],
-    colLabel:{'Waktu Bukti Transfer':'Waktu Bukti','Total Akhir Setelah Diskon':'Total'},
+    table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Metode Pembayaran','PPn','Bayar Sesuai PPn','Total Akhir Setelah Diskon','Waktu Bukti Transfer','Bukti Transfer'],
+    colLabel:{'Waktu Bukti Transfer':'Waktu Bukti','Total Akhir Setelah Diskon':'Total','Bayar Sesuai PPn':'Sesuai PPn'},
     filters:['Cabang'],
     search:['Nama Customer','ID Order'],
     datePreset:true, dateFilterField:'Tanggal Pengerjaan'
@@ -4491,6 +4520,8 @@ function renderTable(){
           (r['Nama Cleaner']?(' · '+esc(r['Nama Cleaner'])):'')+'</span></div>'+
         (layananRingkas(r)?'<div class="ocard-meta"><span class="ocard-svc">'+esc(layananRingkas(r))+'</span></div>':'')+
         (r['Waktu Bukti Transfer']?'<div class="ocard-meta">'+svg('file')+'<span>Waktu bukti: '+esc(fmtWaktu(r['Waktu Bukti Transfer']))+'</span></div>':'')+
+        /* Jawaban CS saat mengunggah bukti: pembayaran sudah termasuk PPn atau belum. */
+        (ppnChipHTML(r))+
         (actInner?'<div class="ocard-act">'+actInner+'</div>':'')+
       '</div>';
     }).join('')+'</div>';
@@ -4945,6 +4976,66 @@ function konfirmasiMetode(o){
     };
   });
 }
+/* ============================================================
+   KONFIRMASI PEMBAYARAN SESUAI PPn — setelah bukti transfer dipilih.
+   Menjawab: nominal yang ditransfer customer sudah termasuk PPn atau belum.
+   Wajib dijawab. Balikan: 'YA' / 'TIDAK' · null bila dibatalkan.
+   ============================================================ */
+function konfirmasiPpn(o, jumlahBukti){
+  return new Promise(resolve=>{
+    const kenaPpn = Number(moneyDigits((o&&o['PPn'])||0))>0;
+    const T = orderTotals(o||{});
+    const wrap=document.createElement('div');
+    wrap.className='kmp-wrap';
+    wrap.innerHTML=
+      '<div class="kmp-box" role="dialog" aria-modal="true">'+
+        '<div class="kmp-head">'+
+          '<div class="kmp-ic warn">'+svg('file')+'</div>'+
+          '<div><div class="kmp-t">Pembayaran sesuai PPn?</div>'+
+          '<div class="kmp-s">'+esc((o&&o['Nama Customer'])||'-')+' · '+
+            (jumlahBukti>1?'2 bukti':'1 bukti')+'</div></div>'+
+        '</div>'+
+        '<div class="kmp-body">'+
+          '<div class="kmp-note">Apakah nominal yang ditransfer customer <b>sudah termasuk PPn</b>?</div>'+
+          (kenaPpn
+            ? '<div class="ppn-rinci">'+
+                '<div><span>Sebelum PPn</span><b>'+rp(T.afterDisc)+'</b></div>'+
+                '<div><span>PPn 11%</span><b>'+rp(T.ppnNilai)+'</b></div>'+
+                '<div class="ppn-tot"><span>Total tagihan</span><b>'+rp(T.grand)+'</b></div>'+
+              '</div>'
+            : '<div class="kmp-note">Order ini tercatat <b>tanpa PPn</b>. Bila ternyata customer membayar termasuk PPn, pilih YA.</div>')+
+          '<div class="ppn-pil">'+
+            '<button class="ppn-b ya" id="ppnYa"><b>YA</b><span>Sudah termasuk PPn</span></button>'+
+            '<button class="ppn-b no" id="ppnNo"><b>TIDAK</b><span>Belum termasuk PPn</span></button>'+
+          '</div>'+
+        '</div>'+
+        '<div class="kmp-foot">'+
+          '<button class="btn btn-ghost" id="ppnBatal">Batal</button>'+
+        '</div>'+
+      '</div>';
+    document.body.appendChild(wrap);
+    const tutup=val=>{ wrap.remove(); document.removeEventListener('keydown', onKey); resolve(val); };
+    const onKey=e=>{ if(e.key==='Escape') tutup(null); };
+    document.addEventListener('keydown', onKey);
+    wrap.querySelector('#ppnYa').onclick   =()=>tutup('YA');
+    wrap.querySelector('#ppnNo').onclick   =()=>tutup('TIDAK');
+    wrap.querySelector('#ppnBatal').onclick=()=>tutup(null);
+    wrap.addEventListener('click', e=>{ if(e.target===wrap) tutup(null); });
+  });
+}
+/* Nilai kolom "Bayar Sesuai PPn" (YA/TIDAK) — dijawab CS saat unggah bukti. */
+function ppnSesuaiVal(r){
+  const s=norm((r&&r['Bayar Sesuai PPn'])||'');
+  if(s==='ya'||s==='true'||s==='1') return 'YA';
+  if(s==='tidak'||s==='false'||s==='0') return 'TIDAK';
+  return '';                       // belum dijawab (order lama)
+}
+function ppnChipHTML(r){
+  const v=ppnSesuaiVal(r);
+  if(!v) return '';
+  return '<div class="ocard-meta"><span class="ppn-chip '+(v==='YA'?'ya':'no')+'">'+
+    'Sesuai PPn: '+v+'</span></div>';
+}
 async function quickUploadProof(oid){
   // Cek metode pembayaran DULU, sebelum memilih berkas — supaya tidak sia-sia
   // memilih foto lalu ditolak. Kosong = tidak bisa lanjut sama sekali.
@@ -4955,6 +5046,10 @@ async function quickUploadProof(oid){
   const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*,application/pdf'; inp.multiple=true;
   inp.addEventListener('change', async ()=>{
     const files=Array.from(inp.files||[]).slice(0,2); if(!files.length) return;   // maks 2 gambar
+    /* Tanya kesesuaian PPn SEBELUM mengunggah — kalau dibatalkan, tidak ada
+       berkas yang terlanjur naik ke penyimpanan. */
+    const ppnSesuai=await konfirmasiPpn(ord, files.length);
+    if(ppnSesuai===null) return;                 // dibatalkan
     showLoad(true);
     const urls=[];
     try{
@@ -4969,7 +5064,7 @@ async function quickUploadProof(oid){
       // (Dulu waktu bukti ditulis lewat update terpisah yang error-nya ditelan diam-diam,
       //  sehingga kolomnya selalu kosong tanpa ada tanda apa pun.)
       const data={'Bukti Transfer':urls[0], 'Status Order':'done', 'Waktu Bukti Transfer':nowStr_(),
-                  'Metode Pembayaran':metode};
+                  'Metode Pembayaran':metode, 'Bayar Sesuai PPn':ppnSesuai};
       if(urls[1]) data['Bukti Transfer 2']=urls[1];   // gambar ke-2 (opsional)
       const res=await api({action:'update', sheet:'ORDER', id:oid, data});
       if(res && res.updated===0){
@@ -4977,12 +5072,13 @@ async function quickUploadProof(oid){
         toast('GAGAL: database menolak perubahan (0 baris berubah). Cek policy UPDATE tabel ORDER.','err');
         return;
       }
-      if(res && res.stripped && res.stripped.indexOf('Waktu Bukti Transfer')>=0){
-        toast('Bukti tersimpan, TAPI kolom "Waktu Bukti Transfer" belum ada di database — jalankan SQL penambahan kolom.','err');
+      if(res && res.stripped && res.stripped.length){
+        peringatanKolomHilang(res.stripped, 'ORDER');
       }else{
         const ganti = ord && String(ord['Metode Pembayaran']||'').trim()!==metode;
         toast((urls.length>1?'2 bukti transfer terunggah':'Bukti transfer terunggah')+
-              ' ✓ · metode: '+metode+(ganti?' (diperbarui)':''),'ok');
+              ' ✓ · metode: '+metode+(ganti?' (diperbarui)':'')+
+              ' · sesuai PPn: '+ppnSesuai,'ok');
       }
       invalidateLists(); await loadList(true);
     }catch(err){ toast('Gagal simpan order: '+(err.message||err),'err'); }
@@ -5013,6 +5109,8 @@ function showOrderDetail(o){
   [1,2,3].forEach(i=>{ if(o['Layanan '+i]||o['Harga '+i]) b+=row(esc(o['Layanan '+i]||'-')+(o['Qty '+i]?(' · '+esc(o['Qty '+i])):''), rp(Number(o['Harga '+i]||0))); });
   b+=row('Diskon', (Number(o['Diskon (%)']||0))+'%');
   b+=row('PPn', (Number(moneyDigits(o['PPn']))>0?'11%':'-'));
+  { const p=ppnSesuaiVal(o);
+    if(p) b+=row('Bayar Sesuai PPn', '<span class="ppn-chip '+(p==='YA'?'ya':'no')+'">'+p+'</span>'); }
   b+=row('Total Akhir', rp(o['Total Akhir']||0));
   b+=row('Total Tagihan', rp(o['Total Akhir Setelah Diskon']||0));
   if(o['Keterangan Order']) b+=row('Keterangan', esc(o['Keterangan Order']));
@@ -7178,6 +7276,12 @@ function cell(v,c,r){
   if(c==='PPn'){
     return Number(moneyDigits(val))>0 ? '11%' : '<span style="color:var(--faint)">—</span>';
   }
+  /* Jawaban CS saat unggah bukti transfer: nominal sudah termasuk PPn atau belum. */
+  if(c==='Bayar Sesuai PPn'){
+    const p=ppnSesuaiVal(r);
+    return p ? '<span class="ppn-chip '+(p==='YA'?'ya':'no')+'">'+p+'</span>'
+             : '<span style="color:var(--faint)">—</span>';
+  }
   if(/^Waktu /.test(c)){
     return val!=null && val!=='' ? esc(fmtWaktu(val)) : '<span style="color:var(--faint)">—</span>';
   }
@@ -7360,7 +7464,9 @@ function repeatOrder(c){
     'Tanggal Pengerjaan': ymd(new Date()),    // selalu hari ini — jangan ikut tanggal lama
     'Metode Pembayaran': r['Metode Pembayaran']||'',
     'Diskon (%)': r['Diskon (%)']||'',
-    'PPn': r['PPn']||0
+    /* Order baru dari pelanggan lama TETAP kena PPn, walau order lamanya
+       dulu tidak kena. Yang disalin hanya data pelanggan & layanannya. */
+    'PPn': PPN_DEFAULT
   };
   [1,2,3].forEach(i=>{
     if(String(r['Layanan '+i]||'').trim()){
@@ -7375,7 +7481,9 @@ function defaults(v){
   const d={}; const today=ymd(new Date());
   if(v.sheet==='ORDER'){ d['Tanggal Input']=today; d['Status Order']='pending';
     d['Cabang']=state.session.cabang; d['CS Penanggung Jawab']=state.session.nama;
-    d['PPn']=0; }
+    /* Order BARU selalu kena PPn (dikunci di form). Order lama tidak diubah:
+       yang dulu tanpa PPn tetap tanpa PPn. */
+    d['PPn']=PPN_DEFAULT; }
   if(v.sheet==='BONUS'){ d['Tanggal Input']=today; }
   if(v.sheet==='GAJI'){ d['Tanggal Cetak']=today;
     // Gaji Harian: komponen bulanan tidak berlaku → default 0 & BPJS tidak aktif.
@@ -7447,9 +7555,17 @@ function renderField(fd, val){
       on = numv>0;
       dc = (fd.k==='Premi BPJS') ? (on?numv:35000) : 11;
     }
+    /* lockNew: pada data BARU nilainya dipaksa aktif & tidak bisa dilepas.
+       Saat MENGEDIT data lama, biarkan apa adanya supaya order lama yang
+       dulu tanpa PPn tidak ikut berubah. */
+    const kunci = fd.lockNew && !state.editing;
+    if(kunci) on = true;
     return '<div class="field'+full+hidden+'"><label>&nbsp;</label>'+
-      '<label class="chk"><input type="checkbox" data-k="'+esc(fd.k)+'" data-check="'+dc+'"'+(on?' checked':'')+'> '+
-      '<span class="chk-label">'+esc(fd.label||fd.k)+'</span></label>'+
+      '<label class="chk'+(kunci?' chk-lock':'')+'">'+
+      '<input type="checkbox" data-k="'+esc(fd.k)+'" data-check="'+dc+'"'+(on?' checked':'')+
+        (kunci?' onclick="return false" tabindex="-1"':'')+'> '+
+      '<span class="chk-label">'+esc(fd.label||fd.k)+'</span>'+
+      (kunci?'<span class="chk-lock-b">otomatis</span>':'')+'</label>'+
       (fd.help?'<div class="bs-sub" style="margin-top:5px">'+esc(fd.help)+'</div>':'')+'</div>';
   }
   if(fd.t==='timesel'){
@@ -9112,7 +9228,7 @@ function csvFormList(){
 const DL_COLS = {
   ORDER: ['Nama Hari','Tanggal Pengerjaan','Nama Cleaner','Jam Pengerjaan','Nama Customer',
           'Alamat Customer','Nomor WA Customer','Layanan Yang Dipesan','Qty','Nominal Layanan',
-          'PPn','Nominal PPn','Metode Pembayaran','Status Order'],
+          'PPn','Nominal PPn','Bayar Sesuai PPn','Metode Pembayaran','Status Order'],
   GAJI:  ['Nama Cleaner','Total Bonus','Gaji Diterima','Total Potongan','Take Home Pay']
 };
 function dlLayananOf(r){
@@ -9153,6 +9269,7 @@ function dlBuildRows(sheet, ym, cab, st){
         r['No WA Customer']||'',
         null, null, null,            // layanan, qty, nominal — diisi di bawah
         null, null,                  // PPn (YA/TIDAK) & Nominal PPn — diisi di bawah
+        ppnSesuaiVal(r) || '—',      // jawaban CS saat unggah bukti transfer
         r['Metode Pembayaran']||'',
         r['Status Order']||''
       ];
