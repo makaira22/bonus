@@ -5035,6 +5035,20 @@ function konfirmasiMetode(o){
    Menjawab: nominal yang ditransfer customer sudah termasuk PPn atau belum.
    Wajib dijawab. Balikan: 'YA' / 'TIDAK' · null bila dibatalkan.
    ============================================================ */
+/* Nilai kolom "Bayar Sesuai PPn" (YA/TIDAK) — dijawab CS saat unggah bukti. */
+function ppnSesuaiVal(r){
+  const s=norm((r&&r['Bayar Sesuai PPn'])||'');
+  if(s==='ya'||s==='true'||s==='1') return 'YA';
+  if(s==='tidak'||s==='false'||s==='0') return 'TIDAK';
+  return '';                       // belum dijawab (order lama)
+}
+/* Penanda kecil di kartu Order. Kosong bila belum pernah dijawab. */
+function ppnChipHTML(r){
+  const v=ppnSesuaiVal(r);
+  if(!v) return '';
+  return '<div class="ocard-meta"><span class="ppn-chip '+(v==='YA'?'ya':'no')+'">'+
+    'Sesuai Tax: '+v+'</span></div>';
+}
 function konfirmasiPpn(o, jumlahBukti){
   return new Promise(resolve=>{
     /* Hitung dua kemungkinan total:
