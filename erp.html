@@ -8181,23 +8181,28 @@ function invoiceStempelSVG(jenis){
   const teks  = lunas ? 'LUNAS' : 'DP';
   const sub   = lunas ? 'PAID IN FULL' : 'DOWN PAYMENT';
   const fs    = lunas ? 30 : 42;                       // "DP" lebih pendek → huruf lebih besar
-  return ''+
-  '<svg width="82" height="82" viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg" '+
-       'style="position:absolute;left:50%;top:-22px;transform:translateX(-50%) rotate(-14deg);'+
-       'opacity:.72;pointer-events:none">'+
-    '<g fill="none" stroke="'+warna+'" stroke-width="3">'+
-      '<circle cx="75" cy="75" r="66"/>'+
-      '<circle cx="75" cy="75" r="57" stroke-width="1.5"/>'+
+  /* Seluruh isi diputar lewat atribut transform SVG (bukan CSS), dan hasilnya
+     dipakai sebagai <img> data-URI. html2canvas merender <img> dengan andal,
+     sedangkan SVG sebaris ber-CSS-transform sering terpotong. */
+  const svg =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 150 150">'+
+    '<g transform="rotate(-14 75 75)" opacity="0.6">'+
+      '<circle cx="75" cy="75" r="62" fill="none" stroke="'+warna+'" stroke-width="4"/>'+
+      '<circle cx="75" cy="75" r="53" fill="none" stroke="'+warna+'" stroke-width="2"/>'+
+      '<text x="75" y="74" text-anchor="middle" fill="'+warna+'" '+
+        'font-family="Arial,Helvetica,sans-serif" font-size="'+fs+'" font-weight="bold" '+
+        'letter-spacing="2">'+teks+'</text>'+
+      '<text x="75" y="92" text-anchor="middle" fill="'+warna+'" '+
+        'font-family="Arial,Helvetica,sans-serif" font-size="9" font-weight="bold" '+
+        'letter-spacing="1.5">'+sub+'</text>'+
+      '<line x1="34" y1="100" x2="116" y2="100" stroke="'+warna+'" stroke-width="2"/>'+
+      '<text x="75" y="114" text-anchor="middle" fill="'+warna+'" '+
+        'font-family="Arial,Helvetica,sans-serif" font-size="8" font-weight="bold" '+
+        'letter-spacing="1">KLINKLIN</text>'+
     '</g>'+
-    '<text x="75" y="70" text-anchor="middle" fill="'+warna+'" '+
-      'font-family="Arial Black, Arial, sans-serif" font-size="'+fs+'" font-weight="900" '+
-      'letter-spacing="2">'+teks+'</text>'+
-    '<text x="75" y="90" text-anchor="middle" fill="'+warna+'" '+
-      'font-family="Arial, sans-serif" font-size="9" font-weight="700" letter-spacing="1.5">'+sub+'</text>'+
-    '<line x1="30" y1="99" x2="120" y2="99" stroke="'+warna+'" stroke-width="1.5"/>'+
-    '<text x="75" y="113" text-anchor="middle" fill="'+warna+'" '+
-      'font-family="Arial, sans-serif" font-size="8" font-weight="700" letter-spacing="1">KLINKLIN</text>'+
   '</svg>';
+  return '<img src="data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg)+'" alt="'+teks+'" '+
+    'style="position:absolute;left:69px;top:-17px;width:82px;height:82px">';
 }
 function buildInvoiceHTML(o, stempel){
   o=o||{};
@@ -8295,13 +8300,14 @@ function buildInvoiceHTML(o, stempel){
         '<div style="margin-top:16px;padding:10px 14px;background:#f4f7fa;border:1px solid '+LINE+';border-radius:8px;font-size:11.5px;color:#131A2B">'+
           '<b>Terbilang:</b> <i>'+esc(terbilangRp(grand))+'</i></div>'+
         // footer — juga tanpa tabel (div + absolut) agar tanda tangan tidak terpotong
-        '<div style="position:relative;margin-top:22px;border-top:1px solid '+LINE+';min-height:86px">'+
+        '<div style="position:relative;margin-top:22px;border-top:1px solid '+LINE+';min-height:104px">'+
           '<div style="position:absolute;left:0;bottom:0;width:420px;font-size:11px;color:'+MUT+';line-height:1.5">Terima kasih telah mempercayakan kebersihan Anda kepada KLINKLIN. Simpan invoice ini sebagai bukti transaksi.</div>'+
           '<div style="position:absolute;right:20px;top:14px;width:220px;text-align:center">'+
             '<div style="font-size:11px;color:'+MUT+'">Hormat kami,</div>'+
             /* Stempel melayang di antara "Hormat kami," dan nama penanda tangan.
-               Dibungkus position:relative agar posisinya terkunci ke area ini. */
-            '<div style="position:relative">'+
+               Tinggi pembungkus dikunci (48px = tinggi tanda tangan + jarak)
+               supaya stempel tidak menggeser tata letak dan tidak terpotong. */
+            '<div style="position:relative;height:48px">'+
               invoiceStempelSVG(stempel)+
               '<img src="https://klinklin.online/Screenshot_2026-07-07_095820-removebg-preview.png" alt="Tanda Tangan" crossorigin="anonymous" style="display:block;margin:2px auto 0;height:46px;object-fit:contain">'+
             '</div>'+
