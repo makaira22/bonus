@@ -7145,10 +7145,10 @@ function showInvoiceChoice(anchor, o){
     '<button class="pickmenu-item" id="invDl">'+svg('file')+'<span>Download PDF</span></button>'+
     '<button class="pickmenu-item" id="invPrint">'+svg('file')+'<span>Cetak</span></button>'+
     '<button class="pickmenu-item" id="invWa">'+svg('wa')+'<span>Kirim ke WA Customer</span></button>'+
-    /* Stempel — invoice yang sama, ditambah cap LUNAS atau DP. */
-    '<div class="pickmenu-head pickmenu-sep">Dengan Stempel</div>'+
-    '<button class="pickmenu-item" id="invLunas"><span class="stmp-dot lunas"></span><span>LUNAS</span></button>'+
-    '<button class="pickmenu-item" id="invDp"><span class="stmp-dot dp"></span><span>DP (Down Payment)</span></button>';
+    /* Stempel — langsung membuka dialog cetak dengan cap terpasang. */
+    '<div class="pickmenu-head pickmenu-sep">Cetak Dengan Stempel</div>'+
+    '<button class="pickmenu-item" id="invLunas"><span class="stmp-dot lunas"></span><span>Cetak LUNAS</span></button>'+
+    '<button class="pickmenu-item" id="invDp"><span class="stmp-dot dp"></span><span>Cetak DP</span></button>';
   document.body.appendChild(m);
   const r=anchor.getBoundingClientRect();
   m.style.top=(r.bottom+window.scrollY+6)+'px';
@@ -7159,28 +7159,8 @@ function showInvoiceChoice(anchor, o){
     downloadInvoice(o);
     openWa(o['No WA Customer'], invoiceWaText(o), o['Nama Customer']);
   });
-  m.querySelector('#invLunas').addEventListener('click', ()=>{ closePickMenu(); showStempelChoice(anchor, o, 'LUNAS'); });
-  m.querySelector('#invDp').addEventListener('click',    ()=>{ closePickMenu(); showStempelChoice(anchor, o, 'DP'); });
-  setTimeout(()=>document.addEventListener('click', closePickMenu, {once:true}), 0);
-}
-/* Setelah memilih stempel, tanyakan mau diapakan: unduh, cetak, atau kirim WA. */
-function showStempelChoice(anchor, o, jenis){
-  closePickMenu();
-  const m=document.createElement('div'); m.className='pickmenu'; m.id='pickmenu';
-  m.innerHTML='<div class="pickmenu-head">Invoice + Stempel '+esc(jenis)+'</div>'+
-    '<button class="pickmenu-item" id="stDl">'+svg('file')+'<span>Download PDF</span></button>'+
-    '<button class="pickmenu-item" id="stPrint">'+svg('file')+'<span>Cetak</span></button>'+
-    '<button class="pickmenu-item" id="stWa">'+svg('wa')+'<span>Kirim ke WA Customer</span></button>';
-  document.body.appendChild(m);
-  const r=anchor.getBoundingClientRect();
-  m.style.top=(r.bottom+window.scrollY+6)+'px';
-  m.style.left=Math.max(8,Math.min(r.left+window.scrollX, window.innerWidth-230))+'px';
-  m.querySelector('#stDl').addEventListener('click', ()=>{ closePickMenu(); downloadInvoice(o, jenis); });
-  m.querySelector('#stPrint').addEventListener('click', ()=>{ closePickMenu(); printInvoice(o, jenis); });
-  m.querySelector('#stWa').addEventListener('click', ()=>{ closePickMenu();
-    downloadInvoice(o, jenis);
-    openWa(o['No WA Customer'], invoiceWaText(o, jenis), o['Nama Customer']);
-  });
+  m.querySelector('#invLunas').addEventListener('click', ()=>{ closePickMenu(); printInvoice(o, 'LUNAS'); });
+  m.querySelector('#invDp').addEventListener('click',    ()=>{ closePickMenu(); printInvoice(o, 'DP'); });
   setTimeout(()=>document.addEventListener('click', closePickMenu, {once:true}), 0);
 }
 function invoiceWaText(o, stempel){
