@@ -674,6 +674,12 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
   border-radius:9px;font-size:13.5px;font-weight:600;color:var(--ink)}
 .pickmenu-item:hover{background:var(--surface-2)}
 .pickmenu-item svg{width:16px;height:16px;color:#25D366;flex:none}
+/* Bagian "Dengan Stempel" pada menu Invoice */
+.pickmenu-sep{border-top:1px solid var(--line);margin-top:5px;padding-top:9px}
+.stmp-dot{width:16px;height:16px;border-radius:50%;flex:none;border:2.5px solid currentColor;
+  display:inline-block}
+.stmp-dot.lunas{color:#1B7F45}
+.stmp-dot.dp{color:#B3261E}
 .bonus-summary{border:1px solid var(--line);border-radius:16px;background:var(--surface);
   box-shadow:var(--shadow);margin-bottom:16px;overflow:hidden}
 .bs-top{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
@@ -7138,7 +7144,11 @@ function showInvoiceChoice(anchor, o){
   m.innerHTML='<div class="pickmenu-head">Invoice</div>'+
     '<button class="pickmenu-item" id="invDl">'+svg('file')+'<span>Download PDF</span></button>'+
     '<button class="pickmenu-item" id="invPrint">'+svg('file')+'<span>Cetak</span></button>'+
-    '<button class="pickmenu-item" id="invWa">'+svg('wa')+'<span>Kirim ke WA Customer</span></button>';
+    '<button class="pickmenu-item" id="invWa">'+svg('wa')+'<span>Kirim ke WA Customer</span></button>'+
+    /* Stempel — invoice yang sama, ditambah cap LUNAS atau DP. */
+    '<div class="pickmenu-head pickmenu-sep">Dengan Stempel</div>'+
+    '<button class="pickmenu-item" id="invLunas"><span class="stmp-dot lunas"></span><span>LUNAS</span></button>'+
+    '<button class="pickmenu-item" id="invDp"><span class="stmp-dot dp"></span><span>DP (Down Payment)</span></button>';
   document.body.appendChild(m);
   const r=anchor.getBoundingClientRect();
   m.style.top=(r.bottom+window.scrollY+6)+'px';
@@ -7149,12 +7159,38 @@ function showInvoiceChoice(anchor, o){
     downloadInvoice(o);
     openWa(o['No WA Customer'], invoiceWaText(o), o['Nama Customer']);
   });
+  m.querySelector('#invLunas').addEventListener('click', ()=>{ closePickMenu(); showStempelChoice(anchor, o, 'LUNAS'); });
+  m.querySelector('#invDp').addEventListener('click',    ()=>{ closePickMenu(); showStempelChoice(anchor, o, 'DP'); });
   setTimeout(()=>document.addEventListener('click', closePickMenu, {once:true}), 0);
 }
-function invoiceWaText(o){
+/* Setelah memilih stempel, tanyakan mau diapakan: unduh, cetak, atau kirim WA. */
+function showStempelChoice(anchor, o, jenis){
+  closePickMenu();
+  const m=document.createElement('div'); m.className='pickmenu'; m.id='pickmenu';
+  m.innerHTML='<div class="pickmenu-head">Invoice + Stempel '+esc(jenis)+'</div>'+
+    '<button class="pickmenu-item" id="stDl">'+svg('file')+'<span>Download PDF</span></button>'+
+    '<button class="pickmenu-item" id="stPrint">'+svg('file')+'<span>Cetak</span></button>'+
+    '<button class="pickmenu-item" id="stWa">'+svg('wa')+'<span>Kirim ke WA Customer</span></button>';
+  document.body.appendChild(m);
+  const r=anchor.getBoundingClientRect();
+  m.style.top=(r.bottom+window.scrollY+6)+'px';
+  m.style.left=Math.max(8,Math.min(r.left+window.scrollX, window.innerWidth-230))+'px';
+  m.querySelector('#stDl').addEventListener('click', ()=>{ closePickMenu(); downloadInvoice(o, jenis); });
+  m.querySelector('#stPrint').addEventListener('click', ()=>{ closePickMenu(); printInvoice(o, jenis); });
+  m.querySelector('#stWa').addEventListener('click', ()=>{ closePickMenu();
+    downloadInvoice(o, jenis);
+    openWa(o['No WA Customer'], invoiceWaText(o, jenis), o['Nama Customer']);
+  });
+  setTimeout(()=>document.addEventListener('click', closePickMenu, {once:true}), 0);
+}
+function invoiceWaText(o, stempel){
   const rp_=n=>'Rp '+Number(moneyDigits(n)||0).toLocaleString('id-ID');
+  const j=norm(stempel);
+  const ket = j==='lunas' ? '\nStatus: LUNAS ✅'
+            : (j==='dp'   ? '\nStatus: DP (Down Payment)' : '');
   return 'Halo '+(o['Nama Customer']||'')+' 🙏\n\nBerikut invoice pesanan Anda:\nNo: '+(o['ID Order']||'')+
     '\nTanggal: '+tglPanjangId(o['Tanggal Pengerjaan'])+'\nTotal: '+rp_(o['Total Akhir Setelah Diskon']||o['Total Akhir'])+
+    ket+
     '\n\nNote : File ini berformat PDF gunakan aplikasi yang mendukung format tersebut';
 }
 function showCleanerPopup(anchor, names){
@@ -8147,7 +8183,43 @@ function terbilangRp(n){ let t=_terbilang(n); t=t.charAt(0).toUpperCase()+t.slic
 function terbilangRpKapital(n){
   return (_terbilang(n)+' rupiah').replace(/\S+/g, w=>w.charAt(0).toUpperCase()+w.slice(1));
 }
-function buildInvoiceHTML(o){
+/* ============================================================
+   STEMPEL INVOICE — LUNAS / DP
+   Dibuat sebagai SVG sebaris (bukan berkas gambar) supaya:
+     • tidak perlu unduhan luar → aman dari CORS saat html2canvas
+       merender invoice jadi gambar/PDF
+     • tajam di segala ukuran cetak
+   Diletakkan MELAYANG di antara "Hormat kami," dan nama penanda tangan,
+   menimpa tanda tangan seperti stempel sungguhan. Desain invoice lainnya
+   tidak diubah sama sekali.
+   ============================================================ */
+function invoiceStempelSVG(jenis){
+  const j=norm(jenis);
+  if(j!=='lunas' && j!=='dp') return '';
+  const lunas = j==='lunas';
+  const warna = lunas ? '#1B7F45' : '#B3261E';        // hijau = lunas, merah = DP
+  const teks  = lunas ? 'LUNAS' : 'DP';
+  const sub   = lunas ? 'PAID IN FULL' : 'DOWN PAYMENT';
+  const fs    = lunas ? 30 : 42;                       // "DP" lebih pendek → huruf lebih besar
+  return ''+
+  '<svg width="82" height="82" viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg" '+
+       'style="position:absolute;left:50%;top:-22px;transform:translateX(-50%) rotate(-14deg);'+
+       'opacity:.72;pointer-events:none">'+
+    '<g fill="none" stroke="'+warna+'" stroke-width="3">'+
+      '<circle cx="75" cy="75" r="66"/>'+
+      '<circle cx="75" cy="75" r="57" stroke-width="1.5"/>'+
+    '</g>'+
+    '<text x="75" y="70" text-anchor="middle" fill="'+warna+'" '+
+      'font-family="Arial Black, Arial, sans-serif" font-size="'+fs+'" font-weight="900" '+
+      'letter-spacing="2">'+teks+'</text>'+
+    '<text x="75" y="90" text-anchor="middle" fill="'+warna+'" '+
+      'font-family="Arial, sans-serif" font-size="9" font-weight="700" letter-spacing="1.5">'+sub+'</text>'+
+    '<line x1="30" y1="99" x2="120" y2="99" stroke="'+warna+'" stroke-width="1.5"/>'+
+    '<text x="75" y="113" text-anchor="middle" fill="'+warna+'" '+
+      'font-family="Arial, sans-serif" font-size="8" font-weight="700" letter-spacing="1">KLINKLIN</text>'+
+  '</svg>';
+}
+function buildInvoiceHTML(o, stempel){
   o=o||{};
   const info=branchInfo(o['Cabang']);
   const md=n=>Number(moneyDigits(n))||0;
@@ -8247,7 +8319,12 @@ function buildInvoiceHTML(o){
           '<div style="position:absolute;left:0;bottom:0;width:420px;font-size:11px;color:'+MUT+';line-height:1.5">Terima kasih telah mempercayakan kebersihan Anda kepada KLINKLIN. Simpan invoice ini sebagai bukti transaksi.</div>'+
           '<div style="position:absolute;right:20px;top:14px;width:220px;text-align:center">'+
             '<div style="font-size:11px;color:'+MUT+'">Hormat kami,</div>'+
-            '<img src="https://klinklin.online/Screenshot_2026-07-07_095820-removebg-preview.png" alt="Tanda Tangan" crossorigin="anonymous" style="display:block;margin:2px auto 0;height:46px;object-fit:contain">'+
+            /* Stempel melayang di antara "Hormat kami," dan nama penanda tangan.
+               Dibungkus position:relative agar posisinya terkunci ke area ini. */
+            '<div style="position:relative">'+
+              invoiceStempelSVG(stempel)+
+              '<img src="https://klinklin.online/Screenshot_2026-07-07_095820-removebg-preview.png" alt="Tanda Tangan" crossorigin="anonymous" style="display:block;margin:2px auto 0;height:46px;object-fit:contain">'+
+            '</div>'+
             '<div style="margin-top:0;border-top:1px solid #131A2B;padding-top:5px;font-size:12px;font-weight:800">'+esc(INVOICE_SIGNER)+'</div>'+
           '</div>'+
         '</div>'+
@@ -8256,10 +8333,10 @@ function buildInvoiceHTML(o){
   '</div>';
 }
 /* Render invoice ke canvas SEKALI — dipakai untuk unduh & cetak agar hasilnya identik. */
-async function invoiceToCanvas(o){
+async function invoiceToCanvas(o, stempel){
   const canRender = (typeof html2pdf!=='undefined') || (typeof window.html2canvas!=='undefined');
   if(!canRender) return null;
-  const html=buildInvoiceHTML(o);
+  const html=buildInvoiceHTML(o, stempel);
   const holder=document.createElement('div');
   // ABSOLUTE (bukan fixed) di pojok kiri-atas DOKUMEN. Fixed membuat html2canvas menggeser
   // hasil capture sebesar posisi scroll daftar → invoice makin ke bawah / kosong. Absolute menghindarinya.
@@ -8305,14 +8382,15 @@ function printInvoiceImage(o, canvas){
   w.document.close();
   toast('Invoice siap — pilih "Simpan sebagai PDF" pada dialog cetak','ok');
 }
-async function downloadInvoice(o){
+async function downloadInvoice(o, stempel){
   if(!o){ toast('Data order tidak ditemukan','err'); return; }
   if(!state.cache.kantor){ try{ await loadKantor(); }catch(e){} }
-  const fname='Invoice-'+String(o['ID Order']||'KLINKLIN').replace(/[^A-Za-z0-9]+/g,'_')+'.pdf';
+  const tag = norm(stempel)==='lunas' ? '-LUNAS' : (norm(stempel)==='dp' ? '-DP' : '');
+  const fname='Invoice-'+String(o['ID Order']||'KLINKLIN').replace(/[^A-Za-z0-9]+/g,'_')+tag+'.pdf';
   setSync(true,'Membuat invoice…');
   try{
-    const canvas=await invoiceToCanvas(o);
-    if(!canvas || !canvas.width || !canvas.height){ setSync(false); invoicePrintWindow(o); return; }
+    const canvas=await invoiceToCanvas(o, stempel);
+    if(!canvas || !canvas.width || !canvas.height){ setSync(false); invoicePrintWindow(o, null, stempel); return; }
     let JsPDF=(window.jspdf && window.jspdf.jsPDF) || window.jsPDF || null;
     if(!JsPDF){ setSync(false); printInvoiceImage(o, canvas); return; } // cetak pakai gambar yg sama (identik & muat 1 halaman)
     const pdf=new JsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
@@ -8324,24 +8402,24 @@ async function downloadInvoice(o){
     pdf.addImage(canvas.toDataURL('image/jpeg',0.96),'JPEG', x, y, imgW, imgH);
     pdf.save(fname);
     toast('Invoice diunduh','ok');
-  }catch(e){ invoicePrintWindow(o); }
+  }catch(e){ invoicePrintWindow(o, null, stempel); }
   finally{ setSync(false); }
 }
 /* Cetak invoice (memakai gambar yang sama dengan unduhan → identik). */
-async function printInvoice(o){
+async function printInvoice(o, stempel){
   if(!o){ toast('Data order tidak ditemukan','err'); return; }
   if(!state.cache.kantor){ try{ await loadKantor(); }catch(e){} }
   setSync(true,'Menyiapkan invoice…');
   try{
-    const canvas=await invoiceToCanvas(o);
+    const canvas=await invoiceToCanvas(o, stempel);
     if(canvas) printInvoiceImage(o, canvas);
-    else invoicePrintWindow(o);
-  }catch(e){ invoicePrintWindow(o); }
+    else invoicePrintWindow(o, null, stempel);
+  }catch(e){ invoicePrintWindow(o, null, stempel); }
   finally{ setSync(false); }
 }
 /* Cadangan terakhir bila modul PDF gagal dimuat: cetak HTML (jarang dipakai). */
-function invoicePrintWindow(o, html){
-  html = html || buildInvoiceHTML(o);
+function invoicePrintWindow(o, html, stempel){
+  html = html || buildInvoiceHTML(o, stempel);
   const w=window.open('', '_blank');
   if(!w){ toast('Popup diblokir — izinkan popup untuk cetak/simpan invoice.','err'); return; }
   w.document.write('<!doctype html><html><head><meta charset="utf-8">'+
