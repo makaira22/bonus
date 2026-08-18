@@ -296,6 +296,8 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .ppn-b.no b{color:#B3261E}
 .ppn-b.ya:hover{border-color:#1B7F45;background:#E7F6EC}
 .ppn-b.no:hover{border-color:#B3261E;background:#FDECEC}
+.ppn-tot-b{margin-top:5px;font-size:13px!important;font-weight:800;color:var(--ink)!important;
+  font-variant-numeric:tabular-nums}
 .os-wrap{position:relative}
 .os-input{cursor:text}
 .os-list{display:none;position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:50;max-height:260px;overflow:auto;
@@ -1813,7 +1815,7 @@ function waCustomerText(o){
     '--------------------------------\n'+
     'Total Awal : '+ribu(t.subtotal)+'\n'+
     'Diskon : '+ribu(t.diskonNilai)+'\n'+
-    'PPn : '+ribu(t.ppnNilai)+'\n'+
+    'Tax : '+ribu(t.ppnNilai)+'\n'+
     'TOTAL BAYAR : Rp'+ribu(t.grand)+'\n'+
     '--------------------------------\n'+
     'Transfer hanya ke No. Rekening Berikut:\n'+bankLines()+'\n'+
@@ -2023,8 +2025,8 @@ const ORDER_FORM = [
   f('Layanan 2','dynselect',{list:'layanan', svc:2}), f('Qty 2','text',{svc:2}), f('Harga 2','money',{svc:2}),
   f('Layanan 3','dynselect',{list:'layanan', svc:3}), f('Qty 3','text',{svc:3}), f('Harga 3','money',{svc:3}),
   f('Metode Pembayaran','select',{opts:METODE}),
-  f('Diskon (%)','num'), f('PPn','check',{label:'Kena PPn 11%', lockNew:true,
-    help:'Order baru selalu kena PPn 11%'}),
+  f('Diskon (%)','num'), f('PPn','check',{label:'Kena PPn 11%', lockAlways:true,
+    help:'Semua order kena PPn 11% — tidak dapat diubah'}),
   f('Total Akhir','money',{computed:true}),
   f('Total Akhir Setelah Diskon','money',{computed:true}),
   f('Total Tagihan','money',{computed:true}),
@@ -3432,6 +3434,47 @@ async function ajuCekKolom(){
   state.cache.ajuKolomHilang=hilang;
   return hilang;
 }
+/* Pemeriksa kolom tabel ORDER — dipakai menu Audit Order (FINANCE).
+   Kolom "Bayar Sesuai PPn" baru ditambahkan belakangan; bila belum dibuat di
+   database, seluruh isinya akan kosong tanpa penjelasan apa pun. */
+const ORDER_KOLOM_WAJIB = ['Bayar Sesuai PPn'];
+async function orderCekKolom(){
+  const hilang=[];
+  for(const c of ORDER_KOLOM_WAJIB){
+    try{
+      const {error}=await window.sb.from('ORDER').select('"'+c+'"').limit(1);
+      if(error && /column|does not exist|schema cache/i.test(String(error.message||''))) hilang.push(c);
+    }catch(e){}
+  }
+  state.cache.orderKolomHilang=hilang;
+  return hilang;
+}
+function orderBannerHTML(){
+  const h=state.cache.orderKolomHilang||[];
+  if(!h.length) return '';
+  const sql=h.map(c=>'ALTER TABLE "ORDER" ADD COLUMN IF NOT EXISTS "'+c+'" text;').join('\n');
+  return '<div class="aju-warn">'+
+    '<div class="aju-warn-t">'+svg('file')+' Kolom "'+esc(h.join(', '))+'" belum ada di database</div>'+
+    '<div class="aju-warn-b">Itulah sebabnya kolom <b>Sesuai PPn</b> kosong. Buka Supabase → SQL Editor, '+
+      'tempel perintah di bawah, jalankan sekali, lalu klik Periksa Ulang.</div>'+
+    '<pre class="aju-sql" id="ordSql">'+esc(sql)+'</pre>'+
+    '<button class="btn btn-ghost btn-sm" id="ordSqlCopy">Salin SQL</button> '+
+    '<button class="btn btn-ghost btn-sm" id="ordSqlCek">Periksa Ulang</button>'+
+  '</div>';
+}
+function wireOrderBanner(){
+  const c=document.getElementById('ordSqlCopy');
+  if(c) c.addEventListener('click',()=>{
+    const t=(document.getElementById('ordSql')||{}).textContent||'';
+    if(navigator.clipboard) navigator.clipboard.writeText(t).then(()=>toast('SQL disalin','ok'),()=>toast('Gagal menyalin','err'));
+  });
+  const k=document.getElementById('ordSqlCek');
+  if(k) k.addEventListener('click',async()=>{
+    setSync(true); const h=await orderCekKolom(); setSync(false);
+    toast(h.length?('Masih ada '+h.length+' kolom yang belum dibuat.'):'Kolom sudah ada. Data akan tampil.',h.length?'err':'ok');
+    renderView();
+  });
+}
 function ajuSqlPerbaikan(cols){
   return (cols||[]).map(c=>'ALTER TABLE "OPS_PENGAJUAN" ADD COLUMN IF NOT EXISTS "'+c+'" text;').join('\n');
 }
@@ -4235,6 +4278,7 @@ async function loadList(force){
     if(v.special==='grafik') await loadDashData();
     if(v.special==='absensi'){ await loadCleanerList(); await loadAturanAbsen(); }
     if(v.sheet==='OPS_PENGAJUAN' && !state.cache.ajuKolomHilang) await ajuCekKolom();
+    if(v.sheet==='ORDER' && !state.cache.orderKolomHilang) await orderCekKolom();
     if(v.special==='gaji') await loadHrdNama();
     if(v.bonusBtn) await ensureBonusOrderSet(true);
     renderView();
@@ -4671,6 +4715,10 @@ function renderTable(){
     // Pengajuan: kartu sebagai tampilan utama + peringatan bila ada kolom yang belum dibuat.
     $('#panel').innerHTML=summary+ajuBannerHTML()+html+cardHtml+moreHtml;
     wireAjuBanner();
+  } else if(v.sheet==='ORDER' && v.table && v.table.indexOf('Bayar Sesuai PPn')>-1){
+    // Audit Order: beri tahu bila kolom "Bayar Sesuai PPn" belum ada di database.
+    $('#panel').innerHTML=summary+orderBannerHTML()+html+cardHtml+moreHtml;
+    wireOrderBanner();
   } else {
     $('#panel').innerHTML=summary+html+cardHtml+moreHtml;
   }
@@ -4989,30 +5037,38 @@ function konfirmasiMetode(o){
    ============================================================ */
 function konfirmasiPpn(o, jumlahBukti){
   return new Promise(resolve=>{
-    const kenaPpn = Number(moneyDigits((o&&o['PPn'])||0))>0;
+    /* Hitung dua kemungkinan total:
+         YA    → nominal transfer sudah termasuk PPn  → total = dasar + PPn
+         TIDAK → nominal transfer belum termasuk PPn  → total = dasar (PPn dilepas)
+       "dasar" = subtotal setelah diskon, diambil ulang dari rincian layanan
+       supaya benar baik order lama maupun baru. */
     const T = orderTotals(o||{});
+    const dasar   = T.afterDisc;
+    const ppnNil  = Math.round(dasar*PPN_DEFAULT/100);
+    const totalYa = dasar + ppnNil;
+    const totalNo = dasar;
     const wrap=document.createElement('div');
     wrap.className='kmp-wrap';
     wrap.innerHTML=
       '<div class="kmp-box" role="dialog" aria-modal="true">'+
         '<div class="kmp-head">'+
           '<div class="kmp-ic warn">'+svg('file')+'</div>'+
-          '<div><div class="kmp-t">Pembayaran sesuai PPn?</div>'+
+          '<div><div class="kmp-t">Pembayaran sesuai Tax?</div>'+
           '<div class="kmp-s">'+esc((o&&o['Nama Customer'])||'-')+' · '+
             (jumlahBukti>1?'2 bukti':'1 bukti')+'</div></div>'+
         '</div>'+
         '<div class="kmp-body">'+
-          '<div class="kmp-note">Apakah nominal yang ditransfer customer <b>sudah termasuk PPn</b>?</div>'+
-          (kenaPpn
-            ? '<div class="ppn-rinci">'+
-                '<div><span>Sebelum PPn</span><b>'+rp(T.afterDisc)+'</b></div>'+
-                '<div><span>PPn 11%</span><b>'+rp(T.ppnNilai)+'</b></div>'+
-                '<div class="ppn-tot"><span>Total tagihan</span><b>'+rp(T.grand)+'</b></div>'+
-              '</div>'
-            : '<div class="kmp-note">Order ini tercatat <b>tanpa PPn</b>. Bila ternyata customer membayar termasuk PPn, pilih YA.</div>')+
+          '<div class="kmp-note">Apakah nominal yang ditransfer customer <b>sudah termasuk Tax</b>? '+
+            'Total order akan disesuaikan mengikuti jawaban Anda.</div>'+
+          '<div class="ppn-rinci">'+
+            '<div><span>Nilai layanan (setelah diskon)</span><b>'+rp(dasar)+'</b></div>'+
+            '<div><span>Tax '+PPN_DEFAULT+'%</span><b>'+rp(ppnNil)+'</b></div>'+
+          '</div>'+
           '<div class="ppn-pil">'+
-            '<button class="ppn-b ya" id="ppnYa"><b>YA</b><span>Sudah termasuk PPn</span></button>'+
-            '<button class="ppn-b no" id="ppnNo"><b>TIDAK</b><span>Belum termasuk PPn</span></button>'+
+            '<button class="ppn-b ya" id="ppnYa"><b>YA</b><span>Termasuk Tax</span>'+
+              '<span class="ppn-tot-b">'+rp(totalYa)+'</span></button>'+
+            '<button class="ppn-b no" id="ppnNo"><b>TIDAK</b><span>Tanpa Tax</span>'+
+              '<span class="ppn-tot-b">'+rp(totalNo)+'</span></button>'+
           '</div>'+
         '</div>'+
         '<div class="kmp-foot">'+
@@ -5023,24 +5079,12 @@ function konfirmasiPpn(o, jumlahBukti){
     const tutup=val=>{ wrap.remove(); document.removeEventListener('keydown', onKey); resolve(val); };
     const onKey=e=>{ if(e.key==='Escape') tutup(null); };
     document.addEventListener('keydown', onKey);
-    wrap.querySelector('#ppnYa').onclick   =()=>tutup('YA');
-    wrap.querySelector('#ppnNo').onclick   =()=>tutup('TIDAK');
+    /* Balikan berisi jawaban + nilai yang harus disimpan ke order. */
+    wrap.querySelector('#ppnYa').onclick   =()=>tutup({jawab:'YA',   ppn:PPN_DEFAULT, total:totalYa});
+    wrap.querySelector('#ppnNo').onclick   =()=>tutup({jawab:'TIDAK', ppn:0,           total:totalNo});
     wrap.querySelector('#ppnBatal').onclick=()=>tutup(null);
     wrap.addEventListener('click', e=>{ if(e.target===wrap) tutup(null); });
   });
-}
-/* Nilai kolom "Bayar Sesuai PPn" (YA/TIDAK) — dijawab CS saat unggah bukti. */
-function ppnSesuaiVal(r){
-  const s=norm((r&&r['Bayar Sesuai PPn'])||'');
-  if(s==='ya'||s==='true'||s==='1') return 'YA';
-  if(s==='tidak'||s==='false'||s==='0') return 'TIDAK';
-  return '';                       // belum dijawab (order lama)
-}
-function ppnChipHTML(r){
-  const v=ppnSesuaiVal(r);
-  if(!v) return '';
-  return '<div class="ocard-meta"><span class="ppn-chip '+(v==='YA'?'ya':'no')+'">'+
-    'Sesuai PPn: '+v+'</span></div>';
 }
 async function quickUploadProof(oid){
   // Cek metode pembayaran DULU, sebelum memilih berkas — supaya tidak sia-sia
@@ -5054,8 +5098,8 @@ async function quickUploadProof(oid){
     const files=Array.from(inp.files||[]).slice(0,2); if(!files.length) return;   // maks 2 gambar
     /* Tanya kesesuaian PPn SEBELUM mengunggah — kalau dibatalkan, tidak ada
        berkas yang terlanjur naik ke penyimpanan. */
-    const ppnSesuai=await konfirmasiPpn(ord, files.length);
-    if(ppnSesuai===null) return;                 // dibatalkan
+    const jw=await konfirmasiPpn(ord, files.length);
+    if(jw===null) return;                        // dibatalkan
     showLoad(true);
     const urls=[];
     try{
@@ -5070,7 +5114,10 @@ async function quickUploadProof(oid){
       // (Dulu waktu bukti ditulis lewat update terpisah yang error-nya ditelan diam-diam,
       //  sehingga kolomnya selalu kosong tanpa ada tanda apa pun.)
       const data={'Bukti Transfer':urls[0], 'Status Order':'done', 'Waktu Bukti Transfer':nowStr_(),
-                  'Metode Pembayaran':metode, 'Bayar Sesuai PPn':ppnSesuai};
+                  'Metode Pembayaran':metode, 'Bayar Sesuai PPn':jw.jawab,
+                  /* Total & PPn disesuaikan mengikuti jawaban:
+                     YA → total termasuk Tax · TIDAK → Tax dilepas dari total */
+                  'PPn':jw.ppn, 'Total Akhir Setelah Diskon':jw.total};
       if(urls[1]) data['Bukti Transfer 2']=urls[1];   // gambar ke-2 (opsional)
       const res=await api({action:'update', sheet:'ORDER', id:oid, data});
       if(res && res.updated===0){
@@ -5084,7 +5131,7 @@ async function quickUploadProof(oid){
         const ganti = ord && String(ord['Metode Pembayaran']||'').trim()!==metode;
         toast((urls.length>1?'2 bukti transfer terunggah':'Bukti transfer terunggah')+
               ' ✓ · metode: '+metode+(ganti?' (diperbarui)':'')+
-              ' · sesuai PPn: '+ppnSesuai,'ok');
+              ' · Tax: '+jw.jawab+' · total '+rp(jw.total),'ok');
       }
       invalidateLists(); await loadList(true);
     }catch(err){ toast('Gagal simpan order: '+(err.message||err),'err'); }
@@ -7571,10 +7618,10 @@ function renderField(fd, val){
       on = numv>0;
       dc = (fd.k==='Premi BPJS') ? (on?numv:35000) : 11;
     }
-    /* lockNew: pada data BARU nilainya dipaksa aktif & tidak bisa dilepas.
-       Saat MENGEDIT data lama, biarkan apa adanya supaya order lama yang
-       dulu tanpa PPn tidak ikut berubah. */
-    const kunci = fd.lockNew && !state.editing;
+    /* lockAlways : selalu tercentang & tidak bisa dilepas (data baru MAUPUN
+                     saat mengedit) — dipakai kolom PPn pada order.
+       lockNew    : hanya dikunci saat menambah data baru. */
+    const kunci = fd.lockAlways || (fd.lockNew && !state.editing);
     if(kunci) on = true;
     return '<div class="field'+full+hidden+'"><label>&nbsp;</label>'+
       '<label class="chk'+(kunci?' chk-lock':'')+'">'+
@@ -8177,10 +8224,23 @@ function invoiceStempelSVG(jenis){
   const j=norm(jenis);
   if(j!=='lunas' && j!=='dp') return '';
   const lunas = j==='lunas';
-  const warna = lunas ? '#1B7F45' : '#B3261E';        // hijau = lunas, merah = DP
-  const teks  = lunas ? 'LUNAS' : 'DP';
+  const warna = lunas ? '#1B7F45' : '#B3261E';        // hijau = lunas, merah = uang muka
   const sub   = lunas ? 'PAID IN FULL' : 'DOWN PAYMENT';
-  const fs    = lunas ? 30 : 42;                       // "DP" lebih pendek → huruf lebih besar
+  /* "UANG MUKA" terlalu lebar untuk satu baris → dipecah dua baris. */
+  const judul = lunas
+    ? '<text x="75" y="76" text-anchor="middle" fill="'+warna+'" '+
+        'font-family="Arial,Helvetica,sans-serif" font-size="30" font-weight="bold" '+
+        'letter-spacing="2">LUNAS</text>'
+    : '<text x="75" y="66" text-anchor="middle" fill="'+warna+'" '+
+        'font-family="Arial,Helvetica,sans-serif" font-size="22" font-weight="bold" '+
+        'letter-spacing="1">UANG</text>'+
+      '<text x="75" y="88" text-anchor="middle" fill="'+warna+'" '+
+        'font-family="Arial,Helvetica,sans-serif" font-size="22" font-weight="bold" '+
+        'letter-spacing="1">MUKA</text>';
+  /* Baris keterangan diturunkan pada versi dua baris supaya tidak bertabrakan. */
+  const subY = lunas ? 92 : 103;
+  const lnY  = lunas ? 100 : 110;
+  const kkY  = lunas ? 114 : 122;
   /* Seluruh isi diputar lewat atribut transform SVG (bukan CSS), dan hasilnya
      dipakai sebagai <img> data-URI. html2canvas merender <img> dengan andal,
      sedangkan SVG sebaris ber-CSS-transform sering terpotong. */
@@ -8189,19 +8249,18 @@ function invoiceStempelSVG(jenis){
     '<g transform="rotate(-14 75 75)" opacity="0.6">'+
       '<circle cx="75" cy="75" r="62" fill="none" stroke="'+warna+'" stroke-width="4"/>'+
       '<circle cx="75" cy="75" r="53" fill="none" stroke="'+warna+'" stroke-width="2"/>'+
-      '<text x="75" y="74" text-anchor="middle" fill="'+warna+'" '+
-        'font-family="Arial,Helvetica,sans-serif" font-size="'+fs+'" font-weight="bold" '+
-        'letter-spacing="2">'+teks+'</text>'+
-      '<text x="75" y="92" text-anchor="middle" fill="'+warna+'" '+
-        'font-family="Arial,Helvetica,sans-serif" font-size="9" font-weight="bold" '+
-        'letter-spacing="1.5">'+sub+'</text>'+
-      '<line x1="34" y1="100" x2="116" y2="100" stroke="'+warna+'" stroke-width="2"/>'+
-      '<text x="75" y="114" text-anchor="middle" fill="'+warna+'" '+
+      judul+
+      '<text x="75" y="'+subY+'" text-anchor="middle" fill="'+warna+'" '+
+        'font-family="Arial,Helvetica,sans-serif" font-size="8.5" font-weight="bold" '+
+        'letter-spacing="1.2">'+sub+'</text>'+
+      '<line x1="40" y1="'+lnY+'" x2="110" y2="'+lnY+'" stroke="'+warna+'" stroke-width="2"/>'+
+      '<text x="75" y="'+kkY+'" text-anchor="middle" fill="'+warna+'" '+
         'font-family="Arial,Helvetica,sans-serif" font-size="8" font-weight="bold" '+
         'letter-spacing="1">KLINKLIN</text>'+
     '</g>'+
   '</svg>';
-  return '<img src="data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg)+'" alt="'+teks+'" '+
+  return '<img src="data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg)+'" '+
+    'alt="'+(lunas?'LUNAS':'UANG MUKA')+'" '+
     'style="position:absolute;left:69px;top:-17px;width:82px;height:82px">';
 }
 function buildInvoiceHTML(o, stempel){
@@ -8291,7 +8350,7 @@ function buildInvoiceHTML(o, stempel){
           '<div style="position:absolute;top:0;right:0;width:300px;height:138px;background:'+PET+';border-radius:10px">'+
             trow('Subtotal', money(subtotal), 12)+
             trow('Diskon', '- '+money(diskonNilai), 38)+
-            trow('PPn ('+ppn+'%)', money(ppnNilai), 64)+
+            trow('Tax', money(ppnNilai), 64)+
             '<div style="position:absolute;left:14px;right:14px;top:92px;height:1px;background:rgba(255,255,255,.25)"></div>'+
             trow('Total', money(grand), 104, true)+
           '</div>'+
