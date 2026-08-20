@@ -3447,20 +3447,47 @@ async function orderCekKolom(){
     }catch(e){}
   }
   state.cache.orderKolomHilang=hilang;
+  /* Bila kolomnya ADA tapi seluruh isinya kosong, penyebabnya bukan database
+     melainkan aplikasi CS yang belum diperbarui (versi lama tidak menulis
+     kolom ini). Dihitung terpisah agar pesannya tepat sasaran. */
+  if(!hilang.length){
+    try{
+      const {data}=await window.sb.from('ORDER')
+        .select('"Bayar Sesuai PPn"').not('Bayar Sesuai PPn','is',null).limit(1);
+      state.cache.orderPpnAdaIsi = !!(data && data.length);
+    }catch(e){ state.cache.orderPpnAdaIsi=true; }   // ragu → jangan tampilkan peringatan
+  }
   return hilang;
 }
 function orderBannerHTML(){
   const h=state.cache.orderKolomHilang||[];
-  if(!h.length) return '';
-  const sql=h.map(c=>'ALTER TABLE "ORDER" ADD COLUMN IF NOT EXISTS "'+c+'" text;').join('\n');
-  return '<div class="aju-warn">'+
-    '<div class="aju-warn-t">'+svg('file')+' Kolom "'+esc(h.join(', '))+'" belum ada di database</div>'+
-    '<div class="aju-warn-b">Itulah sebabnya kolom <b>Sesuai PPn</b> kosong. Buka Supabase → SQL Editor, '+
-      'tempel perintah di bawah, jalankan sekali, lalu klik Periksa Ulang.</div>'+
-    '<pre class="aju-sql" id="ordSql">'+esc(sql)+'</pre>'+
-    '<button class="btn btn-ghost btn-sm" id="ordSqlCopy">Salin SQL</button> '+
-    '<button class="btn btn-ghost btn-sm" id="ordSqlCek">Periksa Ulang</button>'+
-  '</div>';
+  /* KASUS 1 — kolom belum dibuat di database. */
+  if(h.length){
+    const sql=h.map(c=>'ALTER TABLE "ORDER" ADD COLUMN IF NOT EXISTS "'+c+'" text;').join('\n');
+    return '<div class="aju-warn">'+
+      '<div class="aju-warn-t">'+svg('file')+' Kolom "'+esc(h.join(', '))+'" belum ada di database</div>'+
+      '<div class="aju-warn-b">Itulah sebabnya kolom <b>Sesuai PPn</b> kosong. Buka Supabase → SQL Editor, '+
+        'tempel perintah di bawah, jalankan sekali, lalu klik Periksa Ulang.</div>'+
+      '<pre class="aju-sql" id="ordSql">'+esc(sql)+'</pre>'+
+      '<button class="btn btn-ghost btn-sm" id="ordSqlCopy">Salin SQL</button> '+
+      '<button class="btn btn-ghost btn-sm" id="ordSqlCek">Periksa Ulang</button>'+
+    '</div>';
+  }
+  /* KASUS 2 — kolom sudah ada, tetapi belum ada satu pun order yang terisi.
+     Artinya CS masih memakai berkas aplikasi versi lama. */
+  if(state.cache.orderPpnAdaIsi===false){
+    return '<div class="aju-warn">'+
+      '<div class="aju-warn-t">'+svg('file')+' Kolom sudah ada, tetapi belum ada data</div>'+
+      '<div class="aju-warn-b">Kolom <b>Sesuai PPn</b> sudah tersedia di database, namun belum ada '+
+        'satu pun order yang terisi. Penyebabnya: <b>CS masih memakai berkas aplikasi versi lama</b> '+
+        'yang belum menanyakan "Pembayaran sesuai Tax?" saat unggah bukti transfer.<br><br>'+
+        'Bagikan berkas terbaru ke seluruh CS, lalu minta mereka membuka ulang aplikasinya '+
+        '(Ctrl+Shift+R). Order yang buktinya diunggah setelah itu akan otomatis terisi. '+
+        'Order lama tetap “—” karena jawabannya memang belum pernah ada.</div>'+
+      '<button class="btn btn-ghost btn-sm" id="ordSqlCek">Periksa Ulang</button>'+
+    '</div>';
+  }
+  return '';
 }
 function wireOrderBanner(){
   const c=document.getElementById('ordSqlCopy');
@@ -3471,8 +3498,10 @@ function wireOrderBanner(){
   const k=document.getElementById('ordSqlCek');
   if(k) k.addEventListener('click',async()=>{
     setSync(true); const h=await orderCekKolom(); setSync(false);
-    toast(h.length?('Masih ada '+h.length+' kolom yang belum dibuat.'):'Kolom sudah ada. Data akan tampil.',h.length?'err':'ok');
-    renderView();
+    if(h.length)                              toast('Masih ada '+h.length+' kolom yang belum dibuat.','err');
+    else if(state.cache.orderPpnAdaIsi===false) toast('Kolom sudah ada, tapi belum ada order yang terisi — perbarui aplikasi CS.','err');
+    else                                      toast('Kolom sudah ada dan sudah terisi.','ok');
+    invalidateLists(); await loadList(true);
   });
 }
 function ajuSqlPerbaikan(cols){
@@ -4278,7 +4307,7 @@ async function loadList(force){
     if(v.special==='grafik') await loadDashData();
     if(v.special==='absensi'){ await loadCleanerList(); await loadAturanAbsen(); }
     if(v.sheet==='OPS_PENGAJUAN' && !state.cache.ajuKolomHilang) await ajuCekKolom();
-    if(v.sheet==='ORDER' && !state.cache.orderKolomHilang) await orderCekKolom();
+    if(v.sheet==='ORDER' && (force || !state.cache.orderKolomHilang)) await orderCekKolom();
     if(v.special==='gaji') await loadHrdNama();
     if(v.bonusBtn) await ensureBonusOrderSet(true);
     renderView();
