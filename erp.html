@@ -8825,6 +8825,16 @@ async function saveForm(){
       if(pilih===null) return;                   // dibatalkan → tidak jadi menyimpan
       data['Metode Pembayaran']=pilih;
       const el=getEl('Metode Pembayaran'); if(el) el.value=pilih;
+      /* Lalu tanyakan kesesuaian Tax — urutannya SAMA dengan tombol unggah
+         cepat di kartu (metode dulu, baru Tax), supaya kedua jalur konsisten
+         dan kolom "Sesuai PPn" ikut terisi meski bukti diunggah dari form. */
+      const jml=(state.files['Bukti Transfer']?1:0)+(state.files['Bukti Transfer 2']?1:0);
+      const jw=await konfirmasiPpn(Object.assign({}, state.editing||{}, data), jml);
+      if(jw===null) return;                      // dibatalkan → tidak jadi menyimpan
+      data['Bayar Sesuai PPn']=jw.jawab;
+      data['PPn']=jw.ppn;
+      data['Total Akhir Setelah Diskon']=jw.total;
+      const elT=getEl('Total Akhir Setelah Diskon'); if(elT) elT.value=rp(jw.total);
     }
   }
 
