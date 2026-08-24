@@ -1774,7 +1774,10 @@ function orderTotals(o){
   const ppnNilai=Math.round(afterDisc*ppn/100);
   let grand=Number(o['Total Akhir Setelah Diskon']||0);
   if(!grand) grand=afterDisc+ppnNilai;
-  return {subtotal, diskonNilai, ppnNilai, grand};
+  /* afterDisc = nilai layanan setelah diskon, SEBELUM pajak.
+     Dipakai dialog "Pembayaran sesuai Tax?" untuk menghitung dua kemungkinan
+     total. Sebelumnya tidak ikut dikembalikan, sehingga totalnya jadi 0. */
+  return {subtotal, diskonNilai, afterDisc, ppnNilai, grand};
 }
 function orderItemsText(o){
   const lines=[];
@@ -3459,6 +3462,41 @@ async function orderCekKolom(){
   }
   return hilang;
 }
+/* Order yang totalnya terlanjur tersimpan 0 akibat bug perhitungan dialog Tax.
+   Dikenali dari: Total Akhir Setelah Diskon kosong/0 padahal harga layanannya ada. */
+function orderTotalRusak(rows){
+  return (rows||[]).filter(r=>{
+    const tot=Number(moneyDigits(r['Total Akhir Setelah Diskon']))||0;
+    const harga=[1,2,3].reduce((s,i)=>s+(Number(moneyDigits(r['Harga '+i]))||0),0);
+    return tot===0 && harga>0;
+  });
+}
+/* Hitung ulang total yang benar: (harga − diskon) + Tax sesuai kolom PPn. */
+function orderTotalBenar(r){
+  const subtotal=[1,2,3].reduce((s,i)=>s+(Number(moneyDigits(r['Harga '+i]))||0),0);
+  const disc=Number(moneyDigits(r['Diskon (%)']))||0;
+  const afterDisc=subtotal-Math.round(subtotal*disc/100);
+  const ppn=Number(moneyDigits(r['PPn']))||0;
+  return afterDisc+Math.round(afterDisc*ppn/100);
+}
+async function perbaikiTotalOrder(rows){
+  const rusak=orderTotalRusak(rows);
+  if(!rusak.length){ toast('Tidak ada order yang perlu diperbaiki.','ok'); return; }
+  if(!confirm('Perbaiki total '+rusak.length+' order?\n\n'+
+    'Total dihitung ulang dari harga layanan, diskon, dan kolom PPn masing-masing order.')) return;
+  setSync(true);
+  let ok=0, gagal=0;
+  for(const r of rusak){
+    try{
+      await api({action:'update', sheet:'ORDER', idField:'ID Order', id:r['ID Order'],
+        data:{'Total Akhir Setelah Diskon':orderTotalBenar(r)}});
+      ok++;
+    }catch(e){ gagal++; }
+  }
+  setSync(false);
+  toast(gagal? (ok+' order diperbaiki, '+gagal+' gagal.') : (ok+' order berhasil diperbaiki.'), gagal?'err':'ok');
+  invalidateLists(); await loadList(true);
+}
 function orderBannerHTML(){
   const h=state.cache.orderKolomHilang||[];
   /* KASUS 1 — kolom belum dibuat di database. */
@@ -3487,9 +3525,22 @@ function orderBannerHTML(){
       '<button class="btn btn-ghost btn-sm" id="ordSqlCek">Periksa Ulang</button>'+
     '</div>';
   }
+  /* KASUS 3 — ada order yang totalnya tersimpan 0 (akibat bug lama). */
+  const rusak=orderTotalRusak(state.rows||[]);
+  if(rusak.length){
+    return '<div class="aju-warn">'+
+      '<div class="aju-warn-t">'+svg('file')+' '+rusak.length+' order bertotal Rp 0</div>'+
+      '<div class="aju-warn-b">Total order ini tersimpan <b>Rp 0</b> padahal harga layanannya ada. '+
+        'Klik tombol di bawah untuk menghitung ulang dari harga layanan, diskon, dan PPn '+
+        'masing-masing order.</div>'+
+      '<button class="btn btn-gold btn-sm" id="ordFixTotal">Perbaiki '+rusak.length+' Order</button>'+
+    '</div>';
+  }
   return '';
 }
 function wireOrderBanner(){
+  const fx=document.getElementById('ordFixTotal');
+  if(fx) fx.addEventListener('click', ()=>perbaikiTotalOrder(state.rows||[]));
   const c=document.getElementById('ordSqlCopy');
   if(c) c.addEventListener('click',()=>{
     const t=(document.getElementById('ordSql')||{}).textContent||'';
@@ -7299,6 +7350,17 @@ async function approveSelected(){
 
 function cell(v,c,r){
   const val=r[c];
+  /* ORDER: bila total tersimpan 0 padahal harga layanannya ada, tampilkan
+     hasil hitungan agar laporan tidak menyesatkan sebelum data diperbaiki. */
+  if(c==='Total Akhir Setelah Diskon' && v.sheet==='ORDER'){
+    const tot=Number(moneyDigits(val))||0;
+    if(!tot){
+      const benar=orderTotalBenar(r);
+      if(benar>0) return '<span title="Nilai tersimpan Rp 0 — ini hasil hitung ulang" '+
+        'style="color:var(--danger)">'+rp(benar)+'*</span>';
+    }
+    return rp(tot);
+  }
   if(c==='Foto Profil'){
     return val ? '<img class="avatar" src="'+esc(val)+'" onerror="this.replaceWith(Object.assign(document.createElement(\'div\'),{className:\'avatar\',textContent:\''+initials(r['Nama Lengkap'])+'\'}))">'
                : '<div class="avatar">'+initials(r['Nama Lengkap'])+'</div>';
