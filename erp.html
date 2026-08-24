@@ -1265,6 +1265,16 @@ tr.rowclick:hover td{background:var(--surface-2)}
 .ocard-meta{font-size:12.5px;color:var(--muted);margin-top:7px;display:flex;align-items:center;gap:6px}
 .ocard-meta svg{width:14px;height:14px;color:var(--faint);flex:none}
 .ocard-meta.sub{color:var(--petrol);font-weight:700}
+/* Rincian nilai order (nilai layanan · Tax · total akhir) */
+.ocard-rinci{background:var(--surface-2);border:1px solid var(--line);border-radius:11px;
+  padding:9px 12px;margin:9px 0}
+.ocard-rinci>div{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+  font-size:12.5px;color:var(--muted);padding:2.5px 0}
+.ocard-rinci>div b{color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ocard-rinci>div b.nil{color:var(--faint);font-weight:600}
+.ocard-rinci .ord-tot{border-top:1px solid var(--line);margin-top:5px;padding-top:7px}
+.ocard-rinci .ord-tot span{color:var(--ink);font-weight:700}
+.ocard-rinci .ord-tot b{color:var(--petrol);font-size:14.5px;font-weight:800}
 .ocard-act{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .ocard-act .btn-sm{padding:9px 12px}
 .gaji-thp{margin-top:11px;display:flex;flex-direction:column;gap:1px}
@@ -4646,8 +4656,7 @@ function renderTable(){
         '<div class="ocard-meta">'+svg('result')+'<span>'+esc(tglHariId(r['Tanggal Pengerjaan']))+
           ' · '+esc(r['Waktu Pengerjaan']||'-')+'</span>'+
           (r['Metode Pembayaran']?'<span class="pay-chip">'+esc(r['Metode Pembayaran'])+'</span>':'')+'</div>'+
-        '<div class="ocard-meta sub"><span>'+esc(rp(r['Total Akhir Setelah Diskon']||r['Total Akhir']||0))+
-          (r['Nama Cleaner']?(' · '+esc(r['Nama Cleaner'])):'')+'</span></div>'+
+        ordRincianHTML(r)+
         (layananRingkas(r)?'<div class="ocard-meta"><span class="ocard-svc">'+esc(layananRingkas(r))+'</span></div>':'')+
         (r['Waktu Bukti Transfer']?'<div class="ocard-meta">'+svg('file')+'<span>Waktu bukti: '+esc(fmtWaktu(r['Waktu Bukti Transfer']))+'</span></div>':'')+
         /* Jawaban CS saat mengunggah bukti: pembayaran sudah termasuk PPn atau belum. */
@@ -5123,6 +5132,40 @@ function ppnSesuaiVal(r){
   return '';                       // belum dijawab (order lama)
 }
 /* Penanda kecil di kartu Order. Kosong bila belum pernah dijawab. */
+/* Rincian nilai pada kartu Order: nilai layanan, Tax, dan Total Akhir.
+   Aturan Tax:
+     • status done / complete → ikut jawaban CS saat unggah bukti
+         YA    → Total Akhir = nilai layanan + Tax
+         TIDAK → Total Akhir = nilai layanan (tanpa Tax)
+     • status lain (pending, dll) → belum ada jawaban, pakai kolom PPn order
+   Nilai dihitung ulang dari harga layanan supaya tetap benar walau kolom
+   total di database sempat tersimpan keliru. */
+function ordRincian(r){
+  const subtotal=[1,2,3].reduce((s,i)=>s+(Number(moneyDigits(r['Harga '+i]))||0),0)
+                 || (Number(moneyDigits(r['Total Akhir']))||0);
+  const disc=Number(moneyDigits(r['Diskon (%)']))||0;
+  const diskonNilai=Math.round(subtotal*disc/100);
+  const dasar=subtotal-diskonNilai;
+  const st=norm(r['Status Order']);
+  const sudahBayar = st==='done' || st==='complete';
+  const jawab=ppnSesuaiVal(r);                 // 'YA' | 'TIDAK' | ''
+  let kenaTax;
+  if(sudahBayar && jawab) kenaTax = (jawab==='YA');
+  else                    kenaTax = (Number(moneyDigits(r['PPn']))||0) > 0;
+  const tax = kenaTax ? Math.round(dasar*PPN_DEFAULT/100) : 0;
+  return {subtotal, diskonNilai, dasar, tax, kenaTax, total:dasar+tax};
+}
+function ordRincianHTML(r){
+  const d=ordRincian(r);
+  return '<div class="ocard-rinci">'+
+      '<div><span>Nilai layanan</span><b>'+esc(rp(d.dasar))+'</b></div>'+
+      (d.diskonNilai?'<div><span>Diskon</span><b>− '+esc(rp(d.diskonNilai))+'</b></div>':'')+
+      '<div><span>Tax'+(d.kenaTax?(' '+PPN_DEFAULT+'%'):'')+'</span>'+
+        '<b'+(d.kenaTax?'':' class="nil"')+'>'+(d.kenaTax?esc(rp(d.tax)):'—')+'</b></div>'+
+      '<div class="ord-tot"><span>Total Akhir</span><b>'+esc(rp(d.total))+'</b></div>'+
+    '</div>'+
+    (r['Nama Cleaner']?'<div class="ocard-meta sub"><span>'+esc(r['Nama Cleaner'])+'</span></div>':'');
+}
 function ppnChipHTML(r){
   const v=ppnSesuaiVal(r);
   if(!v) return '';
