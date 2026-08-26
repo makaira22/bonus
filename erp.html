@@ -3472,28 +3472,26 @@ async function orderCekKolom(){
   }
   return hilang;
 }
-/* Order yang totalnya terlanjur tersimpan 0 akibat bug perhitungan dialog Tax.
-   Dikenali dari: Total Akhir Setelah Diskon kosong/0 padahal harga layanannya ada. */
+/* Order yang total tersimpannya TIDAK sesuai perhitungan seharusnya.
+   Mencakup dua kasus:
+     • total tersimpan 0 padahal harga layanannya ada (bug lama)
+     • total tersimpan masih memuat Tax padahal CS menjawab TIDAK (atau
+       sebaliknya) — karena jawaban diberikan setelah total terlanjur dihitung */
 function orderTotalRusak(rows){
   return (rows||[]).filter(r=>{
-    const tot=Number(moneyDigits(r['Total Akhir Setelah Diskon']))||0;
     const harga=[1,2,3].reduce((s,i)=>s+(Number(moneyDigits(r['Harga '+i]))||0),0);
-    return tot===0 && harga>0;
+    if(harga<=0) return false;
+    const tot=Number(moneyDigits(r['Total Akhir Setelah Diskon']))||0;
+    return tot!==orderTotalBenar(r);
   });
 }
-/* Hitung ulang total yang benar: (harga − diskon) + Tax sesuai kolom PPn. */
-function orderTotalBenar(r){
-  const subtotal=[1,2,3].reduce((s,i)=>s+(Number(moneyDigits(r['Harga '+i]))||0),0);
-  const disc=Number(moneyDigits(r['Diskon (%)']))||0;
-  const afterDisc=subtotal-Math.round(subtotal*disc/100);
-  const ppn=Number(moneyDigits(r['PPn']))||0;
-  return afterDisc+Math.round(afterDisc*ppn/100);
-}
+/* Total yang seharusnya — memakai aturan yang sama dengan kartu & detail. */
+function orderTotalBenar(r){ return ordRincian(r).total; }
 async function perbaikiTotalOrder(rows){
   const rusak=orderTotalRusak(rows);
   if(!rusak.length){ toast('Tidak ada order yang perlu diperbaiki.','ok'); return; }
   if(!confirm('Perbaiki total '+rusak.length+' order?\n\n'+
-    'Total dihitung ulang dari harga layanan, diskon, dan kolom PPn masing-masing order.')) return;
+    'Total dihitung ulang dari harga layanan, diskon, dan jawaban "Bayar Sesuai PPn".')) return;
   setSync(true);
   let ok=0, gagal=0;
   for(const r of rusak){
@@ -3539,9 +3537,10 @@ function orderBannerHTML(){
   const rusak=orderTotalRusak(state.rows||[]);
   if(rusak.length){
     return '<div class="aju-warn">'+
-      '<div class="aju-warn-t">'+svg('file')+' '+rusak.length+' order bertotal Rp 0</div>'+
-      '<div class="aju-warn-b">Total order ini tersimpan <b>Rp 0</b> padahal harga layanannya ada. '+
-        'Klik tombol di bawah untuk menghitung ulang dari harga layanan, diskon, dan PPn '+
+      '<div class="aju-warn-t">'+svg('file')+' '+rusak.length+' order dengan total tidak sesuai</div>'+
+      '<div class="aju-warn-b">Total tersimpan berbeda dari hasil hitungan — entah tersimpan '+
+        '<b>Rp 0</b>, atau masih memuat Tax padahal CS menjawab <b>TIDAK</b> (dan sebaliknya). '+
+        'Klik tombol di bawah untuk menghitung ulang dari harga layanan, diskon, dan jawaban Tax '+
         'masing-masing order.</div>'+
       '<button class="btn btn-gold btn-sm" id="ordFixTotal">Perbaiki '+rusak.length+' Order</button>'+
     '</div>';
@@ -5298,11 +5297,24 @@ function showOrderDetail(o){
   b+='<div class="dt-sec">Layanan & Tagihan</div>';
   [1,2,3].forEach(i=>{ if(o['Layanan '+i]||o['Harga '+i]) b+=row(esc(o['Layanan '+i]||'-')+(o['Qty '+i]?(' · '+esc(o['Qty '+i])):''), rp(Number(o['Harga '+i]||0))); });
   b+=row('Diskon', (Number(o['Diskon (%)']||0))+'%');
-  b+=row('PPn', (Number(moneyDigits(o['PPn']))>0?'11%':'-'));
-  { const p=ppnSesuaiVal(o);
-    if(p) b+=row('Bayar Sesuai PPn', '<span class="ppn-chip '+(p==='YA'?'ya':'no')+'">'+p+'</span>'); }
-  b+=row('Total Akhir', rp(o['Total Akhir']||0));
-  b+=row('Total Tagihan', rp(o['Total Akhir Setelah Diskon']||0));
+  /* Nilai di bawah memakai perhitungan YANG SAMA dengan kartu Order
+     (ordRincian) supaya angkanya tidak pernah berbeda antara kartu & detail.
+     Tax mengikuti jawaban "Bayar Sesuai PPn" untuk order done/complete. */
+  { const d=ordRincian(o);
+    const p=ppnSesuaiVal(o);
+    b+=row('Nilai Layanan', rp(d.dasar));
+    b+=row('Tax'+(d.kenaTax?(' '+PPN_DEFAULT+'%'):''),
+           d.kenaTax ? rp(d.tax) : '<span style="color:var(--faint)">— tanpa Tax</span>');
+    if(p) b+=row('Bayar Sesuai PPn', '<span class="ppn-chip '+(p==='YA'?'ya':'no')+'">'+p+'</span>');
+    b+=row('Total Tagihan', '<b>'+rp(d.total)+'</b>');
+    /* Nilai yang tersimpan di database ditampilkan HANYA bila berbeda dari
+       hasil hitungan — penanda bahwa datanya perlu diperbaiki. */
+    const simpan=Number(moneyDigits(o['Total Akhir Setelah Diskon']))||0;
+    if(simpan && simpan!==d.total){
+      b+=row('Tersimpan di database',
+        '<span style="color:var(--danger)">'+rp(simpan)+' — perlu diperbaiki</span>');
+    }
+  }
   if(o['Keterangan Order']) b+=row('Keterangan', esc(o['Keterangan Order']));
   if(o['Alasan Cancel']) b+=row('Alasan Cancel', esc(o['Alasan Cancel']));
   if(o['Waktu Approve']) b+=row('Waktu Approve', esc(fmtWaktu(o['Waktu Approve'])));
