@@ -11205,10 +11205,12 @@ function renderAbsensi(){
   const jabOK=x=>!jabFilter || norm(x)===jabFilter;
   const stOK=x=>!stFilter || norm(x)===stFilter;
   /* Vendor & Freelance tidak diwajibkan absen → tidak ditampilkan.
-     Baris yang namanya tidak cocok dengan data Karyawan tetap ditampilkan
-     agar tidak ada absen yang hilang diam-diam. */
+     PENTING: penyaringan hanya dilakukan bila baris itu BENAR-BENAR cocok
+     dengan data Karyawan. Bila namanya tidak ketemu (beda ejaan, spasi ganda,
+     dsb) barisnya TETAP ditampilkan — lebih baik menampilkan absen yang belum
+     terpetakan daripada menghilangkannya diam-diam. */
   const wajibAbsen=g=>{
-    if(absenStatusSkip(g.status)) return false;
+    if(g.status && absenStatusSkip(g.status)) return false;
     if(g.jabatan && ABSEN_JABATAN.indexOf(norm(g.jabatan))<0) return false;
     return true;
   };
@@ -11232,6 +11234,15 @@ function renderAbsensi(){
   const lolos=g=>wajibAbsen(g) && jabOK(g.jabatan) && stOK(g.status);
   const groupsF=groups.filter(lolos);
   const tidakAbsenF=tidakAbsen.filter(lolos);
+  /* Berapa absen yang tercatat tapi tidak ditampilkan, dan kenapa —
+     dipakai untuk keterangan bila daftarnya kosong. */
+  const disaring = {
+    total   : groups.length,
+    tampil  : groupsF.length,
+    vendor  : groups.filter(g=>g.status && absenStatusSkip(g.status)).length,
+    jabLain : groups.filter(g=>g.jabatan && ABSEN_JABATAN.indexOf(norm(g.jabatan))<0).length,
+    filter  : groups.filter(g=>wajibAbsen(g) && !(jabOK(g.jabatan) && stOK(g.status))).length
+  };
   const sMasuk=groupsF.filter(g=>g.masuk).length;
   const sPulang=groupsF.filter(g=>g.pulang).length;
   const sTelat=groupsF.filter(g=>g.telat).length;
@@ -11299,8 +11310,47 @@ function renderAbsensi(){
         ' · Keluar: '+(g.pulang?esc(jamShort(g.pulang['Jam'])):'—')+'</span></div>'+
     '</div>').join('');
 
+  /* Bila tidak ada satu pun yang tampil padahal ada absen tercatat, jelaskan
+     penyebabnya — jangan biarkan HRD melihat halaman kosong tanpa petunjuk. */
+  let catatan='';
+  if(!list.length){
+    if(disaring.total>0){
+      const sebab=[];
+      if(disaring.vendor)  sebab.push(disaring.vendor+' berstatus Vendor/Freelance');
+      if(disaring.jabLain) sebab.push(disaring.jabLain+' bukan Cleaner/CS');
+      if(disaring.filter)  sebab.push(disaring.filter+' tidak cocok dengan filter Jabatan/Status');
+      catatan='<div class="aju-warn"><div class="aju-warn-t">'+svg('file')+' '+
+        disaring.total+' absen tercatat, tetapi tidak ada yang ditampilkan</div>'+
+        '<div class="aju-warn-b">'+
+          (sebab.length ? ('Penyebab: '+esc(sebab.join(' · '))+'.') :
+            'Data absen ada, tetapi tersaring habis.')+
+          '<br>Klik <b>Semua Jabatan</b> dan <b>Semua Status</b> di atas untuk menampilkan semuanya.'+
+        '</div></div>';
+    }else{
+      const mentah=(state.rows||[]).length;
+      const tglTeks=(state.dateStart===state.dateEnd)
+        ? tglPanjangId(state.dateStart)
+        : (tglPanjangId(state.dateStart)+' – '+tglPanjangId(state.dateEnd));
+      /* Bedakan: tabel ABSEN memang kosong, ATAU ada barisnya tapi tersaring
+         oleh tanggal / cabang / kolom nama yang tidak terbaca. */
+      const adaNama=(state.rows||[]).some(r=>String(r['Nama']||'').trim());
+      catatan='<div class="aju-warn"><div class="aju-warn-t">'+svg('file')+
+        ' Tidak ada absen yang ditampilkan</div><div class="aju-warn-b">'+
+        'Baris absen terambil dari database: <b>'+mentah+'</b>. '+
+        'Tanggal aktif: <b>'+esc(tglTeks||'-')+'</b>'+
+        (state.filters['Cabang']?(' · Cabang: <b>'+esc(state.filters['Cabang'])+'</b>'):'')+'.<br>'+
+        (mentah===0
+          ? 'Tabel ABSEN kosong — belum ada yang absen, atau datanya tersimpan di tabel lain.'
+          : (!adaNama
+              ? 'Ada '+mentah+' baris, tetapi kolom <b>Nama</b> kosong semua sehingga tidak bisa dikelompokkan. '+
+                'Periksa nama kolom di tabel ABSEN (harus persis <b>Nama</b>, <b>Tanggal</b>, <b>Jam</b>, <b>Tipe</b>).'
+              : 'Ada '+mentah+' baris, tetapi tidak ada yang jatuh pada tanggal/cabang di atas. '+
+                'Coba ubah tanggalnya atau kosongkan saringan Cabang.'))+
+        '</div></div>';
+    }
+  }
   $('#panel').innerHTML=
-    stats+seg+
+    stats+seg+catatan+
     '<div class="cap-card"><div class="cap-card-t">Kehadiran — ketuk nama untuk rincian</div>'+
       '<div class="tbl-wrap desk-only"><table class="ops-tbl"><thead><tr>'+
         '<th class="l">Tanggal</th><th>Nama</th><th>Cabang</th><th class="c">Masuk</th><th class="c">Keluar</th><th class="c">Status</th>'+
