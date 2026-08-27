@@ -2213,7 +2213,7 @@ const VIEWS = {
     approve:true, multiApprove:true, statusBadge:true, invoice:true, rowDetail:true, countTop:true, noSyncBtn:true,
     table:['ID Order','Cabang','Status Order','Nama Customer','Tanggal Pengerjaan','Metode Pembayaran','PPn','Bayar Sesuai PPn','Total Akhir Setelah Diskon','Waktu Bukti Transfer','Bukti Transfer'],
     colLabel:{'Waktu Bukti Transfer':'Waktu Bukti','Total Akhir Setelah Diskon':'Total','Bayar Sesuai PPn':'Sesuai PPn'},
-    filters:['Cabang'],
+    filters:['Cabang','Bayar Sesuai PPn'],
     search:['Nama Customer','ID Order'],
     datePreset:true, dateFilterField:'Tanggal Pengerjaan'
   },
@@ -3401,7 +3401,9 @@ const FILTER_OPTS = {
   'Jenis APD':HSE_JENIS_APD, 'Jenis Faskes':HSE_JENIS_FASKES,
   'Jenis SIM':HSE_JENIS_SIM, 'Status Kajian':RND_STATUS_KAJIAN,
   'Jenis Ajuan':AJUAN_JENIS, 'Status Ajuan':AJUAN_STATUS,
-  'Jenis Pembelian':AJU_JENIS, 'Tingkat Urgensi':AJU_URGENSI
+  'Jenis Pembelian':AJU_JENIS, 'Tingkat Urgensi':AJU_URGENSI,
+  /* Audit Order (FINANCE): jawaban CS saat unggah bukti transfer. */
+  'Bayar Sesuai PPn':['YA','TIDAK']
 };
 /* Kolom sumber untuk dua saringan di atas (nama saringan dibedakan agar
    tidak bentrok dengan 'Jenis' bonus & 'Status' karyawan). */
@@ -3493,16 +3495,33 @@ async function perbaikiTotalOrder(rows){
   if(!confirm('Perbaiki total '+rusak.length+' order?\n\n'+
     'Total dihitung ulang dari harga layanan, diskon, dan jawaban "Bayar Sesuai PPn".')) return;
   setSync(true);
-  let ok=0, gagal=0;
+  let ok=0, nol=0, gagal=0; const pesan=[];
   for(const r of rusak){
+    const id=r['ID Order'];
     try{
-      await api({action:'update', sheet:'ORDER', idField:'ID Order', id:r['ID Order'],
+      const res=await api({action:'update', sheet:'ORDER', idField:'ID Order', id:id,
         data:{'Total Akhir Setelah Diskon':orderTotalBenar(r)}});
-      ok++;
-    }catch(e){ gagal++; }
+      /* PENTING: Supabase bisa mengembalikan "sukses" tanpa mengubah apa pun
+         bila tidak ada baris yang cocok — misalnya karena aturan keamanan (RLS)
+         tidak mengizinkan UPDATE untuk akun ini. Dulu kondisi ini dihitung
+         berhasil, sehingga muncul pesan "selesai" padahal data tidak berubah. */
+      if(res && res.updated===0){ nol++; }
+      else ok++;
+    }catch(e){ gagal++; if(pesan.length<2) pesan.push(String(e.message||e)); }
   }
   setSync(false);
-  toast(gagal? (ok+' order diperbaiki, '+gagal+' gagal.') : (ok+' order berhasil diperbaiki.'), gagal?'err':'ok');
+  if(ok && !nol && !gagal){
+    toast(ok+' order berhasil diperbaiki.','ok');
+  }else if(nol && !ok){
+    toast('Tidak ada baris yang berubah — akun Anda kemungkinan tidak punya izin '+
+          'UPDATE pada tabel ORDER (aturan RLS di Supabase). Lihat Console.','err');
+    console.warn('perbaikiTotalOrder: '+nol+' order tidak berubah (0 baris ter-update).\n'+
+      'Periksa RLS tabel ORDER di Supabase — kebijakan UPDATE harus mengizinkan peran ini.\n'+
+      'ID yang dicoba: '+rusak.map(r=>r['ID Order']).join(', '));
+  }else{
+    toast(ok+' diperbaiki · '+nol+' tidak berubah · '+gagal+' gagal.','err');
+    if(pesan.length) console.warn('perbaikiTotalOrder gagal:', pesan.join(' | '));
+  }
   invalidateLists(); await loadList(true);
 }
 function orderBannerHTML(){
@@ -3542,7 +3561,8 @@ function orderBannerHTML(){
         '<b>Rp 0</b>, atau masih memuat Tax padahal CS menjawab <b>TIDAK</b> (dan sebaliknya). '+
         'Klik tombol di bawah untuk menghitung ulang dari harga layanan, diskon, dan jawaban Tax '+
         'masing-masing order.</div>'+
-      '<button class="btn btn-gold btn-sm" id="ordFixTotal">Perbaiki '+rusak.length+' Order</button>'+
+      '<button class="btn btn-gold btn-sm" id="ordFixTotal">Perbaiki '+rusak.length+' Order</button> '+
+      '<button class="btn btn-ghost btn-sm" id="ordFixLihat">Lihat Rinciannya</button>'+
     '</div>';
   }
   return '';
@@ -3550,6 +3570,32 @@ function orderBannerHTML(){
 function wireOrderBanner(){
   const fx=document.getElementById('ordFixTotal');
   if(fx) fx.addEventListener('click', ()=>perbaikiTotalOrder(state.rows||[]));
+  const lh=document.getElementById('ordFixLihat');
+  if(lh) lh.addEventListener('click', ()=>{
+    const rusak=orderTotalRusak(state.rows||[]);
+    const baris=rusak.map(r=>{
+      const d=ordRincian(r);
+      const simpan=Number(moneyDigits(r['Total Akhir Setelah Diskon']))||0;
+      return '<tr><td>'+esc(r['ID Order']||'-')+'</td>'+
+        '<td>'+esc(r['Nama Customer']||'-')+'</td>'+
+        '<td class="c">'+esc(r['Status Order']||'-')+'</td>'+
+        '<td class="c">'+(ppnSesuaiVal(r)||'—')+'</td>'+
+        '<td class="r">'+esc(rp(simpan))+'</td>'+
+        '<td class="r"><b>'+esc(rp(d.total))+'</b></td></tr>';
+    }).join('');
+    $('#modalTitle').textContent='Order dengan total tidak sesuai ('+rusak.length+')';
+    $('#modalBody').innerHTML=
+      '<div class="bs-sub" style="margin-bottom:10px">Kolom <b>Seharusnya</b> adalah nilai yang akan '+
+      'ditulis saat tombol Perbaiki ditekan.</div>'+
+      '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr>'+
+        '<th>ID Order</th><th>Customer</th><th class="c">Status</th><th class="c">Sesuai PPn</th>'+
+        '<th class="r">Tersimpan</th><th class="r">Seharusnya</th>'+
+      '</tr></thead><tbody>'+(baris||'<tr><td colspan="6">Tidak ada.</td></tr>')+'</tbody></table></div>';
+    const sv=$('#modalSave'); if(sv) sv.style.display='none';
+    const dl=$('#modalDel'); if(dl) dl.style.display='none';
+    const cc=$('#modalCancel'); if(cc){ cc.textContent='Tutup'; cc.classList.add('btn-danger'); }
+    openOverlay();
+  });
   const c=document.getElementById('ordSqlCopy');
   if(c) c.addEventListener('click',()=>{
     const t=(document.getElementById('ordSql')||{}).textContent||'';
@@ -4160,18 +4206,21 @@ function buildToolbar(){
     if(v.branchLock && fld==='Cabang') return;
     let opts = FILTER_OPTS[fld] || [];
     if(fld==='Status Order' && v.statusClient) opts = v.statusClient.slice();
+    /* Label chip: pakai nama pendek bila view menyediakannya (colLabel),
+       supaya "Bayar Sesuai PPn" tampil ringkas sebagai "Sesuai PPn". */
+    const lbl = (v.colLabel && v.colLabel[fld]) || fld;
     const isMulti = (v.multiFilters||[]).indexOf(fld)>=0;
     if(isMulti){
       // Filter pilih-banyak: klik untuk aktif/nonaktif, boleh lebih dari satu.
       const sel = Array.isArray(state.filters[fld]) ? state.filters[fld] : [];
-      pf += '<div class="fl"><span class="lbl">'+fld+'</span><div class="mfl" data-mfilter="'+esc(fld)+'">'+
+      pf += '<div class="fl"><span class="lbl">'+esc(lbl)+'</span><div class="mfl" data-mfilter="'+esc(fld)+'">'+
         '<button type="button" class="mfc'+(sel.length?'':' on')+'" data-mv="">Semua</button>'+
         opts.map(o=>'<button type="button" class="mfc'+(sel.indexOf(o)>=0?' on':'')+'" data-mv="'+esc(o)+'">'+esc(o)+'</button>').join('')+
       '</div></div>';
     }else if(fld==='Periode Bulan'){
-      pf += '<div class="fl"><span class="lbl">'+fld+'</span><input type="month" data-filter="'+fld+'" value="'+esc(state.filters[fld]||'')+'"></div>';
+      pf += '<div class="fl"><span class="lbl">'+esc(lbl)+'</span><input type="month" data-filter="'+fld+'" value="'+esc(state.filters[fld]||'')+'"></div>';
     }else{
-      pf += '<div class="fl"><span class="lbl">'+fld+'</span><select data-filter="'+fld+'"><option value="">Semua</option>'+
+      pf += '<div class="fl"><span class="lbl">'+esc(lbl)+'</span><select data-filter="'+fld+'"><option value="">Semua</option>'+
         opts.map(o=>'<option'+((state.filters[fld]||'')===o?' selected':'')+'>'+o+'</option>').join('')+'</select></div>';
     }
   });
