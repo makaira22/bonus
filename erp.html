@@ -9797,6 +9797,26 @@ function itMatriks(cols, rows){
   }));
 }
 
+/* Daftar cabang yang benar-benar terbaca pada data mentah. Dipakai untuk
+   mendeteksi pembatasan RLS: bila hanya cabang sendiri yang muncul padahal
+   tabelnya berisi banyak cabang, berarti izin bacanya masih disaring. */
+function itCabangTerbaca(key, rows){
+  const d=itDef(key);
+  if(!d.cabField) return [];
+  const set={};
+  (rows||[]).forEach(r=>{ const c=String(r[d.cabField]||'').trim().toUpperCase(); if(c) set[c]=1; });
+  return Object.keys(set).sort();
+}
+/* Perintah SQL untuk mengizinkan akun IT membaca SELURUH baris sebuah tabel.
+   Hanya SELECT — akun IT tidak boleh menulis apa pun. */
+function itRlsSql(tabel){
+  return 'create policy "IT baca semua '+tabel+'"\n'+
+         '  on "'+tabel+'" for select to authenticated\n'+
+         '  using ( exists (\n'+
+         '    select 1 from profiles p\n'+
+         '    where p.id = auth.uid() and p.role = \'IT\'\n'+
+         '  ) );';
+}
 async function renderItExport(force){
   if(!state.it) state.it={ key:'ORDER', mode:'bulan', ym:ymd(new Date()).slice(0,7),
                            dari:'', sampai:'', cab:'', st:'' };
@@ -9813,6 +9833,26 @@ async function renderItExport(force){
   const rows=itSaring(F.key, rowsAll);
   const cols=itKolom(rowsAll);
   const cabList=CABANG.filter(c=>c!=='OFFICE');
+  /* Peringatan bila data yang terbaca hanya mencakup SATU cabang padahal
+     perusahaan punya banyak cabang — hampir selalu karena aturan RLS di
+     Supabase masih membatasi baca ke cabang milik akun yang login. */
+  const cabTerbaca=itCabangTerbaca(F.key, rowsAll);
+  const cabSendiri=String((state.session&&state.session.cabang)||'').toUpperCase();
+  const dibatasi = cabTerbaca.length===1 && cabSendiri && cabTerbaca[0]===cabSendiri;
+  const peringatanRls = dibatasi
+    ? '<div class="aju-warn"><div class="aju-warn-t">'+svg('file')+
+        ' Hanya cabang '+esc(cabTerbaca[0])+' yang terbaca</div>'+
+      '<div class="aju-warn-b">Tabel <b>'+esc(F.key)+'</b> hanya mengembalikan baris dari cabang '+
+        '<b>'+esc(cabTerbaca[0])+'</b> — sama dengan cabang akun IT ini. Hampir pasti aturan '+
+        '<b>RLS</b> di Supabase masih membatasi baca per cabang, jadi data cabang lain tidak ikut '+
+        'terambil.<br><br>Perbaiki di Supabase → Authentication → Policies → tabel <b>'+esc(F.key)+
+        '</b>: tambahkan kebijakan <b>SELECT</b> yang mengizinkan peran IT membaca SELURUH baris. '+
+        'Contoh perintahnya bisa disalin di bawah.</div>'+
+      '<pre class="aju-sql" id="itRlsSql">'+esc(itRlsSql(F.key))+'</pre>'+
+      '<button class="btn btn-ghost btn-sm" id="itRlsCopy">Salin SQL</button> '+
+      '<button class="btn btn-ghost btn-sm" id="itRlsCek">Periksa Ulang</button>'+
+      '</div>'
+    : '';
 
   const tabs=IT_TABEL.map(t=>'<button class="hub-tab'+(F.key===t.key?' active':'')+
     '" data-itk="'+t.key+'">'+esc(t.label)+'</button>').join('');
@@ -9856,7 +9896,9 @@ async function renderItExport(force){
       'dari total '+rowsAll.length+' · <b>'+cols.length+'</b> kolom'+
       (d.tglField ? (' · disaring pada kolom <b>'+esc(d.tglField)+'</b>')
                   : ' · data induk, tidak disaring per periode')+
-      (!d.cabField?' · tabel ini tidak punya kolom Cabang':'')+'</div>'+
+      (!d.cabField?' · tabel ini tidak punya kolom Cabang':'')+
+      (cabTerbaca.length?('<br>Cabang terbaca: <b>'+esc(cabTerbaca.join(', '))+'</b>'):'')+'</div>'+
+    peringatanRls+
     '<div class="it-btn">'+
       '<button class="btn btn-gold" id="itCsv">'+svg('file')+'Unduh CSV</button>'+
       '<button class="btn btn-gold" id="itXls">'+svg('file')+'Unduh Excel</button>'+
@@ -9914,6 +9956,12 @@ async function renderItExport(force){
   });
   pasang('itAll', itUnduhSemua);
   pasang('itSync', ()=>renderItExport(true));
+  pasang('itRlsCopy', ()=>{
+    const t=(document.getElementById('itRlsSql')||{}).textContent||'';
+    if(navigator.clipboard) navigator.clipboard.writeText(t)
+      .then(()=>toast('SQL disalin','ok'),()=>toast('Gagal menyalin','err'));
+  });
+  pasang('itRlsCek', ()=>renderItExport(true));
 }
 
 function itUnduhJson(nama, obj){
