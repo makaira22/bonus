@@ -9730,8 +9730,14 @@ function dlToCsv(cols, rows){
 const IT_TABEL = [
   { key:'ORDER',    label:'Order',    tglField:'Tanggal Pengerjaan', cabField:'Cabang', statusField:'Status Order' },
   { key:'ABSEN',    label:'Absensi',  tglField:'Tanggal',            cabField:'Cabang' },
-  { key:'BONUS',    label:'Bonus',    tglField:'Tanggal Input',      cabField:null     },
-  { key:'KARYAWAN', label:'Karyawan', tglField:'Tanggal Masuk',      cabField:'Cabang' }
+  /* BONUS: menu aslinya menyaring pakai "Tanggal Pengerjaan", bukan
+     "Tanggal Input" — disamakan agar hasil ekspor cocok dengan yang
+     dilihat CS/Finance di aplikasi. */
+  { key:'BONUS',    label:'Bonus',    tglField:'Tanggal Pengerjaan', cabField:null     },
+  /* KARYAWAN adalah data induk (bukan transaksi) — tidak punya kolom tanggal,
+     jadi saringan periode TIDAK diterapkan. Kalau dipaksa disaring per bulan,
+     seluruh barisnya akan terbuang. */
+  { key:'KARYAWAN', label:'Karyawan', tglField:null,                 cabField:'Cabang' }
 ];
 function itDef(key){ return IT_TABEL.find(t=>t.key===key) || IT_TABEL[0]; }
 
@@ -9766,12 +9772,15 @@ function itKolom(rows){
 function itSaring(key, rows){
   const F=state.it, d=itDef(key);
   let out=(rows||[]).slice();
-  const tgl=r=>String(r[d.tglField]||'').slice(0,10);
-  if(F.mode==='bulan' && F.ym){
-    out=out.filter(r=>tgl(r).slice(0,7)===F.ym);
-  }else if(F.mode==='rentang' && (F.dari||F.sampai)){
-    const a=F.dari||'0000-00-00', b=F.sampai||'9999-99-99';
-    out=out.filter(r=>{ const t=tgl(r); return t && t>=a && t<=b; });
+  /* Tabel tanpa kolom tanggal (mis. KARYAWAN) tidak ikut disaring periode. */
+  if(d.tglField){
+    const tgl=r=>String(r[d.tglField]||'').slice(0,10);
+    if(F.mode==='bulan' && F.ym){
+      out=out.filter(r=>tgl(r).slice(0,7)===F.ym);
+    }else if(F.mode==='rentang' && (F.dari||F.sampai)){
+      const a=F.dari||'0000-00-00', b=F.sampai||'9999-99-99';
+      out=out.filter(r=>{ const t=tgl(r); return t && t>=a && t<=b; });
+    }
   }
   if(F.cab && d.cabField) out=out.filter(r=>norm(r[d.cabField])===norm(F.cab));
   if(F.st && d.statusField) out=out.filter(r=>norm(r[d.statusField])===norm(F.st));
@@ -9819,15 +9828,18 @@ async function renderItExport(force){
   $('#panel').innerHTML=
     '<div class="hub-tabs">'+tabs+'</div>'+
     '<div class="cap-card"><div class="cap-card-t">Saringan</div><div class="it-flt">'+
-      '<div class="fl"><span class="lbl">Periode</span><select id="itMode">'+
-        '<option value="semua"'+(F.mode==='semua'?' selected':'')+'>Semua data</option>'+
-        '<option value="bulan"'+(F.mode==='bulan'?' selected':'')+'>Per bulan</option>'+
-        '<option value="rentang"'+(F.mode==='rentang'?' selected':'')+'>Rentang tanggal</option>'+
-      '</select></div>'+
-      (F.mode==='bulan'
+      /* Pilihan periode hanya untuk tabel yang punya kolom tanggal. */
+      (d.tglField
+        ? '<div class="fl"><span class="lbl">Periode</span><select id="itMode">'+
+            '<option value="semua"'+(F.mode==='semua'?' selected':'')+'>Semua data</option>'+
+            '<option value="bulan"'+(F.mode==='bulan'?' selected':'')+'>Per bulan</option>'+
+            '<option value="rentang"'+(F.mode==='rentang'?' selected':'')+'>Rentang tanggal</option>'+
+          '</select></div>'
+        : '')+
+      (d.tglField && F.mode==='bulan'
         ? '<div class="fl"><span class="lbl">Bulan</span><input type="month" id="itYm" value="'+esc(F.ym)+'"></div>'
         : '')+
-      (F.mode==='rentang'
+      (d.tglField && F.mode==='rentang'
         ? '<div class="fl"><span class="lbl">Dari</span><input type="date" id="itDari" value="'+esc(F.dari)+'"></div>'+
           '<div class="fl"><span class="lbl">Sampai</span><input type="date" id="itSampai" value="'+esc(F.sampai)+'"></div>'
         : '')+
@@ -9842,7 +9854,8 @@ async function renderItExport(force){
     '</div>'+
     '<div class="ops-note">Tabel <b>'+esc(F.key)+'</b> · <b>'+rows.length+'</b> baris terpilih '+
       'dari total '+rowsAll.length+' · <b>'+cols.length+'</b> kolom'+
-      (d.tglField?(' · disaring pada kolom <b>'+esc(d.tglField)+'</b>'):'')+
+      (d.tglField ? (' · disaring pada kolom <b>'+esc(d.tglField)+'</b>')
+                  : ' · data induk, tidak disaring per periode')+
       (!d.cabField?' · tabel ini tidak punya kolom Cabang':'')+'</div>'+
     '<div class="it-btn">'+
       '<button class="btn btn-gold" id="itCsv">'+svg('file')+'Unduh CSV</button>'+
