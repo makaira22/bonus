@@ -3674,6 +3674,17 @@ function dataStripCol(data, col){
 async function api(payload){
   const sb = window.sb;
   const a = payload.action;
+  /* Pengaman: buang kunci yang bukan nama kolom sah ("undefined", "null",
+     atau string kosong). Kunci seperti ini bisa lahir dari entri form yang
+     tidak punya nama kolom, dan membuat database menolak seluruh baris. */
+  if(payload.data && !Array.isArray(payload.data) && typeof payload.data==='object'){
+    ['undefined','null',''].forEach(k=>{
+      if(k in payload.data){
+        console.warn('Kunci tidak sah dibuang sebelum simpan:', JSON.stringify(k), payload.sheet);
+        delete payload.data[k];
+      }
+    });
+  }
   try{
     /* Ambil SELURUH baris sebuah tabel secara bertahap.
        Wajib dipakai untuk tabel besar (BONUS, ORDER) — sekali select
@@ -8156,7 +8167,7 @@ function collectOrderForm(){
   const v=state.view;
   const data = state.editing ? Object.assign({}, state.editing) : {};
   (v.form||[]).forEach(fd=>{
-    if(fd.sec || fd.btn) return;
+    if(fd.sec || fd.btn || fd.info || !fd.k) return;   // lewati entri non-isian
     if(fd.t==='file'){ if(state.files[fd.k]) data[fd.k]=state.files[fd.k]; }
     else if(fd.t==='check'){ const el=getEl(fd.k); data[fd.k]= fd.bool ? !!(el&&el.checked) : numVal(fd.k); }
     else if(fd.t==='money'){ data[fd.k]=numVal(fd.k); }
@@ -8886,7 +8897,7 @@ function genId(prefix){
    Pembelian & Foto "hilang" tanpa pesan apa pun. Sekarang selalu diberitahukan,
    lengkap dengan perintah SQL untuk menambah kolomnya. */
 function peringatanKolomHilang(cols, sheet){
-  const list=(cols||[]).filter(Boolean);
+  const list=(cols||[]).filter(c=>c && c!=='undefined' && c!=='null');
   if(!list.length) return;
   const sql=list.map(c=>'ALTER TABLE "'+sheet+'" ADD COLUMN IF NOT EXISTS "'+c+'" text;').join('\n');
   console.warn('Kolom belum ada di tabel '+sheet+':\n'+sql);
@@ -8900,7 +8911,11 @@ async function saveForm(){
   const data = state.editing ? Object.assign({}, state.editing) : {};
   // collect field values
   v.form.forEach(fd=>{
-    if(fd.sec || fd.btn) return;
+    /* Lewati entri yang BUKAN isian: judul bagian (sec), tombol (btn), dan
+       kotak keterangan (info — mis. gajiHarianInfo pada form Gaji Harian).
+       Tanpa penjagaan `!fd.k`, entri tanpa nama kolom akan membuat kunci
+       bernama "undefined" yang lalu ditolak database. */
+    if(fd.sec || fd.btn || fd.info || !fd.k) return;
     if(fd.t==='file'){
       if(state.files[fd.k]) data[fd.k]=state.files[fd.k];
     }else if(fd.t==='check'){
