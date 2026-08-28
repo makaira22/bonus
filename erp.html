@@ -298,6 +298,9 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 .ppn-b.no:hover{border-color:#B3261E;background:#FDECEC}
 .ppn-tot-b{margin-top:5px;font-size:13px!important;font-weight:800;color:var(--ink)!important;
   font-variant-numeric:tabular-nums}
+/* Ekspor Data (jabatan IT) */
+.it-flt{display:flex;flex-wrap:wrap;gap:12px;padding:4px 0 10px}
+.it-btn{display:flex;flex-wrap:wrap;gap:9px;margin-top:12px}
 .os-wrap{position:relative}
 .os-input{cursor:text}
 .os-list{display:none;position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:50;max-height:260px;overflow:auto;
@@ -1642,7 +1645,7 @@ td.c-green, td.c-red, td.c-orange, td.c-blue{font-weight:700}
    ============================================================ */
 const CABANG = ['SURABAYA','MALANG','GRESIK','KEDIRI','BOJONEGORO',
                 'SAMARINDA','BALIKPAPAN','DENPASAR','TABANAN','MAKASSAR','OFFICE'];
-const JABATAN = ['CEO','MARKETING','CLEANER','CS','OPERASIONAL','FINANCE','HRD','DESIGNER'];
+const JABATAN = ['CEO','MARKETING','CLEANER','CS','OPERASIONAL','FINANCE','HRD','DESIGNER','IT'];
 const STATUS_KARYAWAN = ['TETAP','SEMI','TETAP KOOR','FREELANCE','VENDOR'];
 /* Batas jam masuk ("HH:MM"). Absen "Masuk" LEBIH dari jam ini = TELAT
    (dipakai menu Absensi HRD). Ubah sesuai kebijakan perusahaan. */
@@ -2015,7 +2018,12 @@ const MENUS = {
     {key:'agenda', label:'Agenda', icon:'audit'},
     {key:'__settings', label:'Pengaturan', icon:'settings'}
   ],
-  DESIGNER: []
+  DESIGNER: [],
+  /* IT — akses khusus migrasi data. Hanya ekspor, tidak bisa mengubah apa pun. */
+  IT: [
+    {key:'itExport', label:'Ekspor Data', icon:'file'},
+    {key:'__settings', label:'Pengaturan', icon:'settings'}
+  ]
 };
 
 /* ---------- VIEW DEFINITIONS ---------- */
@@ -2367,6 +2375,11 @@ VIEWS.suratTDP = { sheet:null, title:'Surat TDP', sub:'', special:'suratTDP', no
 VIEWS.kelolaLogo = { sheet:null, title:'Logo Aplikasi', sub:'', special:'kelolaLogo', noSyncBtn:true, inSettings:true };
 VIEWS.formCsv = { sheet:null, title:'Contoh Form (CSV)', sub:'', special:'formCsv', noSyncBtn:true, inSettings:true };
 VIEWS.downloadData = { sheet:null, title:'Download Data', sub:'', special:'downloadData', noSyncBtn:true, inSettings:true };
+/* ---------- EKSPOR DATA (jabatan IT) ----------
+   Dipakai untuk migrasi ke aplikasi baru: mengunduh isi tabel APA ADANYA
+   (semua kolom, tanpa diringkas) dalam format CSV, Excel, atau JSON. */
+VIEWS.itExport = { sheet:null, title:'Ekspor Data', sub:'Unduh data mentah untuk migrasi',
+                   special:'itExport', noSyncBtn:true };
 VIEWS.todo = {
   sheet:'TODO', title:'To Do List', sub:'', inSettings:true, countTop:true, noSyncBtn:true, special:'todo',
   idField:'id', roleLock:true, canAdd:true, canEdit:true, canDelete:true,
@@ -9168,6 +9181,7 @@ async function openSettingsView(key){
   if(state.view.special==='suratTDP'){ renderSuratTDP(); return; }
   if(state.view.special==='formCsv'){ renderFormCsv(); return; }
   if(state.view.special==='downloadData'){ renderDownloadData(); return; }
+  if(state.view.special==='itExport'){ renderItExport(); return; }
   if(state.view.special==='kelolaLogo'){ renderKelolaLogo(); return; }
   await loadList();
   if(state._ch){ try{ window.sb.removeChannel(state._ch); }catch(e){} state._ch=null; }
@@ -9700,6 +9714,210 @@ function downloadXls(name, sheets){
 function dlToCsv(cols, rows){
   return [cols.map(csvEsc).join(',')].concat(rows.map(r=>r.map(csvEsc).join(','))).join('\r\n');
 }
+/* ============================================================
+   EKSPOR DATA — JABATAN IT
+   Untuk migrasi ke aplikasi baru. Mengunduh isi tabel APA ADANYA:
+   semua kolom, tanpa diringkas atau diubah namanya, sehingga aman
+   dipakai sebagai sumber impor.
+   Format: CSV · Excel (.xls) · JSON
+   ============================================================ */
+const IT_TABEL = [
+  { key:'ORDER',    label:'Order',    tglField:'Tanggal Pengerjaan', cabField:'Cabang', statusField:'Status Order' },
+  { key:'ABSEN',    label:'Absensi',  tglField:'Tanggal',            cabField:'Cabang' },
+  { key:'BONUS',    label:'Bonus',    tglField:'Tanggal Input',      cabField:null     },
+  { key:'KARYAWAN', label:'Karyawan', tglField:'Tanggal Masuk',      cabField:'Cabang' }
+];
+function itDef(key){ return IT_TABEL.find(t=>t.key===key) || IT_TABEL[0]; }
+
+/* Ambil SELURUH baris tabel (bertahap 1000-an) lalu simpan di cache. */
+async function itAmbil(key, force){
+  const ck='it_'+key;
+  if(!force && state.cache[ck]) return state.cache[ck];
+  const semua=[]; const PAGE=1000; let from=0;
+  while(true){
+    const {data,error}=await window.sb.from(key).select('*').range(from, from+PAGE-1);
+    if(error) throw error;
+    const b=data||[];
+    semua.push(...b);
+    if(b.length<PAGE) break;
+    from+=PAGE;
+    if(from>100000) break;                    // pengaman
+  }
+  state.cache[ck]=trimKeys(semua);
+  return state.cache[ck];
+}
+
+/* Seluruh nama kolom yang muncul di data — urut sesuai kemunculan pertama. */
+function itKolom(rows){
+  const out=[], lihat={};
+  (rows||[]).forEach(r=>Object.keys(r||{}).forEach(k=>{
+    if(!lihat[k]){ lihat[k]=1; out.push(k); }
+  }));
+  return out;
+}
+
+/* Terapkan saringan: bulan / rentang tanggal / cabang / status order. */
+function itSaring(key, rows){
+  const F=state.it, d=itDef(key);
+  let out=(rows||[]).slice();
+  const tgl=r=>String(r[d.tglField]||'').slice(0,10);
+  if(F.mode==='bulan' && F.ym){
+    out=out.filter(r=>tgl(r).slice(0,7)===F.ym);
+  }else if(F.mode==='rentang' && (F.dari||F.sampai)){
+    const a=F.dari||'0000-00-00', b=F.sampai||'9999-99-99';
+    out=out.filter(r=>{ const t=tgl(r); return t && t>=a && t<=b; });
+  }
+  if(F.cab && d.cabField) out=out.filter(r=>norm(r[d.cabField])===norm(F.cab));
+  if(F.st && d.statusField) out=out.filter(r=>norm(r[d.statusField])===norm(F.st));
+  return out;
+}
+
+/* Baris → larik nilai, mengikuti urutan kolom. */
+function itMatriks(cols, rows){
+  return rows.map(r=>cols.map(c=>{
+    const v=r[c];
+    if(v==null) return '';
+    if(typeof v==='object') return JSON.stringify(v);
+    return v;
+  }));
+}
+
+async function renderItExport(force){
+  if(!state.it) state.it={ key:'ORDER', mode:'bulan', ym:ymd(new Date()).slice(0,7),
+                           dari:'', sampai:'', cab:'', st:'' };
+  const F=state.it;
+  $('#panel').innerHTML='<div class="cap-empty">Memuat data…</div>';
+  let rowsAll;
+  try{ rowsAll=await itAmbil(F.key, force); }
+  catch(e){
+    $('#panel').innerHTML='<div class="cap-card"><div class="cap-empty">Gagal memuat '+
+      esc(F.key)+': '+esc(e.message||e)+'</div></div>';
+    return;
+  }
+  const d=itDef(F.key);
+  const rows=itSaring(F.key, rowsAll);
+  const cols=itKolom(rowsAll);
+  const cabList=CABANG.filter(c=>c!=='OFFICE');
+
+  const tabs=IT_TABEL.map(t=>'<button class="hub-tab'+(F.key===t.key?' active':'')+
+    '" data-itk="'+t.key+'">'+esc(t.label)+'</button>').join('');
+
+  const pratinjau=rows.slice(0,8);
+  const th=cols.slice(0,9).map(c=>'<th>'+esc(c)+'</th>').join('')+
+           (cols.length>9?'<th>… +'+(cols.length-9)+'</th>':'');
+  const tb=pratinjau.map(r=>'<tr>'+cols.slice(0,9).map(c=>{
+      const v=r[c]; const s=v==null?'':String(v);
+      return '<td>'+esc(s.length>28?s.slice(0,28)+'…':s)+'</td>';
+    }).join('')+(cols.length>9?'<td>…</td>':'')+'</tr>').join('');
+
+  $('#panel').innerHTML=
+    '<div class="hub-tabs">'+tabs+'</div>'+
+    '<div class="cap-card"><div class="cap-card-t">Saringan</div><div class="it-flt">'+
+      '<div class="fl"><span class="lbl">Periode</span><select id="itMode">'+
+        '<option value="semua"'+(F.mode==='semua'?' selected':'')+'>Semua data</option>'+
+        '<option value="bulan"'+(F.mode==='bulan'?' selected':'')+'>Per bulan</option>'+
+        '<option value="rentang"'+(F.mode==='rentang'?' selected':'')+'>Rentang tanggal</option>'+
+      '</select></div>'+
+      (F.mode==='bulan'
+        ? '<div class="fl"><span class="lbl">Bulan</span><input type="month" id="itYm" value="'+esc(F.ym)+'"></div>'
+        : '')+
+      (F.mode==='rentang'
+        ? '<div class="fl"><span class="lbl">Dari</span><input type="date" id="itDari" value="'+esc(F.dari)+'"></div>'+
+          '<div class="fl"><span class="lbl">Sampai</span><input type="date" id="itSampai" value="'+esc(F.sampai)+'"></div>'
+        : '')+
+      (d.cabField
+        ? '<div class="fl"><span class="lbl">Cabang</span><select id="itCab"><option value="">Semua Cabang</option>'+
+          cabList.map(c=>'<option'+(F.cab===c?' selected':'')+'>'+c+'</option>').join('')+'</select></div>'
+        : '')+
+      (d.statusField
+        ? '<div class="fl"><span class="lbl">Status Order</span><select id="itSt"><option value="">Semua Status</option>'+
+          STATUS_ORDER.map(x=>'<option'+(F.st===x?' selected':'')+'>'+x+'</option>').join('')+'</select></div>'
+        : '')+
+    '</div>'+
+    '<div class="ops-note">Tabel <b>'+esc(F.key)+'</b> · <b>'+rows.length+'</b> baris terpilih '+
+      'dari total '+rowsAll.length+' · <b>'+cols.length+'</b> kolom'+
+      (d.tglField?(' · disaring pada kolom <b>'+esc(d.tglField)+'</b>'):'')+
+      (!d.cabField?' · tabel ini tidak punya kolom Cabang':'')+'</div>'+
+    '<div class="it-btn">'+
+      '<button class="btn btn-gold" id="itCsv">'+svg('file')+'Unduh CSV</button>'+
+      '<button class="btn btn-gold" id="itXls">'+svg('file')+'Unduh Excel</button>'+
+      '<button class="btn btn-gold" id="itJson">'+svg('file')+'Unduh JSON</button>'+
+      '<button class="btn btn-ghost" id="itAll">Unduh SEMUA tabel (JSON)</button>'+
+      '<button class="btn btn-ghost" id="itSync">'+svg('refresh')+'Muat ulang</button>'+
+    '</div></div>'+
+    '<div class="cap-card"><div class="cap-card-t">Pratinjau '+pratinjau.length+' baris pertama</div>'+
+      '<div class="tbl-wrap"><table class="ops-tbl"><thead><tr>'+th+'</tr></thead><tbody>'+
+      (tb||'<tr><td colspan="'+(cols.length||1)+'">Tidak ada data pada saringan ini.</td></tr>')+
+      '</tbody></table></div></div>';
+
+  /* ---------- interaksi ---------- */
+  const ganti=(id,prop)=>{ const el=document.getElementById(id);
+    if(el) el.addEventListener('change',()=>{ F[prop]=el.value; renderItExport(); }); };
+  document.querySelectorAll('[data-itk]').forEach(b=>b.addEventListener('click',()=>{
+    F.key=b.dataset.itk; if(!itDef(F.key).statusField) F.st='';
+    renderItExport();
+  }));
+  ganti('itMode','mode'); ganti('itYm','ym'); ganti('itDari','dari');
+  ganti('itSampai','sampai'); ganti('itCab','cab'); ganti('itSt','st');
+
+  const namaDasar=()=>{
+    const bag=['klinklin', F.key.toLowerCase()];
+    if(F.mode==='bulan' && F.ym) bag.push(F.ym);
+    else if(F.mode==='rentang' && (F.dari||F.sampai)) bag.push((F.dari||'awal')+'_sd_'+(F.sampai||'akhir'));
+    else bag.push('semua');
+    if(F.cab) bag.push(F.cab.toLowerCase());
+    if(F.st)  bag.push(norm(F.st));
+    return bag.join('-');
+  };
+  const kosong=()=>{ if(!rows.length){ toast('Tidak ada data pada saringan ini.','err'); return true; } return false; };
+
+  document.getElementById('itCsv').addEventListener('click',()=>{
+    if(kosong()) return;
+    downloadCsv(namaDasar()+'.csv', dlToCsv(cols, itMatriks(cols, rows)));
+    toast(rows.length+' baris diunduh (CSV).','ok');
+  });
+  document.getElementById('itXls').addEventListener('click',()=>{
+    if(kosong()) return;
+    downloadXls(namaDasar()+'.xls',
+      [{ name:F.key, cols, rows:itMatriks(cols, rows), judul:F.key+' — '+rows.length+' baris' }]);
+    toast(rows.length+' baris diunduh (Excel).','ok');
+  });
+  document.getElementById('itJson').addEventListener('click',()=>{
+    if(kosong()) return;
+    itUnduhJson(namaDasar()+'.json', {
+      tabel:F.key, diekspor:nowStr_(), saringan:Object.assign({}, F), jumlah:rows.length, data:rows
+    });
+    toast(rows.length+' baris diunduh (JSON).','ok');
+  });
+  document.getElementById('itAll').addEventListener('click', itUnduhSemua);
+  document.getElementById('itSync').addEventListener('click', ()=>renderItExport(true));
+}
+
+function itUnduhJson(nama, obj){
+  const blob=new Blob([JSON.stringify(obj, null, 2)], {type:'application/json;charset=utf-8'});
+  const url=URL.createObjectURL(blob); const a=document.createElement('a');
+  a.href=url; a.download=nama; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 120);
+}
+
+/* Satu berkas JSON berisi SELURUH tabel — saringan yang sedang aktif tetap
+   diterapkan, supaya hasilnya konsisten dengan yang terlihat di layar. */
+async function itUnduhSemua(){
+  setSync(true);
+  const paket={ diekspor:nowStr_(), saringan:Object.assign({}, state.it), tabel:{} };
+  try{
+    for(const t of IT_TABEL){
+      const semua=await itAmbil(t.key);
+      const pilih=itSaring(t.key, semua);
+      paket.tabel[t.key]={ jumlah:pilih.length, total:semua.length, data:pilih };
+    }
+    const n=Object.values(paket.tabel).reduce((s,x)=>s+x.jumlah,0);
+    itUnduhJson('klinklin-migrasi-'+ymd(new Date())+'.json', paket);
+    toast('Semua tabel diunduh — total '+n+' baris.','ok');
+  }catch(e){ toast('Gagal: '+(e.message||e),'err'); }
+  finally{ setSync(false); }
+}
+
 async function renderDownloadData(force){
   if(!state.dl) state.dl={ sheet:'ORDER', ym:ymd(new Date()).slice(0,7), cab:'', st:'' };
   $('#panel').innerHTML='<div class="cap-empty">Memuat data…</div>';
