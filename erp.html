@@ -4072,6 +4072,12 @@ async function selectMenu(key){
     if(state._ch){ try{ window.sb.removeChannel(state._ch); }catch(e){} state._ch=null; }
     renderKonten(); return;
   }
+  /* View khusus tanpa tabel: harus dirender sendiri, karena loadList()
+     langsung berhenti bila view.sheet kosong sehingga panel tidak terisi. */
+  if(state.view && state.view.special==='itExport'){
+    if(state._ch){ try{ window.sb.removeChannel(state._ch); }catch(e){} state._ch=null; }
+    renderItExport(); return;
+  }
   await loadList();
   // REALTIME: begitu ada perubahan di tabel ini, muat ulang otomatis
   if(state._ch){ try{ window.sb.removeChannel(state._ch); }catch(e){} state._ch=null; }
@@ -9871,26 +9877,30 @@ async function renderItExport(force){
   };
   const kosong=()=>{ if(!rows.length){ toast('Tidak ada data pada saringan ini.','err'); return true; } return false; };
 
-  document.getElementById('itCsv').addEventListener('click',()=>{
+  /* Pemasangan tombol dibuat tahan-galat: bila satu elemen tidak ada,
+     tombol lain tetap berfungsi (dulu seluruh render bisa gagal). */
+  const pasang=(id,fn)=>{ const el=document.getElementById(id);
+    if(el) el.addEventListener('click',fn); };
+  pasang('itCsv',()=>{
     if(kosong()) return;
     downloadCsv(namaDasar()+'.csv', dlToCsv(cols, itMatriks(cols, rows)));
     toast(rows.length+' baris diunduh (CSV).','ok');
   });
-  document.getElementById('itXls').addEventListener('click',()=>{
+  pasang('itXls',()=>{
     if(kosong()) return;
     downloadXls(namaDasar()+'.xls',
       [{ name:F.key, cols, rows:itMatriks(cols, rows), judul:F.key+' — '+rows.length+' baris' }]);
     toast(rows.length+' baris diunduh (Excel).','ok');
   });
-  document.getElementById('itJson').addEventListener('click',()=>{
+  pasang('itJson',()=>{
     if(kosong()) return;
     itUnduhJson(namaDasar()+'.json', {
       tabel:F.key, diekspor:nowStr_(), saringan:Object.assign({}, F), jumlah:rows.length, data:rows
     });
     toast(rows.length+' baris diunduh (JSON).','ok');
   });
-  document.getElementById('itAll').addEventListener('click', itUnduhSemua);
-  document.getElementById('itSync').addEventListener('click', ()=>renderItExport(true));
+  pasang('itAll', itUnduhSemua);
+  pasang('itSync', ()=>renderItExport(true));
 }
 
 function itUnduhJson(nama, obj){
