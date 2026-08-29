@@ -730,6 +730,9 @@ td.money{font-variant-numeric:tabular-nums; font-weight:600}
 /* Chip "Total THP" — tampil di sebelah jumlah data pada menu Gaji */
 .thp-chip{background:var(--gold-soft);color:var(--petrol);border:1px solid var(--gold);margin-left:7px}
 .thp-chip b{color:var(--gold-deep)}
+/* Chip "Total nominal & PPn" — tampil di sebelah jumlah order pada Audit Order */
+.sum-chip{background:var(--gold-soft);color:var(--petrol);border:1px solid var(--gold);margin-left:7px;font-weight:600}
+.sum-chip b{color:var(--gold-deep);font-weight:800}
 
 /* ---------- capaian dashboard ---------- */
 .cap-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px}
@@ -4168,6 +4171,7 @@ function renderShell(){
       '<div><div class="page-title">'+v.title+'</div>'+(v.sub?'<div class="page-sub">'+v.sub+'</div>':'')+'<div class="hairline"></div></div>'+
       '<span class="count-chip'+(v.countTop?' count-chip-force':'')+'" id="headCount"></span>'+
       '<span class="count-chip thp-chip'+(v.countTop?' count-chip-force':'')+'" id="headThp" style="display:none"></span>'+
+      '<span class="count-chip sum-chip'+(v.countTop?' count-chip-force':'')+'" id="headSum" style="display:none"></span>'+
       '<div class="spacer"></div>'+
       (v.repeatBtn ? '<button class="btn btn-ghost" id="btnRepeat">'+svg('users')+'Pelanggan Lama</button>' : '')+
       (v.canAdd ? '<button class="btn btn-primary" id="btnAdd">'+svg('plus')+'Tambah</button>' : '')+
@@ -4223,7 +4227,8 @@ function buildToolbar(){
   const v=state.view;
   let row='<div class="tbar-row">';
   if(!v.countTop){ row += '<span class="count-chip mob-count" id="headCountM"></span>'+
-    '<span class="count-chip thp-chip mob-count" id="headThpM" style="display:none"></span>'; }
+    '<span class="count-chip thp-chip mob-count" id="headThpM" style="display:none"></span>'+
+    '<span class="count-chip sum-chip mob-count" id="headSumM" style="display:none"></span>'; }
   if(v.search){ row += '<div class="search">'+svg('search')+'<input id="q" placeholder="Cari…" value="'+esc(state.search||'')+'" /></div>'; }
   else { row += '<div class="spacer"></div>'; }
   if(v.multiApprove){ row += '<button class="btn btn-gold btn-sm" id="btnApproveSel">'+svg('check')+'Approve<span class="hide-sm"> terpilih</span></button>'; }
@@ -4654,6 +4659,31 @@ function setCountText(txt){
   const c=$('#headCount'); if(c) c.textContent = txt;
   const cm=$('#headCountM'); if(cm) cm.textContent = txt;
 }
+/* Chip "Total nominal & PPn" di sebelah jumlah order (menu Audit Order).
+   data = null → chip disembunyikan. */
+function setSumTotal(data){
+  const html = (data==null) ? ''
+    : ('Total <b>'+esc(rp(data.total))+'</b> · PPn <b>'+esc(rp(data.ppn))+'</b>');
+  ['headSum','headSumM'].forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    el.innerHTML = html;
+    el.style.display = (data==null) ? 'none' : 'inline-flex';
+  });
+}
+/* Total nominal & total PPn dari sekumpulan order.
+   Nilainya dihitung ulang lewat ordRincian() — sama persis dengan angka
+   yang tampil di kartu order (Nilai layanan + Tax = Total Akhir), sehingga
+   tetap benar walau kolom total di database sempat tersimpan keliru.
+   Order berstatus cancel tidak ikut dihitung. */
+function sumNominalPpn(rows){
+  let total=0, ppn=0;
+  (rows||[]).forEach(r=>{
+    if(norm(r['Status Order'])==='cancel') return;
+    const d=ordRincian(r);
+    total += d.total; ppn += d.tax;
+  });
+  return {total, ppn};
+}
 /* Jumlah transaksi = banyaknya layanan yang dipesan.
    Tidak dihitung: order berstatus cancel, dan order yang total akhirnya 0. */
 function countTrx(rows){
@@ -4673,6 +4703,7 @@ function renderTable(){
   if(v.chatSum) summary += chatCsSummary(rows);
   if(!rows.length){ $('#panel').innerHTML=summary+(v.sheet==='OPS_PENGAJUAN'?ajuBannerHTML():'')+emptyState('Belum ada data');
     if(v.trxCount) setCountText('0 order · 0 transaksi'); else setCount(0,countNoun());
+    setSumTotal(v.trxCount ? {total:0, ppn:0} : null);
     setThpTotal(v.sheet==='GAJI' ? 0 : null);
     wireSummary(); if(v.sheet==='OPS_PENGAJUAN') wireAjuBanner(); return; }
   const cols=v.table.filter(c=>HIDDEN_COLS.indexOf(c)<0);
@@ -4891,6 +4922,8 @@ function renderTable(){
   }
   if(v.trxCount) setCountText(rows.length+' order · '+countTrx(rows)+' transaksi');
   else setCount(rows.length,countNoun());
+  // Audit Order: total nominal & total PPn dari SELURUH baris yang lolos filter
+  setSumTotal(v.trxCount ? sumNominalPpn(rows) : null);
   // Menu Gaji: total Take Home Pay dari SELURUH baris yang lolos filter (bukan hanya halaman ini)
   setThpTotal(v.sheet==='GAJI' ? rows.reduce((s,r)=>s+thpOf(r),0) : null);
   wireSummary();
