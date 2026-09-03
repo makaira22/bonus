@@ -14,24 +14,26 @@
   --line:#d9dfe3; --line-soft:#e8ecee;
   --brand:#0a6a63; --brand-deep:#063e3a; --brand-tint:#e2f0ee;
   --signal:#d9531e; --signal-tint:#fdeadf;
-  --ok:#2f7d4f; --ok-tint:#e4f1e9;
+  --ok:#2f7d4f; --ok-tint:#e4f1e9; --ok-deep:#1f5c39; --signal-deep:#a63c11;
   --rail:#101b1f; --rail-2:#18272c; --rail-line:#243940; --rail-txt:#9fb4b9;
-  --r:14px; --r-sm:9px;
+  --r:14px; --r-sm:9px; --app-h:100vh;
   --shadow:0 1px 2px rgba(17,26,31,.06), 0 8px 24px -16px rgba(17,26,31,.35);
 }
-*{box-sizing:border-box}
+@supports (height:100dvh){ :root{ --app-h:100dvh } }
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
+html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--paper);color:var(--ink);font-family:"Plus Jakarta Sans",system-ui,sans-serif;font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow:hidden}
 button,input,textarea,select{font:inherit;color:inherit}
 button{cursor:pointer;border:0;background:none}
 :focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:4px}
 .mono{font-family:"IBM Plex Mono",ui-monospace,monospace;letter-spacing:-.01em}
 
-.shell{display:grid;grid-template-columns:330px 1fr;height:100%}
+.shell{display:grid;grid-template-columns:330px 1fr;height:var(--app-h)}
 
 /* ---------- RAIL ---------- */
 .rail{background:var(--rail);color:var(--rail-txt);display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--rail-line)}
-.rail-top{padding:16px 16px 12px;border-bottom:1px solid var(--rail-line)}
+.rail-top{padding:calc(16px + env(safe-area-inset-top)) 16px 12px;border-bottom:1px solid var(--rail-line)}
 .brand{display:flex;align-items:center;gap:10px;color:#fff;font-weight:800;letter-spacing:-.02em;font-size:17px}
 .brand-dot{width:26px;height:26px;border-radius:8px;background:var(--signal);display:grid;place-items:center;color:#fff;font-size:13px;font-weight:800}
 .who{margin-top:12px;display:flex;align-items:center;gap:9px;font-size:13px}
@@ -39,7 +41,7 @@ button{cursor:pointer;border:0;background:none}
 .who b{color:#fff;font-weight:600}
 .who span{color:#7a949a}
 .search{margin-top:12px;position:relative}
-.search input{width:100%;background:var(--rail-2);border:1px solid var(--rail-line);border-radius:var(--r-sm);padding:9px 11px 9px 32px;color:#fff;font-size:13.5px}
+.search input{width:100%;background:var(--rail-2);border:1px solid var(--rail-line);border-radius:var(--r-sm);padding:10px 11px 10px 32px;color:#fff;font-size:16px}
 .search input::placeholder{color:#6a848a}
 .search input:focus{outline:none;border-color:#3a6d68}
 .search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#6a848a}
@@ -47,13 +49,15 @@ button{cursor:pointer;border:0;background:none}
 .tab{padding:6px 11px;border-radius:100px;font-size:12.5px;font-weight:500;color:#8ea6ac}
 .tab[aria-pressed="true"]{background:var(--rail-2);color:#fff}
 .tab i{font-style:normal;color:var(--signal);font-weight:700}
-.rooms{flex:1;overflow-y:auto;padding:8px}
+.rooms{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px calc(8px + env(safe-area-inset-left)) calc(8px + env(safe-area-inset-bottom))}
 .room{width:100%;text-align:left;padding:11px 12px;border-radius:11px;display:block;position:relative}
 .room:hover{background:var(--rail-2)}
 .room.on{background:var(--rail-2);box-shadow:inset 2px 0 0 var(--brand)}
 .room .l1{display:flex;align-items:center;gap:8px}
 .room .nm{color:#fff;font-weight:600;font-size:13.5px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .room .tm{font-size:11px;color:#6a848a;flex:none}
+.room .badge{min-width:20px;height:20px;padding:0 6px;border-radius:100px;background:var(--signal);color:#fff;font-size:11.5px;font-weight:700;display:grid;place-items:center;flex:none;animation:masuk .3s ease-out}
+@keyframes masuk{from{transform:scale(.4);opacity:0}}
 .room .jb{font-size:11.5px;color:#7a949a;margin:1px 0 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .room .pv{font-size:12.5px;color:#93aab0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;gap:6px;align-items:center}
 .room .pv em{font-style:normal;color:#5f797f}
@@ -71,24 +75,33 @@ button{cursor:pointer;border:0;background:none}
 .blank div{max-width:330px}
 .blank h2{font-size:17px;margin:0 0 6px;letter-spacing:-.02em}
 .blank p{margin:0;color:var(--ink-soft);font-size:13.5px}
-.head{background:var(--surface);border-bottom:1px solid var(--line);padding:11px 18px;display:flex;align-items:center;gap:12px;flex:none}
+.head{background:var(--surface);border-bottom:1px solid var(--line);padding:11px 14px;padding-top:calc(11px + env(safe-area-inset-top));display:flex;align-items:center;gap:12px;flex:none}
 .back{display:none}
 .head .ava{width:36px;height:36px;border-radius:11px;background:var(--brand-tint);color:var(--brand-deep);display:grid;place-items:center;font-weight:700;font-size:13px;flex:none}
 .head .t{min-width:0;flex:1}
 .head .t b{display:block;font-size:14.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .head .t span{font-size:12.5px;color:var(--ink-soft)}
 .kode{font-size:12px;color:var(--ink-soft);background:var(--surface-2);border:1px solid var(--line-soft);padding:4px 9px;border-radius:6px}
-select.status{border:1px solid var(--line);border-radius:8px;padding:7px 10px;background:var(--surface-2);font-size:13px;font-weight:600}
+select.status{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--surface-2);font-size:13px;font-weight:600;flex:none}
 select.status.baru{background:var(--signal-tint);border-color:#f2c7ad;color:#a63c11}
 select.status.diproses{background:var(--brand-tint);border-color:#b9dbd6;color:var(--brand-deep)}
 select.status.selesai{background:var(--ok-tint);border-color:#bfdcca;color:#1f5c39}
 
-.log{flex:1;overflow-y:auto;padding:22px 18px 8px}
+.log{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:22px 18px 8px}
 .log-inner{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
 .ctx{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--signal);border-radius:var(--r);padding:13px 15px;font-size:13.5px;color:var(--ink-soft)}
 .ctx b{color:var(--ink)}
 .daysep{display:flex;align-items:center;gap:12px;color:var(--ink-faint);font-size:12px;margin:6px 0}
 .daysep::before,.daysep::after{content:"";flex:1;height:1px;background:var(--line)}
+.sysline{display:flex;align-items:center;gap:10px;margin:4px 0}
+.sysline::before,.sysline::after{content:"";flex:1;height:1px;background:var(--line)}
+.sysline span{padding:4px 12px;border-radius:100px;font-size:12px;font-weight:600;border:1px solid;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sysline.s-selesai span{background:var(--ok-tint);color:var(--ok-deep);border-color:#bfdcca}
+.sysline.s-selesai::before,.sysline.s-selesai::after{background:#bfdcca}
+.sysline.s-diproses span{background:var(--brand-tint);color:var(--brand-deep);border-color:#b9dbd6}
+.sysline.s-diproses::before,.sysline.s-diproses::after{background:#b9dbd6}
+.sysline.s-baru span,.sysline.s-dibuka span{background:var(--signal-tint);color:var(--signal-deep);border-color:#f2c7ad}
+.sysline.s-baru::before,.sysline.s-baru::after,.sysline.s-dibuka::before,.sysline.s-dibuka::after{background:#f2c7ad}
 .msg{display:flex;gap:10px;max-width:82%}
 .msg.me{margin-left:auto;flex-direction:row-reverse}
 .avatar{flex:none;width:32px;height:32px;border-radius:10px;display:grid;place-items:center;font-size:12px;font-weight:700;background:var(--surface);border:1px solid var(--line);color:var(--ink-soft);margin-top:16px}
@@ -125,7 +138,7 @@ select.status.selesai{background:var(--ok-tint);border-color:#bfdcca;color:#1f5c
 .box{display:flex;align-items:flex-end;gap:8px;border:1px solid var(--line);border-radius:var(--r);padding:6px 6px 6px 10px;background:var(--surface-2)}
 .box:focus-within{border-color:var(--brand);background:#fff;box-shadow:0 0 0 3px var(--brand-tint)}
 .box.drop{border-color:var(--brand);border-style:dashed;background:var(--brand-tint)}
-.box textarea{flex:1;border:0;background:none;resize:none;max-height:150px;padding:8px 0;font-size:14.5px}
+.box textarea{flex:1;border:0;background:none;resize:none;max-height:140px;padding:9px 0;font-size:16px;line-height:1.4}
 .box textarea:focus{outline:none}
 .icon-btn{width:34px;height:34px;border-radius:8px;display:grid;place-items:center;color:var(--ink-soft)}
 .icon-btn:hover{background:var(--line-soft);color:var(--ink)}
@@ -149,7 +162,13 @@ select.status.selesai{background:var(--ok-tint);border-color:#bfdcca;color:#1f5c
 .toast.on{opacity:1}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media(max-width:860px){
+  body{position:fixed;inset:0}
   .shell{grid-template-columns:1fr}
+  .head .t span{font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+  .kode{display:none}
+  .quick{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+  .quick button{white-space:nowrap;flex:none}
+  .atts{max-width:260px}
   .rail{position:absolute;inset:0;z-index:20}
   .panel{position:absolute;inset:0;z-index:10;background:var(--paper);transform:translateX(100%);transition:transform .2s}
   .shell.open .panel{transform:none;z-index:30}
@@ -157,6 +176,7 @@ select.status.selesai{background:var(--ok-tint);border-color:#bfdcca;color:#1f5c
   .log{padding:16px 12px 4px}
   .composer{padding:10px 12px calc(10px + env(safe-area-inset-bottom))}
   .msg{max-width:92%}
+  .head .ava{width:32px;height:32px}
 }
 </style>
 </head>
@@ -173,7 +193,7 @@ select.status.selesai{background:var(--ok-tint);border-color:#bfdcca;color:#1f5c
       </div>
       <div class="search">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-        <input id="q" placeholder="Cari nama, jabatan, kode tiket">
+        <input id="q" placeholder="Cari nama, cabang, jabatan, kode">
       </div>
     </div>
     <div class="tabs" id="tabs">
@@ -256,7 +276,7 @@ select.status.selesai{background:var(--ok-tint);border-color:#bfdcca;color:#1f5c
 <script type="module">
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-/* ══════════ 1. ISI TIGA BARIS INI ══════════ */
+/* ══════════ KREDENSIAL ══════════ */
 const SUPABASE_URL = "https://ywhpmgzxxuobxnbnripx.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_KjDOz2PIfaZUX2-3IpGToQ_gunvvGXd";
 const ADMIN = "Dhio";           // nama yang tampil pada balasan
@@ -272,6 +292,7 @@ const ls = { get:(k,d)=>{ try{ return JSON.parse(localStorage.getItem(k)) ?? d }
 
 let daftar = [], room = null, pending = [], seen = new Set(), filter = "semua", cari = "", ch = null;
 let dibaca = ls.get(K_SEEN, {});
+let belum = {};   // room_id -> jumlah pesan pelapor yang belum dibaca
 
 function toast(m){ const t=$("#toast"); t.textContent=m; t.classList.add("on"); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("on"),2600); }
 const initials = n => String(n||"?").trim().split(/\s+/).slice(0,2).map(w=>w[0]).join("").toUpperCase();
@@ -292,27 +313,47 @@ function lalu(d){
   return new Date(d).toLocaleDateString("id-ID",{day:"numeric",month:"short"});
 }
 const LABEL = { baru:"Baru", diproses:"Diproses", selesai:"Selesai" };
-const belumDibaca = r => r.last_sender_role === "pelapor" && new Date(r.last_message_at) > new Date(dibaca[r.id] || 0);
+const TEKS_SISTEM = (k, oleh) => ({
+  selesai:  `Ditandai selesai oleh ${oleh}`,
+  diproses: `Mulai ditangani ${oleh}`,
+  baru:     `Dikembalikan ke status baru oleh ${oleh}`,
+  dibuka:   `Dibuka kembali oleh ${oleh}`
+}[k] || k);
 
 /* ---------- daftar tiket ---------- */
+async function hitungBelumDibaca(){
+  const sejak = new Date(Date.now() - 60*864e5).toISOString();   // 60 hari terakhir
+  const { data } = await sb.from("messages")
+    .select("room_id,created_at").eq("sender_role","pelapor").gte("created_at", sejak)
+    .order("created_at", { ascending:false }).limit(4000);
+  belum = {};
+  (data || []).forEach(m => {
+    if(new Date(m.created_at) > new Date(dibaca[m.room_id] || 0))
+      belum[m.room_id] = (belum[m.room_id] || 0) + 1;
+  });
+}
+
 async function muatDaftar(){
   const { data, error } = await sb.from("rooms").select("*").order("last_message_at", { ascending:false }).limit(200);
   if(error){ $("#rooms").innerHTML = `<div class="rail-empty">Gagal memuat daftar: ${esc(error.message)}</div>`; return; }
   daftar = data;
+  await hitungBelumDibaca();
   renderDaftar();
 }
 function renderDaftar(){
   const q = cari.toLowerCase();
   const f = daftar.filter(r =>
     (filter === "semua" || r.status === filter) &&
-    (!q || `${r.nama} ${r.jabatan} ${r.kode} ${r.last_message_preview||""}`.toLowerCase().includes(q))
+    (!q || `${r.nama} ${r.cabang||""} ${r.jabatan} ${r.kode} ${r.last_message_preview||""}`.toLowerCase().includes(q))
   );
-  $("#cBaru").textContent = daftar.filter(belumDibaca).length || "";
+  const totalBelum = Object.values(belum).reduce((a,b)=>a+b, 0);
+  document.title = (totalBelum ? `(${totalBelum}) ` : "") + "Dhio · Panel laporan KLINKLIN";
+  $("#cBaru").textContent = daftar.filter(r => r.status === "baru").length || "";
   $("#rooms").innerHTML = f.length ? f.map(r => `
     <button class="room ${room && room.id===r.id ? "on":""}" data-id="${r.id}">
-      <div class="l1"><span class="nm">${esc(r.nama)}</span><span class="tm">${lalu(r.last_message_at)}</span></div>
-      <div class="jb">${esc(r.jabatan)}</div>
-      <div class="pv">${belumDibaca(r)?'<span class="dot"></span>':""}<em>${r.last_sender_role==="admin"?"Kamu:":""}</em>${esc(r.last_message_preview || "Belum ada pesan")}</div>
+      <div class="l1"><span class="nm">${esc(r.nama)}</span>${belum[r.id] ? `<span class="badge">${belum[r.id] > 99 ? "99+" : belum[r.id]}</span>` : ""}<span class="tm">${lalu(r.last_message_at)}</span></div>
+      <div class="jb">${esc(r.cabang || "-")} · ${esc(r.jabatan)}</div>
+      <div class="pv"><em>${r.last_sender_role==="admin"?"Kamu:":""}</em>${esc(r.last_message_preview || "Belum ada pesan")}</div>
       <div class="tags"><span class="tag ${r.status}">${LABEL[r.status]}</span><span class="tag">${esc(r.platform)}</span><span class="tag mono">${esc(r.kode)}</span></div>
     </button>`).join("")
     : `<div class="rail-empty">Tidak ada laporan yang cocok.</div>`;
@@ -339,10 +380,11 @@ async function buka(r){
   $("#shell").classList.add("open");
   $("#hAva").textContent = initials(r.nama);
   $("#hNama").textContent = r.nama;
-  $("#hJab").textContent = `${r.jabatan} · ${r.platform} · dibuat ${new Date(r.created_at).toLocaleDateString("id-ID",{day:"numeric",month:"long",year:"numeric"})}`;
+  $("#hJab").textContent = `${r.cabang || "-"} · ${r.jabatan} · ${r.platform} · dibuat ${new Date(r.created_at).toLocaleDateString("id-ID",{day:"numeric",month:"long",year:"numeric"})}`;
   $("#hKode").textContent = r.kode;
   setStatusUI(r.status);
   dibaca[r.id] = new Date().toISOString(); ls.set(K_SEEN, dibaca);
+  belum[r.id] = 0;
   renderDaftar();
   await muatPesan();
   langganan();
@@ -354,6 +396,7 @@ $("#hStatus").addEventListener("change", async e => {
   setStatusUI(s);
   const { error } = await sb.from("rooms").update({ status:s }).eq("id", room.id);
   if(error){ toast("Status gagal disimpan."); return; }
+  await sb.from("messages").insert({ room_id:room.id, sender_role:"sistem", sender_name:ADMIN, body:s, attachments:[] });
   room.status = s;
   const i = daftar.findIndex(r => r.id === room.id); if(i>-1) daftar[i].status = s;
   renderDaftar();
@@ -363,7 +406,7 @@ $("#hStatus").addEventListener("change", async e => {
 let hariTerakhir = null;
 async function muatPesan(){
   hariTerakhir = null; seen.clear();
-  $("#logInner").innerHTML = `<div class="ctx">Laporan dari <b>${esc(room.nama)}</b> (${esc(room.jabatan)}) tentang <b>${esc(room.platform)}</b>. Balasan kamu terkirim atas nama <b>${esc(ADMIN)}</b>.</div>`;
+  $("#logInner").innerHTML = `<div class="ctx">Laporan dari <b>${esc(room.nama)}</b> — ${esc(room.jabatan)}, cabang ${esc(room.cabang || "-")} — tentang <b>${esc(room.platform)}</b>. Balasan kamu terkirim atas nama <b>${esc(ADMIN)}</b>.</div>`;
   const { data, error } = await sb.from("messages").select("*").eq("room_id", room.id).order("created_at");
   if(error){ toast("Gagal memuat pesan."); return; }
   data.forEach(m => tampil(m, false));
@@ -375,6 +418,12 @@ function tampil(m, animate = true){
   const wrap = $("#logInner");
   const h = hari(m.created_at);
   if(h !== hariTerakhir){ hariTerakhir = h; wrap.insertAdjacentHTML("beforeend", `<div class="daysep">${esc(h)}</div>`); }
+  if(m.sender_role === "sistem"){
+    const k = m.body || "diproses";
+    wrap.insertAdjacentHTML("beforeend",
+      `<div class="sysline s-${esc(k)}"><span>${esc(TEKS_SISTEM(k, m.sender_name))} · ${jam(m.created_at)}</span></div>`);
+    return;
+  }
   const mine = m.sender_role === "admin";
   const at = Array.isArray(m.attachments) ? m.attachments : [];
   const gambar = at.length
@@ -397,7 +446,7 @@ function langganan(){
   if(ch) sb.removeChannel(ch);
   ch = sb.channel("adm-" + room.id)
     .on("postgres_changes", { event:"INSERT", schema:"public", table:"messages", filter:`room_id=eq.${room.id}` },
-      p => { tampil(p.new); keBawah(); dibaca[room.id]=new Date().toISOString(); ls.set(K_SEEN,dibaca); })
+      p => { tampil(p.new); keBawah(); dibaca[room.id]=new Date().toISOString(); ls.set(K_SEEN,dibaca); belum[room.id]=0; })
     .subscribe();
 }
 sb.channel("adm-rooms")
@@ -411,7 +460,7 @@ setInterval(async () => {
   const { data } = await sb.from("messages").select("*").eq("room_id", room.id).order("created_at");
   if(!data) return;
   const baru = data.filter(m => !seen.has(m.id));
-  if(baru.length){ baru.forEach(m => tampil(m)); keBawah(); dibaca[room.id]=new Date().toISOString(); ls.set(K_SEEN,dibaca); }
+  if(baru.length){ baru.forEach(m => tampil(m)); keBawah(); dibaca[room.id]=new Date().toISOString(); ls.set(K_SEEN,dibaca); belum[room.id]=0; renderDaftar(); }
 }, 10000);
 
 /* ---------- komposer ---------- */
@@ -422,7 +471,7 @@ function sync(){
   sendBtn.disabled = !input.value.trim() && pending.length===0;
 }
 input.addEventListener("input", sync);
-input.addEventListener("keydown", e => { if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); kirim(); } });
+input.addEventListener("keydown", e => { if(e.key==="Enter" && !e.shiftKey && !matchMedia("(pointer:coarse)").matches){ e.preventDefault(); kirim(); } });
 sendBtn.addEventListener("click", kirim);
 $("#quick").addEventListener("click", e => {
   const b = e.target.closest("button"); if(!b) return;
@@ -489,7 +538,11 @@ async function kirim(){
     }
     const { error } = await sb.from("messages").insert({ room_id:room.id, sender_role:"admin", sender_name:ADMIN, body, attachments:lampiran });
     if(error) throw error;
-    if(room.status === "baru"){ await sb.from("rooms").update({ status:"diproses" }).eq("id", room.id); room.status="diproses"; setStatusUI("diproses"); }
+    if(room.status === "baru"){
+      await sb.from("rooms").update({ status:"diproses" }).eq("id", room.id);
+      await sb.from("messages").insert({ room_id:room.id, sender_role:"sistem", sender_name:ADMIN, body:"diproses", attachments:[] });
+      room.status = "diproses"; setStatusUI("diproses");
+    }
     input.value=""; pending.forEach(p=>URL.revokeObjectURL(p.url)); pending=[];
     renderTray(); sync(); keBawah(); muatDaftar();
   }catch(ex){
