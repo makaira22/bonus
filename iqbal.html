@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Dhio · Panel laporan KLINKLIN</title>
+<title>Iqbal · Panel laporan KLINKLIN</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Plus+Jakarta+Sans:wght@400;500;600;800&display=swap" rel="stylesheet">
@@ -14,7 +14,7 @@
   --line:#d9dfe3; --line-soft:#e8ecee;
   --brand:#0a6a63; --brand-deep:#063e3a; --brand-tint:#e2f0ee;
   --signal:#d9531e; --signal-tint:#fdeadf;
-  --ok:#2f7d4f; --ok-tint:#e4f1e9;
+  --ok:#2f7d4f; --ok-tint:#e4f1e9; --ok-deep:#1f5c39; --signal-deep:#a63c11;
   --rail:#101b1f; --rail-2:#18272c; --rail-line:#243940; --rail-txt:#9fb4b9;
   --r:14px; --r-sm:9px; --app-h:100vh;
   --shadow:0 1px 2px rgba(17,26,31,.06), 0 8px 24px -16px rgba(17,26,31,.35);
@@ -56,6 +56,8 @@ button{cursor:pointer;border:0;background:none}
 .room .l1{display:flex;align-items:center;gap:8px}
 .room .nm{color:#fff;font-weight:600;font-size:13.5px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .room .tm{font-size:11px;color:#6a848a;flex:none}
+.room .badge{min-width:20px;height:20px;padding:0 6px;border-radius:100px;background:var(--signal);color:#fff;font-size:11.5px;font-weight:700;display:grid;place-items:center;flex:none;animation:masuk .3s ease-out}
+@keyframes masuk{from{transform:scale(.4);opacity:0}}
 .room .jb{font-size:11.5px;color:#7a949a;margin:1px 0 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .room .pv{font-size:12.5px;color:#93aab0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;gap:6px;align-items:center}
 .room .pv em{font-style:normal;color:#5f797f}
@@ -91,6 +93,15 @@ select.status.selesai{background:var(--ok-tint);border-color:#bfdcca;color:#1f5c
 .ctx b{color:var(--ink)}
 .daysep{display:flex;align-items:center;gap:12px;color:var(--ink-faint);font-size:12px;margin:6px 0}
 .daysep::before,.daysep::after{content:"";flex:1;height:1px;background:var(--line)}
+.sysline{display:flex;align-items:center;gap:10px;margin:4px 0}
+.sysline::before,.sysline::after{content:"";flex:1;height:1px;background:var(--line)}
+.sysline span{padding:4px 12px;border-radius:100px;font-size:12px;font-weight:600;border:1px solid;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sysline.s-selesai span{background:var(--ok-tint);color:var(--ok-deep);border-color:#bfdcca}
+.sysline.s-selesai::before,.sysline.s-selesai::after{background:#bfdcca}
+.sysline.s-diproses span{background:var(--brand-tint);color:var(--brand-deep);border-color:#b9dbd6}
+.sysline.s-diproses::before,.sysline.s-diproses::after{background:#b9dbd6}
+.sysline.s-baru span,.sysline.s-dibuka span{background:var(--signal-tint);color:var(--signal-deep);border-color:#f2c7ad}
+.sysline.s-baru::before,.sysline.s-baru::after,.sysline.s-dibuka::before,.sysline.s-dibuka::after{background:#f2c7ad}
 .msg{display:flex;gap:10px;max-width:82%}
 .msg.me{margin-left:auto;flex-direction:row-reverse}
 .avatar{flex:none;width:32px;height:32px;border-radius:10px;display:grid;place-items:center;font-size:12px;font-weight:700;background:var(--surface);border:1px solid var(--line);color:var(--ink-soft);margin-top:16px}
@@ -177,8 +188,8 @@ select.status.selesai{background:var(--ok-tint);border-color:#bfdcca;color:#1f5c
     <div class="rail-top">
       <div class="brand"><span class="brand-dot">K</span> KLINKLIN</div>
       <div class="who">
-        <span class="ava">D</span>
-        <div><b>Dhio</b> <span>· membalas sebagai tim</span></div>
+        <span class="ava">I</span>
+        <div><b>Iqbal</b> <span>· membalas sebagai tim</span></div>
       </div>
       <div class="search">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
@@ -229,7 +240,7 @@ select.status.selesai{background:var(--ok-tint);border-color:#bfdcca;color:#1f5c
           </div>
           <div class="tray" id="tray"></div>
           <div class="box" id="box">
-            <textarea id="input" rows="1" placeholder="Balas sebagai Dhio…"></textarea>
+            <textarea id="input" rows="1" placeholder="Balas sebagai Iqbal…"></textarea>
             <button class="icon-btn" id="clipBtn" aria-label="Lampirkan gambar">
               <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 11.5l-8.4 8.4a5 5 0 01-7-7l8.4-8.4a3.3 3.3 0 014.7 4.7l-8.4 8.4a1.7 1.7 0 01-2.3-2.3l7.8-7.8"/></svg>
             </button>
@@ -268,7 +279,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 /* ══════════ KREDENSIAL ══════════ */
 const SUPABASE_URL = "https://ywhpmgzxxuobxnbnripx.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_KjDOz2PIfaZUX2-3IpGToQ_gunvvGXd";
-const ADMIN = "Dhio";           // nama yang tampil pada balasan
+const ADMIN = "Iqbal";           // nama yang tampil pada balasan
 /* ══════════════════════════════════════════ */
 
 const BUCKET = "lampiran";
@@ -281,6 +292,7 @@ const ls = { get:(k,d)=>{ try{ return JSON.parse(localStorage.getItem(k)) ?? d }
 
 let daftar = [], room = null, pending = [], seen = new Set(), filter = "semua", cari = "", ch = null;
 let dibaca = ls.get(K_SEEN, {});
+let belum = {};   // room_id -> jumlah pesan pelapor yang belum dibaca
 
 function toast(m){ const t=$("#toast"); t.textContent=m; t.classList.add("on"); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("on"),2600); }
 const initials = n => String(n||"?").trim().split(/\s+/).slice(0,2).map(w=>w[0]).join("").toUpperCase();
@@ -301,13 +313,31 @@ function lalu(d){
   return new Date(d).toLocaleDateString("id-ID",{day:"numeric",month:"short"});
 }
 const LABEL = { baru:"Baru", diproses:"Diproses", selesai:"Selesai" };
-const belumDibaca = r => r.last_sender_role === "pelapor" && new Date(r.last_message_at) > new Date(dibaca[r.id] || 0);
+const TEKS_SISTEM = (k, oleh) => ({
+  selesai:  `Ditandai selesai oleh ${oleh}`,
+  diproses: `Mulai ditangani ${oleh}`,
+  baru:     `Dikembalikan ke status baru oleh ${oleh}`,
+  dibuka:   `Dibuka kembali oleh ${oleh}`
+}[k] || k);
 
 /* ---------- daftar tiket ---------- */
+async function hitungBelumDibaca(){
+  const sejak = new Date(Date.now() - 60*864e5).toISOString();   // 60 hari terakhir
+  const { data } = await sb.from("messages")
+    .select("room_id,created_at").eq("sender_role","pelapor").gte("created_at", sejak)
+    .order("created_at", { ascending:false }).limit(4000);
+  belum = {};
+  (data || []).forEach(m => {
+    if(new Date(m.created_at) > new Date(dibaca[m.room_id] || 0))
+      belum[m.room_id] = (belum[m.room_id] || 0) + 1;
+  });
+}
+
 async function muatDaftar(){
   const { data, error } = await sb.from("rooms").select("*").order("last_message_at", { ascending:false }).limit(200);
   if(error){ $("#rooms").innerHTML = `<div class="rail-empty">Gagal memuat daftar: ${esc(error.message)}</div>`; return; }
   daftar = data;
+  await hitungBelumDibaca();
   renderDaftar();
 }
 function renderDaftar(){
@@ -316,12 +346,14 @@ function renderDaftar(){
     (filter === "semua" || r.status === filter) &&
     (!q || `${r.nama} ${r.cabang||""} ${r.jabatan} ${r.kode} ${r.last_message_preview||""}`.toLowerCase().includes(q))
   );
-  $("#cBaru").textContent = daftar.filter(belumDibaca).length || "";
+  const totalBelum = Object.values(belum).reduce((a,b)=>a+b, 0);
+  document.title = (totalBelum ? `(${totalBelum}) ` : "") + "Iqbal · Panel laporan KLINKLIN";
+  $("#cBaru").textContent = daftar.filter(r => r.status === "baru").length || "";
   $("#rooms").innerHTML = f.length ? f.map(r => `
     <button class="room ${room && room.id===r.id ? "on":""}" data-id="${r.id}">
-      <div class="l1"><span class="nm">${esc(r.nama)}</span><span class="tm">${lalu(r.last_message_at)}</span></div>
+      <div class="l1"><span class="nm">${esc(r.nama)}</span>${belum[r.id] ? `<span class="badge">${belum[r.id] > 99 ? "99+" : belum[r.id]}</span>` : ""}<span class="tm">${lalu(r.last_message_at)}</span></div>
       <div class="jb">${esc(r.cabang || "-")} · ${esc(r.jabatan)}</div>
-      <div class="pv">${belumDibaca(r)?'<span class="dot"></span>':""}<em>${r.last_sender_role==="admin"?"Kamu:":""}</em>${esc(r.last_message_preview || "Belum ada pesan")}</div>
+      <div class="pv"><em>${r.last_sender_role==="admin"?"Kamu:":""}</em>${esc(r.last_message_preview || "Belum ada pesan")}</div>
       <div class="tags"><span class="tag ${r.status}">${LABEL[r.status]}</span><span class="tag">${esc(r.platform)}</span><span class="tag mono">${esc(r.kode)}</span></div>
     </button>`).join("")
     : `<div class="rail-empty">Tidak ada laporan yang cocok.</div>`;
@@ -352,6 +384,7 @@ async function buka(r){
   $("#hKode").textContent = r.kode;
   setStatusUI(r.status);
   dibaca[r.id] = new Date().toISOString(); ls.set(K_SEEN, dibaca);
+  belum[r.id] = 0;
   renderDaftar();
   await muatPesan();
   langganan();
@@ -363,6 +396,7 @@ $("#hStatus").addEventListener("change", async e => {
   setStatusUI(s);
   const { error } = await sb.from("rooms").update({ status:s }).eq("id", room.id);
   if(error){ toast("Status gagal disimpan."); return; }
+  await sb.from("messages").insert({ room_id:room.id, sender_role:"sistem", sender_name:ADMIN, body:s, attachments:[] });
   room.status = s;
   const i = daftar.findIndex(r => r.id === room.id); if(i>-1) daftar[i].status = s;
   renderDaftar();
@@ -384,6 +418,12 @@ function tampil(m, animate = true){
   const wrap = $("#logInner");
   const h = hari(m.created_at);
   if(h !== hariTerakhir){ hariTerakhir = h; wrap.insertAdjacentHTML("beforeend", `<div class="daysep">${esc(h)}</div>`); }
+  if(m.sender_role === "sistem"){
+    const k = m.body || "diproses";
+    wrap.insertAdjacentHTML("beforeend",
+      `<div class="sysline s-${esc(k)}"><span>${esc(TEKS_SISTEM(k, m.sender_name))} · ${jam(m.created_at)}</span></div>`);
+    return;
+  }
   const mine = m.sender_role === "admin";
   const at = Array.isArray(m.attachments) ? m.attachments : [];
   const gambar = at.length
@@ -406,7 +446,7 @@ function langganan(){
   if(ch) sb.removeChannel(ch);
   ch = sb.channel("adm-" + room.id)
     .on("postgres_changes", { event:"INSERT", schema:"public", table:"messages", filter:`room_id=eq.${room.id}` },
-      p => { tampil(p.new); keBawah(); dibaca[room.id]=new Date().toISOString(); ls.set(K_SEEN,dibaca); })
+      p => { tampil(p.new); keBawah(); dibaca[room.id]=new Date().toISOString(); ls.set(K_SEEN,dibaca); belum[room.id]=0; })
     .subscribe();
 }
 sb.channel("adm-rooms")
@@ -420,7 +460,7 @@ setInterval(async () => {
   const { data } = await sb.from("messages").select("*").eq("room_id", room.id).order("created_at");
   if(!data) return;
   const baru = data.filter(m => !seen.has(m.id));
-  if(baru.length){ baru.forEach(m => tampil(m)); keBawah(); dibaca[room.id]=new Date().toISOString(); ls.set(K_SEEN,dibaca); }
+  if(baru.length){ baru.forEach(m => tampil(m)); keBawah(); dibaca[room.id]=new Date().toISOString(); ls.set(K_SEEN,dibaca); belum[room.id]=0; renderDaftar(); }
 }, 10000);
 
 /* ---------- komposer ---------- */
@@ -498,7 +538,11 @@ async function kirim(){
     }
     const { error } = await sb.from("messages").insert({ room_id:room.id, sender_role:"admin", sender_name:ADMIN, body, attachments:lampiran });
     if(error) throw error;
-    if(room.status === "baru"){ await sb.from("rooms").update({ status:"diproses" }).eq("id", room.id); room.status="diproses"; setStatusUI("diproses"); }
+    if(room.status === "baru"){
+      await sb.from("rooms").update({ status:"diproses" }).eq("id", room.id);
+      await sb.from("messages").insert({ room_id:room.id, sender_role:"sistem", sender_name:ADMIN, body:"diproses", attachments:[] });
+      room.status = "diproses"; setStatusUI("diproses");
+    }
     input.value=""; pending.forEach(p=>URL.revokeObjectURL(p.url)); pending=[];
     renderTray(); sync(); keBawah(); muatDaftar();
   }catch(ex){
