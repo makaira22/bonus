@@ -146,6 +146,24 @@ select.status.selesai{background:var(--ok-tint);border-color:#bfdcca;color:#1f5c
 .send:disabled{background:var(--line);color:var(--ink-faint)}
 .hint{font-size:11.5px;color:var(--ink-faint);margin:7px 2px 0}
 
+.danger-btn{width:36px;height:36px;border-radius:9px;display:grid;place-items:center;color:#a03a1a;flex:none}
+.danger-btn:hover{background:var(--signal-tint)}
+.danger-btn[hidden]{display:none}
+.modal{position:fixed;inset:0;background:rgba(9,14,17,.55);z-index:120;display:none;place-items:center;padding:18px}
+.modal.on{display:grid}
+.modal-card{background:#fff;border-radius:16px;padding:22px;width:min(420px,100%);box-shadow:0 24px 60px -20px rgba(9,14,17,.5)}
+.modal-card h3{margin:0 0 8px;font-size:17px;letter-spacing:-.02em}
+.modal-card p{margin:0 0 14px;font-size:13.5px;color:var(--ink-soft)}
+.modal-card .rincian{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:11px 13px;font-size:13px;margin-bottom:14px}
+.modal-card .rincian b{display:block;font-size:14px;margin-bottom:2px}
+.modal-card label{display:block;font-size:13px;font-weight:600;margin-bottom:6px}
+.modal-card input{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);font-size:16px;font-family:"IBM Plex Mono",monospace;letter-spacing:.04em}
+.modal-card input:focus{outline:none;border-color:#d9531e;background:#fff;box-shadow:0 0 0 3px var(--signal-tint)}
+.modal-aksi{display:flex;gap:8px;margin-top:16px}
+.modal-aksi button{flex:1;padding:11px;border-radius:10px;font-size:14px;font-weight:600}
+.modal-aksi .batal{background:var(--surface-2);border:1px solid var(--line)}
+.modal-aksi .hapus{background:#c0431a;color:#fff}
+.modal-aksi .hapus:disabled{background:var(--line);color:var(--ink-faint)}
 .lb{position:fixed;inset:0;background:rgba(9,14,17,.93);z-index:100;display:none;flex-direction:column}
 .lb.on{display:flex;animation:fade .15s}
 @keyframes fade{from{opacity:0}}
@@ -222,6 +240,9 @@ select.status.selesai{background:var(--ok-tint);border-color:#bfdcca;color:#1f5c
         <span class="ava" id="hAva"></span>
         <div class="t"><b id="hNama"></b><span id="hJab"></span></div>
         <span class="kode mono" id="hKode"></span>
+        <button class="danger-btn" id="hapusBtn" aria-label="Hapus laporan ini" title="Hapus laporan ini">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
+        </button>
         <select class="status" id="hStatus">
           <option value="baru">Baru</option>
           <option value="diproses">Diproses</option>
@@ -271,6 +292,20 @@ select.status.selesai{background:var(--ok-tint);border-color:#bfdcca;color:#1f5c
     <button class="lb-nav next" id="lbNext" aria-label="Gambar berikutnya">›</button>
   </div>
 </div>
+<div class="modal" id="hapusModal" role="dialog" aria-modal="true" aria-labelledby="hapusJudul">
+  <div class="modal-card">
+    <h3 id="hapusJudul">Hapus laporan ini?</h3>
+    <p>Seluruh percakapan dan gambar lampirannya ikut terhapus permanen. Tidak ada cara mengembalikannya.</p>
+    <div class="rincian" id="hapusRincian"></div>
+    <label for="hapusKode">Ketik kode tiketnya untuk memastikan</label>
+    <input id="hapusKode" autocomplete="off" spellcheck="false" placeholder="KLN-XXXXXX">
+    <div class="modal-aksi">
+      <button class="batal" id="hapusBatal">Batal</button>
+      <button class="hapus" id="hapusJadi" disabled>Hapus permanen</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script type="module">
@@ -280,6 +315,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 const SUPABASE_URL = "https://ywhpmgzxxuobxnbnripx.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_KjDOz2PIfaZUX2-3IpGToQ_gunvvGXd";
 const ADMIN = "Iqbal";           // nama yang tampil pada balasan
+const BISA_HAPUS = false;      // hanya halaman Janni yang boleh menghapus laporan
 /* ══════════════════════════════════════════ */
 
 const BUCKET = "lampiran";
@@ -549,6 +585,65 @@ async function kirim(){
     toast("Balasan gagal terkirim: " + (ex.message || "periksa koneksi"));
   }finally{ mengirim=false; sync(); }
 }
+
+/* ---------- hapus laporan ---------- */
+if(!BISA_HAPUS) $("#hapusBtn").hidden = true;
+
+function bukaHapus(){
+  if(!room || !BISA_HAPUS) return;
+  const jml = document.querySelectorAll("#logInner .msg").length;
+  $("#hapusRincian").innerHTML =
+    `<b>${esc(room.nama)} · ${esc(room.kode)}</b>${esc(room.jabatan)}, ${esc(room.cabang || "-")} — ${jml} pesan di layar`;
+  $("#hapusKode").value = "";
+  $("#hapusJadi").disabled = true;
+  $("#hapusModal").classList.add("on");
+  setTimeout(() => $("#hapusKode").focus(), 50);
+}
+const tutupHapus = () => $("#hapusModal").classList.remove("on");
+$("#hapusBtn").addEventListener("click", bukaHapus);
+$("#hapusBatal").addEventListener("click", tutupHapus);
+$("#hapusModal").addEventListener("click", e => { if(e.target.id === "hapusModal") tutupHapus(); });
+$("#hapusKode").addEventListener("input", e => {
+  $("#hapusJadi").disabled = e.target.value.trim().toUpperCase() !== (room?.kode || "").toUpperCase();
+});
+$("#hapusKode").addEventListener("keydown", e => {
+  if(e.key === "Enter" && !$("#hapusJadi").disabled) $("#hapusJadi").click();
+});
+
+$("#hapusJadi").addEventListener("click", async () => {
+  const target = room;
+  const tombol = $("#hapusJadi");
+  tombol.disabled = true; tombol.textContent = "Menghapus…";
+  try{
+    // 1. buang berkas lampiran di storage
+    const { data: berkas } = await sb.storage.from(BUCKET).list(target.id, { limit: 1000 });
+    if(berkas && berkas.length){
+      await sb.storage.from(BUCKET).remove(berkas.map(f => `${target.id}/${f.name}`));
+    }
+    // 2. buang tiketnya; pesan ikut terhapus lewat on delete cascade
+    const { error } = await sb.from("rooms").delete().eq("id", target.id);
+    if(error) throw error;
+
+    tutupHapus();
+    if(ch) sb.removeChannel(ch), ch = null;
+    room = null;
+    delete dibaca[target.id]; ls.set(K_SEEN, dibaca);
+    delete belum[target.id];
+    $("#chat").style.display = "none";
+    $("#blank").style.display = "grid";
+    $("#shell").classList.remove("open");
+    await muatDaftar();
+    toast(`Laporan ${target.kode} dihapus.`);
+  }catch(ex){
+    toast("Gagal menghapus: " + (ex.message || "periksa koneksi"));
+  }finally{
+    tombol.textContent = "Hapus permanen";
+  }
+});
+
+document.addEventListener("keydown", e => {
+  if(e.key === "Escape" && $("#hapusModal").classList.contains("on")) tutupHapus();
+});
 
 /* ---------- lightbox ---------- */
 let galeri = [], idx = 0;
