@@ -94,6 +94,17 @@ button{cursor:pointer;border:0;background:none}
 }
 .state.getar{animation:getar .62s ease-in-out}
 
+/* ═══ BILAH UNDUHAN ═══ */
+.helper{flex:none;display:flex;align-items:center;gap:7px;padding:7px 12px;background:var(--surface);border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+.helper::-webkit-scrollbar{display:none}
+.helper a{display:inline-flex;align-items:center;gap:6px;flex:none;font-size:12.5px;font-weight:600;text-decoration:none;color:var(--brand-deep);background:var(--brand-tint);border:1px solid #cbe3df;padding:5px 11px;border-radius:100px;white-space:nowrap}
+.helper a:active{background:#d3e9e5}
+.helper a svg{flex:none}
+.helper .tutup{margin-left:auto;flex:none;width:26px;height:26px;border-radius:50%;color:var(--ink-faint);display:grid;place-items:center;font-size:17px;line-height:1}
+.helper .tutup:hover{background:var(--surface-2);color:var(--ink)}
+.gate-links{display:flex;gap:7px;margin-top:16px;padding-top:16px;border-top:1px solid var(--line-soft);flex-wrap:wrap}
+.gate-links a{flex:1;text-align:center;font-size:12.5px;font-weight:600;text-decoration:none;color:var(--brand-deep);background:var(--brand-tint);border:1px solid #cbe3df;padding:9px 10px;border-radius:var(--r-sm);white-space:nowrap}
+
 /* ═══ LOG ═══ */
 .log{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:18px 14px 6px}
 .log-inner{max-width:740px;margin:0 auto;display:flex;flex-direction:column;gap:13px}
@@ -226,6 +237,10 @@ button{cursor:pointer;border:0;background:none}
 
     <button class="btn-primary" id="gateBtn" type="submit">Buka percakapan</button>
     <p class="gate-note">Riwayat percakapan tetap ada saat kamu membuka link ini lagi.</p>
+    <div class="gate-links">
+      <a href="https://drive.google.com/drive/folders/1kFUN8V_LdqnAcjQsxIt6rNeG14Dmbf0l?usp=drive_link" target="_blank" rel="noopener">Unduh aplikasi</a>
+      <a href="https://youtu.be/ZOxnBfl0XF0" target="_blank" rel="noopener">Cara pasang di iPhone</a>
+    </div>
   </form>
 </section>
 
@@ -240,6 +255,9 @@ button{cursor:pointer;border:0;background:none}
       </button>
       <div class="menu" id="menu">
         <div class="menu-h" id="whoAmI"></div>
+        <button id="mUnduh">Unduh aplikasi KLINKLIN</button>
+        <button id="mTutorial">Cara pasang di iPhone</button>
+        <div class="sep"></div>
         <button id="mNew">Buat laporan baru</button>
         <button id="mCopy">Salin kode tiket</button>
         <div class="sep"></div>
@@ -255,6 +273,18 @@ button{cursor:pointer;border:0;background:none}
     <span class="ico" id="stIco"></span>
     <span class="tx"><b id="stTitle">Baru</b><span id="stSub"></span></span>
     <span class="ping"></span>
+  </div>
+
+  <div class="helper" id="helper">
+    <a href="https://drive.google.com/drive/folders/1kFUN8V_LdqnAcjQsxIt6rNeG14Dmbf0l?usp=drive_link" target="_blank" rel="noopener">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4.5-4.5M12 15l4.5-4.5M4 19h16"/></svg>
+      Unduh aplikasi
+    </a>
+    <a href="https://youtu.be/ZOxnBfl0XF0" target="_blank" rel="noopener">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg>
+      Cara pasang di iPhone
+    </a>
+    <button class="tutup" id="helperX" aria-label="Sembunyikan bilah ini">×</button>
   </div>
 
   <div class="log" id="log"><div class="log-inner" id="logInner"></div></div>
@@ -599,6 +629,18 @@ $("#mNew").addEventListener("click", async () => {
     toast("Laporan baru dibuat: " + room.kode);
   }catch(ex){ toast("Gagal membuat laporan baru."); }
 });
+const LINK_APK = "https://drive.google.com/drive/folders/1kFUN8V_LdqnAcjQsxIt6rNeG14Dmbf0l?usp=drive_link";
+const LINK_TUTORIAL = "https://youtu.be/ZOxnBfl0XF0";
+const K_HELPER = "klinklin.bilahTertutup";
+if(ls.get(K_HELPER, false)) $("#helper").style.display = "none";
+$("#helperX").addEventListener("click", () => {
+  $("#helper").style.display = "none";
+  ls.set(K_HELPER, true);
+  toast("Kedua tautan itu tetap ada di menu titik tiga.");
+});
+$("#mUnduh").addEventListener("click", () => { $("#menu").classList.remove("on"); window.open(LINK_APK, "_blank", "noopener"); });
+$("#mTutorial").addEventListener("click", () => { $("#menu").classList.remove("on"); window.open(LINK_TUTORIAL, "_blank", "noopener"); });
+
 $("#mCopy").addEventListener("click", async () => {
   try{ await navigator.clipboard.writeText(room.kode); toast("Kode tiket disalin."); }catch{ toast(room.kode); }
 });
