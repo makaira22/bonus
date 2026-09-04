@@ -473,24 +473,49 @@ async function beriTahu(m){
 
 /* ---------- daftar tiket ---------- */
 async function hitungBelumDibaca(){
-  const sejak = new Date(Date.now() - 60*864e5).toISOString();   // 60 hari terakhir
-  const { data } = await sb.from("messages")
-    .select("room_id,created_at").eq("sender_role","pelapor").gte("created_at", sejak)
-    .order("created_at", { ascending:false }).limit(4000);
+  // hanya tiket yang pesan terakhirnya dari pelapor dan lebih baru dari waktu terakhir dibuka
+  const kandidat = daftar
+    .filter(r => r.last_sender_role === "pelapor"
+              && new Date(r.last_message_at) > new Date(dibaca[r.id] || 0))
+    .map(r => r.id);
+
   belum = {};
+  if(!kandidat.length) return;
+
+  const { data, error } = await sb.from("messages")
+    .select("room_id,created_at").eq("sender_role","pelapor")
+    .in("room_id", kandidat.slice(0,80)).limit(2000);
+  if(error) return;                      // gagal menghitung tidak boleh mengosongkan daftar
   (data || []).forEach(m => {
     if(new Date(m.created_at) > new Date(dibaca[m.room_id] || 0))
       belum[m.room_id] = (belum[m.room_id] || 0) + 1;
   });
 }
 
-async function muatDaftar(){
-  const { data, error } = await sb.from("rooms").select("*").order("last_message_at", { ascending:false }).limit(200);
-  if(error){ $("#rooms").innerHTML = `<div class="rail-empty">Gagal memuat daftar: ${esc(error.message)}</div>`; return; }
-  daftar = data;
-  await hitungBelumDibaca();
-  renderDaftar();
+let muatTimer = null, sedangMuat = false;
+function jadwalkanMuatDaftar(){          // banyak pesan beruntun -> cukup satu pemuatan
+  clearTimeout(muatTimer);
+  muatTimer = setTimeout(muatDaftar, 600);
 }
+
+async function muatDaftar(){
+  if(sedangMuat) return;
+  sedangMuat = true;
+  try{
+    const { data, error } = await sb.from("rooms").select("*").order("last_message_at", { ascending:false }).limit(200);
+    if(error){
+      // pertahankan daftar yang sudah tampil; hanya beri tahu kalau memang belum ada isinya
+      if(!daftar.length) $("#rooms").innerHTML = `<div class="rail-empty">Gagal memuat daftar: ${esc(error.message)}</div>`;
+      return;
+    }
+    daftar = data;
+    await hitungBelumDibaca();
+    renderDaftar();
+  } finally {
+    sedangMuat = false;
+  }
+}
+let sidikTerakhir = "";
 function renderDaftar(){
   const q = cari.toLowerCase();
   const f = daftar.filter(r =>
@@ -500,7 +525,14 @@ function renderDaftar(){
   const totalBelum = Object.values(belum).reduce((a,b)=>a+b, 0);
   judulBerjalan(totalBelum);
   $("#cBaru").textContent = daftar.filter(r => r.status === "baru").length || "";
-  $("#rooms").innerHTML = f.length ? f.map(r => `
+  const sidik = [filter, q, room ? room.id : "", f.map(r =>
+    [r.id, r.status, r.last_message_at, r.last_message_preview, belum[r.id] || 0].join("~")).join("|")].join("§");
+  if(sidik === sidikTerakhir) return;      // tidak ada perubahan nyata, jangan sentuh DOM
+  sidikTerakhir = sidik;
+
+  const wadah = $("#rooms");
+  const posisiGulir = wadah.scrollTop;
+  wadah.innerHTML = f.length ? f.map(r => `
     <button class="room ${room && room.id===r.id ? "on":""}" data-id="${r.id}">
       <div class="l1"><span class="nm">${esc(r.nama)}</span>${belum[r.id] ? `<span class="badge">${belum[r.id] > 99 ? "99+" : belum[r.id]}</span>` : ""}<span class="tm">${lalu(r.last_message_at)}</span></div>
       <div class="jb">${esc(r.cabang || "-")} · ${esc(r.jabatan)}</div>
@@ -508,6 +540,7 @@ function renderDaftar(){
       <div class="tags"><span class="tag ${r.status}">${LABEL[r.status]}</span><span class="tag">${esc(r.platform)}</span><span class="tag mono">${esc(r.kode)}</span></div>
     </button>`).join("")
     : `<div class="rail-empty">Tidak ada laporan yang cocok.</div>`;
+  wadah.scrollTop = posisiGulir;           // jangan lompat ke atas setiap kali diperbarui
 }
 $("#rooms").addEventListener("click", e => {
   const b = e.target.closest(".room"); if(!b) return;
@@ -601,7 +634,7 @@ function langganan(){
     .subscribe();
 }
 sb.channel("adm-rooms")
-  .on("postgres_changes", { event:"*", schema:"public", table:"rooms" }, () => muatDaftar())
+  .on("postgres_changes", { event:"*", schema:"public", table:"rooms" }, () => jadwalkanMuatDaftar())
   .subscribe();
 
 // pesan masuk dari tiket mana pun, termasuk yang sedang tidak dibuka
@@ -614,8 +647,10 @@ sb.channel("adm-pesan-masuk")
   })
   .subscribe();
 
-let totalTerakhir = null;
+let totalTerakhir = null, segarTerakhir = Date.now();
 setInterval(async () => {
+  // sekali semenit, paksa gambar ulang supaya keterangan waktu ("5 mnt") ikut maju
+  if(Date.now() - segarTerakhir > 60000){ sidikTerakhir = ""; segarTerakhir = Date.now(); }
   await muatDaftar();
   const total = Object.values(belum).reduce((a,b)=>a+b, 0);
   if(totalTerakhir !== null && total > totalTerakhir) bunyi();   // cadangan bila realtime mati
