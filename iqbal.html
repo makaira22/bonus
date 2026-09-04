@@ -45,6 +45,12 @@ button{cursor:pointer;border:0;background:none}
 .search input::placeholder{color:#6a848a}
 .search input:focus{outline:none;border-color:#3a6d68}
 .search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#6a848a}
+.alerts{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.mini{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;padding:6px 10px;border-radius:100px;background:var(--rail-2);border:1px solid var(--rail-line);color:#9fb4b9}
+.mini:hover{border-color:#3a6d68;color:#fff}
+.mini[aria-pressed="true"]{background:#123c39;border-color:#2c6d66;color:#8ed6cc}
+.mini.perlu{background:#43220f;border-color:#7a3c19;color:#f0a074}
+.mini[hidden]{display:none}
 .tabs{display:flex;gap:4px;padding:10px 12px;border-bottom:1px solid var(--rail-line)}
 .tab{padding:6px 11px;border-radius:100px;font-size:12.5px;font-weight:500;color:#8ea6ac}
 .tab[aria-pressed="true"]{background:var(--rail-2);color:#fff}
@@ -164,15 +170,15 @@ select.status.selesai{background:var(--ok-tint);border-color:#bfdcca;color:#1f5c
 .modal-aksi .batal{background:var(--surface-2);border:1px solid var(--line)}
 .modal-aksi .hapus{background:#c0431a;color:#fff}
 .modal-aksi .hapus:disabled{background:var(--line);color:var(--ink-faint)}
-.lb{position:fixed;inset:0;background:rgba(9,14,17,.93);z-index:100;display:none;flex-direction:column}
-.lb.on{display:flex;animation:fade .15s}
+.lb{position:fixed;inset:0;background:rgba(9,14,17,.94);z-index:100;display:none;grid-template-rows:auto minmax(0,1fr);padding-top:env(safe-area-inset-top)}
+.lb.on{display:grid;animation:fade .15s}
 @keyframes fade{from{opacity:0}}
 .lb-bar{display:flex;align-items:center;gap:12px;padding:14px 18px;color:#cfd8dc;font-size:13px}
 .lb-bar .sp{margin-left:auto;display:flex;gap:6px}
 .lb-bar a,.lb-bar button{color:#cfd8dc;padding:8px 12px;border-radius:8px;font-size:13px;text-decoration:none}
 .lb-bar a:hover,.lb-bar button:hover{background:rgba(255,255,255,.12);color:#fff}
-.lb-stage{flex:1;display:grid;place-items:center;padding:0 14px 22px;min-height:0}
-.lb-stage img{max-width:100%;max-height:100%;object-fit:contain;border-radius:6px}
+.lb-stage{position:relative;min-height:0;min-width:0;display:flex;align-items:center;justify-content:center;padding:0 62px calc(18px + env(safe-area-inset-bottom));overflow:hidden}
+.lb-stage img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;border-radius:6px;display:block}
 .lb-nav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.12);color:#fff;display:grid;place-items:center}
 .lb-nav:hover{background:rgba(255,255,255,.24)}
 .lb-nav.prev{left:14px}.lb-nav.next{right:14px}
@@ -180,6 +186,9 @@ select.status.selesai{background:var(--ok-tint);border-color:#bfdcca;color:#1f5c
 .toast.on{opacity:1}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media(max-width:860px){
+  .lb-stage{padding:0 10px calc(14px + env(safe-area-inset-bottom))}
+  .lb-nav{width:38px;height:38px;background:rgba(255,255,255,.2)}
+  .lb-nav.prev{left:4px}.lb-nav.next{right:4px}
   body{position:fixed;inset:0}
   .shell{grid-template-columns:1fr}
   .head .t span{font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
@@ -208,6 +217,13 @@ select.status.selesai{background:var(--ok-tint);border-color:#bfdcca;color:#1f5c
       <div class="who">
         <span class="ava">I</span>
         <div><b>Iqbal</b> <span>· membalas sebagai tim</span></div>
+      </div>
+      <div class="alerts">
+        <button class="mini perlu" id="izinBtn" hidden>Aktifkan notifikasi</button>
+        <button class="mini" id="suaraBtn" aria-pressed="true" title="Bunyi saat ada pesan masuk">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 010 7" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+          Bunyi
+        </button>
       </div>
       <div class="search">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
@@ -356,6 +372,105 @@ const TEKS_SISTEM = (k, oleh) => ({
   dibuka:   `Dibuka kembali oleh ${oleh}`
 }[k] || k);
 
+/* ---------- teks berjalan di judul tab ---------- */
+const JUDUL_DIAM = ADMIN + " · Panel laporan KLINKLIN";
+let jalanTimer = null, jalanTeks = "";
+function judulBerjalan(total){
+  if(!total){
+    clearInterval(jalanTimer); jalanTimer = null; jalanTeks = "";
+    document.title = JUDUL_DIAM;
+    return;
+  }
+  const teks = `(${total}) pesan baru belum terbaca — `;
+  if(jalanTimer && jalanTeks === teks) return;   // sudah berjalan dengan teks yang sama
+  jalanTeks = teks;
+  clearInterval(jalanTimer);
+  let i = 0;
+  document.title = teks;
+  jalanTimer = setInterval(() => {
+    document.title = teks.slice(i) + teks.slice(0, i);
+    i = (i + 1) % teks.length;
+  }, 320);
+}
+
+/* ---------- bunyi & notifikasi komputer ---------- */
+const K_SUARA = "klinklin.suara." + ADMIN;
+let suaraAktif = ls.get(K_SUARA, true);
+let ac = null;
+
+$("#suaraBtn").setAttribute("aria-pressed", String(suaraAktif));
+$("#suaraBtn").addEventListener("click", () => {
+  suaraAktif = !suaraAktif;
+  ls.set(K_SUARA, suaraAktif);
+  $("#suaraBtn").setAttribute("aria-pressed", String(suaraAktif));
+  if(suaraAktif) bunyi();
+  toast(suaraAktif ? "Bunyi dinyalakan." : "Bunyi dimatikan.");
+});
+
+function bunyi(){
+  if(!suaraAktif) return;
+  try{
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    if(ac.state === "suspended") ac.resume();
+    const t0 = ac.currentTime;
+    [880, 1318].forEach((hz, i) => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      const t = t0 + i * 0.15;
+      o.type = "sine"; o.frequency.value = hz;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.25, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.32);
+      o.connect(g); g.connect(ac.destination);
+      o.start(t); o.stop(t + 0.34);
+    });
+  }catch{}
+}
+
+function segarkanTombolIzin(){
+  const b = $("#izinBtn");
+  if(!("Notification" in window)){ b.hidden = true; return; }
+  b.hidden = Notification.permission === "granted";
+  b.textContent = Notification.permission === "denied" ? "Notifikasi diblokir" : "Aktifkan notifikasi";
+}
+segarkanTombolIzin();
+
+$("#izinBtn").addEventListener("click", async () => {
+  if(Notification.permission === "denied"){
+    toast("Izinkan lewat ikon gembok di sebelah alamat halaman, lalu muat ulang.");
+    return;
+  }
+  await Notification.requestPermission();
+  segarkanTombolIzin();
+  if(Notification.permission === "granted"){
+    bunyi();
+    new Notification("Notifikasi KLINKLIN aktif", { body:"Pesan baru dari pelapor akan muncul di sini." });
+  }
+});
+
+// browser butuh sentuhan pengguna sebelum boleh membunyikan apa pun
+document.addEventListener("click", () => { if(ac && ac.state === "suspended") ac.resume(); });
+
+const sudahDinotif = new Set();
+async function beriTahu(m){
+  if(sudahDinotif.has(m.id)) return;
+  sudahDinotif.add(m.id);
+
+  let r = daftar.find(x => x.id === m.room_id);
+  if(!r){ await muatDaftar(); r = daftar.find(x => x.id === m.room_id); }
+  if(!r) return;
+
+  bunyi();
+  if(!("Notification" in window) || Notification.permission !== "granted") return;
+
+  const isi = (m.body || "").trim() || "Mengirim gambar";
+  const n = new Notification(`${r.nama} · ${r.kode}`, {
+    body: isi.length > 110 ? isi.slice(0,110) + "…" : isi,
+    tag: m.room_id,          // pesan susulan dari tiket sama menimpa yang lama
+    renotify: true
+  });
+  n.onclick = () => { window.focus(); buka(r); n.close(); };
+}
+
 /* ---------- daftar tiket ---------- */
 async function hitungBelumDibaca(){
   const sejak = new Date(Date.now() - 60*864e5).toISOString();   // 60 hari terakhir
@@ -383,7 +498,7 @@ function renderDaftar(){
     (!q || `${r.nama} ${r.cabang||""} ${r.jabatan} ${r.kode} ${r.last_message_preview||""}`.toLowerCase().includes(q))
   );
   const totalBelum = Object.values(belum).reduce((a,b)=>a+b, 0);
-  document.title = (totalBelum ? `(${totalBelum}) ` : "") + "Iqbal · Panel laporan KLINKLIN";
+  judulBerjalan(totalBelum);
   $("#cBaru").textContent = daftar.filter(r => r.status === "baru").length || "";
   $("#rooms").innerHTML = f.length ? f.map(r => `
     <button class="room ${room && room.id===r.id ? "on":""}" data-id="${r.id}">
@@ -489,9 +604,23 @@ sb.channel("adm-rooms")
   .on("postgres_changes", { event:"*", schema:"public", table:"rooms" }, () => muatDaftar())
   .subscribe();
 
+// pesan masuk dari tiket mana pun, termasuk yang sedang tidak dibuka
+sb.channel("adm-pesan-masuk")
+  .on("postgres_changes", { event:"INSERT", schema:"public", table:"messages" }, p => {
+    const m = p.new;
+    if(m.sender_role !== "pelapor") return;
+    if(room && m.room_id === room.id && !document.hidden) return;  // sedang dibaca di layar
+    beriTahu(m);
+  })
+  .subscribe();
+
+let totalTerakhir = null;
 setInterval(async () => {
-  if(document.hidden) return;
   await muatDaftar();
+  const total = Object.values(belum).reduce((a,b)=>a+b, 0);
+  if(totalTerakhir !== null && total > totalTerakhir) bunyi();   // cadangan bila realtime mati
+  totalTerakhir = total;
+  if(document.hidden) return;
   if(!room) return;
   const { data } = await sb.from("messages").select("*").eq("room_id", room.id).order("created_at");
   if(!data) return;
