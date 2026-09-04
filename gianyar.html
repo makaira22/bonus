@@ -17,57 +17,84 @@
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
 body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased}
-h1,h2,h3,h4,th,.g{font-family:var(--grot)}
-.g{font-family:var(--grot)}
+h1,h2,h3,h4,th{font-family:var(--grot)}
 .num{font-family:var(--grot);font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
 .wrap{max-width:1080px;margin:0 auto;padding:0 28px}
 .prose{max-width:66ch}
 p{margin:0 0 1.05em}
 a{color:var(--jade)}
 strong{font-weight:600}
+:focus-visible{outline:2px solid var(--marigold);outline-offset:2px}
 
-/* ---- top bar ---- */
-.bar{position:sticky;top:0;z-index:50;background:rgba(244,246,241,.93);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
-.bar .wrap{display:flex;align-items:center;gap:22px;height:52px;overflow-x:auto;scrollbar-width:none}
-.bar .wrap::-webkit-scrollbar{display:none}
-.bar b{font-family:var(--grot);font-size:.78rem;font-weight:800;letter-spacing:.06em;color:var(--jade-deep);white-space:nowrap}
-.bar a{font-family:var(--grot);font-size:.8rem;font-weight:500;color:var(--muted);text-decoration:none;white-space:nowrap;padding:4px 0;border-bottom:2px solid transparent}
-.bar a:hover,.bar a:focus-visible{color:var(--jade-deep);border-bottom-color:var(--marigold)}
+/* ---------- nav ---------- */
+.bar{position:sticky;top:0;z-index:60;background:rgba(244,246,241,.94);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.bar .inner{max-width:1080px;margin:0 auto;padding:0 28px;display:flex;align-items:center;height:54px;gap:22px}
+.brand{font-family:var(--grot);font-size:.78rem;font-weight:800;letter-spacing:.06em;color:var(--jade-deep);white-space:nowrap;margin-right:auto}
+.links{display:flex;align-items:center;gap:20px;overflow-x:auto;scrollbar-width:none}
+.links::-webkit-scrollbar{display:none}
+.links a{font-family:var(--grot);font-size:.8rem;font-weight:500;color:var(--muted);text-decoration:none;white-space:nowrap;padding:4px 0;border-bottom:2px solid transparent}
+.links a:hover,.links a:focus-visible{color:var(--jade-deep);border-bottom-color:var(--marigold)}
 
-/* ---- hero ---- */
-.hero{background:var(--jade-deep);color:#EAF2EE;padding:56px 0 40px;border-bottom:6px solid var(--marigold)}
+.burger{display:none;width:42px;height:42px;border:1px solid var(--line);background:var(--surface);border-radius:3px;padding:0;cursor:pointer;align-items:center;justify-content:center;flex-direction:column;gap:5px}
+.burger span{display:block;width:18px;height:2px;background:var(--jade-deep);border-radius:2px;transition:transform .22s ease,opacity .18s ease}
+.burger[aria-expanded="true"] span:nth-child(1){transform:translateY(7px) rotate(45deg)}
+.burger[aria-expanded="true"] span:nth-child(2){opacity:0}
+.burger[aria-expanded="true"] span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+
+@media (max-width:900px){
+  .burger{display:flex}
+  .links{position:fixed;top:54px;left:0;right:0;background:var(--surface);border-bottom:1px solid var(--line);
+    flex-direction:column;align-items:stretch;gap:0;padding:6px 0 12px;overflow:visible;
+    box-shadow:0 18px 36px -26px rgba(6,48,42,.6);
+    max-height:0;opacity:0;visibility:hidden;overflow-y:auto;transition:max-height .26s ease,opacity .2s ease,visibility .26s}
+  .links.open{max-height:calc(100vh - 54px);opacity:1;visibility:visible}
+  .links a{padding:13px 28px;font-size:.95rem;border-bottom:1px solid #EDF1EC;color:var(--ink)}
+  .links a:last-child{border-bottom:none}
+  .links a:hover,.links a:focus-visible{background:var(--jade-soft);border-bottom-color:#EDF1EC}
+}
+
+/* ---------- hero ---------- */
+.hero{background:var(--jade-deep);color:#EAF2EE;padding:54px 0 40px;border-bottom:6px solid var(--marigold)}
 .hero .kicker{font-family:var(--grot);font-size:.82rem;font-weight:600;color:var(--marigold);margin:0 0 18px}
-.hero h1{font-size:clamp(2.3rem,6.2vw,4.4rem);line-height:.98;letter-spacing:-.035em;font-weight:800;margin:0 0 20px;max-width:16ch}
-.hero .lede{font-size:clamp(1.02rem,2vw,1.22rem);max-width:60ch;color:#BFD6CD;margin:0 0 34px}
-.strip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.13);border-radius:3px;padding:20px 18px 12px}
+.hero h1{font-size:clamp(2.2rem,6vw,4.3rem);line-height:.98;letter-spacing:-.035em;font-weight:800;margin:0 0 20px;max-width:17ch}
+.hero .lede{font-size:clamp(1.02rem,2vw,1.2rem);max-width:62ch;color:#BFD6CD;margin:0 0 32px}
+.strip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.13);border-radius:3px;padding:20px 16px 12px}
 .strip h4{margin:0 0 4px;font-size:.9rem;font-weight:600;color:#EAF2EE}
-.strip .sub{font-family:var(--grot);font-size:.76rem;color:#8FB3A8;margin:0 0 16px}
+.strip .sub{font-family:var(--grot);font-size:.75rem;color:#8FB3A8;margin:0 0 14px}
 .legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:12px;font-family:var(--grot);font-size:.72rem;color:#8FB3A8}
 .legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;vertical-align:-1px}
 
-/* ---- verdict ---- */
-.verdict{background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--marigold);border-radius:3px;padding:26px 28px;margin:-30px 0 0;position:relative;z-index:2;box-shadow:0 12px 30px -22px rgba(6,48,42,.5)}
-.verdict h2{margin:0 0 10px;font-size:1.45rem;letter-spacing:-.02em}
-.verdict p{margin-bottom:.7em}
-.verdict p:last-child{margin-bottom:0}
+/* ---------- kesimpulan ---------- */
+.summary{background:var(--surface);border:1px solid var(--line);border-radius:3px;margin:-28px 0 0;position:relative;z-index:2;box-shadow:0 14px 34px -24px rgba(6,48,42,.55);overflow:hidden}
+.summary .top{background:var(--marigold);color:#2A1D04;padding:8px 28px;font-family:var(--grot);font-weight:700;font-size:.8rem;letter-spacing:.04em}
+.summary .body{padding:26px 28px 28px}
+.summary h2{margin:0 0 4px;font-size:clamp(1.5rem,3.2vw,2.1rem);letter-spacing:-.03em;line-height:1.1}
+.summary .headline{font-size:1.05rem;color:var(--muted);margin:0 0 20px;font-family:var(--grot);font-weight:500}
+.keypoints{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;margin:22px 0 4px;padding-top:20px;border-top:1px solid var(--line)}
+.kp h4{margin:0 0 5px;font-size:.95rem;display:flex;gap:9px;align-items:baseline}
+.kp h4 b{font-family:var(--grot);color:var(--jade);font-size:1.02rem}
+.kp p{font-size:.93rem;margin:0;color:#33443F}
+.action{margin-top:24px;padding:18px 20px;background:var(--jade-deep);color:#DCEBE5;border-radius:3px}
+.action h4{margin:0 0 8px;color:#fff;font-size:1rem}
+.action p{margin:0;font-size:.95rem}
+.action strong{color:var(--marigold)}
 
-/* ---- sections ---- */
-section{padding:60px 0 8px}
+/* ---------- sections ---------- */
+section{padding:58px 0 8px}
 .tag{font-family:var(--grot);font-size:.78rem;font-weight:600;color:var(--jade);margin:0 0 10px;display:flex;align-items:center;gap:10px}
-.tag::after{content:"";flex:1;height:1px;background:var(--line);max-width:200px}
-h2.sec{font-size:clamp(1.65rem,3.4vw,2.35rem);letter-spacing:-.03em;line-height:1.08;margin:0 0 18px;font-weight:700;max-width:20ch}
+.tag::after{content:"";flex:1;height:1px;background:var(--line);max-width:190px}
+h2.sec{font-size:clamp(1.6rem,3.3vw,2.3rem);letter-spacing:-.03em;line-height:1.1;margin:0 0 18px;font-weight:700;max-width:21ch}
 h3{font-size:1.12rem;letter-spacing:-.01em;margin:34px 0 10px;font-weight:700}
 h4{font-size:.95rem;margin:22px 0 6px;font-weight:600}
 
-/* ---- stat row ---- */
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:3px;margin:26px 0;overflow:hidden}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:3px;margin:26px 0;overflow:hidden}
 .stat{background:var(--surface);padding:16px 18px}
-.stat .v{font-family:var(--grot);font-variant-numeric:tabular-nums;font-size:1.6rem;font-weight:700;letter-spacing:-.03em;line-height:1.1;display:block}
+.stat .v{font-family:var(--grot);font-variant-numeric:tabular-nums;font-size:1.55rem;font-weight:700;letter-spacing:-.03em;line-height:1.1;display:block}
 .stat .l{font-family:var(--grot);font-size:.74rem;color:var(--muted);line-height:1.35;display:block;margin-top:5px}
 .up{color:var(--jade)} .down{color:var(--clay)}
 
-/* ---- tables ---- */
 .tw{overflow-x:auto;margin:20px 0;border:1px solid var(--line);border-radius:3px;background:var(--surface)}
 table{width:100%;border-collapse:collapse;font-family:var(--grot);font-size:.85rem;font-variant-numeric:tabular-nums;min-width:520px}
 th{text-align:left;font-weight:600;font-size:.74rem;color:var(--muted);padding:11px 14px;border-bottom:1px solid var(--line);background:#FAFBF9;white-space:nowrap}
@@ -75,33 +102,29 @@ td{padding:10px 14px;border-bottom:1px solid #EDF1EC}
 tr:last-child td{border-bottom:none}
 td.r,th.r{text-align:right}
 tbody tr.tot td{font-weight:700;background:#FAFBF9;border-top:1px solid var(--line)}
-.bar-cell{position:relative}
+.bar-cell{position:relative;min-width:110px}
 .bar-cell span{position:relative;z-index:1}
 .bar-cell::before{content:"";position:absolute;left:0;top:4px;bottom:4px;background:var(--jade-soft);border-radius:2px;width:var(--w,0%)}
 
-/* ---- cards ---- */
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px;margin:24px 0}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:3px;padding:20px}
 .card h4{margin:0 0 8px;font-size:1rem}
 .card p{font-size:.94rem;margin-bottom:0;color:#2C3B37}
 .card .pill{font-family:var(--grot);font-size:.7rem;font-weight:600;color:var(--jade);background:var(--jade-soft);padding:2px 8px;border-radius:2px;display:inline-block;margin-bottom:10px}
 
-/* ---- chart holders ---- */
-.chart{background:var(--surface);border:1px solid var(--line);border-radius:3px;padding:20px 18px;margin:24px 0}
+.chart{background:var(--surface);border:1px solid var(--line);border-radius:3px;padding:20px 16px;margin:24px 0}
 .chart h4{margin:0 0 2px;font-size:.95rem}
 .chart .sub{font-family:var(--grot);font-size:.75rem;color:var(--muted);margin:0 0 14px}
 svg{display:block;width:100%;height:auto}
 
-/* ---- phases ---- */
 .phase{background:var(--surface);border:1px solid var(--line);border-radius:3px;padding:22px 24px;margin:16px 0;border-top:4px solid var(--jade)}
 .phase.t1{border-top-color:var(--marigold)}
 .phase.t2{border-top-color:var(--clay)}
 .phase .hd{display:flex;flex-wrap:wrap;align-items:baseline;gap:12px;margin-bottom:6px}
 .phase .hd h3{margin:0;font-size:1.15rem}
 .phase .when{font-family:var(--grot);font-size:.78rem;color:var(--muted)}
-.phase .bepline{font-family:var(--grot);font-size:.84rem;font-weight:600;color:var(--jade-deep);background:var(--jade-soft);display:inline-block;padding:4px 10px;border-radius:2px;margin:10px 0 4px}
+.bepline{font-family:var(--grot);font-size:.84rem;font-weight:600;color:var(--jade-deep);background:var(--jade-soft);display:inline-block;padding:5px 11px;border-radius:2px;margin:10px 0 4px}
 
-/* ---- callout ---- */
 .note{border-left:3px solid var(--jade);background:var(--surface);padding:16px 20px;margin:22px 0;font-size:.96rem;border-radius:0 3px 3px 0}
 .warn{border-left-color:var(--clay)}
 .note p:last-child{margin-bottom:0}
@@ -114,7 +137,7 @@ ol.steps li{counter-increment:s;position:relative;padding-left:44px;margin-botto
 ol.steps li::before{content:counter(s);position:absolute;left:0;top:0;width:30px;height:30px;background:var(--jade-deep);color:#fff;font-family:var(--grot);font-weight:700;font-size:.85rem;display:grid;place-items:center;border-radius:2px}
 ol.steps b{display:block;font-family:var(--grot);font-size:.98rem;margin-bottom:2px}
 
-footer{background:var(--jade-deep);color:#9CBCB2;margin-top:70px;padding:40px 0 50px;font-size:.86rem}
+footer{background:var(--jade-deep);color:#9CBCB2;margin-top:66px;padding:40px 0 50px;font-size:.86rem}
 footer h4{color:#EAF2EE;margin:0 0 12px;font-size:.95rem}
 footer a{color:#BFD6CD}
 footer ul{padding-left:18px;margin:0}
@@ -123,40 +146,46 @@ footer li{margin-bottom:6px}
 @media print{.bar{display:none}.hero{background:#fff;color:#000}}
 @media (max-width:620px){
   body{font-size:16px}
-  .wrap{padding:0 18px}
-  .verdict{padding:20px}
-  section{padding:44px 0 8px}
+  .wrap,.bar .inner{padding-left:18px;padding-right:18px}
+  section{padding:42px 0 8px}
+  .summary .body,.summary .top{padding-left:20px;padding-right:20px}
 }
 </style>
 </head>
 <body>
 
 <nav class="bar">
-  <div class="wrap">
-    <b>KLINKLIN · GIANYAR</b>
-    <a href="#putusan">Putusan</a>
-    <a href="#data">Data kamu</a>
-    <a href="#pasar">Pasar</a>
-    <a href="#dayabeli">Daya beli</a>
-    <a href="#lokasi">Lokasi</a>
-    <a href="#biaya">Biaya &amp; BEP</a>
-    <a href="#proyeksi">Proyeksi</a>
-    <a href="#kapan">Kapan buka</a>
-    <a href="#kontrak">Ngontrak</a>
-    <a href="#risiko">Risiko</a>
-    <a href="#rencana">Rencana 90 hari</a>
+  <div class="inner">
+    <span class="brand">KLINKLIN · GIANYAR</span>
+    <button class="burger" id="burger" aria-expanded="false" aria-controls="navlinks" aria-label="Buka menu">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="links" id="navlinks">
+      <a href="#kesimpulan">Kesimpulan</a>
+      <a href="#data">Data kamu</a>
+      <a href="#transport">Ongkos jalan</a>
+      <a href="#pasar">Pasar</a>
+      <a href="#dayabeli">Daya beli</a>
+      <a href="#lokasi">Lokasi</a>
+      <a href="#biaya">Biaya &amp; BEP</a>
+      <a href="#proyeksi">Proyeksi</a>
+      <a href="#kapan">Kapan buka</a>
+      <a href="#kontrak">Ngontrak</a>
+      <a href="#risiko">Risiko</a>
+      <a href="#rencana">Rencana 90 hari</a>
+    </div>
   </div>
 </nav>
 
 <header class="hero">
   <div class="wrap">
-    <p class="kicker">Studi kelayakan cabang · disusun 4 September 2026</p>
-    <h1>Gianyar sudah memesan. Kamu belum ada di sana.</h1>
-    <p class="lede">Selama 17 bulan terakhir, 48 order Gianyar senilai Rp&nbsp;34,7 juta dikerjakan dari Denpasar — tanpa satu pun rupiah iklan lokal, tanpa kantor, dan dengan cleaner yang menghabiskan 1–2,5 jam di jalan setiap kali berangkat. Ini yang dikatakan angka itu.</p>
+    <p class="kicker">Studi kelayakan cabang · data sampai 29 Agustus 2026</p>
+    <h1>Gianyar sudah jadi pasar. Kamu tinggal pindah ke sana.</h1>
+    <p class="lede">78 order senilai Rp&nbsp;59,3&nbsp;juta dalam 20 bulan, seluruhnya dikerjakan dari Denpasar. Tiga bulan terakhir volumenya melonjak ke 10 order per bulan dengan nilai rata-rata naik 46%. Angka itu sudah menyentuh 73% dari titik impas pos rintisan.</p>
 
     <div class="strip">
-      <h4>48 order Gianyar, Januari 2025 – Mei 2026</h4>
-      <p class="sub">Tinggi batang = nilai order (skala akar) · warna = kecamatan · dua batang tipis = order tercatat Rp&nbsp;0</p>
+      <h4>78 order Gianyar, Januari 2025 – Agustus 2026</h4>
+      <p class="sub">Tinggi batang = nilai order (skala akar) · warna = kecamatan · batang tipis = order tercatat Rp&nbsp;0</p>
       <div id="stripChart"></div>
       <div class="legend" id="stripLegend"></div>
     </div>
@@ -164,11 +193,37 @@ footer li{margin-bottom:6px}
 </header>
 
 <div class="wrap">
-  <div class="verdict" id="putusan">
-    <h2>Putusan singkat</h2>
-    <p><strong>Buka — tapi jangan buka “cabang”.</strong> Permintaan Gianyar nyata dan tumbuh cepat, namun volumenya belum cukup untuk menanggung struktur cabang penuh sejak hari pertama. Dengan margin kontribusi Rp&nbsp;466 ribu per order, cabang standar (ruko + 4 cleaner tetap + admin) baru impas di <span class="num">70&nbsp;order/bulan</span>. Kamu sekarang di <span class="num">5,8&nbsp;order/bulan</span>.</p>
-    <p>Yang masuk akal secara matematika: mulai dari <strong>pos rintisan</strong> — satu rumah kontrakan kecil di Batubulan sebagai gudang alat dan titik kumpul, satu cleaner tetap yang berdomisili di Gianyar, sisanya tenaga lepas borongan. Biaya tetapnya Rp&nbsp;8,2&nbsp;juta/bulan dan impas di <span class="num">18&nbsp;order/bulan</span> — hanya tiga kali lipat dari posisi sekarang, dan itu sebelum satu rupiah pun dibelanjakan untuk iklan lokal.</p>
-    <p>Naik ke pos satelit saat rata-rata tiga bulan menembus 46 order, naik ke cabang penuh saat menembus 82. Disiplin pada dua ambang itu adalah selisih antara balik modal di bulan ke-14 dan bakar uang selama dua tahun.</p>
+  <div class="summary" id="kesimpulan">
+    <div class="top">KESIMPULAN</div>
+    <div class="body">
+      <h2>Buka pos rintisan di Batubulan, Oktober 2026.</h2>
+      <p class="headline">Bukan cabang penuh. Modal Rp 28 juta. Balik modal bulan ke-9 sampai ke-12.</p>
+
+      <div class="prose">
+        <p>Data Juni–Agustus 2026 mengubah gambarannya. Sebelumnya Gianyar terlihat seperti pasar sampingan yang tumbuh pelan; sekarang ia pasar yang sedang meledak. Volume naik dari 5,8 ke 10 order per bulan, omzet naik 153% menjadi Rp&nbsp;8,17&nbsp;juta per bulan, dan nilai rata-rata order naik dari Rp&nbsp;558&nbsp;ribu ke Rp&nbsp;817&nbsp;ribu. Dibanding periode yang sama tahun lalu, order Januari–Agustus melompat dari 12 ke 59.</p>
+        <p>Yang membuat keputusannya jadi mudah: titik impas pos rintisan hanya 14 order per bulan. Kamu sudah di 10 — tanpa kantor, tanpa iklan lokal, tanpa satu pun orang yang tinggal di sana. Jaraknya empat order per bulan, bukan puluhan.</p>
+      </div>
+
+      <div class="keypoints">
+        <div class="kp"><h4><b>1</b> Permintaannya sudah terbukti</h4>
+          <p>59 order Januari–Agustus 2026 dari 52 pelanggan berbeda, tersebar di lima kecamatan. Ini bukan proyeksi, ini catatan penjualan.</p></div>
+        <div class="kp"><h4><b>2</b> Mulai kecil, bukan besar</h4>
+          <p>Pos rintisan impas di 14 order/bulan. Cabang penuh butuh 57. Membuka langsung sebagai cabang berarti menaikkan target empat kali lipat tanpa alasan.</p></div>
+        <div class="kp"><h4><b>3</b> Basis di Batubulan, layani Ubud</h4>
+          <p>Ubud kini penyumbang omzet terbesar (31%), tapi sewa di sana 3–10× lipat. Batubulan menjangkau Ubud dalam 25–35 menit dengan biaya sepersekian.</p></div>
+        <div class="kp"><h4><b>4</b> Ongkos jalan memakan 6,2% omzet</h4>
+          <p>Rata-rata Rp&nbsp;50.761 per order, dan 9,2% dari nilai order di Ubud. Basis lokal memangkasnya sekaligus melipatgandakan job per cleaner per hari.</p></div>
+        <div class="kp"><h4><b>5</b> Deep clean jadi mesin uangnya</h4>
+          <p>16 order deep clean menghasilkan Rp&nbsp;22,6&nbsp;juta — 38% dari seluruh omzet, rata-rata Rp&nbsp;1,41&nbsp;juta per order. Ini yang harus dikejar, bukan GC murah.</p></div>
+        <div class="kp"><h4><b>6</b> Risikonya kecil dan terbatas</h4>
+          <p>Kebutuhan modal maksimum Rp&nbsp;29,4&nbsp;juta di titik terdalam. Kalau gagal, kerugiannya sebesar satu order deep clean besar dikali tujuh — bukan sebesar sewa ruko dua tahun.</p></div>
+      </div>
+
+      <div class="action">
+        <h4>Kalau hanya satu hal yang dikerjakan bulan ini</h4>
+        <p>Cari kontrakan kecil di Batubulan dan rekrut satu cleaner yang tinggal di Gianyar. <strong>Target angka: 14 order per bulan.</strong> Di atas itu, pos Gianyar berhenti membakar uang dan mulai membiayai pertumbuhannya sendiri.</p>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -176,34 +231,46 @@ footer li{margin-bottom:6px}
 
 <section id="data">
   <p class="tag">Bagian 1 — Apa yang datamu sendiri katakan</p>
-  <h2 class="sec">Permintaan Gianyar naik tiga kali lipat dalam setahun</h2>
-  <div class="prose">
-    <p>Perbandingan yang paling jujur adalah periode yang sama: Januari–Mei 2025 versus Januari–Mei 2026. Bukan total tahunan, karena 2026 baru berjalan lima bulan di data ini.</p>
-  </div>
+  <h2 class="sec">Tiga bulan terakhir adalah titik baliknya</h2>
 
   <div class="stats">
-    <div class="stat"><span class="v num">9 → 29</span><span class="l">Order Jan–Mei, 2025 → 2026 <span class="up">(+222%)</span></span></div>
-    <div class="stat"><span class="v num">7,2 → 16,2</span><span class="l">Omzet Jan–Mei, juta rupiah <span class="up">(+126%)</span></span></div>
-    <div class="stat"><span class="v num">Rp 599rb</span><span class="l">Rata-rata order 2026 <span class="down">(−25% vs 2025)</span></span></div>
-    <div class="stat"><span class="v num">Rp 487rb</span><span class="l">Median order — separuh order di bawah ini</span></div>
-    <div class="stat"><span class="v num">62%</span><span class="l">Omzet dari pelanggan berulang</span></div>
+    <div class="stat"><span class="v num">78</span><span class="l">Order Gianyar, Jan 2025 – Agu 2026</span></div>
+    <div class="stat"><span class="v num">Rp 59,3 jt</span><span class="l">Total omzet tercatat</span></div>
+    <div class="stat"><span class="v num">12 → 59</span><span class="l">Order Jan–Agu, 2025 → 2026 <span class="up">(+392%)</span></span></div>
+    <div class="stat"><span class="v num">8,2 → 40,7</span><span class="l">Omzet Jan–Agu, juta rupiah <span class="up">(+396%)</span></span></div>
+    <div class="stat"><span class="v num">52</span><span class="l">Pelanggan unik</span></div>
   </div>
 
   <div class="prose">
-    <p>Rata-rata order turun 25% sementara jumlah order naik 222%. Itu bukan kabar buruk — itu tanda pasar melebar. Di 2025 omzet Gianyar bergantung pada segelintir job besar (cuci sofa 21 seat, cuci 65 seat, fogging). Di 2026 mayoritas order adalah pekerjaan rutin berukuran sedang: GC 3 jam, deep clean klinik, cuci sofa rumahan. Pekerjaan rutin itulah yang bisa dijadwalkan, diulang, dan dikontrakkan — persis jenis permintaan yang membenarkan basis lokal.</p>
+    <p>Pertumbuhan tahunannya hampir lima kali lipat, tapi yang lebih penting adalah percepatan di dalam 2026 sendiri. Bandingkan dua periode berurutan di tahun yang sama, dengan tim dan harga yang sama:</p>
+  </div>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>Periode 2026</th><th class="r">Order/bulan</th><th class="r">Omzet/bulan</th><th class="r">Nilai rata-rata order</th></tr></thead>
+      <tbody>
+        <tr><td>Januari – Mei (5 bulan)</td><td class="r">5,8</td><td class="r">Rp 3.236.200</td><td class="r">Rp 557.966</td></tr>
+        <tr><td>Juni – Agustus (3 bulan)</td><td class="r">10,0</td><td class="r">Rp 8.174.177</td><td class="r">Rp 817.418</td></tr>
+        <tr class="tot"><td>Perubahan</td><td class="r up">+72%</td><td class="r up">+153%</td><td class="r up">+46%</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="prose">
+    <p>Volume dan nilai naik bersamaan. Itu jarang terjadi dan penting artinya: biasanya kalau order melonjak, rata-ratanya turun karena yang masuk adalah pekerjaan kecil. Di sini justru sebaliknya — kamu mendapat lebih banyak order <em>dan</em> order yang lebih besar. Penyebabnya terlihat jelas di daftar pelanggan baru: Amala Villas Ubud (dua deep clean, Rp&nbsp;3,05&nbsp;juta dan Rp&nbsp;1,82&nbsp;juta), PT Natta Jaya (deep clean rumah 134&nbsp;m², Rp&nbsp;4,23&nbsp;juta), CV Boga Warastama (Rp&nbsp;1,79&nbsp;juta), Herchan Bali Tour (Rp&nbsp;1,51&nbsp;juta). Segmen villa dan korporat mulai masuk.</p>
   </div>
 
   <div class="chart">
     <h4>Order dan omzet per bulan</h4>
-    <p class="sub">Batang = jumlah order · garis = omzet (juta rupiah) · Juni–Desember 2026 belum ada di data</p>
+    <p class="sub">Batang = jumlah order · garis = omzet (juta rupiah) · September–Desember 2026 belum ada di data</p>
     <div id="monthChart"></div>
   </div>
 
   <div class="prose">
-    <p>Bulan-bulan lemah konsisten: Februari terlemah dua tahun berturut-turut, Juli dan Desember 2025 kosong sama sekali. Puncaknya April–Mei 2026 (10 order per bulan) dan November 2025 (Rp&nbsp;7,8 juta, tapi itu satu pelanggan besar). Pola ini penting untuk memilih bulan pembukaan.</p>
+    <p>Februari tetap bulan terlemah dua tahun berturut-turut. Juni 2026 adalah bulan terbaik sepanjang catatan: 13 order, Rp&nbsp;10,18&nbsp;juta. Juli sedikit turun ke 8 order tapi nilainya tetap tinggi, lalu Agustus naik lagi ke 9 order dan Rp&nbsp;8,05&nbsp;juta. Pola tiga bulan terakhir cukup stabil di kisaran 8–13 order — itu dasar yang layak dipakai untuk merencanakan kapasitas.</p>
   </div>
 
-  <h3>Ke mana uangnya masuk secara geografis</h3>
+  <h3>Ubud sekarang pasar terbesarmu</h3>
   <div class="tw">
     <table>
       <thead><tr><th>Kecamatan</th><th class="r">Order</th><th class="r">Omzet</th><th class="r">Rata-rata</th><th>Porsi omzet</th></tr></thead>
@@ -211,15 +278,12 @@ footer li{margin-bottom:6px}
     </table>
   </div>
   <div class="prose">
-    <p>Dua pusat gravitasi yang sangat berbeda. <strong>Sukawati</strong> (termasuk Batubulan, Ketewel, Batuan, Silakarang) memberi omzet terbesar dan order bernilai tinggi — ini sabuk perumahan-villa yang paling dekat dari Denpasar. <strong>Ubud</strong> memberi jumlah order terbanyak (16 dari 48) tapi tiketnya paling kecil, rata-rata Rp&nbsp;443&nbsp;ribu: klinik, guest house, kantor kecil, kos ekspat — pekerjaan kecil yang berulang.</p>
-    <p>Angka Gianyar Kota perlu dibaca hati-hati. Dari Rp&nbsp;11,05&nbsp;juta di kecamatan itu, Rp&nbsp;7,01&nbsp;juta datang dari satu pelanggan (Ronald, dua order November 2025). Tanpa dia, Gianyar Kota tinggal Rp&nbsp;4,04&nbsp;juta dan turun ke posisi keempat. Jangan taruh basis di sana karena satu order besar.</p>
+    <p>Peringkatnya berubah. Di data lama Sukawati memimpin; sekarang <strong>Ubud naik ke posisi pertama dengan 33 order dan Rp&nbsp;18,27&nbsp;juta</strong>, disusul Sukawati dengan 23 order dan Rp&nbsp;17,20&nbsp;juta. Kalau dihitung 2026 saja, Ubud menyumbang 39% omzet dan Sukawati 34%.</p>
+    <p>Angka Gianyar Kota masih terdistorsi satu pelanggan: dari Rp&nbsp;11,05&nbsp;juta, sebanyak Rp&nbsp;7,01&nbsp;juta berasal dari Ronald pada November 2025, dan di 2026 kecamatan ini hanya menghasilkan Rp&nbsp;1,49&nbsp;juta. Tampaksiring melompat ke Rp&nbsp;4,62&nbsp;juta karena satu order PT Natta Jaya. Dua-duanya bukan pola, melainkan kejadian tunggal.</p>
+    <p>Kesimpulan lokasinya tidak berubah meski Ubud memimpin: dua kecamatan penyumbang 60% omzet — Ubud dan Sukawati — bersebelahan, dan Batubulan berada di ujung selatan Sukawati dengan akses langsung ke keduanya.</p>
   </div>
 
-  <div class="note warn">
-    <p><strong>Konsentrasi risiko.</strong> Lima order terbesar menyumbang 39,3% dari seluruh omzet Gianyar. Kalau Ronald dan Ali Suryani tidak memesan lagi, gambaran pendapatanmu berubah drastis. Basis lokal justru mengurangi risiko ini, karena order kecil-berulang hanya ekonomis jika biaya perjalanan rendah.</p>
-  </div>
-
-  <h3>Layanan mana yang menghasilkan</h3>
+  <h3>Deep clean menyalip semua layanan lain</h3>
   <div class="tw">
     <table>
       <thead><tr><th>Layanan (sebagai item utama)</th><th class="r">Order</th><th class="r">Omzet</th><th class="r">Rata-rata</th><th>Porsi omzet</th></tr></thead>
@@ -227,34 +291,75 @@ footer li{margin-bottom:6px}
     </table>
   </div>
   <div class="prose">
-    <p>General Cleaning adalah mesin volumenya — 21 kemunculan dari 48 order — tapi tiketnya kecil, Rp&nbsp;434&nbsp;ribu. Cuci sofa dan deep clean yang membayar sewa: rata-rata Rp&nbsp;1,5&nbsp;juta dan Rp&nbsp;944&nbsp;ribu. Strategi harga yang benar bukan menaikkan tarif GC, melainkan memakai GC sebagai pintu masuk lalu menjual cuci sofa, cuci kasur, dan vacuum sebagai lampiran di kunjungan yang sama.</p>
-    <p>Buktinya sudah ada di datamu: Ali Suryani masuk lewat GC 3 jam Rp&nbsp;396&nbsp;ribu (30 Maret), naik ke vacuum 4 bed + sofa Rp&nbsp;898&nbsp;ribu (1 April), lalu langsung ke kontrak SDM 8× kedatangan Rp&nbsp;2,75&nbsp;juta (5 April). Enam hari dari order coba-coba ke retainer.</p>
+    <p>Ini perubahan paling penting untuk strategi penjualan. <strong>Deep clean sekarang menyumbang 38% omzet dari hanya 16 order</strong>, dengan rata-rata Rp&nbsp;1,41&nbsp;juta — lebih dari tiga kali lipat rata-rata general cleaning. General cleaning tetap mesin volume (35 order, hampir separuh dari seluruh order) tapi hanya menghasilkan 24% omzet.</p>
+    <p>Artinya prioritas penjualan di Gianyar seharusnya dibalik dari kebiasaan biasa: kejar deep clean villa dan properti komersial dulu, pakai general cleaning sebagai layanan pendukung dan pintu masuk, bukan sebaliknya.</p>
+    <p>Pola lampiran juga makin kuat. Dari 30 order terbaru, sembilan di antaranya berisi lebih dari satu layanan — misalnya Bu Sandri (GC rumah + cuci sofa 2 seat), Chantika Bambotel (GC kantor + hidrovacuum sofa 6 seat), Irma (deep clean 5 jam + cuci 2 bed + sofa), Arif (GC rumah + cuci bed). Order dengan lampiran rata-rata bernilai dua kali lipat order tunggal.</p>
   </div>
 
-  <h3>Pelanggan berulang adalah bisnisnya</h3>
+  <h3>Pelanggan berulang</h3>
   <div class="stats">
-    <div class="stat"><span class="v num">32</span><span class="l">Pelanggan unik dalam 17 bulan</span></div>
-    <div class="stat"><span class="v num">9</span><span class="l">Pelanggan memesan lebih dari sekali (28%)</span></div>
-    <div class="stat"><span class="v num">52%</span><span class="l">Order berasal dari pelanggan berulang</span></div>
-    <div class="stat"><span class="v num">5×</span><span class="l">Order terbanyak satu pelanggan (Chantika Bambotel)</span></div>
+    <div class="stat"><span class="v num">52</span><span class="l">Pelanggan unik dalam 20 bulan</span></div>
+    <div class="stat"><span class="v num">11</span><span class="l">Pelanggan memesan lebih dari sekali (21%)</span></div>
+    <div class="stat"><span class="v num">48%</span><span class="l">Omzet dari pelanggan berulang</span></div>
+    <div class="stat"><span class="v num">10 ×</span><span class="l">Chantika Bambotel — pelanggan tersering</span></div>
+    <div class="stat"><span class="v num">6 ×</span><span class="l">Cecile (Unicare Clinic) — Rp 4,55 juta</span></div>
   </div>
   <div class="prose">
-    <p>28% pelanggan menghasilkan 62% omzet. Untuk jasa kebersihan dengan jarak layanan sejauh ini, itu retensi yang bagus — dan hampir seluruhnya berasal dari properti komersial atau villa (klinik Unicare Ubud, Bambotel, Asli Spa, Harmony Residence), bukan rumah tangga. Ini memberi tahu ke mana penjualan lokal harus diarahkan sejak hari pertama.</p>
+    <p>Dua pelanggan menunjukkan persis seperti apa bentuk pelanggan ideal di Gianyar. Chantika Bambotel di Jalan Raya Mas memesan GC kantor sepuluh kali sejak April 2026 — hampir setiap dua minggu, dan mulai menambah hidrovacuum sofa. Cecile di Unicare Clinic Ubud memesan deep clean enam kali sejak Oktober 2025, konsisten sekitar Rp&nbsp;744&nbsp;ribu sampai Rp&nbsp;826&nbsp;ribu. Keduanya properti komersial dengan kebutuhan kebersihan rutin, bukan rumah tangga.</p>
+    <p>Konsentrasinya juga membaik. Lima order terbesar sekarang menyumbang 29,6% omzet, turun dari 39,3% di data sebelumnya. Basis pelanggan melebar, ketergantungan pada satu-dua job besar berkurang.</p>
   </div>
 
   <div class="chart">
     <h4>Sebaran nilai order</h4>
-    <p class="sub">46 order berbayar · dua order tercatat Rp 0 dikeluarkan</p>
+    <p class="sub">76 order berbayar · dua order tercatat Rp 0 dikeluarkan</p>
     <div id="bandChart"></div>
   </div>
   <div class="prose">
-    <p>Sepuluh order di rentang Rp&nbsp;600–800&nbsp;ribu menyumbang 20% omzet — itu titik manis operasional: cukup besar untuk menguntungkan, cukup umum untuk diulang. Rentang di bawah Rp&nbsp;250&nbsp;ribu (7 order, 4,8% omzet) hampir pasti merugi jika dikerjakan dari Denpasar setelah menghitung waktu perjalanan. Dengan basis lokal, order-order itu berubah dari beban menjadi laba.</p>
+    <p>Median order Rp&nbsp;452&nbsp;ribu, rata-rata Rp&nbsp;780&nbsp;ribu. Sebelas order di atas Rp&nbsp;1,5&nbsp;juta menyumbang 47% omzet, sementara 24 order di rentang Rp&nbsp;250–400&nbsp;ribu hanya menyumbang 13%. Order kecil tetap penting sebagai pintu masuk dan pengisi jadwal, tapi jangan sampai jadwal cleaner penuh oleh order kecil dan job besar terpaksa ditolak.</p>
+  </div>
+</section>
+
+<section id="transport">
+  <p class="tag">Bagian 2 — Ongkos jalan</p>
+  <h2 class="sec">Rp 50.761 per order hilang di perjalanan</h2>
+
+  <div class="prose">
+    <p>Data baru memuat transport sebagai baris terpisah, jadi untuk pertama kalinya biaya jarak bisa diukur, bukan diperkirakan. Dari 30 order dengan rincian, transport totalnya Rp&nbsp;1.522.830 dari omzet Rp&nbsp;24.522.530.</p>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><span class="v num">6,2%</span><span class="l">Porsi transport dari omzet</span></div>
+    <div class="stat"><span class="v num">Rp 50.761</span><span class="l">Transport rata-rata per order</span></div>
+    <div class="stat"><span class="v num">Rp 38.000</span><span class="l">Median transport per order</span></div>
+    <div class="stat"><span class="v num">9,2%</span><span class="l">Porsi transport di Ubud</span></div>
+    <div class="stat"><span class="v num">8,9%</span><span class="l">Porsi transport pada order &lt; Rp 400rb</span></div>
+  </div>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>Kecamatan</th><th class="r">Order dirinci</th><th class="r">Transport rata-rata</th><th class="r">Porsi dari nilai order</th></tr></thead>
+      <tbody>
+        <tr><td>Ubud</td><td class="r">17</td><td class="r">Rp 49.899</td><td class="r">9,2%</td></tr>
+        <tr><td>Sukawati</td><td class="r">9</td><td class="r">Rp 30.617</td><td class="r">6,2%</td></tr>
+        <tr><td>Blahbatuh</td><td class="r">3</td><td class="r">Rp 63.000</td><td class="r">5,9%</td></tr>
+        <tr><td>Tampaksiring</td><td class="r">1</td><td class="r">Rp 210.000</td><td class="r">5,0%</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="prose">
+    <p>Ubud adalah pasar terbesarmu sekaligus yang paling mahal dijangkau — transport memakan 9,2% dari nilai order di sana, hampir dua kali lipat Sukawati. Itu bukan kebetulan: Denpasar–Ubud sekitar 70&nbsp;km pulang pergi dengan macet Batubulan di tengahnya. Dari basis di Batubulan, jarak itu turun menjadi sekitar 25&nbsp;km.</p>
+    <p>Tapi angka rupiah bukan kerugian yang sebenarnya, karena transport ditagihkan ke pelanggan. Kerugian yang sesungguhnya adalah waktu cleaner. Data tim menunjukkan rata-rata 1,6 cleaner per job, dengan 19 dari 30 job dikerjakan satu orang. Satu cleaner yang menghabiskan 2–2,5 jam di jalan untuk job Ubud selama tiga jam hanya bisa menyelesaikan satu job per hari. Dari Batubulan, orang yang sama bisa menyelesaikan dua sampai tiga.</p>
+  </div>
+
+  <div class="note">
+    <p><strong>Dua cara menguangkan penghematan ini.</strong> Pertama, kapasitas: cleaner yang sama menghasilkan dua kali lipat omzet per hari tanpa tambahan gaji. Kedua, harga: transport pada order di bawah Rp&nbsp;400&nbsp;ribu rata-rata hanya Rp&nbsp;26.117, dan menggratiskannya adalah senjata pemasaran yang murah — 8,9% potongan harga di mata pelanggan, tapi hanya Rp&nbsp;26&nbsp;ribu biaya buatmu. Untuk order besar, transport tetap ditagihkan seperti biasa.</p>
   </div>
 </section>
 
 <section id="pasar">
-  <p class="tag">Bagian 2 — Pasar Gianyar dari data eksternal</p>
-  <h2 class="sec">Gianyar bukan pasar kecil. Ia pasar akomodasi terbesar kedua di Bali.</h2>
+  <p class="tag">Bagian 3 — Pasar Gianyar dari data eksternal</p>
+  <h2 class="sec">Pasar akomodasi terbesar kedua di Bali</h2>
 
   <div class="stats">
     <div class="stat"><span class="v num">507.746</span><span class="l">Penduduk Gianyar, pertengahan 2024 (BPS)</span></div>
@@ -265,8 +370,8 @@ footer li{margin-bottom:6px}
   </div>
 
   <div class="prose">
-    <p>Angka yang paling menentukan untuk bisnismu bukan jumlah penduduk, melainkan jumlah kamar akomodasi. BPS Bali mencatat <strong>Gianyar punya 8.178 kamar hotel non-bintang dan akomodasi lainnya pada 2024</strong> — terbesar kedua se-Bali setelah Badung (19.434) dan <strong>2,3 kali lipat Denpasar (3.590)</strong>. Dari 45.395 kamar non-bintang se-Bali, 18% ada di Gianyar.</p>
-    <p>Ini kategori yang persis cocok dengan layananmu: villa kecil, guest house, homestay, bungalow — properti yang tidak punya tim housekeeping sendiri untuk deep clean, cuci sofa, cuci kasur, atau cuci tandon, dan harus memanggil vendor. Denpasar, tempat cabangmu sekarang, justru pasar akomodasi yang jauh lebih tipis.</p>
+    <p>Angka yang paling menentukan bukan jumlah penduduk, melainkan jumlah kamar akomodasi. BPS Bali mencatat <strong>Gianyar punya 8.178 kamar hotel non-bintang dan akomodasi lainnya pada 2024</strong> — terbesar kedua se-Bali setelah Badung (19.434) dan <strong>2,3 kali lipat Denpasar (3.590)</strong>. Dari 45.395 kamar non-bintang se-Bali, 18% ada di Gianyar.</p>
+    <p>Ini persis kategori yang sekarang mulai memesan padamu: villa kecil, guest house, homestay, bungalow. Amala Villas Ubud, Stana Kendran Villa, Lalita Living Villa, Herchan Bali Tour — semuanya masuk dalam tiga bulan terakhir. Denpasar, tempat cabangmu sekarang, justru pasar akomodasi yang jauh lebih tipis.</p>
   </div>
 
   <div class="tw">
@@ -276,7 +381,7 @@ footer li{margin-bottom:6px}
         <tr><td>Kamar akomodasi non-bintang, 2024</td><td class="r">8.178</td><td class="r">3.590</td><td class="r">19.434</td><td>Gianyar 2,3× Denpasar</td></tr>
         <tr><td>Tingkat hunian hotel, Maret 2025</td><td class="r">41,96%</td><td class="r">48,41%</td><td class="r">40,59%</td><td>Hunian tertinggi kedua di Bali</td></tr>
         <tr><td>PDRB per kapita, 2023</td><td class="r">Rp 58,26 jt</td><td class="r">Rp 80,31 jt</td><td class="r">—</td><td>Daya beli 73% Denpasar</td></tr>
-        <tr><td>UMK 2026</td><td class="r">Rp 3.316.798</td><td class="r">lebih tinggi</td><td class="r">tertinggi Bali</td><td>Biaya tenaga kerja lebih murah dari Denpasar</td></tr>
+        <tr><td>UMK 2026</td><td class="r">Rp 3.316.798</td><td class="r">lebih tinggi</td><td class="r">tertinggi Bali</td><td>Biaya tenaga kerja lebih murah</td></tr>
         <tr><td>Sewa ruko kecil per tahun</td><td class="r">Rp 30–75 jt</td><td class="r">lebih tinggi</td><td class="r">jauh lebih tinggi</td><td>Batubulan/Sukawati paling efisien</td></tr>
       </tbody>
     </table>
@@ -284,18 +389,15 @@ footer li{margin-bottom:6px}
 
   <h3>Pariwisata: melandai, belum runtuh</h3>
   <div class="prose">
-    <p>Ini bagian yang harus dibaca tanpa kacamata kuda. Kunjungan wisatawan mancanegara ke Bali <strong>Januari–Juli 2026 mencapai 3.923.824, turun 1,98%</strong> dibanding periode sama 2025. Penurunan Maret–Juni dipicu situasi geopolitik dan pembatalan penerbangan. Kabar baiknya, <strong>Juli 2026 (697.809 kunjungan) adalah bulan pertama yang naik secara tahunan</strong>, dan wisatawan domestik justru tumbuh 0,5% ke 5.857.046. Pemprov Bali masih mematok target 7 juta wisman untuk 2026, meski itu target optimistis.</p>
-    <p>Tingkat hunian hotel bintang di Bali pada Juli 2026 sebesar 67,29%, naik 2,42 poin dari bulan sebelumnya. Artinya: pasar tidak sedang tumbuh cepat, tapi juga tidak sedang jatuh. Ini bukan alasan untuk tidak membuka — ini alasan untuk membuka dengan biaya tetap serendah mungkin.</p>
+    <p>Kunjungan wisatawan mancanegara ke Bali <strong>Januari–Juli 2026 mencapai 3.923.824, turun 1,98%</strong> dibanding periode sama 2025, terutama karena situasi geopolitik dan pembatalan penerbangan pada Maret–Juni. Kabar baiknya, <strong>Juli 2026 (697.809 kunjungan) adalah bulan pertama yang naik secara tahunan</strong>, dan wisatawan domestik tumbuh 0,5% ke 5.857.046. Tingkat hunian hotel bintang di Bali pada Juli 2026 sebesar 67,29%, naik 2,42 poin dari bulan sebelumnya.</p>
+    <p>Menariknya, order Gianyar-mu justru melonjak persis di periode pariwisata melandai itu. Artinya pertumbuhanmu tidak sedang ditarik oleh gelombang pasar — ia datang dari perluasan basis pelanggan sendiri. Itu pertumbuhan yang lebih tahan banting.</p>
   </div>
 
   <div class="note">
-    <p><strong>Segmen yang belum kamu sentuh: ekspat.</strong> Per 30 Januari 2026, Kanwil Imigrasi Bali mencatat 267.257 warga negara asing pemegang izin tinggal di Bali, di mana 214.422 di antaranya VOA jangka pendek — menyisakan sekitar 52.800 pemegang ITAS/ITAP dan izin lain, dan jumlah pemegang ITAS/ITAP pada 2025 melonjak dua kali lipat dibanding 2024. Ubud adalah salah satu hub ekspat utama di Bali. Mereka menyewa rumah dan villa, tidak punya jaringan pembantu lokal, terbiasa membayar jasa profesional, dan memesan berulang. Di datamu, pelanggan seperti David Pieters, Angie Red, Cecile, dan Edu Christanto sudah masuk kategori ini — tanpa kamu menargetkan mereka.</p>
+    <p><strong>Segmen ekspat sudah masuk sendiri.</strong> Per 30 Januari 2026, Kanwil Imigrasi Bali mencatat 267.257 WNA pemegang izin tinggal di Bali, di mana 214.422 di antaranya VOA jangka pendek — menyisakan sekitar 52.800 pemegang ITAS, ITAP, dan izin lain, dengan jumlah pemegang ITAS/ITAP pada 2025 melonjak dua kali lipat dibanding 2024. Ubud salah satu hub ekspat utama. Di datamu, Martha Espin Tolosa, David Pieters, Angie Red, Willium, Christianna, dan Cecile sudah masuk kategori ini — tanpa kamu pernah menargetkan mereka.</p>
   </div>
 
   <h3>Ukuran pasar yang bisa kamu layani</h3>
-  <div class="prose">
-    <p>Bukan seluruh Gianyar — hanya segmen yang realistis dijangkau satu operator dengan armada kecil, pada tingkat penetrasi yang konservatif.</p>
-  </div>
   <div class="tw">
     <table>
       <thead><tr><th>Segmen</th><th class="r">Unit</th><th class="r">Penetrasi</th><th class="r">Order/thn</th><th class="r">Tiket</th><th class="r">Nilai pasar/thn</th></tr></thead>
@@ -310,83 +412,89 @@ footer li{margin-bottom:6px}
     </table>
   </div>
   <div class="prose">
-    <p>Pangsa 12% dari pasar ini setara <strong>27 order dan Rp&nbsp;16,3&nbsp;juta per bulan</strong> — di atas titik impas pos satelit. Pangsa 18% setara 41 order dan Rp&nbsp;24,5&nbsp;juta per bulan. Skenario proyeksi di bawah dibangun untuk sampai ke angka-angka itu, bukan ke angka yang lebih besar.</p>
+    <p>Pada laju Juni–Agustus (Rp&nbsp;8,17&nbsp;juta per bulan, atau Rp&nbsp;98&nbsp;juta setahun), kamu baru menguasai <strong>6% dari pasar ini</strong> — dari Denpasar, tanpa iklan lokal. Pangsa 15% setara 34 order dan Rp&nbsp;20,4&nbsp;juta per bulan; pangsa 25% setara 57 order dan Rp&nbsp;34&nbsp;juta per bulan. Semua skenario proyeksi di bawah berada dalam rentang itu.</p>
   </div>
 </section>
 
 <section id="dayabeli">
-  <p class="tag">Bagian 3 — Daya beli dan posisi harga</p>
-  <h2 class="sec">Hargamu sudah pas. Yang perlu berubah adalah ongkos transportnya.</h2>
+  <p class="tag">Bagian 4 — Daya beli dan posisi harga</p>
+  <h2 class="sec">Harga naik 6% dan order justru bertambah</h2>
 
   <div class="prose">
-    <p>Rata-rata pengeluaran per kapita per bulan di Gianyar mencapai Rp&nbsp;1.940.086 untuk makanan dan bukan makanan (BPS 2024) — untuk rumah tangga empat orang, itu sekitar Rp&nbsp;7,8&nbsp;juta per bulan. Pengeluaran untuk aneka barang dan jasa Rp&nbsp;295.135 per kapita per bulan, peringkat keempat se-Bali. PDRB per kapita Gianyar Rp&nbsp;58,26&nbsp;juta versus Denpasar Rp&nbsp;80,31&nbsp;juta (2023).</p>
-    <p>Terjemahannya sederhana: rumah tangga Gianyar rata-rata punya daya beli sekitar tiga perempat Denpasar. Order GC Rp&nbsp;230–262&nbsp;ribu sekali panggil masuk akal bagi kelas menengah Gianyar sebagai belanja sesekali, bukan langganan mingguan. Uang langganan ada di villa, klinik, kantor, dan ekspat — bukan di rumah tangga lokal.</p>
+    <p>Ada bukti langsung soal elastisitas harga di data terbaru. Deep clean 3 jam 2 cleaner untuk Cecile naik dari Rp&nbsp;690.000 (Juni) ke Rp&nbsp;765.900 (Agustus) — naik 11% — dan dia tetap memesan. GC kantor Chantika Bambotel naik dari Rp&nbsp;240.000 ke Rp&nbsp;266.400 di order ke-10, dan dia justru menambah hidrovacuum sofa 6 seat senilai Rp&nbsp;333.000 di kunjungan yang sama.</p>
+    <p>Sementara itu rata-rata pengeluaran per kapita per bulan di Gianyar mencapai Rp&nbsp;1.940.086 untuk makanan dan bukan makanan (BPS 2024) — untuk rumah tangga empat orang, sekitar Rp&nbsp;7,8&nbsp;juta per bulan. Pengeluaran untuk aneka barang dan jasa Rp&nbsp;295.135 per kapita per bulan, peringkat keempat se-Bali. PDRB per kapita Gianyar Rp&nbsp;58,26&nbsp;juta versus Denpasar Rp&nbsp;80,31&nbsp;juta (2023).</p>
   </div>
 
   <div class="tw">
     <table>
-      <thead><tr><th>Layanan</th><th class="r">Hargamu (termasuk transport)</th><th class="r">Setara per jam</th><th>Pembanding pasar</th></tr></thead>
+      <thead><tr><th>Layanan</th><th class="r">Harga terbaru (belum termasuk transport)</th><th class="r">Setara per jam</th><th>Pembanding pasar</th></tr></thead>
       <tbody>
-        <tr><td>GC 3 jam, 1 cleaner</td><td class="r">Rp 230.000 – 262.000</td><td class="r">Rp 77–87rb</td><td>KliknClean dari Rp 65rb/jam</td></tr>
-        <tr><td>GC 3 jam, 2 cleaner</td><td class="r">Rp 390.000 – 408.000</td><td class="r">Rp 65–68rb</td><td>Setara pasar</td></tr>
-        <tr><td>Deep clean 3 jam, 2 cleaner</td><td class="r">Rp 732.000 – 744.000</td><td class="r">Rp 122–124rb</td><td>Premium, wajar untuk deep clean</td></tr>
-        <tr><td>Cuci sofa</td><td class="r">Rp 108.000/seat</td><td class="r">—</td><td>Pasar umum Rp 35–100rb/dudukan</td></tr>
+        <tr><td>GC rumah 3 jam, 1 cleaner</td><td class="r">Rp 210.000</td><td class="r">Rp 70.000</td><td>KliknClean dari Rp 65rb/jam</td></tr>
+        <tr><td>GC rumah 3 jam, 2 cleaner</td><td class="r">Rp 360.000</td><td class="r">Rp 60.000</td><td>Di bawah pasar</td></tr>
+        <tr><td>GC kos + kamar mandi</td><td class="r">Rp 210.000</td><td class="r">—</td><td>Segmen kos ekspat Ubud</td></tr>
+        <tr><td>Deep clean 3 jam, 2 cleaner</td><td class="r">Rp 690.000 – 765.900</td><td class="r">Rp 115–128rb</td><td>Premium, wajar untuk deep clean</td></tr>
+        <tr><td>Deep clean 5 jam, 3 cleaner</td><td class="r">Rp 1.710.000</td><td class="r">Rp 114.000</td><td>Konsisten dengan tarif di atas</td></tr>
+        <tr><td>Cuci tandon atas</td><td class="r">Rp 320.000</td><td class="r">—</td><td>Layanan bermargin tinggi, jarang ada pesaing</td></tr>
         <tr><td>Kontrak SDM 8× kedatangan</td><td class="r">Rp 2.750.000</td><td class="r">Rp 344rb/kunjungan</td><td>Sejasa langganan dari Rp 199rb/3×</td></tr>
       </tbody>
     </table>
   </div>
 
   <div class="prose">
-    <p>Posisimu premium ringan — sekitar 20–30% di atas tarif per jam termurah di pasar, yang wajar untuk merek dengan peralatan (extractor, polisher, HPC) dan cleaner berseragam. Kompetitor lokal yang sudah ada di Ubud–Gianyar: Bali Clean Services, Labali Cleaning Service (juga beroperasi dari Denpasar), dan Adimitra Cleaner. Semuanya bermain di segmen villa dan restoran. Tidak ada satu pun yang tampil sebagai merek dengan cabang fisik dan penjadwalan terstandar di Gianyar.</p>
-  </div>
-
-  <div class="note">
-    <p><strong>Ini keunggulan yang bisa langsung diuangkan.</strong> Denpasar–Ubud pulang pergi sekitar 70 km dan 2–2,5 jam waktu tempuh dengan macet Batubulan; Denpasar–Sukawati sekitar 30 km dan 1,2 jam. Dari basis di Batubulan, waktu tempuh turun sekitar 70%. Satu cleaner yang sekarang menyelesaikan 1–1,5 job per hari bisa menyelesaikan 2–3 job per hari. Kamu boleh memilih: hapus komponen transport untuk memenangkan harga, atau pertahankan dan kantongi sebagai margin. Sarannya — hapus untuk order di bawah Rp&nbsp;400&nbsp;ribu (untuk merebut volume), pertahankan untuk order besar.</p>
+    <p>Struktur harganya konsisten: sekitar Rp&nbsp;60–70&nbsp;ribu per jam per cleaner untuk pekerjaan umum, dan Rp&nbsp;114–128&nbsp;ribu untuk deep clean. Posisi ini premium ringan dibanding tarif termurah di pasar, dan pelanggan menerimanya. Kompetitor yang sudah ada di jalur Ubud–Gianyar: Bali Clean Services, Labali Cleaning Service (juga beroperasi dari Denpasar), dan Adimitra Cleaner. Tidak ada satu pun yang tampil sebagai merek dengan basis fisik dan penjadwalan terstandar di Gianyar.</p>
+    <p>Cuci tandon layak diperhatikan khusus. Enam order, Rp&nbsp;1,55&nbsp;juta, rata-rata Rp&nbsp;258&nbsp;ribu, dan hampir tidak ada pesaing yang menawarkannya sebagai layanan terpisah. Untuk villa dan guest house, tandon adalah kebutuhan berkala yang wajib — layanan pembuka pintu yang bagus.</p>
   </div>
 </section>
 
 <section id="lokasi">
-  <p class="tag">Bagian 4 — Di mana meletakkan basis</p>
-  <h2 class="sec">Batubulan, bukan Ubud</h2>
+  <p class="tag">Bagian 5 — Di mana meletakkan basis</p>
+  <h2 class="sec">Batubulan, meski Ubud pasar terbesar</h2>
 
   <div class="prose">
-    <p>Godaannya adalah Ubud: pariwisata, ekspat, order terbanyak. Tapi Ubud juga sewa termahal dan macet terparah. Data sewa terkini menunjukkan ruko Ubud di Rp&nbsp;85–350&nbsp;juta per tahun, sementara ruko kecil di Sukawati sekitar Rp&nbsp;75&nbsp;juta, rumah kontrakan di Batubulan Rp&nbsp;30–63&nbsp;juta, dan ruko di pusat kota Gianyar mulai Rp&nbsp;35&nbsp;juta per tahun.</p>
+    <p>Godaannya sekarang lebih kuat, karena Ubud resmi jadi penyumbang omzet terbesar. Tapi hitungannya tetap tidak mendukung. Data sewa terkini menunjukkan ruko Ubud di Rp&nbsp;85–350&nbsp;juta per tahun, sementara ruko kecil di Sukawati sekitar Rp&nbsp;75&nbsp;juta, rumah kontrakan di Batubulan Rp&nbsp;30–63&nbsp;juta, dan ruko di pusat kota Gianyar mulai Rp&nbsp;35&nbsp;juta per tahun.</p>
+    <p>Selisih sewa antara Ubud dan Batubulan setara Rp&nbsp;5–8&nbsp;juta per bulan — atau 8 sampai 13 order deep clean setiap bulan hanya untuk menutup selisihnya. Yang dibeli dengan uang itu adalah 25 menit perjalanan.</p>
   </div>
 
   <div class="cards">
     <div class="card">
       <span class="pill">Rekomendasi</span>
       <h4>Batubulan / Sukawati</h4>
-      <p>Sabuk omzet terbesarmu (Rp&nbsp;11,9&nbsp;juta, 14 order). Gerbang masuk Gianyar dari Denpasar, sehingga cabang Denpasar tetap bisa saling menopang. Sewa termurah. Ubud tercapai 25–35 menit, Blahbatuh dan Gianyar Kota 20–30 menit. Semua kecuali Payangan dan Tegallalang terjangkau dalam 45 menit.</p>
+      <p>Sewa termurah, dan 23 order sudah datang dari kecamatan ini. Gerbang masuk Gianyar dari Denpasar sehingga cabang lama tetap bisa menopang. Ubud tercapai 25–35 menit, Blahbatuh dan Gianyar Kota 20–30 menit. Semua kecuali Payangan dan Tegallalang terjangkau dalam 45 menit.</p>
     </div>
     <div class="card">
       <span class="pill">Cadangan</span>
       <h4>Ketewel / Jalan Prof. Ida Bagus Mantra</h4>
-      <p>Di jalur bypass, akses cepat ke Blahbatuh, Keramas, Saba, dan Gianyar Kota. Sewa ruko sekitar Rp&nbsp;150&nbsp;juta/tahun di jalur utama — cari rumah atau gudang di gang, bukan ruko muka jalan.</p>
+      <p>Di jalur bypass, akses cepat ke Blahbatuh, Keramas, Medahan, Bedulu, dan Gianyar Kota — semuanya sudah ada order. Sewa ruko sekitar Rp&nbsp;150&nbsp;juta/tahun di jalur utama, jadi cari rumah atau gudang di gang, bukan ruko muka jalan.</p>
     </div>
     <div class="card">
-      <h4>Ubud — nanti, bukan sekarang</h4>
-      <p>Buka titik kedua di Ubud hanya setelah order Ubud sendiri melewati 30 per bulan. Sampai saat itu, layani Ubud dari Batubulan. Menyewa di Ubud sekarang berarti menambah Rp&nbsp;6–8&nbsp;juta biaya tetap per bulan untuk memangkas 25 menit perjalanan.</p>
+      <h4>Ubud — titik kedua, bukan yang pertama</h4>
+      <p>Buka pos kedua di Ubud kalau order Ubud sendiri melewati 30 per bulan (sekarang sekitar 6–7). Sampai itu terjadi, layani Ubud dari Batubulan dan simpan selisih sewanya sebagai laba.</p>
     </div>
   </div>
 
   <div class="prose">
-    <p>Untuk tahap pertama kamu tidak butuh ruko sama sekali. Yang dibutuhkan: satu rumah kontrakan kecil atau gudang dengan halaman untuk parkir motor, air mengalir untuk mencuci alat, dan tempat kering menyimpan chemical. Anggaran Rp&nbsp;1,5–2,5&nbsp;juta per bulan cukup. Ruko muka jalan hanya diperlukan kalau kamu berjualan walk-in — dan bisnis ini tidak.</p>
+    <p>Untuk tahap pertama kamu tidak butuh ruko sama sekali. Yang dibutuhkan: rumah kontrakan kecil atau gudang dengan halaman parkir motor, air mengalir untuk mencuci alat dan sofa, dan ruang kering berkunci untuk chemical. Anggaran Rp&nbsp;1,5–2,5&nbsp;juta per bulan cukup. Ruko muka jalan hanya perlu kalau kamu berjualan walk-in — dan seluruh 78 order di datamu datang lewat telepon atau pesan, bukan lewat orang yang mampir.</p>
   </div>
 </section>
 
 <section id="biaya">
-  <p class="tag">Bagian 5 — Struktur biaya dan titik impas</p>
+  <p class="tag">Bagian 6 — Struktur biaya dan titik impas</p>
   <h2 class="sec">Tiga tahap, tiga titik impas</h2>
 
   <div class="prose">
-    <p>Margin kontribusi per order dihitung dari AOV nyata 2026 sebesar Rp&nbsp;599.296, dikurangi 13% biaya variabel (chemical, consumable, air, listrik alat) dan Rp&nbsp;55.000 cadangan tenaga lepas. Hasilnya <strong>Rp&nbsp;466.388 per order</strong>. Angka itu yang harus menutup seluruh biaya tetap.</p>
+    <p>Model ini memakai nilai rata-rata order Rp&nbsp;750.000 — di antara rata-rata 2026 penuh (Rp&nbsp;689.890) dan rata-rata Juni–Agustus (Rp&nbsp;817.418), sengaja diambil konservatif. Dikurangi 13% biaya variabel (chemical, consumable, air, listrik alat) dan Rp&nbsp;55.000 cadangan tenaga lepas, <strong>margin kontribusi menjadi Rp&nbsp;597.500 per order</strong>.</p>
+  </div>
+
+  <div class="chart">
+    <h4>Titik impas per tahap dibandingkan volume saat ini</h4>
+    <p class="sub">Order per bulan yang dibutuhkan untuk menutup biaya tetap</p>
+    <div id="bepChart"></div>
   </div>
 
   <div class="phase">
-    <div class="hd"><h3>Tahap 0 — Pos rintisan</h3><span class="when">Bulan 1–6 · modal awal Rp 28 juta</span></div>
-    <p>Rumah kontrakan kecil di Batubulan sebagai gudang alat dan titik kumpul. Satu cleaner tetap berdomisili Gianyar, dua sampai tiga tenaga lepas borongan dipanggil sesuai order. Koordinasi masih dari Denpasar lewat WhatsApp dan jadwal bersama. Tanpa admin, tanpa ruko, tanpa mobil.</p>
-    <div class="bepline">Biaya tetap Rp 8,18 juta/bulan → impas di 18 order/bulan</div>
+    <div class="hd"><h3>Tahap 0 — Pos rintisan</h3><span class="when">Bulan 1–18 · modal awal Rp 28 juta</span></div>
+    <p>Rumah kontrakan kecil di Batubulan sebagai gudang alat dan titik kumpul. Satu cleaner tetap berdomisili Gianyar, dua sampai tiga tenaga lepas borongan dipanggil sesuai order. Koordinasi masih dari Denpasar. Tanpa admin, tanpa ruko, tanpa mobil.</p>
+    <div class="bepline">Biaya tetap Rp 8,18 juta/bulan → impas di 14 order/bulan · posisi sekarang 10</div>
     <div class="tw">
       <table>
         <thead><tr><th>Pos biaya tetap</th><th class="r">Per bulan</th></tr></thead>
@@ -404,25 +512,36 @@ footer li{margin-bottom:6px}
   </div>
 
   <div class="phase t1">
-    <div class="hd"><h3>Tahap 1 — Pos satelit</h3><span class="when">Pemicu: rata-rata 3 bulan &gt; 46 order · tambahan modal Rp 38 juta</span></div>
+    <div class="hd"><h3>Tahap 1 — Pos satelit</h3><span class="when">Pemicu: rata-rata 3 bulan &gt; 36 order · tambahan modal Rp 38 juta</span></div>
     <p>Naik ke rumah atau ruko kecil, dua cleaner tetap, satu koordinator lapangan yang juga ikut bekerja. Penjadwalan pindah ke sistem sendiri. Tenaga lepas tetap dipakai untuk lonjakan akhir pekan dan high season.</p>
-    <div class="bepline">Biaya tetap Rp 18,56 juta/bulan → impas di 40 order/bulan</div>
+    <div class="bepline">Biaya tetap Rp 18,56 juta/bulan → impas di 31 order/bulan</div>
   </div>
 
   <div class="phase t2">
-    <div class="hd"><h3>Tahap 2 — Cabang penuh</h3><span class="when">Pemicu: rata-rata 3 bulan &gt; 82 order · tambahan modal Rp 75 juta</span></div>
+    <div class="hd"><h3>Tahap 2 — Cabang penuh</h3><span class="when">Pemicu: rata-rata 3 bulan &gt; 66 order · tambahan modal Rp 75 juta</span></div>
     <p>Ruko dengan papan nama, empat cleaner tetap, koordinator cabang, admin/CS terpisah, pickup operasional. Baru pada tahap ini Gianyar berdiri sebagai cabang, bukan perpanjangan Denpasar.</p>
-    <div class="bepline">Biaya tetap Rp 33,83 juta/bulan → impas di 73 order/bulan</div>
-  </div>
-
-  <div class="chart">
-    <h4>Titik impas per tahap dibandingkan volume saat ini</h4>
-    <p class="sub">Order per bulan yang dibutuhkan untuk menutup biaya tetap</p>
-    <div id="bepChart"></div>
+    <div class="bepline">Biaya tetap Rp 33,83 juta/bulan → impas di 57 order/bulan</div>
   </div>
 
   <div class="note warn">
-    <p><strong>Kesalahan yang paling mahal adalah membuka langsung di Tahap 2.</strong> Cabang penuh dengan ruko, empat cleaner tetap, dan admin membutuhkan 73 order per bulan hanya untuk tidak rugi. Dari 5,8 order per bulan, mencapai 73 butuh 18–24 bulan bahkan dalam skenario agresif. Selama itu kamu menanggung Rp&nbsp;33,8&nbsp;juta per bulan biaya tetap — sekitar Rp&nbsp;400&nbsp;juta setahun untuk pasar yang belum terbukti mampu menyerapnya.</p>
+    <p><strong>Kesalahan yang paling mahal tetap sama: membuka langsung di Tahap 2.</strong> Cabang penuh butuh 57 order per bulan hanya untuk tidak rugi — hampir enam kali volume sekarang. Selama menunggu ke sana kamu menanggung Rp&nbsp;33,8&nbsp;juta per bulan biaya tetap. Sebaliknya, Tahap 0 hanya butuh empat order tambahan per bulan dari posisi hari ini.</p>
+  </div>
+
+  <h3>Kepekaan terhadap nilai rata-rata order</h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Nilai rata-rata order</th><th class="r">Margin kontribusi</th><th class="r">Impas Tahap 0</th><th class="r">Impas Tahap 1</th><th class="r">Impas Tahap 2</th></tr></thead>
+      <tbody>
+        <tr><td>Rp 600.000</td><td class="r">Rp 467.000</td><td class="r">18</td><td class="r">40</td><td class="r">72</td></tr>
+        <tr><td>Rp 690.000 (rata-rata 2026 penuh)</td><td class="r">Rp 545.300</td><td class="r">15</td><td class="r">34</td><td class="r">62</td></tr>
+        <tr><td>Rp 750.000 (dipakai model)</td><td class="r">Rp 597.500</td><td class="r">14</td><td class="r">31</td><td class="r">57</td></tr>
+        <tr><td>Rp 817.000 (rata-rata Jun–Agu 2026)</td><td class="r">Rp 655.790</td><td class="r">12</td><td class="r">28</td><td class="r">52</td></tr>
+        <tr><td>Rp 900.000</td><td class="r">Rp 728.000</td><td class="r">11</td><td class="r">26</td><td class="r">46</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="prose">
+    <p>Kalau nilai rata-rata order bertahan di level Juni–Agustus (Rp&nbsp;817&nbsp;ribu), titik impas pos rintisan turun ke 12 order per bulan — hanya dua order di atas posisi sekarang. Inilah alasan menjual lampiran layanan jauh lebih berdampak daripada menambah pelanggan baru.</p>
   </div>
 
   <h3>Modal awal Tahap 0</h3>
@@ -433,9 +552,9 @@ footer li{margin-bottom:6px}
         <tr><td>Deposit dan sewa kontrakan di muka (6 bulan)</td><td class="r">Rp 9.000.000</td><td>Nego 6 bulan dulu, jangan 2 tahun</td></tr>
         <tr><td>Vacuum wet &amp; dry 1 unit</td><td class="r">Rp 4.500.000</td><td>Alat berat lain sementara dirotasi dari Denpasar</td></tr>
         <tr><td>2 motor operasional bekas</td><td class="r">Rp 8.000.000</td><td>Bisa diganti tunjangan kendaraan cleaner</td></tr>
-        <tr><td>Toolkit, APD, trolley, tangga</td><td class="r">Rp 2.500.000</td><td></td></tr>
+        <tr><td>Toolkit, APD, trolley, tangga</td><td class="r">Rp 2.500.000</td><td>Tangga wajib — cuci tandon atas 7 order</td></tr>
         <tr><td>Stok chemical awal</td><td class="r">Rp 2.000.000</td><td>Ambil dari gudang Denpasar</td></tr>
-        <tr><td>Legalitas (NIB, izin lokasi, papan nama)</td><td class="r">Rp 1.500.000</td><td>NIB via OSS, gratis; sisanya biaya notaris/cetak</td></tr>
+        <tr><td>Legalitas (NIB, izin lokasi, papan nama)</td><td class="r">Rp 1.500.000</td><td>NIB via OSS gratis; sisanya notaris dan cetak</td></tr>
         <tr><td>Seragam, banner, foto dan video konten</td><td class="r">Rp 500.000</td><td></td></tr>
         <tr class="tot"><td>Total modal awal</td><td class="r">Rp 28.000.000</td><td></td></tr>
       </tbody>
@@ -444,98 +563,80 @@ footer li{margin-bottom:6px}
 </section>
 
 <section id="proyeksi">
-  <p class="tag">Bagian 6 — Proyeksi 36 bulan</p>
-  <h2 class="sec">Tiga skenario, semuanya naik tahap secara disiplin</h2>
+  <p class="tag">Bagian 7 — Proyeksi 36 bulan</p>
+  <h2 class="sec">Ketiga skenario menguntungkan sejak bulan kedua</h2>
 
   <div class="prose">
-    <p>Semua skenario mulai dari 8 order pada bulan pertama — sedikit di atas 5,8 order saat ini, karena keberadaan lokal saja sudah menaikkan konversi. Musiman diterapkan dari pola nyata di datamu: Februari 0,75×, April–Mei dan Juli 1,15×, Agustus 1,2×, Desember 1,15×. Kenaikan tahap terjadi otomatis saat rata-rata tiga bulan melewati ambang.</p>
+    <p>Semua skenario mulai dari 12 order pada bulan pertama — sedikit di atas 10 order saat ini, karena keberadaan lokal dan iklan lokal menaikkan konversi. Musiman diterapkan dari pola nyata di datamu. Kenaikan tahap terjadi otomatis saat rata-rata tiga bulan melewati ambang 36 dan 66 order.</p>
   </div>
 
   <div class="tw">
     <table>
-      <thead><tr><th>Skenario</th><th class="r">Order/bln di bln-12</th><th class="r">Omzet thn-1</th><th class="r">Laba thn-1</th><th class="r">Omzet thn-2</th><th class="r">Laba thn-2</th><th class="r">Laba pertama</th><th class="r">Balik modal</th><th class="r">Modal maks</th></tr></thead>
+      <thead><tr><th>Skenario</th><th class="r">Order/bln di bln-12</th><th class="r">Omzet thn-1</th><th class="r">Laba thn-1</th><th class="r">Omzet thn-2</th><th class="r">Laba thn-2</th><th class="r">Omzet thn-3</th><th class="r">Laba thn-3</th><th class="r">Balik modal</th></tr></thead>
       <tbody>
-        <tr><td>Konservatif</td><td class="r">20</td><td class="r">Rp 106 jt</td><td class="r down">−Rp 15 jt</td><td class="r">Rp 217 jt</td><td class="r up">Rp 70 jt</td><td class="r">bln ke-8</td><td class="r">bln ke-22</td><td class="r">Rp 49 jt</td></tr>
-        <tr><td>Moderat</td><td class="r">30</td><td class="r">Rp 145 jt</td><td class="r up">Rp 15 jt</td><td class="r">Rp 350 jt</td><td class="r up">Rp 122 jt</td><td class="r">bln ke-7</td><td class="r">bln ke-14</td><td class="r">Rp 43 jt</td></tr>
-        <tr><td>Agresif</td><td class="r">42</td><td class="r">Rp 192 jt</td><td class="r up">Rp 51 jt</td><td class="r">Rp 494 jt</td><td class="r up">Rp 142 jt</td><td class="r">bln ke-6</td><td class="r">bln ke-11</td><td class="r">Rp 38 jt</td></tr>
+        <tr><td>Konservatif</td><td class="r">24</td><td class="r">Rp 167 jt</td><td class="r up">Rp 35 jt</td><td class="r">Rp 303 jt</td><td class="r up">Rp 102 jt</td><td class="r">Rp 445 jt</td><td class="r up">Rp 132 jt</td><td class="r">bln ke-12</td></tr>
+        <tr><td>Moderat</td><td class="r">34</td><td class="r">Rp 214 jt</td><td class="r up">Rp 73 jt</td><td class="r">Rp 456 jt</td><td class="r up">Rp 151 jt</td><td class="r">Rp 714 jt</td><td class="r up">Rp 179 jt</td><td class="r">bln ke-9</td></tr>
+        <tr><td>Agresif</td><td class="r">45</td><td class="r">Rp 266 jt</td><td class="r up">Rp 72 jt</td><td class="r">Rp 619 jt</td><td class="r up">Rp 194 jt</td><td class="r">Rp 1,01 M</td><td class="r up">Rp 401 jt</td><td class="r">bln ke-7</td></tr>
       </tbody>
     </table>
   </div>
 
   <div class="chart">
     <h4>Kas kumulatif, 36 bulan</h4>
-    <p class="sub">Sudah termasuk modal awal dan modal tambahan tiap kenaikan tahap · garis nol = balik modal</p>
+    <p class="sub">Sudah termasuk modal awal Rp 28 juta dan modal tambahan tiap kenaikan tahap · garis nol = balik modal</p>
     <div id="cashChart"></div>
     <div class="legend" id="cashLegend" style="color:var(--muted)"></div>
   </div>
 
   <div class="prose">
-    <p>Bahkan skenario konservatif — hanya 20 order per bulan di akhir tahun pertama, sekitar 3,4× volume sekarang — mencapai laba operasional di bulan ke-8 dan balik modal di bulan ke-22. Kebutuhan modal maksimum di titik terdalam hanya Rp&nbsp;38–49&nbsp;juta. Itu risiko yang bisa ditanggung, dan itulah keseluruhan argumen untuk mulai dari kecil.</p>
-    <p>Di tahun ketiga, jarak antar skenario melebar tajam: omzet Rp&nbsp;328&nbsp;juta dengan laba Rp&nbsp;105&nbsp;juta di skenario konservatif, Rp&nbsp;596&nbsp;juta dengan laba Rp&nbsp;164&nbsp;juta di moderat, dan Rp&nbsp;846&nbsp;juta dengan laba Rp&nbsp;252&nbsp;juta di agresif. Yang memisahkan ketiganya bukan pasar — pasarnya sama — melainkan seberapa serius penjualan kontrak berlangganan dikerjakan di enam bulan pertama.</p>
+    <p>Perhatikan penurunan tajam di tengah setiap garis — itu bukan kesalahan, melainkan modal tambahan saat naik tahap. Skenario agresif turun dua kali (bulan ke-9 dan ke-20) karena tumbuh paling cepat, dan justru karena itu laba tahun pertamanya sedikit di bawah skenario moderat. Pertumbuhan cepat berbiaya di muka.</p>
+    <p>Kebutuhan modal maksimum sama di ketiga skenario: <strong>Rp&nbsp;29,4&nbsp;juta</strong>, terjadi di bulan pertama. Setelah itu operasi membiayai dirinya sendiri. Ini yang membedakan struktur bertahap dari membuka cabang penuh — risikonya berhenti di bulan pertama, bukan berjalan selama dua tahun.</p>
   </div>
 
   <h3>Pengungkit terbesar: kontrak berlangganan</h3>
   <div class="prose">
-    <p>Kontrak SDM Ali Suryani (Rp&nbsp;2,75&nbsp;juta untuk 8 kali kedatangan, atau Rp&nbsp;343.750 per kunjungan) adalah bentuk pendapatan paling berharga yang kamu punya: terjadwal, bisa diprediksi, dan mengunci kapasitas cleaner. Asumsikan satu siklus 8 kunjungan habis dalam dua bulan.</p>
+    <p>Kontrak SDM Ali Suryani (Rp&nbsp;2,75&nbsp;juta untuk 8 kali kedatangan, atau Rp&nbsp;343.750 per kunjungan) adalah bentuk pendapatan paling berharga yang kamu punya: terjadwal, bisa diprediksi, mengunci kapasitas cleaner. Asumsikan satu siklus 8 kunjungan habis dalam dua bulan.</p>
   </div>
   <div class="tw">
     <table>
-      <thead><tr><th>Kontrak aktif</th><th class="r">Omzet berulang/bulan</th><th class="r">Setara order</th><th class="r">Menutup biaya tetap Tahap 1</th></tr></thead>
+      <thead><tr><th>Kontrak aktif</th><th class="r">Omzet berulang/bulan</th><th class="r">Setara order</th><th class="r">Menutup biaya tetap Tahap 0</th><th class="r">Menutup Tahap 1</th></tr></thead>
       <tbody>
-        <tr><td>5 kontrak</td><td class="r">Rp 6.875.000</td><td class="r">11</td><td class="r">37%</td></tr>
-        <tr><td>10 kontrak</td><td class="r">Rp 13.750.000</td><td class="r">23</td><td class="r">74%</td></tr>
-        <tr><td>15 kontrak</td><td class="r">Rp 20.625.000</td><td class="r">34</td><td class="r">111%</td></tr>
-        <tr><td>20 kontrak</td><td class="r">Rp 27.500.000</td><td class="r">46</td><td class="r">148%</td></tr>
+        <tr><td>5 kontrak</td><td class="r">Rp 6.875.000</td><td class="r">9</td><td class="r">84%</td><td class="r">37%</td></tr>
+        <tr><td>10 kontrak</td><td class="r">Rp 13.750.000</td><td class="r">18</td><td class="r">168%</td><td class="r">74%</td></tr>
+        <tr><td>15 kontrak</td><td class="r">Rp 20.625.000</td><td class="r">28</td><td class="r">252%</td><td class="r">111%</td></tr>
+        <tr><td>20 kontrak</td><td class="r">Rp 27.500.000</td><td class="r">37</td><td class="r">336%</td><td class="r">148%</td></tr>
       </tbody>
     </table>
   </div>
   <div class="prose">
-    <p>Lima belas kontrak berlangganan menutup seluruh biaya tetap pos satelit sebelum satu pun order harian masuk. Dengan 8.178 kamar akomodasi non-bintang di Gianyar, mendapatkan 15 properti yang berlangganan bukan target yang berlebihan — itu 0,75% dari perkiraan 2.000 properti. <strong>Ini seharusnya menjadi target penjualan utama pada tahap 0, bukan volume order harian.</strong></p>
-  </div>
-
-  <h3>Kepekaan terhadap rata-rata nilai order</h3>
-  <div class="tw">
-    <table>
-      <thead><tr><th>Rata-rata nilai order</th><th class="r">Margin kontribusi</th><th class="r">Impas Tahap 1</th></tr></thead>
-      <tbody>
-        <tr><td>Rp 450.000 (turun ke tarif GC saja)</td><td class="r">Rp 336.500</td><td class="r">55 order/bln</td></tr>
-        <tr><td>Rp 500.000</td><td class="r">Rp 380.000</td><td class="r">49 order/bln</td></tr>
-        <tr><td>Rp 600.000 (posisi sekarang)</td><td class="r">Rp 467.000</td><td class="r">40 order/bln</td></tr>
-        <tr><td>Rp 700.000 (dengan penjualan lampiran)</td><td class="r">Rp 554.000</td><td class="r">34 order/bln</td></tr>
-        <tr><td>Rp 800.000</td><td class="r">Rp 641.000</td><td class="r">29 order/bln</td></tr>
-      </tbody>
-    </table>
-  </div>
-  <div class="prose">
-    <p>Menaikkan rata-rata order dari Rp&nbsp;600 ribu ke Rp&nbsp;700 ribu memangkas titik impas dari 40 ke 34 order per bulan — efeknya setara mendapatkan enam pelanggan baru setiap bulan, gratis. Caranya bukan menaikkan harga, melainkan menjual lampiran: setiap GC ditawari cuci sofa, setiap deep clean ditawari cuci kasur, setiap kunjungan villa ditawari cuci tandon.</p>
+    <p><strong>Lima kontrak berlangganan saja sudah menutup 84% biaya tetap pos rintisan</strong> sebelum satu pun order harian masuk. Kandidat paling jelas sudah ada di daftar pelangganmu: Chantika Bambotel (10 order, hampir tiap dua minggu), Cecile di Unicare Clinic (6 order deep clean), Bu Sandri (3 order), Amala Villas Ubud (2 deep clean besar dalam dua hari berturut-turut), dan Toya Medika Clinic. Lima nama itu sudah cukup — kamu hanya perlu mengubah kebiasaan memesan mereka menjadi kontrak tertulis.</p>
   </div>
 </section>
 
 <section id="kapan">
-  <p class="tag">Bagian 7 — Waktu pembukaan</p>
+  <p class="tag">Bagian 8 — Waktu pembukaan</p>
   <h2 class="sec">Soft launch Oktober, ramai penuh Desember</h2>
 
   <div class="prose">
-    <p>Dua pola menentukan waktunya. Pertama, musiman di datamu sendiri: Februari selalu terlemah, April–Mei terkuat, November–Desember kuat. Kedua, musiman pariwisata Bali: BPS Bali menyebut puncak kunjungan biasanya Agustus–September lalu melandai di akhir tahun, sementara Desember–Januari kuat karena liburan dan pergantian tamu villa.</p>
-    <p>Persiapan realistis — cari kontrakan, urus NIB, rekrut dan latih cleaner lokal, siapkan Google Business Profile dan konten — memakan 5 sampai 7 minggu. Kalau keputusan diambil bulan ini, operasi bisa dimulai pertengahan Oktober.</p>
+    <p>Persiapan realistis — cari kontrakan, urus NIB, rekrut dan latih cleaner lokal, siapkan Google Business Profile dan konten — memakan 5 sampai 7 minggu. Kalau keputusan diambil bulan ini, operasi bisa dimulai pertengahan Oktober, tepat sebelum musim liburan akhir tahun dan pergantian tamu villa.</p>
   </div>
 
   <ol class="steps">
     <li><b>September 2026 — persiapan</b>Survei dan tanda tangan kontrakan, urus NIB lewat OSS, rekrut satu cleaner tetap berdomisili Gianyar, daftarkan Google Business Profile dengan alamat Batubulan.</li>
-    <li><b>Oktober 2026 — soft launch</b>Mulai melayani dari basis lokal. Beri tahu 32 pelanggan lama Gianyar bahwa kamu sekarang ada di sana dan transport gratis untuk order di bawah Rp 400 ribu. Target 8–12 order.</li>
-    <li><b>November 2026 — penjualan kontrak</b>Kunjungi villa dan guest house di Sukawati, Ketewel, dan Ubud secara langsung. Targetkan 5 kontrak berlangganan sebelum akhir bulan. Ini bulan penjualan, bukan bulan iklan.</li>
+    <li><b>Oktober 2026 — soft launch</b>Mulai melayani dari basis lokal. Beri tahu 52 pelanggan Gianyar bahwa kamu sekarang ada di sana, dan transport gratis untuk order di bawah Rp 400 ribu. Target 12–15 order.</li>
+    <li><b>November 2026 — penjualan kontrak</b>Kunjungi villa dan guest house di Sukawati, Ketewel, dan Ubud secara langsung. Targetkan 5 kontrak berlangganan sebelum akhir bulan, dimulai dari lima pelanggan berulang yang sudah ada. Ini bulan penjualan, bukan bulan iklan.</li>
     <li><b>Desember 2026 – Januari 2027 — puncak pertama</b>Musim liburan dan pergantian tamu villa. Uji kapasitas dengan tenaga lepas, bukan dengan menambah karyawan tetap.</li>
-    <li><b>Februari 2027 — bulan terlemah</b>Sudah diperkirakan. Pakai untuk pelatihan, perawatan alat, dan menagih kontrak perpanjangan. Jangan panik dan jangan potong harga.</li>
-    <li><b>April–Mei 2027 — evaluasi kenaikan tahap</b>Kalau rata-rata tiga bulan sudah melewati 46 order, naik ke Tahap 1. Kalau belum, tetap di Tahap 0 — biayanya cukup rendah untuk bertahan tanpa tekanan.</li>
+    <li><b>Februari 2027 — bulan terlemah</b>Sudah diperkirakan dari pola dua tahun. Pakai untuk pelatihan, perawatan alat, dan menagih perpanjangan kontrak. Jangan panik dan jangan potong harga.</li>
+    <li><b>April–Mei 2027 — evaluasi kenaikan tahap</b>Kalau rata-rata tiga bulan sudah melewati 36 order, naik ke Tahap 1. Kalau belum, tetap di Tahap 0 — biayanya cukup rendah untuk bertahan tanpa tekanan.</li>
   </ol>
 
   <div class="note warn">
-    <p><strong>Jangan membuka di Januari atau Februari.</strong> Datamu menunjukkan Februari 2026 hanya menghasilkan Rp&nbsp;795 ribu dari 4 order — bulan terburuk dalam catatan. Membuka di bulan itu berarti membakar tiga bulan kas sebelum permintaan datang, dan membuat tim baru kehilangan kepercayaan diri di minggu-minggu pertama.</p>
+    <p><strong>Jangan membuka di Januari atau Februari.</strong> Februari 2026 hanya menghasilkan Rp&nbsp;795&nbsp;ribu dari 4 order, dan Februari 2025 kosong sama sekali. Membuka di bulan itu berarti membakar kas sebelum permintaan datang, dan membuat tim baru kehilangan kepercayaan diri di minggu-minggu pertama.</p>
   </div>
 </section>
 
 <section id="kontrak">
-  <p class="tag">Bagian 8 — Ngontrak, legalitas, dan tenaga kerja</p>
+  <p class="tag">Bagian 9 — Ngontrak, legalitas, dan tenaga kerja</p>
   <h2 class="sec">Ikat sependek mungkin di awal</h2>
 
   <h3>Sewa tempat</h3>
@@ -549,10 +650,11 @@ footer li{margin-bottom:6px}
 
   <h3>Legalitas</h3>
   <ul class="tick">
-    <li>Kalau badan usaha Denpasar sudah berbentuk PT atau CV, Gianyar cukup didaftarkan sebagai <strong>kantor cabang atau lokasi usaha tambahan</strong> di OSS — tidak perlu badan hukum baru, dan ini jauh lebih murah.</li>
+    <li>Kalau badan usaha Denpasar sudah berbentuk PT atau CV, Gianyar cukup didaftarkan sebagai <strong>kantor cabang atau lokasi usaha tambahan</strong> di OSS — tidak perlu badan hukum baru, dan jauh lebih murah.</li>
     <li>NIB melalui OSS gratis. KBLI yang relevan: 81210 (aktivitas kebersihan umum bangunan) dan 81290 (aktivitas kebersihan lainnya).</li>
     <li>Cek kewajiban izin lokasi dan retribusi di tingkat desa adat setempat — di Bali ini nyata dan tidak boleh dilewati. Perkenalkan diri ke kelian banjar sebelum beroperasi.</li>
-    <li>Perhatikan status PKP. Kalau omzet gabungan Denpasar dan Gianyar melewati ambang, kewajiban PPN berlaku dan harga jual perlu disesuaikan.</li>
+    <li>Perhatikan status PKP. Omzet gabungan Denpasar dan Gianyar sudah mendekati ambang wajib PPN; kalau terlampaui, harga jual perlu disesuaikan sebelum, bukan sesudah.</li>
+    <li>Pelanggan korporat seperti PT Natta Jaya, CV Boga Warastama, dan PT Flyingbarong biasanya butuh faktur resmi. Siapkan penomoran invoice dan NPWP yang rapi sejak awal — ini syarat masuk segmen bermargin tinggi.</li>
   </ul>
 
   <h3>Tenaga kerja</h3>
@@ -560,53 +662,54 @@ footer li{margin-bottom:6px}
     <li><strong>UMK Gianyar 2026: Rp&nbsp;3.316.798</strong>, naik 6,34% dari Rp&nbsp;3.119.080 pada 2025. Dewan Pengupahan Gianyar memutuskan tidak menetapkan upah minimum sektoral, jadi UMK inilah acuannya untuk semua sektor.</li>
     <li>Rekrut cleaner yang <strong>tinggal di Gianyar</strong>, bukan yang dipindah dari Denpasar. Ini bukan soal upah, tapi soal waktu tempuh dan pengetahuan jalan tikus.</li>
     <li>Struktur upah campuran di Tahap 0: satu orang tetap dengan UMK penuh dan BPJS sebagai jangkar mutu, sisanya borongan per job. Ini yang membuat biaya tetap Rp&nbsp;8,2&nbsp;juta bisa dipertahankan.</li>
+    <li>Data tim menunjukkan rata-rata 1,6 cleaner per job, tapi deep clean besar butuh 3 sampai 5 orang — Amala Villas memakai 5 cleaner. Simpan daftar tenaga lepas terlatih minimal 4 orang yang bisa dipanggil dalam 24 jam.</li>
     <li>Bawa satu cleaner senior Denpasar untuk mendampingi 4–6 minggu pertama sebagai pelatih, lalu tarik kembali. Standar mutu adalah aset merekmu, dan itu tidak bisa dikirim lewat WhatsApp.</li>
   </ul>
 </section>
 
 <section id="risiko">
-  <p class="tag">Bagian 9 — Risiko</p>
+  <p class="tag">Bagian 10 — Risiko</p>
   <h2 class="sec">Yang bisa membuat ini gagal</h2>
 
   <div class="cards">
     <div class="card">
-      <h4>Pariwisata Bali melandai</h4>
-      <p>Kunjungan wisman Januari–Juli 2026 turun 1,98% secara tahunan. Kalau tren ini berlanjut, segmen villa dan guest house melemah. <strong>Peredam:</strong> jaga bauran pelanggan agar segmen komersial non-pariwisata (klinik, kantor, kos, perumahan) minimal 40% dari omzet.</p>
+      <h4>Lonjakan tiga bulan ternyata musiman</h4>
+      <p>Juni–Agustus bertepatan dengan high season Bali. Bisa jadi sebagian kenaikan bersifat musiman, bukan struktural. <strong>Peredam:</strong> pantau September–November sebelum naik ke Tahap 1. Biaya Tahap 0 cukup rendah untuk bertahan meski volume turun ke 8 order per bulan.</p>
     </div>
     <div class="card">
-      <h4>Ketergantungan pada sedikit pelanggan</h4>
-      <p>Lima order menyumbang 39% omzet. Kehilangan dua pelanggan besar bisa memangkas separuh pendapatan. <strong>Peredam:</strong> target 15 kontrak berlangganan bernilai sedang, bukan mengejar order besar sesekali.</p>
+      <h4>Pariwisata Bali melandai</h4>
+      <p>Kunjungan wisman Januari–Juli 2026 turun 1,98% secara tahunan. <strong>Peredam:</strong> jaga bauran pelanggan agar segmen non-pariwisata (klinik, kantor, kos, perumahan) minimal 40% omzet. Saat ini Chantika, Unicare, Toya Medika, dan perumahan sudah memenuhi porsi itu.</p>
     </div>
     <div class="card">
       <h4>Naik tahap terlalu cepat</h4>
-      <p>Risiko terbesar dalam analisis ini. Menyewa ruko dan menambah cleaner tetap sebelum volumenya ada akan menaikkan titik impas lebih cepat daripada order tumbuh. <strong>Peredam:</strong> patuhi ambang 46 dan 82, diukur sebagai rata-rata tiga bulan, bukan satu bulan bagus.</p>
+      <p>Risiko terbesar. Menyewa ruko dan menambah cleaner tetap sebelum volumenya ada akan menaikkan titik impas lebih cepat daripada order tumbuh. <strong>Peredam:</strong> patuhi ambang 36 dan 66, diukur sebagai rata-rata tiga bulan, bukan satu bulan bagus.</p>
     </div>
     <div class="card">
-      <h4>Mutu turun di cabang baru</h4>
-      <p>Cleaner baru tanpa pengawasan langsung adalah penyebab keluhan paling umum di bisnis ini, dan reputasi di Ubud menyebar cepat lewat grup ekspat. <strong>Peredam:</strong> daftar periksa berfoto untuk setiap job, pendampingan senior 6 minggu pertama, garansi kerja ulang gratis.</p>
+      <h4>Mutu turun di basis baru</h4>
+      <p>Cleaner baru tanpa pengawasan langsung adalah penyebab keluhan paling umum, dan reputasi di Ubud menyebar cepat lewat grup ekspat. <strong>Peredam:</strong> daftar periksa berfoto tiap job, pendampingan senior 6 minggu pertama, garansi kerja ulang gratis.</p>
     </div>
     <div class="card">
       <h4>Kompetitor lokal merespons harga</h4>
-      <p>Bali Clean Services dan Labali sudah beroperasi di jalur Ubud–Gianyar dan bisa memotong harga. <strong>Peredam:</strong> jangan bersaing di tarif per jam. Bersaing di peralatan (extractor, polisher), kecepatan respons, dan jadwal yang bisa dipegang.</p>
+      <p>Bali Clean Services dan Labali sudah beroperasi di jalur Ubud–Gianyar dan bisa memotong harga. <strong>Peredam:</strong> jangan bersaing di tarif per jam. Bersaing di peralatan, kecepatan respons, dan jadwal yang bisa dipegang — tiga hal yang sudah membuat Chantika memesan sepuluh kali.</p>
     </div>
     <div class="card">
       <h4>Kanibalisasi cabang Denpasar</h4>
-      <p>Order Gianyar yang sekarang menopang utilisasi Denpasar akan berpindah. <strong>Peredam:</strong> hitung Denpasar dan Gianyar sebagai satu kolam laba selama 12 bulan pertama, bukan sebagai dua pusat laba yang bersaing.</p>
+      <p>Order Gianyar yang sekarang menopang utilisasi Denpasar akan berpindah. <strong>Peredam:</strong> hitung Denpasar dan Gianyar sebagai satu kolam laba selama 12 bulan pertama, bukan dua pusat laba yang bersaing.</p>
     </div>
   </div>
 </section>
 
 <section id="rencana">
-  <p class="tag">Bagian 10 — Langkah berikutnya</p>
+  <p class="tag">Bagian 11 — Langkah berikutnya</p>
   <h2 class="sec">Rencana 90 hari</h2>
 
   <div class="prose">
     <p>Semua yang ada di bawah bisa dijalankan dengan modal Rp&nbsp;28&nbsp;juta dan tanpa meninggalkan operasi Denpasar.</p>
   </div>
 
-  <h3>Hari 1–30 · Verifikasi dan siapkan</h3>
+  <h3>Hari 1–30 · Kunci pelanggan yang sudah ada</h3>
   <ul class="tick">
-    <li>Telepon 10 pelanggan Gianyar teraktif — Cecile, Chantika Bambotel, Ali Suryani, Diar, Yenny, Dewi, Hugo, Edu, Angie, David. Tanyakan satu hal: kalau kami ada di Gianyar dengan respons di hari yang sama, seberapa sering mereka akan memesan? Jawabannya menentukan skenario mana yang berlaku.</li>
+    <li>Datangi lima pelanggan berulang teratas — Chantika Bambotel, Cecile (Unicare Clinic), Bu Sandri, Amala Villas Ubud, Toya Medika Clinic — dan tawarkan kontrak berlangganan tertulis. Mereka sudah memesan berulang; yang kurang hanya formalitasnya. Lima kontrak menutup 84% biaya tetap pos rintisan.</li>
     <li>Survei minimal 5 kontrakan di Batubulan dan Ketewel. Bandingkan harga, air, listrik, dan akses.</li>
     <li>Daftarkan lokasi usaha Gianyar di OSS dan buat Google Business Profile dengan alamat Batubulan — profil ini butuh 4–8 minggu untuk mulai muncul di pencarian lokal, jadi kerjakan lebih dulu.</li>
     <li>Pasang iklan lowongan cleaner di grup Facebook dan papan desa Batubulan, Sukawati, Ketewel.</li>
@@ -615,22 +718,22 @@ footer li{margin-bottom:6px}
   <h3>Hari 31–60 · Bangun</h3>
   <ul class="tick">
     <li>Tanda tangan kontrakan (6–12 bulan), pindahkan alat, siapkan area cuci.</li>
-    <li>Rekrut satu cleaner tetap dan tiga tenaga lepas cadangan. Latih bersama cleaner senior Denpasar.</li>
-    <li>Susun daftar harga khusus Gianyar: transport gratis untuk order di bawah Rp&nbsp;400&nbsp;ribu, tetap berlaku di atasnya.</li>
-    <li>Siapkan paket kontrak berlangganan sebagai produk resmi, bukan penawaran dadakan: 8 kunjungan Rp&nbsp;2,75&nbsp;juta, 12 kunjungan dengan potongan, dan versi bulanan untuk villa.</li>
+    <li>Rekrut satu cleaner tetap dan empat tenaga lepas cadangan — jumlah itu diperlukan karena deep clean besar butuh 3–5 orang. Latih bersama cleaner senior Denpasar.</li>
+    <li>Susun daftar harga khusus Gianyar: transport gratis untuk order di bawah Rp&nbsp;400&nbsp;ribu, tetap ditagihkan di atasnya.</li>
+    <li>Jadikan paket kontrak berlangganan produk resmi dengan brosur dan harga tercetak: 8 kunjungan Rp&nbsp;2,75&nbsp;juta, 12 kunjungan dengan potongan, dan paket deep clean berkala untuk villa.</li>
   </ul>
 
-  <h3>Hari 61–90 · Jual</h3>
+  <h3>Hari 61–90 · Jual ke pasar baru</h3>
   <ul class="tick">
-    <li>Soft launch. Umumkan ke seluruh basis pelanggan Gianyar lama.</li>
-    <li>Kunjungi langsung 40 villa dan guest house di Sukawati, Ketewel, dan Ubud dengan penawaran kontrak. Target minimal 5 kontrak.</li>
-    <li>Hubungi 15 klinik, spa, dan kantor kecil di Ubud dan Gianyar Kota — segmen ini yang paling loyal di datamu.</li>
-    <li>Mulai iklan lokal berbayar dengan anggaran kecil, radius 15 km dari Batubulan, hanya kata kunci berniat beli.</li>
+    <li>Soft launch. Umumkan ke seluruh 52 pelanggan Gianyar.</li>
+    <li>Kunjungi langsung 40 villa dan guest house di Sukawati, Ketewel, dan Ubud dengan penawaran deep clean berkala — ini layanan bermargin tertinggi, 38% omzetmu.</li>
+    <li>Tawarkan cuci tandon sebagai layanan pembuka ke villa dan guest house. Hampir tidak ada pesaing yang menjualnya terpisah, dan ia membuka pintu ke deep clean.</li>
+    <li>Hubungi 15 klinik, spa, dan kantor kecil di Ubud dan Gianyar Kota — segmen paling loyal di datamu.</li>
     <li>Pasang satu papan ukur: rata-rata tiga bulan order. Semua keputusan kenaikan tahap bersandar pada angka itu.</li>
   </ul>
 
   <div class="note">
-    <p><strong>Satu angka yang perlu dijaga di dinding kantor: 18.</strong> Delapan belas order per bulan adalah titik di mana pos Gianyar berhenti membakar uang. Semua yang di atas itu adalah laba yang bisa dipakai untuk tumbuh. Dari 5,8 order per bulan yang datang sendiri tanpa usaha apa pun, sampai ke 18 adalah pekerjaan yang bisa dikerjakan.</p>
+    <p><strong>Satu angka yang perlu dijaga di dinding kantor: 14.</strong> Empat belas order per bulan adalah titik di mana pos Gianyar berhenti membakar uang. Tiga bulan terakhir kamu sudah di 10, tanpa kantor dan tanpa iklan. Jaraknya empat order — kira-kira satu kontrak berlangganan.</p>
   </div>
 </section>
 
@@ -654,85 +757,86 @@ footer li{margin-bottom:6px}
       <div>
         <h4>Catatan metodologi</h4>
         <ul>
-          <li>Analisis order memakai 48 baris unik. Blok data 2025 muncul dua kali di berkas asal dan dihitung sekali.</li>
-          <li>Dua order tercatat Rp 0 dikeluarkan dari perhitungan rata-rata dan margin, tetapi tetap dihitung sebagai order.</li>
-          <li>Pemetaan kecamatan dilakukan dari teks alamat. Alamat yang tidak menyebut wilayah spesifik dikelompokkan ke desa terdekat yang disebutkan.</li>
-          <li>Perbandingan tahunan memakai periode Januari–Mei agar setara, karena data 2026 berhenti di Mei.</li>
+          <li>Analisis memakai 78 order unik: 48 dari berkas pertama dan 30 dari data rinci Juni–Agustus 2026. Blok 2025 yang muncul dua kali di berkas asal dihitung sekali.</li>
+          <li><strong>Asumsi tanggal.</strong> Dua blok data rinci tidak memuat tanggal, hanya jam kedatangan. Karena satu pelanggan (CV Boga Warastama) muncul di kedua blok dan periode di sekitarnya adalah Juli dan Agustus, blok tersebut diperlakukan sebagai Juni 2026 dan tanggalnya disebar merata. Total dan rata-rata tidak terpengaruh; hanya sebaran harian di grafik yang bersifat perkiraan.</li>
+          <li>Baris per layanan digabung menjadi satu order berdasarkan pelanggan dan tanggal yang sama. Baris transport dijumlahkan ke dalam nilai order dan juga dicatat terpisah untuk analisis ongkos jalan.</li>
+          <li>Dua order tercatat Rp 0 dikeluarkan dari perhitungan rata-rata, tetapi tetap dihitung sebagai order.</li>
+          <li>Pemetaan kecamatan dilakukan dari teks alamat. Keliki secara administratif masuk Tegallalang tetapi ditulis sebagai Ubud di alamat pelanggan dan dikelompokkan mengikuti alamat.</li>
           <li>Estimasi ukuran pasar adalah perhitungan bawah-atas dengan asumsi penetrasi yang dinyatakan di tabel, bukan angka resmi.</li>
           <li>Proyeksi keuangan adalah model, bukan ramalan. Angka nyata akan berbeda.</li>
         </ul>
       </div>
     </div>
-    <p style="margin-top:30px;border-top:1px solid rgba(255,255,255,.14);padding-top:18px">Studi kelayakan cabang Gianyar · KlinKlin Cleaning Service · 4 September 2026</p>
+    <p style="margin-top:30px;border-top:1px solid rgba(255,255,255,.14);padding-top:18px">Studi kelayakan cabang Gianyar · KlinKlin Cleaning Service · data sampai 29 Agustus 2026</p>
   </div>
 </footer>
 
 <script>
-const ORDERS = [{"d":"2025-01-07","a":360000,"k":"Payangan"},{"d":"2025-01-31","a":490000,"k":"Ubud"},{"d":"2025-01-31","a":1408000,"k":"Sukawati"},{"d":"2025-03-10","a":2156000,"k":"Gianyar Kota"},{"d":"2025-04-30","a":324000,"k":"Blahbatuh"},{"d":"2025-05-05","a":237000,"k":"Ubud"},{"d":"2025-05-08","a":237000,"k":"Ubud"},{"d":"2025-05-15","a":231000,"k":"Sukawati"},{"d":"2025-05-24","a":1725000,"k":"Blahbatuh"},{"d":"2025-06-12","a":408000,"k":"Sukawati"},{"d":"2025-06-13","a":385000,"k":"Tampaksiring"},{"d":"2025-08-29","a":240000,"k":"Blahbatuh"},{"d":"2025-09-12","a":732000,"k":"Sukawati"},{"d":"2025-09-27","a":724000,"k":"Sukawati"},{"d":"2025-10-12","a":744000,"k":"Ubud"},{"d":"2025-11-08","a":744000,"k":"Ubud"},{"d":"2025-11-17","a":5377000,"k":"Gianyar Kota"},{"d":"2025-11-18","a":1634000,"k":"Gianyar Kota"},{"d":"2025-12-20","a":395000,"k":"Gianyar Kota"},{"d":"2026-01-06","a":484000,"k":"Gianyar Kota"},{"d":"2026-01-29","a":1495000,"k":"Sukawati"},{"d":"2026-02-21","a":0,"k":"Blahbatuh"},{"d":"2026-02-22","a":325000,"k":"Gianyar Kota"},{"d":"2026-02-23","a":230000,"k":"Blahbatuh"},{"d":"2026-02-28","a":240000,"k":"Ubud"},{"d":"2026-03-06","a":744000,"k":"Ubud"},{"d":"2026-03-07","a":596000,"k":"Blahbatuh"},{"d":"2026-03-30","a":396000,"k":"Sukawati"},{"d":"2026-04-01","a":898000,"k":"Sukawati"},{"d":"2026-04-04","a":262000,"k":"Ubud"},{"d":"2026-04-05","a":2750000,"k":"Sukawati"},{"d":"2026-04-06","a":744000,"k":"Ubud"},{"d":"2026-04-07","a":240000,"k":"Ubud"},{"d":"2026-04-14","a":0,"k":"Lainnya"},{"d":"2026-04-18","a":262000,"k":"Ubud"},{"d":"2026-04-21","a":380000,"k":"Ubud"},{"d":"2026-04-25","a":315000,"k":"Blahbatuh"},{"d":"2026-04-26","a":530000,"k":"Blahbatuh"},{"d":"2026-05-01","a":582000,"k":"Ubud"},{"d":"2026-05-03","a":630000,"k":"Sukawati"},{"d":"2026-05-11","a":390000,"k":"Sukawati"},{"d":"2026-05-14","a":810000,"k":"Sukawati"},{"d":"2026-05-16","a":262000,"k":"Ubud"},{"d":"2026-05-17","a":680000,"k":"Gianyar Kota"},{"d":"2026-05-21","a":668000,"k":"Sukawati"},{"d":"2026-05-22","a":656000,"k":"Ubud"},{"d":"2026-05-29","a":350000,"k":"Sukawati"},{"d":"2026-05-30","a":262000,"k":"Ubud"}];
+/* ---------- nav ---------- */
+(function(){
+  const b=document.getElementById("burger"), l=document.getElementById("navlinks");
+  b.addEventListener("click",()=>{
+    const open=l.classList.toggle("open");
+    b.setAttribute("aria-expanded",open?"true":"false");
+    b.setAttribute("aria-label",open?"Tutup menu":"Buka menu");
+  });
+  l.addEventListener("click",e=>{
+    if(e.target.tagName==="A"){ l.classList.remove("open"); b.setAttribute("aria-expanded","false"); }
+  });
+  document.addEventListener("keydown",e=>{
+    if(e.key==="Escape"&&l.classList.contains("open")){ l.classList.remove("open"); b.setAttribute("aria-expanded","false"); b.focus(); }
+  });
+})();
 
-const KEC_COLOR = {"Sukawati":"#0E6B5C","Ubud":"#DB9A22","Gianyar Kota":"#A33B2A","Blahbatuh":"#4E8FA6","Tampaksiring":"#7C6BA8","Payangan":"#5B8C4A","Lainnya":"#9AA8A2"};
+const ORDERS=[{"d":"2025-01-07","a":360000,"k":"Payangan"},{"d":"2025-01-31","a":1408000,"k":"Sukawati"},{"d":"2025-01-31","a":490000,"k":"Ubud"},{"d":"2025-03-10","a":2156000,"k":"Gianyar Kota"},{"d":"2025-04-30","a":324000,"k":"Blahbatuh"},{"d":"2025-05-05","a":237000,"k":"Ubud"},{"d":"2025-05-08","a":237000,"k":"Ubud"},{"d":"2025-05-15","a":231000,"k":"Sukawati"},{"d":"2025-05-24","a":1725000,"k":"Blahbatuh"},{"d":"2025-06-12","a":408000,"k":"Sukawati"},{"d":"2025-06-13","a":385000,"k":"Tampaksiring"},{"d":"2025-08-29","a":240000,"k":"Blahbatuh"},{"d":"2025-09-12","a":732000,"k":"Sukawati"},{"d":"2025-09-27","a":724000,"k":"Sukawati"},{"d":"2025-10-12","a":744000,"k":"Ubud"},{"d":"2025-11-08","a":744000,"k":"Ubud"},{"d":"2025-11-17","a":5377000,"k":"Gianyar Kota"},{"d":"2025-11-18","a":1634000,"k":"Gianyar Kota"},{"d":"2025-12-20","a":395000,"k":"Gianyar Kota"},{"d":"2026-01-06","a":484000,"k":"Gianyar Kota"},{"d":"2026-01-29","a":1495000,"k":"Sukawati"},{"d":"2026-02-21","a":0,"k":"Blahbatuh"},{"d":"2026-02-22","a":325000,"k":"Gianyar Kota"},{"d":"2026-02-23","a":230000,"k":"Blahbatuh"},{"d":"2026-02-28","a":240000,"k":"Ubud"},{"d":"2026-03-06","a":744000,"k":"Ubud"},{"d":"2026-03-07","a":596000,"k":"Blahbatuh"},{"d":"2026-03-30","a":396000,"k":"Sukawati"},{"d":"2026-04-01","a":898000,"k":"Sukawati"},{"d":"2026-04-04","a":262000,"k":"Ubud"},{"d":"2026-04-05","a":2750000,"k":"Sukawati"},{"d":"2026-04-06","a":744000,"k":"Ubud"},{"d":"2026-04-07","a":240000,"k":"Ubud"},{"d":"2026-04-14","a":0,"k":"Lainnya"},{"d":"2026-04-18","a":262000,"k":"Ubud"},{"d":"2026-04-21","a":380000,"k":"Ubud"},{"d":"2026-04-25","a":315000,"k":"Blahbatuh"},{"d":"2026-04-26","a":530000,"k":"Blahbatuh"},{"d":"2026-05-01","a":582000,"k":"Ubud"},{"d":"2026-05-03","a":630000,"k":"Sukawati"},{"d":"2026-05-11","a":390000,"k":"Sukawati"},{"d":"2026-05-14","a":810000,"k":"Sukawati"},{"d":"2026-05-16","a":262000,"k":"Ubud"},{"d":"2026-05-17","a":680000,"k":"Gianyar Kota"},{"d":"2026-05-21","a":668000,"k":"Sukawati"},{"d":"2026-05-22","a":656000,"k":"Ubud"},{"d":"2026-05-29","a":350000,"k":"Sukawati"},{"d":"2026-05-30","a":262000,"k":"Ubud"},{"d":"2026-06-01","a":490000,"k":"Ubud"},{"d":"2026-06-03","a":388000,"k":"Sukawati"},{"d":"2026-06-05","a":420000,"k":"Ubud"},{"d":"2026-06-08","a":1785000,"k":"Blahbatuh"},{"d":"2026-06-10","a":262000,"k":"Ubud"},{"d":"2026-06-12","a":392000,"k":"Sukawati"},{"d":"2026-06-15","a":235000,"k":"Ubud"},{"d":"2026-06-17","a":504000,"k":"Blahbatuh"},{"d":"2026-06-20","a":262000,"k":"Ubud"},{"d":"2026-06-22","a":225000,"k":"Sukawati"},{"d":"2026-06-24","a":4230000,"k":"Tampaksiring"},{"d":"2026-06-26","a":744000,"k":"Ubud"},{"d":"2026-06-28","a":240000,"k":"Ubud"},{"d":"2026-07-02","a":726000,"k":"Sukawati"},{"d":"2026-07-04","a":346000,"k":"Sukawati"},{"d":"2026-07-04","a":303000,"k":"Sukawati"},{"d":"2026-07-14","a":1510000,"k":"Blahbatuh"},{"d":"2026-07-16","a":821400,"k":"Ubud"},{"d":"2026-07-24","a":1953000,"k":"Sukawati"},{"d":"2026-07-25","a":262000,"k":"Ubud"},{"d":"2026-07-30","a":376000,"k":"Ubud"},{"d":"2026-08-01","a":582000,"k":"Sukawati"},{"d":"2026-08-02","a":238000,"k":"Ubud"},{"d":"2026-08-08","a":233000,"k":"Ubud"},{"d":"2026-08-08","a":262000,"k":"Ubud"},{"d":"2026-08-12","a":3050000,"k":"Ubud"},{"d":"2026-08-13","a":1815000,"k":"Ubud"},{"d":"2026-08-18","a":825840,"k":"Ubud"},{"d":"2026-08-19","a":394050,"k":"Sukawati"},{"d":"2026-08-29","a":648240,"k":"Ubud"}];
 
-const MONTHS = [
-  {l:"Jan",y:2025,o:3,r:2258000},{l:"Feb",y:2025,o:0,r:0},{l:"Mar",y:2025,o:1,r:2156000},
-  {l:"Apr",y:2025,o:1,r:324000},{l:"Mei",y:2025,o:4,r:2430000},{l:"Jun",y:2025,o:2,r:793000},
-  {l:"Jul",y:2025,o:0,r:0},{l:"Agu",y:2025,o:1,r:240000},{l:"Sep",y:2025,o:2,r:1456000},
-  {l:"Okt",y:2025,o:1,r:744000},{l:"Nov",y:2025,o:3,r:7755000},{l:"Des",y:2025,o:1,r:395000},
-  {l:"Jan",y:2026,o:2,r:1979000},{l:"Feb",y:2026,o:4,r:795000},{l:"Mar",y:2026,o:3,r:1736000},
-  {l:"Apr",y:2026,o:10,r:6381000},{l:"Mei",y:2026,o:10,r:5290000}
-];
+const MONTHS=[{"l":"Jan","y":2025,"o":3,"r":2258000},{"l":"Feb","y":2025,"o":0,"r":0},{"l":"Mar","y":2025,"o":1,"r":2156000},{"l":"Apr","y":2025,"o":1,"r":324000},{"l":"Mei","y":2025,"o":4,"r":2430000},{"l":"Jun","y":2025,"o":2,"r":793000},{"l":"Jul","y":2025,"o":0,"r":0},{"l":"Agu","y":2025,"o":1,"r":240000},{"l":"Sep","y":2025,"o":2,"r":1456000},{"l":"Okt","y":2025,"o":1,"r":744000},{"l":"Nov","y":2025,"o":3,"r":7755000},{"l":"Des","y":2025,"o":1,"r":395000},{"l":"Jan","y":2026,"o":2,"r":1979000},{"l":"Feb","y":2026,"o":4,"r":795000},{"l":"Mar","y":2026,"o":3,"r":1736000},{"l":"Apr","y":2026,"o":10,"r":6381000},{"l":"Mei","y":2026,"o":10,"r":5290000},{"l":"Jun","y":2026,"o":13,"r":10177000},{"l":"Jul","y":2026,"o":8,"r":6297400},{"l":"Agu","y":2026,"o":9,"r":8048130}];
 
-const KEC_ROWS = [
-  {k:"Sukawati (Batubulan, Ketewel, Batuan, Silakarang)",o:14,r:11890000},
-  {k:"Gianyar Kota (Lebih, Tulikup, Negari)",o:7,r:11051000},
-  {k:"Ubud (Pengosekan, Sayan, Mas, Kedewatan)",o:16,r:7086000},
-  {k:"Blahbatuh (Saba, Pering, Keramas, Buruan)",o:8,r:3960000},
-  {k:"Tampaksiring (Pejeng)",o:1,r:385000},
-  {k:"Payangan",o:1,r:360000}
-];
+const BANDS=[{"l":"< Rp 250rb","o":12,"r":2826000},{"l":"Rp 250–400rb","o":24,"r":7915050},{"l":"Rp 400–600rb","o":10,"r":5086000},{"l":"Rp 600–800rb","o":13,"r":9184240},{"l":"Rp 800rb–1,5jt","o":6,"r":6258240},{"l":"> Rp 1,5jt","o":11,"r":27985000}];
 
-const SVC_ROWS = [
-  {s:"Cuci sofa dan kursi",o:7,r:10547000},
-  {s:"General cleaning (rumah, kantor, kos)",o:21,r:9123000},
-  {s:"Deep clean",o:7,r:6611000},
-  {s:"Vacuum / home vacuum",o:4,r:3417000},
-  {s:"Kontrak SDM berlangganan",o:2,r:2750000},
-  {s:"Cuci kasur dan topper",o:4,r:1609000},
-  {s:"Cuci tandon",o:2,r:350000},
-  {s:"Kamar mandi kerak berat",o:1,r:325000}
-];
+const KEC_ROWS=[
+ {k:"Ubud (Pengosekan, Sayan, Mas, Peliatan, Lodtunduh)",o:33,r:18270480},
+ {k:"Sukawati (Batubulan, Ketewel, Guwang, Singapadu)",o:23,r:17199050},
+ {k:"Gianyar Kota (Lebih, Tulikup, Negari)",o:7,r:11051000},
+ {k:"Blahbatuh (Saba, Pering, Keramas, Medahan, Bedulu)",o:11,r:7759000},
+ {k:"Tampaksiring (Pejeng)",o:2,r:4615000},
+ {k:"Payangan",o:1,r:360000}];
 
-const BANDS = [
-  {l:"< Rp 250rb",o:7,r:1655000},{l:"Rp 250–400rb",o:14,r:4668000},
-  {l:"Rp 400–600rb",o:6,r:3090000},{l:"Rp 600–800rb",o:10,r:7066000},
-  {l:"Rp 800rb–1,5jt",o:4,r:4611000},{l:"> Rp 1,5jt",o:5,r:13642000}
-];
+const SVC_ROWS=[
+ {s:"Deep clean",o:16,r:22561240},
+ {s:"General cleaning (rumah, kantor, kos)",o:35,r:14291240},
+ {s:"Cuci sofa dan kursi",o:7,r:10547000},
+ {s:"Vacuum / hidrovacuum",o:5,r:3811050},
+ {s:"Cuci kasur dan topper",o:5,r:3119000},
+ {s:"Kontrak SDM berlangganan",o:2,r:2750000},
+ {s:"Cuci tandon",o:6,r:1547000},
+ {s:"Kamar mandi kerak berat",o:2,r:628000}];
 
-const rp = n => "Rp " + n.toLocaleString("id-ID");
-const jt = n => (n/1e6).toLocaleString("id-ID",{minimumFractionDigits:1,maximumFractionDigits:1});
-const el = (t,a={}) => { const e=document.createElementNS("http://www.w3.org/2000/svg",t); for(const k in a) e.setAttribute(k,a[k]); return e; };
-function svg(w,h){ const s=el("svg",{viewBox:`0 0 ${w} ${h}`,preserveAspectRatio:"xMidYMid meet",role:"img"}); return s; }
-function txt(s,x,y,t,o={}){ const e=el("text",Object.assign({x,y,"font-family":"Archivo, sans-serif","font-size":11,fill:"#66766F"},o)); e.textContent=t; s.appendChild(e); return e; }
+const KEC_COLOR={"Ubud":"#DB9A22","Sukawati":"#0E6B5C","Gianyar Kota":"#A33B2A","Blahbatuh":"#4E8FA6","Tampaksiring":"#7C6BA8","Payangan":"#5B8C4A","Lainnya":"#9AA8A2"};
+const GRAND=59254530;
+
+const rp=n=>"Rp "+n.toLocaleString("id-ID");
+const jt=n=>(n/1e6).toLocaleString("id-ID",{minimumFractionDigits:1,maximumFractionDigits:1});
+const el=(t,a={})=>{const e=document.createElementNS("http://www.w3.org/2000/svg",t);for(const k in a)e.setAttribute(k,a[k]);return e;};
+const svg=(w,h)=>el("svg",{viewBox:`0 0 ${w} ${h}`,preserveAspectRatio:"xMidYMid meet",role:"img"});
+function txt(s,x,y,t,o={}){const e=el("text",Object.assign({x,y,"font-family":"Archivo, sans-serif","font-size":11,fill:"#66766F"},o));e.textContent=t;s.appendChild(e);return e;}
 
 /* ---------- hero strip ---------- */
 (function(){
-  const W=1000,H=190,pad={l:8,r:8,t:14,b:34};
-  const s=svg(W,H);
-  const n=ORDERS.length, iw=(W-pad.l-pad.r)/n, bw=Math.min(14,iw*0.62);
-  const max=Math.sqrt(5377000), ph=H-pad.t-pad.b;
+  const W=1000,H=190,pad={l:8,r:8,t:14,b:34},s=svg(W,H);
+  const n=ORDERS.length,iw=(W-pad.l-pad.r)/n,bw=Math.min(11,iw*0.66);
+  const max=Math.sqrt(5377000),ph=H-pad.t-pad.b;
   ORDERS.forEach((d,i)=>{
-    const x=pad.l+i*iw+(iw-bw)/2;
-    const zero=d.a===0;
+    const x=pad.l+i*iw+(iw-bw)/2,zero=d.a===0;
     const h=zero?6:Math.max(3,Math.sqrt(d.a)/max*ph);
     const r=el("rect",{x:zero?x+bw/2-1.5:x,y:pad.t+ph-h,width:zero?3:bw,height:h,rx:1.5,
-      fill:zero?"#3E6A60":(KEC_COLOR[d.k]||"#9AA8A2"),opacity:zero?0.9:0.95});
-    const ti=el("title"); ti.textContent=`${d.d} · ${d.k} · ${d.a?rp(d.a):"tidak tercatat"}`;
-    r.appendChild(ti); s.appendChild(r);
+      fill:zero?"#3E6A60":(KEC_COLOR[d.k]||"#9AA8A2"),opacity:zero?.9:.95});
+    const t=el("title");t.textContent=`${d.d} · ${d.k} · ${d.a?rp(d.a):"tidak tercatat"}`;
+    r.appendChild(t);s.appendChild(r);
   });
-  const base=el("line",{x1:pad.l,y1:pad.t+ph+1,x2:W-pad.r,y2:pad.t+ph+1,stroke:"rgba(255,255,255,.22)","stroke-width":1});
-  s.appendChild(base);
-  const marks=[["2025-01-07","Jan 2025"],["2025-06-12","Jun"],["2025-11-08","Nov"],["2026-02-21","Feb 2026"],["2026-05-03","Mei 2026"]];
-  marks.forEach(([d,lab])=>{
-    const i=ORDERS.findIndex(o=>o.d===d); if(i<0)return;
+  s.appendChild(el("line",{x1:pad.l,y1:pad.t+ph+1,x2:W-pad.r,y2:pad.t+ph+1,stroke:"rgba(255,255,255,.22)"}));
+  [["2025-01-07","Jan 2025"],["2025-06-12","Jun"],["2025-11-08","Nov"],["2026-02-21","Feb 2026"],["2026-06-01","Jun"],["2026-08-29","Agu 2026"]].forEach(([d,lab])=>{
+    const i=ORDERS.findIndex(o=>o.d===d);if(i<0)return;
     const x=pad.l+i*iw+iw/2;
     s.appendChild(el("line",{x1:x,y1:pad.t+ph+1,x2:x,y2:pad.t+ph+7,stroke:"rgba(255,255,255,.35)"}));
     txt(s,x,pad.t+ph+22,lab,{fill:"#8FB3A8","text-anchor":"middle","font-size":11,"font-weight":500});
@@ -741,33 +845,29 @@ function txt(s,x,y,t,o={}){ const e=el("text",Object.assign({x,y,"font-family":"
   document.getElementById("stripChart").appendChild(s);
   const lg=document.getElementById("stripLegend");
   Object.entries(KEC_COLOR).filter(([k])=>k!=="Lainnya").forEach(([k,c])=>{
-    const sp=document.createElement("span"); sp.innerHTML=`<i style="background:${c}"></i>${k}`; lg.appendChild(sp);
-  });
+    const sp=document.createElement("span");sp.innerHTML=`<i style="background:${c}"></i>${k}`;lg.appendChild(sp);});
 })();
 
 /* ---------- monthly ---------- */
 (function(){
-  const W=960,H=300,pad={l:44,r:52,t:18,b:52};
-  const s=svg(W,H); const n=MONTHS.length, iw=(W-pad.l-pad.r)/n, bw=iw*0.5;
-  const ph=H-pad.t-pad.b, maxO=10, maxR=8000000;
-  for(let i=0;i<=5;i++){ const y=pad.t+ph-(i/5)*ph;
+  const W=980,H=310,pad={l:44,r:54,t:18,b:52},s=svg(W,H);
+  const n=MONTHS.length,iw=(W-pad.l-pad.r)/n,bw=iw*0.52;
+  const ph=H-pad.t-pad.b,maxO=14,maxR=11000000;
+  for(let i=0;i<=5;i++){const y=pad.t+ph-(i/5)*ph;
     s.appendChild(el("line",{x1:pad.l,y1:y,x2:W-pad.r,y2:y,stroke:"#EDF1EC"}));
     txt(s,pad.l-8,y+4,String(Math.round(maxO*i/5)),{"text-anchor":"end","font-size":10});
-    txt(s,W-pad.r+8,y+4,jt(maxR*i/5),{"font-size":10,fill:"#DB9A22"});
-  }
+    txt(s,W-pad.r+8,y+4,jt(maxR*i/5),{"font-size":10,fill:"#DB9A22"});}
   MONTHS.forEach((m,i)=>{
-    const x=pad.l+i*iw+(iw-bw)/2;
-    const h=m.o/maxO*ph;
-    s.appendChild(el("rect",{x,y:pad.t+ph-h,width:bw,height:Math.max(h,1),rx:2,fill:m.y===2026?"#0E6B5C":"#9FC3B8"}));
+    const x=pad.l+i*iw+(iw-bw)/2,h=m.o/maxO*ph;
+    const r=el("rect",{x,y:pad.t+ph-h,width:bw,height:Math.max(h,1),rx:2,fill:m.y===2026?"#0E6B5C":"#9FC3B8"});
+    const t=el("title");t.textContent=`${m.l} ${m.y} · ${m.o} order · ${rp(m.r)}`;r.appendChild(t);s.appendChild(r);
     txt(s,pad.l+i*iw+iw/2,pad.t+ph+18,m.l,{"text-anchor":"middle","font-size":10});
-    if(m.l==="Jan") txt(s,pad.l+i*iw+iw/2,pad.t+ph+34,String(m.y),{"text-anchor":"middle","font-size":10,"font-weight":600,fill:"#12211F"});
-  });
-  let dstr="";
-  MONTHS.forEach((m,i)=>{ const x=pad.l+i*iw+iw/2, y=pad.t+ph-(m.r/maxR)*ph; dstr+=(i?"L":"M")+x+" "+y; });
-  s.appendChild(el("path",{d:dstr,fill:"none",stroke:"#DB9A22","stroke-width":2,"stroke-linejoin":"round"}));
-  MONTHS.forEach((m,i)=>{ const x=pad.l+i*iw+iw/2, y=pad.t+ph-(m.r/maxR)*ph;
-    const c=el("circle",{cx:x,cy:y,r:3,fill:"#DB9A22"}); const t=el("title");
-    t.textContent=`${m.l} ${m.y} · ${m.o} order · ${rp(m.r)}`; c.appendChild(t); s.appendChild(c); });
+    if(m.l==="Jan")txt(s,pad.l+i*iw+iw/2,pad.t+ph+34,String(m.y),{"text-anchor":"middle","font-size":10,"font-weight":600,fill:"#12211F"});});
+  let d="";
+  MONTHS.forEach((m,i)=>{const x=pad.l+i*iw+iw/2,y=pad.t+ph-(m.r/maxR)*ph;d+=(i?"L":"M")+x+" "+y;});
+  s.appendChild(el("path",{d,fill:"none",stroke:"#DB9A22","stroke-width":2,"stroke-linejoin":"round"}));
+  MONTHS.forEach((m,i)=>{const x=pad.l+i*iw+iw/2,y=pad.t+ph-(m.r/maxR)*ph;
+    s.appendChild(el("circle",{cx:x,cy:y,r:3,fill:"#DB9A22"}));});
   txt(s,pad.l-8,pad.t-4,"Order",{"text-anchor":"end","font-size":10,"font-weight":600,fill:"#12211F"});
   txt(s,W-pad.r+8,pad.t-4,"Juta Rp",{"font-size":10,"font-weight":600,fill:"#DB9A22"});
   document.getElementById("monthChart").appendChild(s);
@@ -775,38 +875,24 @@ function txt(s,x,y,t,o={}){ const e=el("text",Object.assign({x,y,"font-family":"
 
 /* ---------- tables ---------- */
 (function(){
-  const totR=KEC_ROWS.reduce((a,b)=>a+b.r,0)+0;
-  const grand=34732000;
   const tb=document.getElementById("kecTable");
-  KEC_ROWS.forEach(d=>{
-    const pct=d.r/grand*100;
-    tb.insertAdjacentHTML("beforeend",
-     `<tr><td>${d.k}</td><td class="r">${d.o}</td><td class="r">${rp(d.r)}</td><td class="r">${rp(Math.round(d.r/d.o))}</td>
-      <td class="bar-cell" style="--w:${pct.toFixed(1)}%"><span>${pct.toFixed(1)}%</span></td></tr>`);
-  });
-  tb.insertAdjacentHTML("beforeend",
-   `<tr class="tot"><td>Total (termasuk 1 order tanpa alamat jelas)</td><td class="r">48</td><td class="r">${rp(grand)}</td><td class="r">${rp(755043)}</td><td>100%</td></tr>`);
-
-  const tb2=document.getElementById("svcTable");
-  SVC_ROWS.forEach(d=>{
-    const pct=d.r/grand*100;
-    tb2.insertAdjacentHTML("beforeend",
-     `<tr><td>${d.s}</td><td class="r">${d.o}</td><td class="r">${rp(d.r)}</td><td class="r">${rp(Math.round(d.r/d.o))}</td>
-      <td class="bar-cell" style="--w:${pct.toFixed(1)}%"><span>${pct.toFixed(1)}%</span></td></tr>`);
-  });
+  KEC_ROWS.forEach(d=>{const p=d.r/GRAND*100;
+    tb.insertAdjacentHTML("beforeend",`<tr><td>${d.k}</td><td class="r">${d.o}</td><td class="r">${rp(d.r)}</td><td class="r">${rp(Math.round(d.r/d.o))}</td><td class="bar-cell" style="--w:${p.toFixed(1)}%"><span>${p.toFixed(1)}%</span></td></tr>`);});
+  tb.insertAdjacentHTML("beforeend",`<tr class="tot"><td>Total (termasuk 1 order tanpa alamat jelas)</td><td class="r">78</td><td class="r">${rp(GRAND)}</td><td class="r">${rp(779665)}</td><td>100%</td></tr>`);
+  const t2=document.getElementById("svcTable");
+  SVC_ROWS.forEach(d=>{const p=d.r/GRAND*100;
+    t2.insertAdjacentHTML("beforeend",`<tr><td>${d.s}</td><td class="r">${d.o}</td><td class="r">${rp(d.r)}</td><td class="r">${rp(Math.round(d.r/d.o))}</td><td class="bar-cell" style="--w:${p.toFixed(1)}%"><span>${p.toFixed(1)}%</span></td></tr>`);});
 })();
 
 /* ---------- band chart ---------- */
 (function(){
-  const W=960,H=250,pad={l:120,r:80,t:14,b:30};
-  const s=svg(W,H); const n=BANDS.length, ih=(H-pad.t-pad.b)/n, bh=ih*0.5;
-  const maxR=13642000, pw=W-pad.l-pad.r;
+  const W=960,H=250,pad={l:130,r:96,t:14,b:24},s=svg(W,H);
+  const n=BANDS.length,ih=(H-pad.t-pad.b)/n,bh=ih*0.5,maxR=27985000,pw=W-pad.l-pad.r;
   BANDS.forEach((b,i)=>{
-    const y=pad.t+i*ih+(ih-bh)/2, w=b.r/maxR*pw;
-    s.appendChild(el("rect",{x:pad.l,y,width:Math.max(w,2),height:bh,rx:2,fill:"#0E6B5C",opacity:0.85}));
+    const y=pad.t+i*ih+(ih-bh)/2,w=b.r/maxR*pw;
+    s.appendChild(el("rect",{x:pad.l,y,width:Math.max(w,2),height:bh,rx:2,fill:"#0E6B5C",opacity:.85}));
     txt(s,pad.l-10,y+bh/2+4,b.l,{"text-anchor":"end","font-size":11,fill:"#12211F"});
-    txt(s,pad.l+Math.max(w,2)+8,y+bh/2+4,`${jt(b.r)} jt · ${b.o} order`,{"font-size":10.5});
-  });
+    txt(s,pad.l+Math.max(w,2)+8,y+bh/2+4,`${jt(b.r)} jt · ${b.o} order`,{"font-size":10.5});});
   s.appendChild(el("line",{x1:pad.l,y1:pad.t,x2:pad.l,y2:H-pad.b+4,stroke:"#D6DED7"}));
   document.getElementById("bandChart").appendChild(s);
 })();
@@ -814,51 +900,42 @@ function txt(s,x,y,t,o={}){ const e=el("text",Object.assign({x,y,"font-family":"
 /* ---------- BEP chart ---------- */
 (function(){
   const rows=[
-    {l:"Sekarang (dari Denpasar)",v:5.8,c:"#9AA8A2",note:"Rp 3,2 jt/bln"},
-    {l:"Tahap 0 — pos rintisan",v:18,c:"#0E6B5C",note:"biaya tetap Rp 8,2 jt/bln"},
-    {l:"Tahap 1 — pos satelit",v:40,c:"#DB9A22",note:"biaya tetap Rp 18,6 jt/bln"},
-    {l:"Tahap 2 — cabang penuh",v:73,c:"#A33B2A",note:"biaya tetap Rp 33,8 jt/bln"}
-  ];
-  const W=960,H=210,pad={l:180,r:130,t:14,b:26};
-  const s=svg(W,H); const ih=(H-pad.t-pad.b)/rows.length, bh=ih*0.48, pw=W-pad.l-pad.r, max=80;
+    {l:"Sekarang (Jun–Agu, dari Denpasar)",v:10,c:"#9AA8A2",note:"Rp 8,17 jt/bln"},
+    {l:"Tahap 0 — pos rintisan",v:14,c:"#0E6B5C",note:"biaya tetap Rp 8,2 jt/bln"},
+    {l:"Tahap 1 — pos satelit",v:31,c:"#DB9A22",note:"biaya tetap Rp 18,6 jt/bln"},
+    {l:"Tahap 2 — cabang penuh",v:57,c:"#A33B2A",note:"biaya tetap Rp 33,8 jt/bln"}];
+  const W=960,H=210,pad={l:200,r:150,t:14,b:26},s=svg(W,H);
+  const ih=(H-pad.t-pad.b)/rows.length,bh=ih*0.48,pw=W-pad.l-pad.r,max=64;
   rows.forEach((r,i)=>{
-    const y=pad.t+i*ih+(ih-bh)/2, w=r.v/max*pw;
+    const y=pad.t+i*ih+(ih-bh)/2,w=r.v/max*pw;
     s.appendChild(el("rect",{x:pad.l,y,width:Math.max(w,3),height:bh,rx:2,fill:r.c}));
     txt(s,pad.l-10,y+bh/2+4,r.l,{"text-anchor":"end","font-size":11,fill:"#12211F","font-weight":500});
-    txt(s,pad.l+Math.max(w,3)+8,y+bh/2+4,`${r.v} order · ${r.note}`,{"font-size":10.5});
-  });
+    txt(s,pad.l+Math.max(w,3)+8,y+bh/2+4,`${r.v} order · ${r.note}`,{"font-size":10.5});});
   s.appendChild(el("line",{x1:pad.l,y1:pad.t,x2:pad.l,y2:H-pad.b,stroke:"#D6DED7"}));
   document.getElementById("bepChart").appendChild(s);
 })();
 
 /* ---------- cash chart ---------- */
 (function(){
-  const K=[-32.6,-36.4,-39.1,-42.3,-46.1,-48.7,-49.0,-48.8,-49.2,-47.9,-45.5,-43.4,-42.1,-39.2,-34.5,-31.5,-30.3,-26.7,-19.2,-10.9,-4.2,5.5,16.7,27.0,35.3,45.9,58.9,68.7,75.2,85.1,100.6,68.3,71.4,78.4,87.2,94.3];
-  const M=[-32.6,-35.9,-37.7,-39.6,-42.2,-42.9,-40.3,-36.7,-33.7,-27.9,-20.4,-13.2,-7.0,1.9,13.9,23.4,30.1,40.8,58.1,28.4,34.3,45.2,58.8,71.0,80.4,94.0,112.3,125.5,133.1,147.0,171.6,107.5,113.9,127.8,145.6,160.5];
-  const A=[-32.6,-35.4,-36.0,-36.5,-37.6,-35.9,-29.8,-22.1,-15.0,-4.0,9.6,22.9,35.0,2.5,12.2,18.6,21.0,29.1,46.5,65.8,81.9,105.1,41.8,51.6,57.3,69.2,87.6,98.8,102.0,114.4,141.8,171.4,194.7,228.8,268.2,303.7];
-  const W=960,H=320,pad={l:52,r:14,t:16,b:40};
-  const s=svg(W,H); const n=36, pw=W-pad.l-pad.r, ph=H-pad.t-pad.b;
-  const lo=-130, hi=320;
+  const K=[-29.4,-29.3,-27.8,-27.3,-28.1,-26.9,-22.4,-17.1,-12.2,-7.4,-0.5,7.1,13.3,21.8,32.9,41.3,46.9,55.9,70.7,86.3,52.3,56.1,62.9,70.6,75.5,83.6,95.1,102.1,104.2,111.2,126.1,141.9,155.5,168.3,185.1,202.7];
+  const M=[-29.4,-28.8,-26.0,-23.9,-23.1,-19.5,-11.2,-1.5,7.9,17.6,30.5,44.6,57.1,24.8,34.4,40.4,42.3,49.6,65.6,83.2,99.2,114.8,135.5,157.7,175.6,108.6,122.2,128.9,128.1,135.1,155.1,176.7,194.9,212.1,235.9,261.2];
+  const A=[-29.4,-28.1,-24.0,-20.2,-17.6,-11.3,1.1,15.6,-18.4,-13.6,-4.6,6.4,15.3,29.1,48.4,62.9,72.0,88.4,116.8,57.2,70.4,83.4,103.2,125.3,141.8,166.0,198.3,221.3,233.9,257.9,300.5,345.7,386.4,425.8,474.9,526.5];
+  const W=960,H=320,pad={l:52,r:14,t:16,b:40},s=svg(W,H);
+  const n=36,pw=W-pad.l-pad.r,ph=H-pad.t-pad.b,lo=-60,hi=540;
   const Y=v=>pad.t+ph-((v-lo)/(hi-lo))*ph;
-  [-100,0,100,200,300].forEach(v=>{
-    const y=Y(v);
+  [0,100,200,300,400,500].forEach(v=>{const y=Y(v);
     s.appendChild(el("line",{x1:pad.l,y1:y,x2:W-pad.r,y2:y,stroke:v===0?"#12211F":"#EDF1EC","stroke-width":v===0?1.4:1}));
-    txt(s,pad.l-8,y+4,v===0?"0":String(v),{"text-anchor":"end","font-size":10});
-  });
+    txt(s,pad.l-8,y+4,String(v),{"text-anchor":"end","font-size":10});});
   txt(s,pad.l-8,pad.t-3,"Juta Rp",{"text-anchor":"end","font-size":10,"font-weight":600,fill:"#12211F"});
   const series=[["Konservatif",K,"#4E8FA6"],["Moderat",M,"#0E6B5C"],["Agresif",A,"#DB9A22"]];
-  series.forEach(([nm,arr,c])=>{
-    let d="";
-    arr.forEach((v,i)=>{ const x=pad.l+(i/(n-1))*pw; d+=(i?"L":"M")+x.toFixed(1)+" "+Y(v).toFixed(1); });
-    s.appendChild(el("path",{d,fill:"none",stroke:c,"stroke-width":2.2,"stroke-linejoin":"round","stroke-linecap":"round"}));
-  });
-  [1,6,12,18,24,30,36].forEach(b=>{
-    const x=pad.l+((b-1)/(n-1))*pw;
-    txt(s,x,H-pad.b+20,"bln "+b,{"text-anchor":"middle","font-size":10});
-  });
+  series.forEach(([nm,arr,c])=>{let d="";
+    arr.forEach((v,i)=>{const x=pad.l+(i/(n-1))*pw;d+=(i?"L":"M")+x.toFixed(1)+" "+Y(v).toFixed(1);});
+    s.appendChild(el("path",{d,fill:"none",stroke:c,"stroke-width":2.2,"stroke-linejoin":"round","stroke-linecap":"round"}));});
+  [1,6,12,18,24,30,36].forEach(b=>{const x=pad.l+((b-1)/(n-1))*pw;
+    txt(s,x,H-pad.b+20,"bln "+b,{"text-anchor":"middle","font-size":10});});
   document.getElementById("cashChart").appendChild(s);
   const lg=document.getElementById("cashLegend");
-  series.forEach(([nm,,c])=>{ const sp=document.createElement("span"); sp.innerHTML=`<i style="background:${c}"></i>${nm}`; lg.appendChild(sp); });
+  series.forEach(([nm,,c])=>{const sp=document.createElement("span");sp.innerHTML=`<i style="background:${c}"></i>${nm}`;lg.appendChild(sp);});
 })();
 </script>
 </body>
