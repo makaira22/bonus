@@ -412,7 +412,8 @@
 '\n' +
 '// Jalankan fungsi ini SEKALI dari editor supaya izin Drive diminta.\n' +
 'function beriIzin() {\n' +
-'  DriveApp.getRootFolder();\n' +
+'  const uji = DriveApp.createFile("uji-izin.txt", "ok");\n' +
+'  uji.setTrashed(true);\n' +
 '  SpreadsheetApp.getActiveSpreadsheet().getName();\n' +
 '}\n' +
 '\n' +
@@ -461,16 +462,24 @@
 '  const potong = String(dataUrl).split(",");\n' +
 '  if (potong.length < 2) return { url: "", pesan: "Bukti kosong saat dikirim" };\n' +
 '\n' +
-'  let file;\n' +
+'  let blob;\n' +
 '  try {\n' +
 '    const tipe = (potong[0].match(/:(.*?);/) || [])[1] || "image/jpeg";\n' +
-'    const blob = Utilities.newBlob(Utilities.base64Decode(potong[1]), tipe,\n' +
-'                                   nama || ("bukti-" + Date.now() + ".jpg"));\n' +
-'    const cari = DriveApp.getFoldersByName(NAMA_FOLDER);\n' +
-'    const folder = cari.hasNext() ? cari.next() : DriveApp.createFolder(NAMA_FOLDER);\n' +
-'    file = folder.createFile(blob);\n' +
+'    blob = Utilities.newBlob(Utilities.base64Decode(potong[1]), tipe,\n' +
+'                             nama || ("bukti-" + Date.now() + ".jpg"));\n' +
 '  } catch (err) {\n' +
-'    return { url: "", pesan: "Gagal simpan ke Drive: " + err };\n' +
+'    return { url: "", pesan: "Bukti rusak: " + err };\n' +
+'  }\n' +
+'\n' +
+'  let file;\n' +
+'  try {\n' +
+'    file = ambilFolder().createFile(blob);\n' +
+'  } catch (err) {\n' +
+'    try {\n' +
+'      file = DriveApp.createFile(blob); // cadangan: taruh di Drive utama\n' +
+'    } catch (err2) {\n' +
+'      return { url: "", pesan: "Gagal simpan ke Drive: " + err2 };\n' +
+'    }\n' +
 '  }\n' +
 '\n' +
 '  try {\n' +
@@ -479,6 +488,19 @@
 '    // file tetap ada, hanya belum bisa dibuka orang lain\n' +
 '  }\n' +
 '  return { url: file.getUrl(), pesan: "" };\n' +
+'}\n' +
+'\n' +
+'// Folder dibuat sekali lalu ID-nya diingat. Mencari folder lewat nama\n' +
+'// butuh izin baca seluruh Drive, dan itu yang dulu bikin error.\n' +
+'function ambilFolder() {\n' +
+'  const props = PropertiesService.getScriptProperties();\n' +
+'  const id = props.getProperty("ID_FOLDER");\n' +
+'  if (id) {\n' +
+'    try { return DriveApp.getFolderById(id); } catch (err) {}\n' +
+'  }\n' +
+'  const folder = DriveApp.createFolder(NAMA_FOLDER);\n' +
+'  props.setProperty("ID_FOLDER", folder.getId());\n' +
+'  return folder;\n' +
 '}\n' +
 '\n' +
 'function doGet() {\n' +
