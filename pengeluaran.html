@@ -140,6 +140,8 @@
   .row-actions button{padding:4px 7px;font-size:13px}
   .bukti{width:34px;height:34px;border-radius:6px;object-fit:cover;border:1px solid var(--line);cursor:zoom-in;display:block}
   .bukti-none{color:var(--line);font-size:14px}
+  .bukti-tautan{color:var(--focus);font-size:13px;font-weight:500;text-decoration:none}
+  .bukti-tautan:hover{text-decoration:underline}
   tfoot td{background:#F7F9FB;border-top:1px solid var(--line);border-bottom:none;font-weight:700;font-size:14.5px}
   tfoot .lbl{font-weight:600;color:var(--muted)}
   .empty{padding:44px 22px;text-align:center;color:var(--muted)}
@@ -200,8 +202,17 @@
     tbody td{border:none;padding:3px 0;display:flex;justify-content:space-between;gap:16px;align-items:center}
     tbody td::before{content:attr(data-label);color:var(--muted);font-size:13px}
     tbody td.ta-r{text-align:right}
-    .row-actions{position:absolute;top:8px;right:8px;width:auto;padding:0}
+    .row-actions{
+      position:static;width:auto;padding:9px 0 0;margin-top:7px;
+      display:flex;justify-content:flex-end;gap:6px;
+      border-top:1px solid var(--line-soft);
+    }
     .row-actions::before{content:none}
+    .row-actions button{
+      border:1px solid var(--line);border-radius:7px;color:var(--ink);
+      padding:6px 14px;font-size:13px;
+    }
+    .row-actions button:hover{text-decoration:none;background:var(--line-soft)}
     tfoot,tfoot tr,tfoot td{display:block}
     tfoot td{display:flex;justify-content:space-between}
     tfoot td:empty{display:none}
@@ -346,10 +357,11 @@
     <ol>
       <li>Buka spreadsheet tujuan, lalu pilih menu <code>Ekstensi › Apps Script</code>.</li>
       <li>Hapus isi editor, tempel kode di bawah ini, lalu simpan.</li>
+      <li>Pilih fungsi <code>beriIzin</code> di dropdown atas, klik <code>Run</code>, dan setujui izin Google Drive. Langkah ini yang menentukan kolom Bukti terisi atau tidak.</li>
       <li>Klik <code>Deploy › New deployment › Web app</code>. Isi <em>Execute as</em> dengan akunmu dan <em>Who has access</em> dengan <code>Anyone</code>.</li>
-      <li>Setujui izin akses, lalu salin URL yang berakhiran <code>/exec</code>.</li>
-      <li>Tempel URL itu di kolom bawah dan klik Uji koneksi.</li>
+      <li>Salin URL yang berakhiran <code>/exec</code>, tempel di kolom bawah, lalu klik Uji koneksi.</li>
     </ol>
+    <p>Sudah pakai versi kode sebelumnya? Ganti kodenya, jalankan <code>beriIzin</code>, lalu terbitkan ulang lewat <code>Deploy › Manage deployments</code> dengan <em>Version: New version</em>.</p>
     <div class="kode">
       <textarea id="kodeAS" readonly spellcheck="false"></textarea>
       <button type="button" class="btn-ghost salin" id="salinKode">Salin kode</button>
@@ -398,6 +410,12 @@
 'const NAMA_SHEET = "Pengeluaran";\n' +
 'const NAMA_FOLDER = "Bukti Pengeluaran";\n' +
 '\n' +
+'// Jalankan fungsi ini SEKALI dari editor supaya izin Drive diminta.\n' +
+'function beriIzin() {\n' +
+'  DriveApp.getRootFolder();\n' +
+'  SpreadsheetApp.getActiveSpreadsheet().getName();\n' +
+'}\n' +
+'\n' +
 'function doPost(e) {\n' +
 '  const ss = SpreadsheetApp.getActiveSpreadsheet();\n' +
 '  let sheet = ss.getSheetByName(NAMA_SHEET) || ss.insertSheet(NAMA_SHEET);\n' +
@@ -413,17 +431,25 @@
 '\n' +
 '  const isi = JSON.parse(e.postData.contents);\n' +
 '  const baris = isi.rows || [isi];\n' +
-'  const urlBukti = isi.bukti ? simpanBukti(isi.bukti, isi.namaBukti) : "";\n' +
+'  const hasil = isi.bukti ? simpanBukti(isi.bukti, isi.namaBukti)\n' +
+'                          : { url: "", pesan: "" };\n' +
 '\n' +
 '  baris.forEach(function (r) {\n' +
 '    const qty = Number(r.qty) || 0;\n' +
 '    const nominal = Number(r.nominal) || 0;\n' +
 '    sheet.appendRow([r.tanggal, r.jenis, r.item, qty, nominal, qty * nominal, "", new Date()]);\n' +
-'    if (urlBukti) sheet.getRange(sheet.getLastRow(), 7).setFormula(tautan(urlBukti));\n' +
+'    const sel = sheet.getRange(sheet.getLastRow(), 7);\n' +
+'    if (hasil.url) {\n' +
+'      try { sel.setFormula(tautan(hasil.url)); } catch (err) { sel.setValue(hasil.url); }\n' +
+'    } else if (hasil.pesan) {\n' +
+'      sel.setValue(hasil.pesan);\n' +
+'    }\n' +
 '  });\n' +
 '\n' +
 '  return ContentService\n' +
-'    .createTextOutput(JSON.stringify({ ok: true, ditambahkan: baris.length, urlBukti: urlBukti }))\n' +
+'    .createTextOutput(JSON.stringify({\n' +
+'      ok: true, ditambahkan: baris.length, urlBukti: hasil.url, pesanBukti: hasil.pesan\n' +
+'    }))\n' +
 '    .setMimeType(ContentService.MimeType.JSON);\n' +
 '}\n' +
 '\n' +
@@ -432,21 +458,27 @@
 '}\n' +
 '\n' +
 'function simpanBukti(dataUrl, nama) {\n' +
+'  const potong = String(dataUrl).split(",");\n' +
+'  if (potong.length < 2) return { url: "", pesan: "Bukti kosong saat dikirim" };\n' +
+'\n' +
+'  let file;\n' +
 '  try {\n' +
-'    const potong = String(dataUrl).split(",");\n' +
 '    const tipe = (potong[0].match(/:(.*?);/) || [])[1] || "image/jpeg";\n' +
 '    const blob = Utilities.newBlob(Utilities.base64Decode(potong[1]), tipe,\n' +
 '                                   nama || ("bukti-" + Date.now() + ".jpg"));\n' +
 '    const cari = DriveApp.getFoldersByName(NAMA_FOLDER);\n' +
 '    const folder = cari.hasNext() ? cari.next() : DriveApp.createFolder(NAMA_FOLDER);\n' +
-'    const file = folder.createFile(blob);\n' +
-'    try {\n' +
-'      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);\n' +
-'    } catch (err) {}\n' +
-'    return file.getUrl();\n' +
+'    file = folder.createFile(blob);\n' +
 '  } catch (err) {\n' +
-'    return "";\n' +
+'    return { url: "", pesan: "Gagal simpan ke Drive: " + err };\n' +
 '  }\n' +
+'\n' +
+'  try {\n' +
+'    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);\n' +
+'  } catch (err) {\n' +
+'    // file tetap ada, hanya belum bisa dibuka orang lain\n' +
+'  }\n' +
+'  return { url: file.getUrl(), pesan: "" };\n' +
 '}\n' +
 '\n' +
 'function doGet() {\n' +
@@ -615,8 +647,15 @@
 
     // Lampiran disiapkan lebih dulu supaya bukti tetap tersimpan
     // walau pembacaan otomatisnya gagal dan barisnya diketik manual.
-    buatThumbnail(daftar[0]).then(function(t){
-      lampiran = {thumb:t, nama:daftar[0].name || "bukti.jpg"};
+    Promise.all([buatThumbnail(daftar[0]), keBase64(daftar[0])]).then(function(a){
+      var thumb = a[0];
+      var mentah = "data:" + (daftar[0].type || "application/octet-stream") + ";base64," + a[1];
+      lampiran = {
+        thumb: thumb,
+        // gambar dikirim versi kecilnya, PDF dikirim apa adanya
+        kirim: thumb || (a[1].length < 4400000 ? mentah : ""),
+        nama: daftar[0].name || "bukti.jpg"
+      };
       return daftar.reduce(function(rantai, file){
         return rantai.then(function(){
           return bacaBukti(file).then(function(h){
@@ -808,7 +847,7 @@
   function kirimKeSheet(entri, lamp){
     if (!urlSheet) return;
     var muatan = JSON.stringify({
-      bukti: lamp && lamp.thumb ? lamp.thumb : "",
+      bukti: lamp && lamp.kirim ? lamp.kirim : "",
       namaBukti: lamp ? lamp.nama : "",
       rows: entri.map(function(r){
         return {tanggal:r.tanggal, jenis:KATEGORI[r.jenis].nama, item:r.item, qty:r.qty, nominal:r.nominal};
@@ -824,8 +863,10 @@
         if (j && j.urlBukti){
           entri.forEach(function(e){ e.buktiUrl = j.urlBukti; });
           simpanData();
+          render();
         }
-        toast(entri.length + " baris masuk ke spreadsheet");
+        if (j && j.pesanBukti) toast(j.pesanBukti, true);
+        else toast(entri.length + " baris masuk ke spreadsheet");
       })
       .catch(function(){
         return fetch(urlSheet, {method:"POST", mode:"no-cors",
@@ -866,7 +907,10 @@
         '<td data-label="Qty" class="ta-r num">' + angka(r.qty) + '</td>' +
         '<td data-label="Nominal" class="ta-r num">' + rupiah(r.nominal) + '</td>' +
         '<td data-label="Jumlah" class="ta-r num jumlah">' + rupiah(r.qty * r.nominal) + '</td>' +
-        '<td data-label="Bukti">' + (r.buktiId ? '<img class="bukti" alt="Bukti transaksi" data-bukti="' + r.buktiId + '">' : '<span class="bukti-none">&ndash;</span>') + '</td>' +
+        '<td data-label="Bukti">' + (
+          r.buktiId ? '<img class="bukti" alt="Bukti transaksi" data-bukti="' + r.buktiId + '">'
+          : r.buktiUrl ? '<a class="bukti-tautan" href="' + esc(r.buktiUrl) + '" target="_blank" rel="noopener">Buka</a>'
+          : '<span class="bukti-none">&ndash;</span>') + '</td>' +
         '<td class="row-actions">' +
           '<button type="button" class="btn-quiet" data-ubah="' + r.id + '">Ubah</button>' +
           '<button type="button" class="btn-quiet" data-hapus="' + r.id + '">Hapus</button>' +
