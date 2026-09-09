@@ -102,6 +102,12 @@
   .rv-total strong{color:var(--ink);font-size:16px;font-weight:700}
   .rv-thumb{width:44px;height:44px;border-radius:6px;object-fit:cover;border:1px solid var(--line)}
   .rv-top{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px}
+  .review.gagal{border-color:#E6C6B6;background:#FCF6F3}
+  .review.gagal .rv-foot{border-top-color:#EBD6CB}
+  .review.gagal .sub{margin-bottom:10px}
+  .review details{margin-bottom:12px}
+  .review summary{font-size:13.5px;cursor:pointer;color:var(--focus);font-weight:500;margin-bottom:8px}
+  .review details input{background:#fff}
 
   /* ---------- Toolbar ---------- */
   .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:22px 0 12px}
@@ -368,8 +374,14 @@
   var data = [], buktiCache = {}, urlSheet = "";
   var filter = {kategori:"all", bulan:"", cari:""};
   var sedangEdit = null, hasilScan = null;
+  var kunciAPI = "", berkasTerakhir = null;
 
   var $ = function(id){ return document.getElementById(id); };
+  function esc(s){
+    return String(s).replace(/[&<>"]/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];
+    });
+  }
 
   var KODE_APPS_SCRIPT =
 'const NAMA_SHEET = "Pengeluaran";\n' +
@@ -448,6 +460,49 @@
     });
   }
 
+  function muatGambar(file){
+    return new Promise(function(res, rej){
+      var url = URL.createObjectURL(file), img = new Image();
+      img.onload = function(){ URL.revokeObjectURL(url); res(img); };
+      img.onerror = function(){
+        URL.revokeObjectURL(url);
+        rej(new Error("Format gambar ini tidak bisa dibuka browser (HEIC dari iPhone sering begini). Ubah dulu ke JPG atau PNG."));
+      };
+      img.src = url;
+    });
+  }
+
+  function kecilkan(img, maks, mutu){
+    var skala = Math.min(1, maks / Math.max(img.width, img.height));
+    var c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(img.width * skala));
+    c.height = Math.max(1, Math.round(img.height * skala));
+    var ctx = c.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    return c.toDataURL("image/jpeg", mutu).split(",")[1];
+  }
+
+  // Semua gambar dikecilkan dan dijadikan JPEG dulu: foto HP mentah sering
+  // melebihi batas ukuran dan formatnya belum tentu didukung.
+  function blokUntuk(file){
+    var BATAS = 4400000;
+    if (file.type === "application/pdf"){
+      return keBase64(file).then(function(b64){
+        if (b64.length > BATAS) throw new Error("PDF terlalu besar. Maksimal sekitar 3 MB.");
+        return {type:"document", source:{type:"base64", media_type:"application/pdf", data:b64}};
+      });
+    }
+    return muatGambar(file).then(function(img){
+      var b64 = kecilkan(img, 1600, 0.82);
+      if (b64.length > BATAS) b64 = kecilkan(img, 1200, 0.7);
+      if (b64.length > BATAS) b64 = kecilkan(img, 900, 0.6);
+      if (b64.length > BATAS) throw new Error("Gambar terlalu besar untuk diproses.");
+      return {type:"image", source:{type:"base64", media_type:"image/jpeg", data:b64}};
+    });
+  }
+
   function buatThumbnail(file){
     return new Promise(function(res){
       if (!/^image\//.test(file.type)) return res(null);
@@ -479,22 +534,32 @@
     '- Nama item disingkat rapi dalam bahasa Indonesia bila memungkinkan.';
 
   function bacaBukti(file){
-    return keBase64(file).then(function(b64){
-      var blok = /^image\//.test(file.type)
-        ? {type:"image", source:{type:"base64", media_type:file.type, data:b64}}
-        : {type:"document", source:{type:"base64", media_type:"application/pdf", data:b64}};
-
+    return blokUntuk(file).then(function(blok){
+      var kepala = {"Content-Type":"application/json"};
+      if (kunciAPI){
+        kepala["x-api-key"] = kunciAPI;
+        kepala["anthropic-version"] = "2023-06-01";
+        kepala["anthropic-dangerous-direct-browser-access"] = "true";
+      }
       return fetch("https://api.anthropic.com/v1/messages", {
         method:"POST",
-        headers:{"Content-Type":"application/json"},
+        headers:kepala,
         body: JSON.stringify({
           model:"claude-sonnet-4-6",
           max_tokens:1000,
           messages:[{role:"user", content:[blok, {type:"text", text:PERINTAH}]}]
         })
+      }).catch(function(){
+        throw new Error("Permintaan ke pembaca struk tidak sampai. Koneksi diblokir atau tidak ada internet.");
       });
     }).then(function(r){
-      if (!r.ok) throw new Error("Layanan pembaca struk menolak permintaan (" + r.status + ")");
+      if (!r.ok){
+        return r.text().then(function(t){
+          var pesan = "";
+          try { pesan = (JSON.parse(t).error || {}).message || ""; } catch(e){ pesan = t.slice(0,160); }
+          throw new Error("Ditolak dengan kode " + r.status + (pesan ? " — " + pesan : ""));
+        });
+      }
       return r.json();
     }).then(function(d){
       var teks = (d.content || []).map(function(b){ return b.text || ""; }).join("").trim();
@@ -510,12 +575,13 @@
       return /^image\//.test(f.type) || f.type === "application/pdf";
     });
     if (!daftar.length){ toast("Hanya gambar atau PDF yang bisa dibaca", true); return; }
+    berkasTerakhir = daftar;
 
     var drop = $("drop"), teksAsli = $("dropTxt").innerHTML;
     drop.classList.add("sibuk");
     $("dropTxt").innerHTML = '<b>Membaca ' + daftar.length + ' bukti transaksi…</b><span>Sebentar, isinya sedang diurai jadi baris pengeluaran.</span>';
 
-    var terkumpul = [], gagal = 0, thumb = null;
+    var terkumpul = [], gagal = 0, thumb = null, pesanGagal = "";
 
     daftar.reduce(function(rantai, file, i){
       return rantai.then(function(){
@@ -532,7 +598,11 @@
               pedagang: h.pedagang || ""
             });
           });
-        }).catch(function(e){ gagal++; console.error(e); });
+        }).catch(function(e){
+          gagal++;
+          pesanGagal = e && e.message ? e.message : String(e);
+          console.error("Gagal membaca bukti:", e);
+        });
       });
     }, Promise.resolve()).then(function(){
       drop.classList.remove("sibuk");
@@ -540,12 +610,43 @@
       $("berkas").value = "";
 
       if (!terkumpul.length){
-        toast(gagal ? "Bukti transaksi gagal dibaca. Coba foto yang lebih terang, atau isi manual." : "Tidak ada item yang terbaca", true);
+        panelGagal(pesanGagal || "Tidak ada item yang terbaca dari bukti ini.");
         return;
       }
       if (gagal) toast(gagal + " berkas gagal dibaca, sisanya berhasil", true);
       tampilkanReview(terkumpul, thumb);
     });
+  }
+
+  /* ---------- panel kegagalan ---------- */
+  function panelGagal(pesan){
+    $("reviewWrap").innerHTML =
+      '<div class="review gagal">' +
+        '<h3>Bukti transaksi belum terbaca</h3>' +
+        '<p class="sub">' + esc(pesan) + '</p>' +
+        '<details><summary>Kalau pesannya soal koneksi atau izin</summary>' +
+          '<p class="sub">Pembacaan struk berjalan lewat Claude dan hanya aktif saat halaman ini dibuka di dalam Claude. ' +
+          'Kalau berkasnya kamu buka dari komputer sendiri, isikan kunci API Anthropic milikmu di bawah. ' +
+          'Kunci hanya dipakai di browser ini selama halaman terbuka dan tidak ikut tersimpan ke mana pun.</p>' +
+          '<input type="password" id="kunciApi" placeholder="sk-ant-..." autocomplete="off" value="' + esc(kunciAPI) + '">' +
+        '</details>' +
+        '<div class="rv-foot">' +
+          '<span class="rv-total">Kamu tetap bisa mengisi barisnya manual di bawah.</span>' +
+          '<span class="spacer"></span>' +
+          '<button type="button" class="btn-quiet" id="gagalTutup">Tutup</button>' +
+          '<button type="button" class="btn-primary" id="gagalUlang">Coba lagi</button>' +
+        '</div>' +
+      '</div>';
+
+    $("gagalTutup").addEventListener("click", tutupReview);
+    $("gagalUlang").addEventListener("click", function(){
+      var k = $("kunciApi");
+      if (k) kunciAPI = k.value.trim();
+      if (!berkasTerakhir){ tutupReview(); return; }
+      tutupReview();
+      prosesBerkas(berkasTerakhir);
+    });
+    $("reviewWrap").scrollIntoView({block:"nearest", behavior:"smooth"});
   }
 
   /* ---------- panel review ---------- */
