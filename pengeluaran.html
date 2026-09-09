@@ -346,7 +346,7 @@
     </div>
   </div>
 
-  <p class="note">Data dan bukti tersimpan di perangkat ini. Klik Ubah pada baris untuk mengoreksi.</p>
+  <p class="note">Halaman ini sudah tersambung ke spreadsheet dan menariknya setiap kali dibuka. Data dan foto bukti juga tersimpan di perangkat ini.</p>
 </div>
 
 <!-- Dialog pengaturan spreadsheet -->
@@ -370,6 +370,7 @@
     <input type="url" id="urlSheet" placeholder="https://script.google.com/macros/s/.../exec">
     <div class="dlg-foot">
       <button type="button" class="btn-ghost" id="ujiSync">Uji koneksi</button>
+      <button type="button" class="btn-ghost" id="muatSync">Muat dari spreadsheet</button>
       <button type="button" class="btn-quiet" id="putusSync">Putuskan</button>
       <span class="spacer"></span>
       <button type="button" class="btn-primary" id="simpanSync">Simpan</button>
@@ -392,9 +393,13 @@
     kantor:{nama:"Kantor", warna:"var(--kantor)"},
     pribadi:{nama:"Pribadi", warna:"var(--pribadi)"}
   };
-  var K_DATA = "pengeluaran:data", K_SHEET = "pengeluaran:sheet";
+  var K_DATA = "pengeluaran:data", K_SHEET = "pengeluaran:sheet", K_ABAI = "pengeluaran:abaikan";
 
-  var data = [], buktiCache = {}, urlSheet = "";
+  // Spreadsheet bawaan. Halaman langsung tersambung tanpa perlu diisi ulang,
+  // dan bisa diganti kapan saja lewat tombol Spreadsheet di toolbar.
+  var URL_BAWAAN = "https://script.google.com/macros/s/AKfycbzsfAvK7nQxD6ZNpUHV_AxhD-sWCHLvctqxXbH3DIKIYxMl6J1Yys09panko4VPw0kzBQ/exec";
+
+  var data = [], buktiCache = {}, urlSheet = "", abaikan = [];
   var filter = {kategori:"all", bulan:"", cari:""};
   var sedangEdit = null, hasilScan = null;
   var kunciAPI = "", berkasTerakhir = null, lampiran = null;
@@ -410,11 +415,17 @@
 'const NAMA_SHEET = "Pengeluaran";\n' +
 'const NAMA_FOLDER = "Bukti Pengeluaran";\n' +
 '\n' +
-'// Jalankan fungsi ini SEKALI dari editor supaya izin Drive diminta.\n' +
+'// Jalankan fungsi ini SEKALI dari editor supaya izin diminta.\n' +
 'function beriIzin() {\n' +
-'  const uji = DriveApp.createFile("uji-izin.txt", "ok");\n' +
-'  uji.setTrashed(true);\n' +
 '  SpreadsheetApp.getActiveSpreadsheet().getName();\n' +
+'  try {\n' +
+'    const uji = DriveApp.createFile("uji-izin.txt", "ok");\n' +
+'    uji.setTrashed(true);\n' +
+'    Logger.log("Drive siap. Bukti akan disimpan sebagai tautan.");\n' +
+'  } catch (err) {\n' +
+'    Logger.log("Drive ditolak: " + err);\n' +
+'    Logger.log("Tidak apa-apa. Bukti akan ditempel langsung di sheet.");\n' +
+'  }\n' +
 '}\n' +
 '\n' +
 'function doPost(e) {\n' +
@@ -432,51 +443,82 @@
 '\n' +
 '  const isi = JSON.parse(e.postData.contents);\n' +
 '  const baris = isi.rows || [isi];\n' +
-'  const hasil = isi.bukti ? simpanBukti(isi.bukti, isi.namaBukti)\n' +
-'                          : { url: "", pesan: "" };\n' +
+'  const blob = isi.bukti ? siapkanBlob(isi.bukti, isi.namaBukti) : null;\n' +
+'  const hasil = blob ? simpanKeDrive(blob) : { url: "", pesan: "" };\n' +
 '\n' +
-'  baris.forEach(function (r) {\n' +
+'  let barisPertama = 0;\n' +
+'  baris.forEach(function (r, i) {\n' +
 '    const qty = Number(r.qty) || 0;\n' +
 '    const nominal = Number(r.nominal) || 0;\n' +
 '    sheet.appendRow([r.tanggal, r.jenis, r.item, qty, nominal, qty * nominal, "", new Date()]);\n' +
-'    const sel = sheet.getRange(sheet.getLastRow(), 7);\n' +
+'    const nomor = sheet.getLastRow();\n' +
+'    if (i === 0) barisPertama = nomor;\n' +
 '    if (hasil.url) {\n' +
+'      const sel = sheet.getRange(nomor, 7);\n' +
 '      try { sel.setFormula(tautan(hasil.url)); } catch (err) { sel.setValue(hasil.url); }\n' +
-'    } else if (hasil.pesan) {\n' +
-'      sel.setValue(hasil.pesan);\n' +
 '    }\n' +
 '  });\n' +
 '\n' +
+'  // Kalau Drive menolak, fotonya ditempel langsung ke sheet.\n' +
+'  // Cara ini cuma butuh izin spreadsheet yang sudah ada.\n' +
+'  let catatan = "";\n' +
+'  if (blob && !hasil.url) {\n' +
+'    catatan = tempelGambar(sheet, blob, barisPertama, baris.length);\n' +
+'  }\n' +
+'\n' +
 '  return ContentService\n' +
 '    .createTextOutput(JSON.stringify({\n' +
-'      ok: true, ditambahkan: baris.length, urlBukti: hasil.url, pesanBukti: hasil.pesan\n' +
+'      ok: true, ditambahkan: baris.length, urlBukti: hasil.url,\n' +
+'      pesanBukti: catatan ? "" : hasil.pesan, catatanBukti: catatan\n' +
 '    }))\n' +
 '    .setMimeType(ContentService.MimeType.JSON);\n' +
+'}\n' +
+'\n' +
+'function tempelGambar(sheet, blob, barisAwal, jumlah) {\n' +
+'  if (String(blob.getContentType()).indexOf("image/") !== 0) {\n' +
+'    sheet.getRange(barisAwal, 7).setValue("Bukti PDF ada di aplikasi");\n' +
+'    return "";\n' +
+'  }\n' +
+'  try {\n' +
+'    const gambar = sheet.insertImage(blob, 7, barisAwal);\n' +
+'    const rasio = gambar.getWidth() / gambar.getHeight();\n' +
+'    gambar.setHeight(110);\n' +
+'    gambar.setWidth(Math.max(30, Math.round(110 * rasio)));\n' +
+'    sheet.setRowHeight(barisAwal, 118);\n' +
+'    sheet.setColumnWidth(7, Math.max(96, Math.round(110 * rasio) + 16));\n' +
+'    for (let i = 1; i < jumlah; i++) {\n' +
+'      sheet.getRange(barisAwal + i, 7).setValue("Bukti sama dengan baris di atas");\n' +
+'    }\n' +
+'    return "Izin Drive ditolak, jadi foto ditempel langsung di sheet";\n' +
+'  } catch (err) {\n' +
+'    sheet.getRange(barisAwal, 7).setValue("Bukti gagal disimpan");\n' +
+'    return "";\n' +
+'  }\n' +
 '}\n' +
 '\n' +
 'function tautan(url) {\n' +
 '  return \'=HYPERLINK("\' + url + \'","Lihat bukti")\';\n' +
 '}\n' +
 '\n' +
-'function simpanBukti(dataUrl, nama) {\n' +
-'  const potong = String(dataUrl).split(",");\n' +
-'  if (potong.length < 2) return { url: "", pesan: "Bukti kosong saat dikirim" };\n' +
-'\n' +
-'  let blob;\n' +
+'function siapkanBlob(dataUrl, nama) {\n' +
 '  try {\n' +
+'    const potong = String(dataUrl).split(",");\n' +
+'    if (potong.length < 2) return null;\n' +
 '    const tipe = (potong[0].match(/:(.*?);/) || [])[1] || "image/jpeg";\n' +
-'    blob = Utilities.newBlob(Utilities.base64Decode(potong[1]), tipe,\n' +
+'    return Utilities.newBlob(Utilities.base64Decode(potong[1]), tipe,\n' +
 '                             nama || ("bukti-" + Date.now() + ".jpg"));\n' +
 '  } catch (err) {\n' +
-'    return { url: "", pesan: "Bukti rusak: " + err };\n' +
+'    return null;\n' +
 '  }\n' +
+'}\n' +
 '\n' +
+'function simpanKeDrive(blob) {\n' +
 '  let file;\n' +
 '  try {\n' +
 '    file = ambilFolder().createFile(blob);\n' +
 '  } catch (err) {\n' +
 '    try {\n' +
-'      file = DriveApp.createFile(blob); // cadangan: taruh di Drive utama\n' +
+'      file = DriveApp.createFile(blob);\n' +
 '    } catch (err2) {\n' +
 '      return { url: "", pesan: "Gagal simpan ke Drive: " + err2 };\n' +
 '    }\n' +
@@ -504,9 +546,42 @@
 '}\n' +
 '\n' +
 'function doGet() {\n' +
+'  const ss = SpreadsheetApp.getActiveSpreadsheet();\n' +
+'  const sheet = ss.getSheetByName(NAMA_SHEET);\n' +
+'  const keluar = { ok: true, rows: [] };\n' +
+'\n' +
+'  if (sheet && sheet.getLastRow() > 1) {\n' +
+'    const jumlah = sheet.getLastRow() - 1;\n' +
+'    const nilai = sheet.getRange(2, 1, jumlah, 8).getValues();\n' +
+'    const rumus = sheet.getRange(2, 7, jumlah, 1).getFormulas();\n' +
+'    const zona = ss.getSpreadsheetTimeZone();\n' +
+'    for (let i = 0; i < jumlah; i++) {\n' +
+'      const b = nilai[i];\n' +
+'      if (!b[2]) continue;\n' +
+'      keluar.rows.push({\n' +
+'        tanggal: teksTanggal(b[0], zona),\n' +
+'        jenis: String(b[1] || ""),\n' +
+'        item: String(b[2]),\n' +
+'        qty: Number(b[3]) || 0,\n' +
+'        nominal: Number(b[4]) || 0,\n' +
+'        bukti: urlDari(rumus[i][0])\n' +
+'      });\n' +
+'    }\n' +
+'  }\n' +
+'\n' +
 '  return ContentService\n' +
-'    .createTextOutput(JSON.stringify({ ok: true, pesan: "Endpoint aktif" }))\n' +
+'    .createTextOutput(JSON.stringify(keluar))\n' +
 '    .setMimeType(ContentService.MimeType.JSON);\n' +
+'}\n' +
+'\n' +
+'function teksTanggal(nilai, zona) {\n' +
+'  if (nilai instanceof Date) return Utilities.formatDate(nilai, zona, "yyyy-MM-dd");\n' +
+'  return String(nilai || "").slice(0, 10);\n' +
+'}\n' +
+'\n' +
+'function urlDari(rumus) {\n' +
+'  const cocok = String(rumus || "").match(/HYPERLINK\\("([^"]+)"/);\n' +
+'  return cocok ? cocok[1] : "";\n' +
 '}';
 
   /* ---------- format ---------- */
@@ -888,6 +963,7 @@
           render();
         }
         if (j && j.pesanBukti) toast(j.pesanBukti, true);
+        else if (j && j.catatanBukti) toast(j.catatanBukti);
         else toast(entri.length + " baris masuk ke spreadsheet");
       })
       .catch(function(){
@@ -895,6 +971,68 @@
           headers:{"Content-Type":"text/plain;charset=utf-8"}, body:muatan})
           .then(function(){ toast("Terkirim ke spreadsheet"); })
           .catch(function(){ toast("Gagal mengirim ke spreadsheet. Periksa URL Web App.", true); });
+      });
+  }
+
+  function tandaTangan(r){
+    return [r.tanggal, r.jenis, r.item, r.qty, r.nominal].join("|");
+  }
+
+  // Mengambil isi spreadsheet lalu menambahkan baris yang belum ada di sini.
+  // Pencocokan pakai jumlah, jadi dua pengeluaran identik di hari yang sama
+  // tetap dihitung dua-duanya.
+  function muatDariSheet(manual){
+    if (!urlSheet){ if (manual) toast("Belum ada URL spreadsheet", true); return; }
+
+    fetch(urlSheet, {method:"GET"})
+      .then(function(r){
+        if (!r.ok) throw new Error("status " + r.status);
+        return r.json();
+      })
+      .then(function(j){
+        if (!j || !Array.isArray(j.rows)) throw new Error("balasan tidak dikenali");
+
+        var namaKeKunci = {};
+        Object.keys(KATEGORI).forEach(function(k){
+          namaKeKunci[KATEGORI[k].nama.toLowerCase()] = k;
+        });
+
+        var sisa = {};
+        data.forEach(function(r){
+          var s = tandaTangan(r);
+          sisa[s] = (sisa[s] || 0) + 1;
+        });
+
+        var tambah = 0;
+        j.rows.forEach(function(r, i){
+          var entri = {
+            id: "s" + i + "-" + Math.random().toString(36).slice(2,6),
+            tanggal: r.tanggal,
+            jenis: namaKeKunci[String(r.jenis).toLowerCase()] || "pribadi",
+            item: String(r.item),
+            qty: Number(r.qty) || 0,
+            nominal: Number(r.nominal) || 0,
+            dibuat: i,
+            buktiId: null,
+            buktiUrl: r.bukti || ""
+          };
+          if (!entri.item || !entri.tanggal) return;
+          var s = tandaTangan(entri);
+          if (sisa[s]){ sisa[s]--; return; }
+          if (abaikan.indexOf(s) !== -1) return;
+          data.push(entri);
+          tambah++;
+        });
+
+        if (tambah){
+          simpanData();
+          render();
+          toast(tambah + " baris diambil dari spreadsheet");
+        } else if (manual) toast("Semua baris sudah sinkron");
+      })
+      .catch(function(e){
+        console.error("Gagal membaca spreadsheet:", e);
+        if (manual) toast("Gagal membaca spreadsheet. Pastikan deployment sudah versi terbaru.", true);
       });
   }
 
@@ -1140,6 +1278,12 @@
       var id = b.dataset.hapus;
       var korban = data.find(function(x){ return x.id === id; });
       var bid = korban ? korban.buktiId : null;
+      // ditandai supaya tidak ikut tertarik lagi saat baca spreadsheet
+      if (korban){
+        abaikan.push(tandaTangan(korban));
+        if (abaikan.length > 300) abaikan = abaikan.slice(-300);
+        taruh(K_ABAI, JSON.stringify(abaikan));
+      }
       data = data.filter(function(x){ return x.id !== id; });
       // bukti hanya dibuang kalau tidak ada baris lain dari laporan yang sama
       if (bid && !data.some(function(x){ return x.buktiId === bid; })){
@@ -1182,12 +1326,18 @@
     salin.then(function(){ toast("Kode disalin"); })
          .catch(function(){ try{ document.execCommand("copy"); toast("Kode disalin"); }catch(e){ toast("Salin manual dari kotak kode", true); } });
   });
+  $("muatSync").addEventListener("click", function(){
+    var u = $("urlSheet").value.trim();
+    if (u) urlSheet = u;
+    muatDariSheet(true);
+  });
   $("simpanSync").addEventListener("click", function(){
     urlSheet = $("urlSheet").value.trim();
     taruh(K_SHEET, urlSheet);
     perbaruiStatusSync();
     $("dlgSync").close();
     toast(urlSheet ? "Spreadsheet tersambung" : "Sambungan dilepas");
+    if (urlSheet) muatDariSheet(false);
   });
   $("putusSync").addEventListener("click", function(){
     urlSheet = ""; $("urlSheet").value = "";
@@ -1223,14 +1373,20 @@
   hitungPreview();
   perbaruiStatusSync();
   tampilDrop();
-  Promise.all([ambil(K_DATA), ambil(K_SHEET)]).then(function(h){
+  Promise.all([ambil(K_DATA), ambil(K_SHEET), ambil(K_ABAI)]).then(function(h){
     try{ data = h[0] ? JSON.parse(h[0]) : []; }catch(e){ data = []; }
     if (!Array.isArray(data)) data = [];
     // catatan lama menyimpan bukti dengan kunci id barisnya sendiri
     data.forEach(function(r){ if (r.bukti && !r.buktiId) r.buktiId = r.id; });
-    urlSheet = h[1] || "";
+
+    try{ abaikan = h[2] ? JSON.parse(h[2]) : []; }catch(e){ abaikan = []; }
+    if (!Array.isArray(abaikan)) abaikan = [];
+
+    // null berarti belum pernah diatur, string kosong berarti sengaja diputus
+    urlSheet = (h[1] === null || h[1] === undefined) ? URL_BAWAAN : h[1];
     perbaruiStatusSync();
     render();
+    muatDariSheet(false);
   });
 })();
 </script>
