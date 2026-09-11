@@ -1,1726 +1,266 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Laporan Pengeluaran</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<style>
-  :root{
-    --bg:#ECEFF3; --surface:#FFFFFF; --ink:#172231; --muted:#6B7A8C;
-    --line:#D7DEE6; --line-soft:#E8EDF2; --focus:#0E5C63;
-    --transport:#2563A8; --makan:#C2740E; --kantor:#5A4FA3; --pribadi:#157F6B;
-    --ok:#157F6B; --warn:#B4451F;
-    --radius:10px;
+const NAMA_SHEET = "Pengeluaran";
+const NAMA_FOLDER = "Bukti Pengeluaran";
+const KOLOM_BUKTI = 7;
+const KOLOM_WAKTU = 8;
+const KOLOM_ID = 9;
+const KOLOM_TRANSFER = 10;
+
+// Jalankan fungsi ini SEKALI dari editor supaya izin diminta.
+function beriIzin() {
+  SpreadsheetApp.getActiveSpreadsheet().getName();
+  try {
+    const uji = DriveApp.createFile("uji-izin.txt", "ok");
+    uji.setTrashed(true);
+    Logger.log("Drive siap. Bukti akan disimpan sebagai tautan.");
+  } catch (err) {
+    Logger.log("Drive ditolak: " + err);
+    Logger.log("Tidak apa-apa. Bukti akan ditempel langsung di sheet.");
   }
-  *{box-sizing:border-box}
-  html{-webkit-text-size-adjust:100%}
-  body{
-    margin:0;background:var(--bg);color:var(--ink);
-    font-family:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
-    font-size:15px;line-height:1.5;padding:28px 18px 64px;
-  }
-  .wrap{max-width:1060px;margin:0 auto}
-  .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+}
 
-  /* ---------- Ringkasan ---------- */
-  .summary{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:24px 24px 20px}
-  .summary-top{display:flex;flex-wrap:wrap;gap:18px 32px;align-items:flex-end;justify-content:space-between}
-  h1{margin:0 0 2px;font-size:15px;font-weight:600;letter-spacing:-0.01em}
-  .periode{color:var(--muted);font-size:13.5px;margin:0}
-  .total-block{text-align:right;flex:0 0 auto}
-  .total-label{color:var(--muted);font-size:13px;margin:0 0 2px}
-  .total{font-size:clamp(30px,6vw,42px);font-weight:800;letter-spacing:-0.03em;line-height:1;margin:0}
-  .count{color:var(--muted);font-size:13px;margin:6px 0 0}
-  .bar{display:flex;height:9px;margin:20px 0 14px;border-radius:99px;overflow:hidden;background:var(--line-soft)}
-  .bar span{display:block;transition:width .35s ease}
-  .legend{display:flex;flex-wrap:wrap;gap:6px 26px;margin:0;padding:0;list-style:none}
-  .legend li{display:flex;align-items:baseline;gap:8px;font-size:13.5px}
-  .dot{width:9px;height:9px;border-radius:3px;flex:0 0 auto;transform:translateY(-1px)}
-  .legend b{font-weight:600}
-  .legend .amt{margin-left:auto;color:var(--muted)}
+function doPost(e) {
+  const sheet = ambilSheet();
+  const isi = JSON.parse(e.postData.contents);
+  const aksi = isi.aksi || "tambah";
 
-  .reimburse{margin-top:18px;padding-top:16px;border-top:1px solid var(--line-soft)}
-  .rb-baris{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px;margin-bottom:9px}
-  .rb-label{font-size:13.5px;color:var(--muted)}
-  .rb-baris b{font-size:17px;font-weight:700;letter-spacing:-.01em}
-  .rb-sisa{margin-left:auto;font-size:13.5px;color:var(--muted)}
-  .rb-sisa b{font-size:14px;color:var(--ink)}
-  .rb-bar{height:7px;border-radius:99px;background:var(--line-soft);overflow:hidden}
-  .rb-bar span{display:block;height:100%;background:var(--ok);width:0;transition:width .35s ease}
+  if (aksi === "hapus") return balas(hapusBaris(sheet, isi.id));
+  if (aksi === "ubah") return balas(ubahBaris(sheet, isi.row));
+  return balas(tambahBaris(sheet, isi));
+}
 
-  .status{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;white-space:nowrap}
-  .status::before{content:"";width:7px;height:7px;border-radius:99px;background:currentColor}
-  .status.sudah{color:var(--ok)}
-  .status.sebagian{color:#B07908}
-  .status.belum{color:var(--muted);font-weight:500}
+function doGet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ambilSheet(); // sekalian memastikan semua kolom sudah ada
+  const keluar = { ok: true, rows: [] };
+  if (sheet.getLastRow() < 2) return balas(keluar);
 
-  /* ---------- Kartu input ---------- */
-  .entry{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px 20px;margin-top:16px}
-  .entry h2{font-size:14px;font-weight:600;margin:0 0 14px}
+  const jumlah = sheet.getLastRow() - 1;
+  const nilai = sheet.getRange(2, 1, jumlah, KOLOM_TRANSFER).getValues();
+  const rumus = sheet.getRange(2, KOLOM_BUKTI, jumlah, 1).getFormulas();
+  const zona = ss.getSpreadsheetTimeZone();
+  const daftarId = [];
+  let adaBaru = false;
 
-  .drop{
-    border:1.5px dashed var(--line);border-radius:9px;background:#FAFCFD;
-    padding:18px 16px;display:flex;align-items:center;gap:14px;
-    cursor:pointer;margin-bottom:18px;transition:border-color .15s,background .15s;
-  }
-  .drop:hover,.drop.over{border-color:var(--focus);background:#F2F8F8}
-  .drop:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
-  .drop svg{flex:0 0 auto;color:var(--focus)}
-  .drop-txt{min-width:0}
-  .drop-txt b{display:block;font-size:14px;font-weight:600}
-  .drop-txt span{color:var(--muted);font-size:13px}
-  .drop.sibuk{cursor:progress}
-  .drop.terisi{border-style:solid;border-color:#BFD9D6;background:#F3F9F8}
-  .drop-thumb{width:46px;height:46px;object-fit:cover;border-radius:7px;border:1px solid var(--line);flex:0 0 auto}
-  .drop-txt{flex:1}
-  .drop-hapus{flex:0 0 auto;white-space:nowrap}
-
-  .fields{display:grid;gap:12px 14px;grid-template-columns:150px 150px minmax(180px,1fr) 84px 150px}
-  label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:5px}
-  input,select,textarea{
-    width:100%;font:inherit;color:var(--ink);background:#fff;
-    border:1px solid var(--line);border-radius:7px;padding:9px 11px;
-  }
-  input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
-  select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8'><path d='M1 1l5 5 5-5' fill='none' stroke='%236B7A8C' stroke-width='1.6'/></svg>");background-repeat:no-repeat;background-position:right 11px center;padding-right:30px}
-  .rp{position:relative}
-  .rp input{padding-left:34px}
-  .rp::before{content:"Rp";position:absolute;left:11px;top:33px;color:var(--muted);font-size:13.5px}
-
-  .entry-foot{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-top:16px;padding-top:15px;border-top:1px solid var(--line-soft)}
-  .preview{font-size:13.5px;color:var(--muted);margin:0}
-  .preview strong{color:var(--ink);font-weight:700;font-size:16px}
-  .entry-foot .spacer{flex:1}
-
-  button{font:inherit;font-weight:600;cursor:pointer;border-radius:7px;border:1px solid transparent;padding:9px 16px}
-  .btn-primary{background:var(--ink);color:#fff}
-  .btn-primary:hover{background:#0C1723}
-  .btn-primary[disabled]{opacity:.5;cursor:not-allowed}
-  .btn-ghost{background:transparent;color:var(--ink);border-color:var(--line)}
-  .btn-ghost:hover{background:var(--line-soft)}
-  .btn-quiet{background:none;border:none;color:var(--muted);padding:6px 8px;font-weight:500}
-  .btn-quiet:hover{color:var(--ink);text-decoration:underline}
-  .btn-bahaya{background:var(--warn);color:#fff}
-  .btn-bahaya:hover{background:#96370F}
-
-  .ringkas{
-    background:#F7F9FB;border:1px solid var(--line-soft);border-radius:8px;
-    padding:12px 14px;margin-bottom:16px;font-size:14px;
-  }
-  .ringkas b{font-weight:700}
-  .ringkas .kecil{display:block;color:var(--muted);font-size:13px;margin-top:2px}
-  .diff{list-style:none;margin:0 0 16px;padding:0;font-size:14px}
-  .diff li{
-    display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;
-    padding:8px 0;border-bottom:1px solid var(--line-soft);
-  }
-  .diff li:last-child{border-bottom:none}
-  .diff .nama{color:var(--muted);font-size:13px;flex:0 0 92px}
-  .diff .dari{color:var(--muted);text-decoration:line-through}
-  .diff .jadi{font-weight:600}
-
-  /* ---------- Panel hasil scan ---------- */
-  .review{border:1px solid #BFD9D6;background:#F3F9F8;border-radius:9px;padding:16px;margin-bottom:18px}
-  .review h3{margin:0 0 3px;font-size:14px;font-weight:600}
-  .review .sub{margin:0 0 12px;font-size:13px;color:var(--muted)}
-  .rv-row{display:grid;grid-template-columns:minmax(140px,1fr) 70px 130px 30px;gap:8px;margin-bottom:8px;align-items:center}
-  .rv-row input{padding:7px 9px;font-size:14px;background:#fff}
-  .rv-head{display:grid;grid-template-columns:minmax(140px,1fr) 70px 130px 30px;gap:8px;font-size:12px;color:var(--muted);margin-bottom:4px}
-  .rv-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:17px;line-height:1;padding:2px 4px}
-  .rv-del:hover{color:var(--warn)}
-  .rv-meta{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}
-  .rv-meta input,.rv-meta select{width:auto;flex:1 1 140px}
-  .rv-foot{display:flex;flex-wrap:wrap;align-items:center;gap:12px;border-top:1px solid #D5E5E3;padding-top:12px;margin-top:4px}
-  .rv-foot .spacer{flex:1}
-  .rv-total{font-size:13.5px;color:var(--muted)}
-  .rv-total strong{color:var(--ink);font-size:16px;font-weight:700}
-  .rv-thumb{width:44px;height:44px;border-radius:6px;object-fit:cover;border:1px solid var(--line)}
-  .rv-top{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px}
-  .review.gagal{border-color:#E6C6B6;background:#FCF6F3}
-  .review.gagal .rv-foot{border-top-color:#EBD6CB}
-  .review.gagal .sub{margin-bottom:10px}
-  .review details{margin-bottom:12px}
-  .review summary{font-size:13.5px;cursor:pointer;color:var(--focus);font-weight:500;margin-bottom:8px}
-  .review details input{background:#fff}
-
-  /* ---------- Toolbar ---------- */
-  .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:22px 0 12px}
-  .chips{display:flex;flex-wrap:wrap;gap:6px}
-  .chip{background:var(--surface);border:1px solid var(--line);color:var(--muted);padding:6px 13px;border-radius:99px;font-size:13.5px;font-weight:500}
-  .chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
-  .toolbar .spacer{flex:1}
-  .search{width:170px}
-  .month{width:150px}
-  .sync-btn{display:inline-flex;align-items:center;gap:7px}
-  .sync-dot{width:8px;height:8px;border-radius:99px;background:var(--muted);flex:0 0 auto}
-  .sync-dot.on{background:var(--ok)}
-
-  /* ---------- Tabel ---------- */
-  .sheet{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
-  table{width:100%;border-collapse:collapse}
-  th,td{padding:11px 14px;text-align:left;border-bottom:1px solid var(--line-soft)}
-  thead th{font-size:12.5px;font-weight:600;color:var(--muted);background:#F7F9FB;border-bottom:1px solid var(--line);white-space:nowrap}
-  td{font-size:14px;vertical-align:middle}
-  .ta-r{text-align:right}
-  .jumlah{font-weight:700}
-  .tag{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:500;white-space:nowrap}
-  tbody tr:last-child td{border-bottom:none}
-  tbody tr:hover{background:#F9FBFC}
-  .row-actions{white-space:nowrap;text-align:right;width:1%}
-  .row-actions button{padding:4px 7px;font-size:13px}
-  .bukti{width:34px;height:34px;border-radius:6px;object-fit:cover;border:1px solid var(--line);cursor:zoom-in;display:block}
-  .bukti-none{color:var(--line);font-size:14px}
-  .bukti-tautan{color:var(--focus);font-size:13px;font-weight:500;text-decoration:none}
-  .bukti-tautan:hover{text-decoration:underline}
-  tfoot td{background:#F7F9FB;border-top:1px solid var(--line);border-bottom:none;font-weight:700;font-size:14.5px}
-  tfoot .lbl{font-weight:600;color:var(--muted)}
-  .empty{padding:44px 22px;text-align:center;color:var(--muted)}
-  .empty p{margin:0 0 12px}
-  .note{color:var(--muted);font-size:12.5px;margin:14px 2px 0}
-  tr.baru td{animation:masuk .5s ease}
-  @keyframes masuk{from{background:#EAF3F3}to{background:transparent}}
-
-  /* ---------- Dialog ---------- */
-  dialog{border:none;border-radius:var(--radius);padding:0;max-width:640px;width:calc(100% - 32px);color:var(--ink)}
-  dialog::backdrop{background:rgba(15,25,35,.45)}
-  .dlg{padding:24px}
-  .dlg h2{margin:0 0 4px;font-size:17px;font-weight:700;letter-spacing:-.01em}
-  .dlg p{margin:0 0 16px;color:var(--muted);font-size:13.5px}
-  .dlg ol{margin:0 0 16px;padding-left:20px;font-size:13.5px;line-height:1.7}
-  .dlg ol li{margin-bottom:4px}
-  .dlg code{background:var(--line-soft);padding:1px 5px;border-radius:4px;font-size:12.5px}
-  .kode{position:relative;margin-bottom:16px}
-  .kode textarea{
-    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;line-height:1.55;
-    height:150px;resize:vertical;background:#F7F9FB;white-space:pre;overflow-wrap:normal;overflow-x:auto;
-  }
-  .kode .salin{position:absolute;top:7px;right:7px;padding:4px 10px;font-size:12px}
-  .dlg-foot{display:flex;gap:10px;align-items:center;margin-top:4px}
-  .dlg-foot .spacer{flex:1}
-  #lightbox{max-width:min(92vw,760px);background:#0F1923}
-  #lightbox img{display:block;width:100%;height:auto;max-height:78vh;object-fit:contain}
-  .lb-tautan{display:block;padding:12px 16px;color:#CFE3E1;font-size:13.5px;text-decoration:none;text-align:center;border-top:1px solid #24323E}
-  .lb-tautan:hover{color:#fff;text-decoration:underline}
-
-  .toast{
-    position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
-    background:var(--ink);color:#fff;padding:11px 18px;border-radius:8px;
-    font-size:13.5px;font-weight:500;z-index:99;box-shadow:0 6px 20px rgba(15,25,35,.25);
-  }
-  .toast.err{background:var(--warn)}
-
-  .spinner{
-    width:17px;height:17px;border:2px solid var(--line);border-top-color:var(--focus);
-    border-radius:99px;animation:putar .7s linear infinite;flex:0 0 auto;
-  }
-  @keyframes putar{to{transform:rotate(360deg)}}
-
-  /* ---------- Responsif ---------- */
-  @media (max-width:880px){
-    .fields{grid-template-columns:1fr 1fr}
-    .fields .f-item{grid-column:1 / -1}
-  }
-  @media (max-width:640px){
-    body{padding:16px 12px 48px}
-    .summary,.entry{padding:18px 16px}
-    .fields{grid-template-columns:1fr}
-    .search,.month{width:100%}
-    .rv-row,.rv-head{grid-template-columns:1fr 56px 110px 26px}
-    thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
-    table,tbody,tr,td{display:block;width:100%}
-    tbody tr{padding:12px 14px;border-bottom:1px solid var(--line-soft);position:relative}
-    tbody td{border:none;padding:3px 0;display:flex;justify-content:space-between;gap:16px;align-items:center}
-    tbody td::before{content:attr(data-label);color:var(--muted);font-size:13px}
-    tbody td.ta-r{text-align:right}
-    .row-actions{
-      position:static;width:auto;padding:9px 0 0;margin-top:7px;
-      display:flex;justify-content:flex-end;gap:6px;
-      border-top:1px solid var(--line-soft);
+  for (let i = 0; i < jumlah; i++) {
+    const b = nilai[i];
+    let id = String(b[KOLOM_ID - 1] || "");
+    // baris lama belum punya ID, diberi sekarang supaya bisa diubah dan dihapus
+    if (b[2] && !id) {
+      id = "sheet-" + (i + 2) + "-" + Date.now();
+      adaBaru = true;
     }
-    .row-actions::before{content:none}
-    .row-actions button{
-      border:1px solid var(--line);border-radius:7px;color:var(--ink);
-      padding:6px 14px;font-size:13px;
+    daftarId.push([id]);
+    if (!b[2]) continue;
+
+    const qty = Number(b[3]) || 0;
+    const nominal = Number(b[4]) || 0;
+    keluar.rows.push({
+      id: id,
+      tanggal: teksTanggal(b[0], zona),
+      jenis: String(b[1] || ""),
+      item: String(b[2]),
+      qty: qty,
+      nominal: nominal,
+      bukti: urlDari(rumus[i][0]),
+      ditransfer: nilaiTransfer(b[KOLOM_TRANSFER - 1], qty * nominal)
+    });
+  }
+
+  if (adaBaru) {
+    try { sheet.getRange(2, KOLOM_ID, jumlah, 1).setValues(daftarId); } catch (err) {}
+  }
+  return balas(keluar);
+}
+
+function tambahBaris(sheet, isi) {
+  const baris = isi.rows || [isi];
+  const blob = isi.bukti ? siapkanBlob(isi.bukti, isi.namaBukti) : null;
+  const hasil = blob ? simpanKeDrive(blob) : { url: "", pesan: "" };
+
+  let barisPertama = 0;
+  baris.forEach(function (r, i) {
+    const qty = Number(r.qty) || 0;
+    const nominal = Number(r.nominal) || 0;
+    sheet.appendRow([r.tanggal, r.jenis, r.item, qty, nominal, qty * nominal,
+                     "", new Date(), r.id || ""]);
+    const nomor = sheet.getLastRow();
+    if (i === 0) barisPertama = nomor;
+    if (hasil.url) {
+      const sel = sheet.getRange(nomor, KOLOM_BUKTI);
+      try { sel.setFormula(tautan(hasil.url)); } catch (err) { sel.setValue(hasil.url); }
     }
-    .row-actions button:hover{text-decoration:none;background:var(--line-soft)}
-    tfoot,tfoot tr,tfoot td{display:block}
-    tfoot td{display:flex;justify-content:space-between}
-    tfoot td:empty{display:none}
+  });
+
+  // Kalau Drive menolak, fotonya ditempel langsung ke sheet.
+  // Cara ini cuma butuh izin spreadsheet yang sudah ada.
+  let catatan = "";
+  if (blob && !hasil.url) {
+    catatan = tempelGambar(sheet, blob, barisPertama, baris.length);
   }
-  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
-  @media print{
-    body{background:#fff;padding:0}
-    .entry,.toolbar,.row-actions,.note,.drop{display:none!important}
-    .summary,.sheet{border-color:#BBB;border-radius:0}
-    thead th,tfoot td{background:#fff}
-    tbody tr{break-inside:avoid}
-  }
-</style>
-</head>
-<body>
-<div class="wrap">
 
-  <header class="summary">
-    <div class="summary-top">
-      <div>
-        <h1>Laporan Pengeluaran</h1>
-        <p class="periode" id="periode">Semua periode</p>
-      </div>
-      <div class="total-block">
-        <p class="total-label">Total pengeluaran</p>
-        <p class="total num" id="total">Rp 0</p>
-        <p class="count" id="count">Belum ada catatan</p>
-      </div>
-    </div>
-    <div class="bar" id="bar" aria-hidden="true"></div>
-    <ul class="legend" id="legend"></ul>
-
-    <div class="reimburse" id="reimburse" hidden>
-      <div class="rb-baris">
-        <span class="rb-label">Sudah ditransfer</span>
-        <b class="num" id="rbSudah">Rp 0</b>
-        <span class="rb-sisa">Belum dibayar <b class="num" id="rbBelum">Rp 0</b></span>
-      </div>
-      <div class="rb-bar" aria-hidden="true"><span id="rbIsi"></span></div>
-    </div>
-  </header>
-
-  <section class="entry">
-    <div class="drop" id="drop" tabindex="0" role="button" aria-label="Unggah bukti transaksi">
-      <svg id="dropIkon" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/>
-        <path d="M14 3v5h5M9 13h6M9 17h4"/>
-      </svg>
-      <img id="dropThumb" class="drop-thumb" alt="Pratinjau bukti" hidden>
-      <span class="drop-txt" id="dropTxt">
-        <b>Unggah bukti transaksi</b>
-        <span>Foto struk, invoice, atau PDF — datanya diisi otomatis. Bisa beberapa sekaligus.</span>
-      </span>
-      <button type="button" class="btn-quiet drop-hapus" id="dropHapus" hidden>Hapus bukti</button>
-      <input type="file" id="berkas" accept="image/*,application/pdf" multiple hidden>
-    </div>
-
-    <div id="reviewWrap"></div>
-
-    <h2 id="entry-title">Tambah pengeluaran</h2>
-    <div class="fields">
-      <div>
-        <label for="tanggal">Tanggal</label>
-        <input type="date" id="tanggal">
-      </div>
-      <div>
-        <label for="jenis">Jenis pengeluaran</label>
-        <select id="jenis">
-          <option value="transport">Transport</option>
-          <option value="makan">Makan</option>
-          <option value="kantor">Kantor</option>
-          <option value="pribadi">Pribadi</option>
-        </select>
-      </div>
-      <div class="f-item">
-        <label for="item">Item</label>
-        <input type="text" id="item" placeholder="Grab ke kantor klien" autocomplete="off">
-      </div>
-      <div>
-        <label for="qty">Qty</label>
-        <input type="number" id="qty" value="1" min="0" step="1" inputmode="numeric">
-      </div>
-      <div class="rp">
-        <label for="nominal">Nominal satuan</label>
-        <input type="text" id="nominal" placeholder="0" inputmode="numeric" autocomplete="off">
-      </div>
-    </div>
-    <div class="entry-foot">
-      <p class="preview">Jumlah <strong class="num" id="preview">Rp 0</strong></p>
-      <span class="spacer"></span>
-      <button type="button" class="btn-quiet" id="batal" hidden>Batalkan</button>
-      <button type="button" class="btn-primary" id="simpan">Tambah ke laporan</button>
-    </div>
-  </section>
-
-  <div class="toolbar">
-    <div class="chips" id="chips">
-      <button type="button" class="chip" data-cat="all" aria-pressed="true">Semua</button>
-      <button type="button" class="chip" data-cat="transport" aria-pressed="false">Transport</button>
-      <button type="button" class="chip" data-cat="makan" aria-pressed="false">Makan</button>
-      <button type="button" class="chip" data-cat="kantor" aria-pressed="false">Kantor</button>
-      <button type="button" class="chip" data-cat="pribadi" aria-pressed="false">Pribadi</button>
-    </div>
-    <span class="spacer"></span>
-    <button type="button" class="chip" id="chipBelum" aria-pressed="false">Belum ditransfer</button>
-    <input type="month" class="month" id="filterBulan" aria-label="Saring per bulan">
-    <input type="search" class="search" id="cari" placeholder="Cari item" aria-label="Cari item">
-    <button type="button" class="btn-ghost sync-btn" id="tombolSync">
-      <span class="sync-dot" id="syncDot"></span><span id="syncTeks">Spreadsheet</span>
-    </button>
-    <button type="button" class="btn-ghost" id="unduh">Unduh CSV</button>
-    <button type="button" class="btn-ghost" id="cetak">Cetak</button>
-  </div>
-
-  <div class="sheet">
-    <table>
-      <thead>
-        <tr>
-          <th scope="col">Tanggal</th>
-          <th scope="col">Jenis</th>
-          <th scope="col">Item</th>
-          <th scope="col" class="ta-r">Qty</th>
-          <th scope="col" class="ta-r">Nominal</th>
-          <th scope="col" class="ta-r">Jumlah</th>
-          <th scope="col">Transfer</th>
-          <th scope="col">Bukti</th>
-          <th scope="col"><span class="row-actions"></span></th>
-        </tr>
-      </thead>
-      <tbody id="tbody"></tbody>
-      <tfoot id="tfoot" hidden>
-        <tr>
-          <td colspan="5" class="lbl">Total</td>
-          <td class="ta-r num" id="footTotal">Rp 0</td>
-          <td class="num" id="footTransfer"></td>
-          <td></td><td></td>
-        </tr>
-      </tfoot>
-    </table>
-    <div class="empty" id="empty">
-      <p>Belum ada pengeluaran yang dicatat.</p>
-      <button type="button" class="btn-ghost" id="contoh">Isi data contoh</button>
-    </div>
-  </div>
-
-  <p class="note">Halaman ini sudah tersambung ke spreadsheet dan menariknya setiap kali dibuka. Data dan foto bukti juga tersimpan di perangkat ini.</p>
-</div>
-
-<!-- Dialog pengaturan spreadsheet -->
-<dialog id="dlgSync">
-  <div class="dlg">
-    <h2>Sambungkan ke Google Sheets</h2>
-    <p>Setiap pengeluaran yang kamu simpan akan langsung ditambahkan sebagai baris baru di spreadsheet.</p>
-    <ol>
-      <li>Buka spreadsheet tujuan, lalu pilih menu <code>Ekstensi › Apps Script</code>.</li>
-      <li>Hapus isi editor, tempel kode di bawah ini, lalu simpan.</li>
-      <li>Pilih fungsi <code>beriIzin</code> di dropdown atas, klik <code>Run</code>, dan setujui izin Google Drive. Langkah ini yang menentukan kolom Bukti terisi atau tidak.</li>
-      <li>Klik <code>Deploy › New deployment › Web app</code>. Isi <em>Execute as</em> dengan akunmu dan <em>Who has access</em> dengan <code>Anyone</code>.</li>
-      <li>Salin URL yang berakhiran <code>/exec</code>, tempel di kolom bawah, lalu klik Uji koneksi.</li>
-    </ol>
-    <p>Sudah pakai versi kode sebelumnya? Ganti kodenya, jalankan <code>beriIzin</code>, lalu terbitkan ulang lewat <code>Deploy › Manage deployments</code> dengan <em>Version: New version</em>.</p>
-    <div class="kode">
-      <textarea id="kodeAS" readonly spellcheck="false"></textarea>
-      <button type="button" class="btn-ghost salin" id="salinKode">Salin kode</button>
-    </div>
-    <label for="urlSheet">URL Web App</label>
-    <input type="url" id="urlSheet" placeholder="https://script.google.com/macros/s/.../exec">
-    <div class="dlg-foot">
-      <button type="button" class="btn-ghost" id="ujiSync">Uji koneksi</button>
-      <button type="button" class="btn-ghost" id="muatSync">Muat dari spreadsheet</button>
-      <button type="button" class="btn-quiet" id="putusSync">Putuskan</button>
-      <span class="spacer"></span>
-      <button type="button" class="btn-primary" id="simpanSync">Simpan</button>
-    </div>
-  </div>
-</dialog>
-
-<dialog id="dlgTanya">
-  <div class="dlg">
-    <h2 id="tanyaJudul"></h2>
-    <div id="tanyaIsi"></div>
-    <div class="dlg-foot">
-      <span class="spacer"></span>
-      <button type="button" class="btn-ghost" id="tanyaBatal">Batal</button>
-      <button type="button" class="btn-primary" id="tanyaOk">Lanjutkan</button>
-    </div>
-  </div>
-</dialog>
-
-<dialog id="lightbox">
-  <img id="lightboxImg" alt="Bukti transaksi">
-  <a id="lightboxTautan" class="lb-tautan" href="#" target="_blank" rel="noopener" hidden>Buka di Google Drive</a>
-</dialog>
-
-<script>
-(function(){
-  "use strict";
-
-  var KATEGORI = {
-    transport:{nama:"Transport", warna:"var(--transport)"},
-    makan:{nama:"Makan", warna:"var(--makan)"},
-    kantor:{nama:"Kantor", warna:"var(--kantor)"},
-    pribadi:{nama:"Pribadi", warna:"var(--pribadi)"}
+  return {
+    ok: true, ditambahkan: baris.length, urlBukti: hasil.url,
+    pesanBukti: catatan ? "" : hasil.pesan, catatanBukti: catatan
   };
-  var K_DATA = "pengeluaran:data", K_SHEET = "pengeluaran:sheet", K_ABAI = "pengeluaran:abaikan";
+}
 
-  // Spreadsheet bawaan. Halaman langsung tersambung tanpa perlu diisi ulang,
-  // dan bisa diganti kapan saja lewat tombol Spreadsheet di toolbar.
-  var URL_BAWAAN = "https://script.google.com/macros/s/AKfycbzsfAvK7nQxD6ZNpUHV_AxhD-sWCHLvctqxXbH3DIKIYxMl6J1Yys09panko4VPw0kzBQ/exec";
+function ubahBaris(sheet, r) {
+  const baris = cariBaris(sheet, r.id);
+  if (!baris) return { ok: false, pesan: "Baris tidak ditemukan di spreadsheet" };
 
-  var data = [], buktiCache = {}, urlSheet = "", abaikan = [];
-  var filter = {kategori:"all", bulan:"", cari:"", belum:false};
-  var sedangEdit = null, hasilScan = null;
-  var kunciAPI = "", berkasTerakhir = null, lampiran = null;
+  const qty = Number(r.qty) || 0;
+  const nominal = Number(r.nominal) || 0;
+  sheet.getRange(baris, 1, 1, 6)
+       .setValues([[r.tanggal, r.jenis, r.item, qty, nominal, qty * nominal]]);
+  sheet.getRange(baris, KOLOM_WAKTU).setValue(new Date());
+  return { ok: true, diubah: 1, baris: baris };
+}
 
-  var $ = function(id){ return document.getElementById(id); };
-  function esc(s){
-    return String(s).replace(/[&<>"]/g, function(c){
-      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];
-    });
+function hapusBaris(sheet, id) {
+  const baris = cariBaris(sheet, id);
+  if (!baris) return { ok: false, pesan: "Baris tidak ditemukan di spreadsheet" };
+  sheet.deleteRow(baris);
+  return { ok: true, dihapus: 1 };
+}
+
+function cariBaris(sheet, id) {
+  if (!id || sheet.getLastRow() < 2) return 0;
+  const nilai = sheet.getRange(2, KOLOM_ID, sheet.getLastRow() - 1, 1).getValues();
+  for (let i = 0; i < nilai.length; i++) {
+    if (String(nilai[i][0]) === String(id)) return i + 2;
+  }
+  return 0;
+}
+
+function ambilSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(NAMA_SHEET) || ss.insertSheet(NAMA_SHEET);
+
+  if (sheet.getMaxColumns() < KOLOM_TRANSFER) {
+    sheet.insertColumnsAfter(sheet.getMaxColumns(), KOLOM_TRANSFER - sheet.getMaxColumns());
   }
 
-  var KODE_APPS_SCRIPT =
-'const NAMA_SHEET = "Pengeluaran";\n' +
-'const NAMA_FOLDER = "Bukti Pengeluaran";\n' +
-'const KOLOM_BUKTI = 7;\n' +
-'const KOLOM_WAKTU = 8;\n' +
-'const KOLOM_ID = 9;\n' +
-'const KOLOM_TRANSFER = 10;\n' +
-'\n' +
-'// Jalankan fungsi ini SEKALI dari editor supaya izin diminta.\n' +
-'function beriIzin() {\n' +
-'  SpreadsheetApp.getActiveSpreadsheet().getName();\n' +
-'  try {\n' +
-'    const uji = DriveApp.createFile("uji-izin.txt", "ok");\n' +
-'    uji.setTrashed(true);\n' +
-'    Logger.log("Drive siap. Bukti akan disimpan sebagai tautan.");\n' +
-'  } catch (err) {\n' +
-'    Logger.log("Drive ditolak: " + err);\n' +
-'    Logger.log("Tidak apa-apa. Bukti akan ditempel langsung di sheet.");\n' +
-'  }\n' +
-'}\n' +
-'\n' +
-'function doPost(e) {\n' +
-'  const sheet = ambilSheet();\n' +
-'  const isi = JSON.parse(e.postData.contents);\n' +
-'  const aksi = isi.aksi || "tambah";\n' +
-'\n' +
-'  if (aksi === "hapus") return balas(hapusBaris(sheet, isi.id));\n' +
-'  if (aksi === "ubah") return balas(ubahBaris(sheet, isi.row));\n' +
-'  return balas(tambahBaris(sheet, isi));\n' +
-'}\n' +
-'\n' +
-'function doGet() {\n' +
-'  const ss = SpreadsheetApp.getActiveSpreadsheet();\n' +
-'  const sheet = ambilSheet(); // sekalian memastikan semua kolom sudah ada\n' +
-'  const keluar = { ok: true, rows: [] };\n' +
-'  if (sheet.getLastRow() < 2) return balas(keluar);\n' +
-'\n' +
-'  const jumlah = sheet.getLastRow() - 1;\n' +
-'  const nilai = sheet.getRange(2, 1, jumlah, KOLOM_TRANSFER).getValues();\n' +
-'  const rumus = sheet.getRange(2, KOLOM_BUKTI, jumlah, 1).getFormulas();\n' +
-'  const zona = ss.getSpreadsheetTimeZone();\n' +
-'  const daftarId = [];\n' +
-'  let adaBaru = false;\n' +
-'\n' +
-'  for (let i = 0; i < jumlah; i++) {\n' +
-'    const b = nilai[i];\n' +
-'    let id = String(b[KOLOM_ID - 1] || "");\n' +
-'    // baris lama belum punya ID, diberi sekarang supaya bisa diubah dan dihapus\n' +
-'    if (b[2] && !id) {\n' +
-'      id = "sheet-" + (i + 2) + "-" + Date.now();\n' +
-'      adaBaru = true;\n' +
-'    }\n' +
-'    daftarId.push([id]);\n' +
-'    if (!b[2]) continue;\n' +
-'\n' +
-'    const qty = Number(b[3]) || 0;\n' +
-'    const nominal = Number(b[4]) || 0;\n' +
-'    keluar.rows.push({\n' +
-'      id: id,\n' +
-'      tanggal: teksTanggal(b[0], zona),\n' +
-'      jenis: String(b[1] || ""),\n' +
-'      item: String(b[2]),\n' +
-'      qty: qty,\n' +
-'      nominal: nominal,\n' +
-'      bukti: urlDari(rumus[i][0]),\n' +
-'      ditransfer: nilaiTransfer(b[KOLOM_TRANSFER - 1], qty * nominal)\n' +
-'    });\n' +
-'  }\n' +
-'\n' +
-'  if (adaBaru) {\n' +
-'    try { sheet.getRange(2, KOLOM_ID, jumlah, 1).setValues(daftarId); } catch (err) {}\n' +
-'  }\n' +
-'  return balas(keluar);\n' +
-'}\n' +
-'\n' +
-'function tambahBaris(sheet, isi) {\n' +
-'  const baris = isi.rows || [isi];\n' +
-'  const blob = isi.bukti ? siapkanBlob(isi.bukti, isi.namaBukti) : null;\n' +
-'  const hasil = blob ? simpanKeDrive(blob) : { url: "", pesan: "" };\n' +
-'\n' +
-'  let barisPertama = 0;\n' +
-'  baris.forEach(function (r, i) {\n' +
-'    const qty = Number(r.qty) || 0;\n' +
-'    const nominal = Number(r.nominal) || 0;\n' +
-'    sheet.appendRow([r.tanggal, r.jenis, r.item, qty, nominal, qty * nominal,\n' +
-'                     "", new Date(), r.id || ""]);\n' +
-'    const nomor = sheet.getLastRow();\n' +
-'    if (i === 0) barisPertama = nomor;\n' +
-'    if (hasil.url) {\n' +
-'      const sel = sheet.getRange(nomor, KOLOM_BUKTI);\n' +
-'      try { sel.setFormula(tautan(hasil.url)); } catch (err) { sel.setValue(hasil.url); }\n' +
-'    }\n' +
-'  });\n' +
-'\n' +
-'  // Kalau Drive menolak, fotonya ditempel langsung ke sheet.\n' +
-'  // Cara ini cuma butuh izin spreadsheet yang sudah ada.\n' +
-'  let catatan = "";\n' +
-'  if (blob && !hasil.url) {\n' +
-'    catatan = tempelGambar(sheet, blob, barisPertama, baris.length);\n' +
-'  }\n' +
-'\n' +
-'  return {\n' +
-'    ok: true, ditambahkan: baris.length, urlBukti: hasil.url,\n' +
-'    pesanBukti: catatan ? "" : hasil.pesan, catatanBukti: catatan\n' +
-'  };\n' +
-'}\n' +
-'\n' +
-'function ubahBaris(sheet, r) {\n' +
-'  const baris = cariBaris(sheet, r.id);\n' +
-'  if (!baris) return { ok: false, pesan: "Baris tidak ditemukan di spreadsheet" };\n' +
-'\n' +
-'  const qty = Number(r.qty) || 0;\n' +
-'  const nominal = Number(r.nominal) || 0;\n' +
-'  sheet.getRange(baris, 1, 1, 6)\n' +
-'       .setValues([[r.tanggal, r.jenis, r.item, qty, nominal, qty * nominal]]);\n' +
-'  sheet.getRange(baris, KOLOM_WAKTU).setValue(new Date());\n' +
-'  return { ok: true, diubah: 1, baris: baris };\n' +
-'}\n' +
-'\n' +
-'function hapusBaris(sheet, id) {\n' +
-'  const baris = cariBaris(sheet, id);\n' +
-'  if (!baris) return { ok: false, pesan: "Baris tidak ditemukan di spreadsheet" };\n' +
-'  sheet.deleteRow(baris);\n' +
-'  return { ok: true, dihapus: 1 };\n' +
-'}\n' +
-'\n' +
-'function cariBaris(sheet, id) {\n' +
-'  if (!id || sheet.getLastRow() < 2) return 0;\n' +
-'  const nilai = sheet.getRange(2, KOLOM_ID, sheet.getLastRow() - 1, 1).getValues();\n' +
-'  for (let i = 0; i < nilai.length; i++) {\n' +
-'    if (String(nilai[i][0]) === String(id)) return i + 2;\n' +
-'  }\n' +
-'  return 0;\n' +
-'}\n' +
-'\n' +
-'function ambilSheet() {\n' +
-'  const ss = SpreadsheetApp.getActiveSpreadsheet();\n' +
-'  const sheet = ss.getSheetByName(NAMA_SHEET) || ss.insertSheet(NAMA_SHEET);\n' +
-'\n' +
-'  if (sheet.getMaxColumns() < KOLOM_TRANSFER) {\n' +
-'    sheet.insertColumnsAfter(sheet.getMaxColumns(), KOLOM_TRANSFER - sheet.getMaxColumns());\n' +
-'  }\n' +
-'\n' +
-'  if (sheet.getLastRow() === 0) {\n' +
-'    sheet.appendRow(["Tanggal","Jenis","Item","Qty","Nominal","Jumlah","Bukti","Waktu input","ID","Ditransfer"]);\n' +
-'    sheet.getRange(1, 1, 1, KOLOM_TRANSFER).setFontWeight("bold");\n' +
-'    sheet.setFrozenRows(1);\n' +
-'    return sheet;\n' +
-'  }\n' +
-'\n' +
-'  if (sheet.getRange(1, KOLOM_BUKTI).getValue() !== "Bukti") {\n' +
-'    sheet.insertColumnBefore(KOLOM_BUKTI);\n' +
-'    sheet.getRange(1, KOLOM_BUKTI).setValue("Bukti").setFontWeight("bold");\n' +
-'  }\n' +
-'  if (sheet.getRange(1, KOLOM_ID).getValue() !== "ID") {\n' +
-'    sheet.getRange(1, KOLOM_ID).setValue("ID").setFontWeight("bold");\n' +
-'  }\n' +
-'  if (sheet.getRange(1, KOLOM_TRANSFER).getValue() !== "Ditransfer") {\n' +
-'    sheet.getRange(1, KOLOM_TRANSFER).setValue("Ditransfer").setFontWeight("bold");\n' +
-'  }\n' +
-'  return sheet;\n' +
-'}\n' +
-'\n' +
-'function tempelGambar(sheet, blob, barisAwal, jumlah) {\n' +
-'  if (String(blob.getContentType()).indexOf("image/") !== 0) {\n' +
-'    sheet.getRange(barisAwal, KOLOM_BUKTI).setValue("Bukti PDF ada di aplikasi");\n' +
-'    return "";\n' +
-'  }\n' +
-'  try {\n' +
-'    const gambar = sheet.insertImage(blob, KOLOM_BUKTI, barisAwal);\n' +
-'    const rasio = gambar.getWidth() / gambar.getHeight();\n' +
-'    gambar.setHeight(110);\n' +
-'    gambar.setWidth(Math.max(30, Math.round(110 * rasio)));\n' +
-'    sheet.setRowHeight(barisAwal, 118);\n' +
-'    sheet.setColumnWidth(KOLOM_BUKTI, Math.max(96, Math.round(110 * rasio) + 16));\n' +
-'    for (let i = 1; i < jumlah; i++) {\n' +
-'      sheet.getRange(barisAwal + i, KOLOM_BUKTI).setValue("Bukti sama dengan baris di atas");\n' +
-'    }\n' +
-'    return "Izin Drive ditolak, jadi foto ditempel langsung di sheet";\n' +
-'  } catch (err) {\n' +
-'    sheet.getRange(barisAwal, KOLOM_BUKTI).setValue("Bukti gagal disimpan");\n' +
-'    return "";\n' +
-'  }\n' +
-'}\n' +
-'\n' +
-'function tautan(url) {\n' +
-'  return \'=HYPERLINK("\' + url + \'","Lihat bukti")\';\n' +
-'}\n' +
-'\n' +
-'function siapkanBlob(dataUrl, nama) {\n' +
-'  try {\n' +
-'    const potong = String(dataUrl).split(",");\n' +
-'    if (potong.length < 2) return null;\n' +
-'    const tipe = (potong[0].match(/:(.*?);/) || [])[1] || "image/jpeg";\n' +
-'    return Utilities.newBlob(Utilities.base64Decode(potong[1]), tipe,\n' +
-'                             nama || ("bukti-" + Date.now() + ".jpg"));\n' +
-'  } catch (err) {\n' +
-'    return null;\n' +
-'  }\n' +
-'}\n' +
-'\n' +
-'function simpanKeDrive(blob) {\n' +
-'  let file;\n' +
-'  try {\n' +
-'    file = ambilFolder().createFile(blob);\n' +
-'  } catch (err) {\n' +
-'    try {\n' +
-'      file = DriveApp.createFile(blob);\n' +
-'    } catch (err2) {\n' +
-'      return { url: "", pesan: "Gagal simpan ke Drive: " + err2 };\n' +
-'    }\n' +
-'  }\n' +
-'\n' +
-'  try {\n' +
-'    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);\n' +
-'  } catch (err) {\n' +
-'    // file tetap ada, hanya belum bisa dibuka orang lain\n' +
-'  }\n' +
-'  return { url: file.getUrl(), pesan: "" };\n' +
-'}\n' +
-'\n' +
-'// Folder dibuat sekali lalu ID-nya diingat. Mencari folder lewat nama\n' +
-'// butuh izin baca seluruh Drive, dan itu yang dulu bikin error.\n' +
-'function ambilFolder() {\n' +
-'  const props = PropertiesService.getScriptProperties();\n' +
-'  const id = props.getProperty("ID_FOLDER");\n' +
-'  if (id) {\n' +
-'    try { return DriveApp.getFolderById(id); } catch (err) {}\n' +
-'  }\n' +
-'  const folder = DriveApp.createFolder(NAMA_FOLDER);\n' +
-'  props.setProperty("ID_FOLDER", folder.getId());\n' +
-'  return folder;\n' +
-'}\n' +
-'\n' +
-'// Kolom Ditransfer diisi finance secara manual. Boleh berupa nominal\n' +
-'// (misal 50000 atau "Rp 50.000"), centang, atau kata seperti "sudah".\n' +
-'function nilaiTransfer(sel, jumlah) {\n' +
-'  if (sel === true) return jumlah;\n' +
-'  if (sel === false) return 0;\n' +
-'  if (typeof sel === "number") return sel > 0 ? sel : 0;\n' +
-'\n' +
-'  const teks = String(sel || "").trim().toLowerCase();\n' +
-'  if (!teks) return 0;\n' +
-'  if (["ya","y","sudah","v","ok","x","lunas","done","true","transfer","cair"].indexOf(teks) !== -1) {\n' +
-'    return jumlah;\n' +
-'  }\n' +
-'\n' +
-'  const bersih = teks.replace(/[^0-9,.]/g, "").replace(/\\./g, "").replace(",", ".");\n' +
-'  const angka = Number(bersih);\n' +
-'  return isNaN(angka) || angka <= 0 ? 0 : angka;\n' +
-'}\n' +
-'\n' +
-'function teksTanggal(nilai, zona) {\n' +
-'  if (nilai instanceof Date) return Utilities.formatDate(nilai, zona, "yyyy-MM-dd");\n' +
-'  return String(nilai || "").slice(0, 10);\n' +
-'}\n' +
-'\n' +
-'function urlDari(rumus) {\n' +
-'  const cocok = String(rumus || "").match(/HYPERLINK\\("([^"]+)"/);\n' +
-'  return cocok ? cocok[1] : "";\n' +
-'}\n' +
-'\n' +
-'function balas(obj) {\n' +
-'  return ContentService\n' +
-'    .createTextOutput(JSON.stringify(obj))\n' +
-'    .setMimeType(ContentService.MimeType.JSON);\n' +
-'}';
-
-  /* ---------- format ---------- */
-  function rupiah(n){ return "Rp " + new Intl.NumberFormat("id-ID").format(Math.round(n||0)); }
-  function angka(n){ return new Intl.NumberFormat("id-ID").format(n||0); }
-  function tglPanjang(s){
-    var d = new Date(s + "T00:00:00");
-    return isNaN(d) ? s : d.toLocaleDateString("id-ID",{day:"2-digit",month:"short",year:"numeric"});
-  }
-  function hariIni(){
-    var d = new Date(), p = function(x){ return String(x).padStart(2,"0"); };
-    return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate());
-  }
-  function bacaNominal(v){ return parseInt(String(v).replace(/\D/g,""),10) || 0; }
-
-  function toast(pesan, error){
-    var t = document.createElement("div");
-    t.className = "toast" + (error ? " err" : "");
-    t.setAttribute("role","status");
-    t.textContent = pesan;
-    document.body.appendChild(t);
-    setTimeout(function(){ t.remove(); }, 3600);
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(["Tanggal","Jenis","Item","Qty","Nominal","Jumlah","Bukti","Waktu input","ID","Ditransfer"]);
+    sheet.getRange(1, 1, 1, KOLOM_TRANSFER).setFontWeight("bold");
+    sheet.setFrozenRows(1);
+    return sheet;
   }
 
-  /* ---------- penyimpanan ---------- */
-  function adaStorage(){ return !!(window.storage && window.storage.get); }
-  function ambil(kunci){
-    if (!adaStorage()) return Promise.resolve(null);
-    return window.storage.get(kunci).then(function(r){ return r ? r.value : null; }).catch(function(){ return null; });
+  if (sheet.getRange(1, KOLOM_BUKTI).getValue() !== "Bukti") {
+    sheet.insertColumnBefore(KOLOM_BUKTI);
+    sheet.getRange(1, KOLOM_BUKTI).setValue("Bukti").setFontWeight("bold");
   }
-  function taruh(kunci, nilai){
-    if (!adaStorage()) return Promise.resolve();
-    return window.storage.set(kunci, nilai).catch(function(){});
+  if (sheet.getRange(1, KOLOM_ID).getValue() !== "ID") {
+    sheet.getRange(1, KOLOM_ID).setValue("ID").setFontWeight("bold");
   }
-  function simpanData(){ taruh(K_DATA, JSON.stringify(data)); }
+  if (sheet.getRange(1, KOLOM_TRANSFER).getValue() !== "Ditransfer") {
+    sheet.getRange(1, KOLOM_TRANSFER).setValue("Ditransfer").setFontWeight("bold");
+  }
+  return sheet;
+}
 
-  /* ---------- pembacaan bukti ---------- */
-  function keBase64(file){
-    return new Promise(function(res, rej){
-      var r = new FileReader();
-      r.onload = function(){ res(String(r.result).split(",")[1]); };
-      r.onerror = function(){ rej(new Error("Berkas gagal dibaca")); };
-      r.readAsDataURL(file);
-    });
+function tempelGambar(sheet, blob, barisAwal, jumlah) {
+  if (String(blob.getContentType()).indexOf("image/") !== 0) {
+    sheet.getRange(barisAwal, KOLOM_BUKTI).setValue("Bukti PDF ada di aplikasi");
+    return "";
   }
-
-  function muatGambar(file){
-    return new Promise(function(res, rej){
-      var url = URL.createObjectURL(file), img = new Image();
-      img.onload = function(){ URL.revokeObjectURL(url); res(img); };
-      img.onerror = function(){
-        URL.revokeObjectURL(url);
-        rej(new Error("Format gambar ini tidak bisa dibuka browser (HEIC dari iPhone sering begini). Ubah dulu ke JPG atau PNG."));
-      };
-      img.src = url;
-    });
-  }
-
-  function kecilkan(img, maks, mutu){
-    var skala = Math.min(1, maks / Math.max(img.width, img.height));
-    var c = document.createElement("canvas");
-    c.width = Math.max(1, Math.round(img.width * skala));
-    c.height = Math.max(1, Math.round(img.height * skala));
-    var ctx = c.getContext("2d");
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(0, 0, c.width, c.height);
-    ctx.drawImage(img, 0, 0, c.width, c.height);
-    return c.toDataURL("image/jpeg", mutu).split(",")[1];
-  }
-
-  // Semua gambar dikecilkan dan dijadikan JPEG dulu: foto HP mentah sering
-  // melebihi batas ukuran dan formatnya belum tentu didukung.
-  function blokUntuk(file){
-    var BATAS = 4400000;
-    if (file.type === "application/pdf"){
-      return keBase64(file).then(function(b64){
-        if (b64.length > BATAS) throw new Error("PDF terlalu besar. Maksimal sekitar 3 MB.");
-        return {type:"document", source:{type:"base64", media_type:"application/pdf", data:b64}};
-      });
+  try {
+    const gambar = sheet.insertImage(blob, KOLOM_BUKTI, barisAwal);
+    const rasio = gambar.getWidth() / gambar.getHeight();
+    gambar.setHeight(110);
+    gambar.setWidth(Math.max(30, Math.round(110 * rasio)));
+    sheet.setRowHeight(barisAwal, 118);
+    sheet.setColumnWidth(KOLOM_BUKTI, Math.max(96, Math.round(110 * rasio) + 16));
+    for (let i = 1; i < jumlah; i++) {
+      sheet.getRange(barisAwal + i, KOLOM_BUKTI).setValue("Bukti sama dengan baris di atas");
     }
-    return muatGambar(file).then(function(img){
-      var b64 = kecilkan(img, 1600, 0.82);
-      if (b64.length > BATAS) b64 = kecilkan(img, 1200, 0.7);
-      if (b64.length > BATAS) b64 = kecilkan(img, 900, 0.6);
-      if (b64.length > BATAS) throw new Error("Gambar terlalu besar untuk diproses.");
-      return {type:"image", source:{type:"base64", media_type:"image/jpeg", data:b64}};
-    });
+    return "Izin Drive ditolak, jadi foto ditempel langsung di sheet";
+  } catch (err) {
+    sheet.getRange(barisAwal, KOLOM_BUKTI).setValue("Bukti gagal disimpan");
+    return "";
   }
+}
 
-  function buatThumbnail(file){
-    return new Promise(function(res){
-      if (!/^image\//.test(file.type)) return res(null);
-      muatGambar(file).then(function(img){
-        res("data:image/jpeg;base64," + kecilkan(img, 1100, 0.72));
-      }).catch(function(){ res(null); });
-    });
+function tautan(url) {
+  return '=HYPERLINK("' + url + '","Lihat bukti")';
+}
+
+function siapkanBlob(dataUrl, nama) {
+  try {
+    const potong = String(dataUrl).split(",");
+    if (potong.length < 2) return null;
+    const tipe = (potong[0].match(/:(.*?);/) || [])[1] || "image/jpeg";
+    return Utilities.newBlob(Utilities.base64Decode(potong[1]), tipe,
+                             nama || ("bukti-" + Date.now() + ".jpg"));
+  } catch (err) {
+    return null;
   }
+}
 
-  var PERINTAH =
-    'Baca bukti transaksi ini dan keluarkan datanya. Jawab HANYA dengan JSON valid, tanpa penjelasan dan tanpa tanda kutip markdown.\n' +
-    'Format: {"tanggal":"YYYY-MM-DD","jenis":"transport|makan|kantor|pribadi","pedagang":"nama toko","items":[{"item":"nama item","qty":1,"nominal":15000}]}\n' +
-    'Aturan:\n' +
-    '- nominal = harga SATUAN dalam rupiah, bilangan bulat tanpa titik atau koma.\n' +
-    '- qty = bilangan bulat. Kalau tidak tertulis, isi 1.\n' +
-    '- Jangan jadikan subtotal, kembalian, atau total sebagai item.\n' +
-    '- Kalau ada pajak, service charge, atau ongkir yang nilainya jelas, tulis sebagai item terpisah dengan qty 1.\n' +
-    '- jenis: transport untuk taksi, ojek, bensin, parkir, tol, tiket; makan untuk restoran, kafe, katering, bahan makanan; kantor untuk alat tulis, percetakan, perlengkapan dan langganan kerja; pribadi untuk sisanya.\n' +
-    '- Kalau tanggal tidak terbaca, isi string kosong.\n' +
-    '- Nama item disingkat rapi dalam bahasa Indonesia bila memungkinkan.';
-
-  function bacaBukti(file){
-    return blokUntuk(file).then(function(blok){
-      var kepala = {"Content-Type":"application/json"};
-      if (kunciAPI){
-        kepala["x-api-key"] = kunciAPI;
-        kepala["anthropic-version"] = "2023-06-01";
-        kepala["anthropic-dangerous-direct-browser-access"] = "true";
-      }
-      return fetch("https://api.anthropic.com/v1/messages", {
-        method:"POST",
-        headers:kepala,
-        body: JSON.stringify({
-          model:"claude-sonnet-4-6",
-          max_tokens:1000,
-          messages:[{role:"user", content:[blok, {type:"text", text:PERINTAH}]}]
-        })
-      }).catch(function(){
-        throw new Error("Permintaan ke pembaca struk tidak sampai. Koneksi diblokir atau tidak ada internet.");
-      });
-    }).then(function(r){
-      if (!r.ok){
-        return r.text().then(function(t){
-          var pesan = "";
-          try { pesan = (JSON.parse(t).error || {}).message || ""; } catch(e){ pesan = t.slice(0,160); }
-          throw new Error("Ditolak dengan kode " + r.status + (pesan ? " — " + pesan : ""));
-        });
-      }
-      return r.json();
-    }).then(function(d){
-      var teks = (d.content || []).map(function(b){ return b.text || ""; }).join("").trim();
-      teks = teks.replace(/```json|```/g, "").trim();
-      var mulai = teks.indexOf("{"), akhir = teks.lastIndexOf("}");
-      if (mulai === -1 || akhir === -1) throw new Error("Isi struk tidak terbaca");
-      return JSON.parse(teks.slice(mulai, akhir + 1));
-    });
-  }
-
-  function prosesBerkas(files){
-    var daftar = Array.prototype.slice.call(files).filter(function(f){
-      return /^image\//.test(f.type) || f.type === "application/pdf";
-    });
-    if (!daftar.length){ toast("Hanya gambar atau PDF yang bisa dibaca", true); return; }
-    berkasTerakhir = daftar;
-
-    var drop = $("drop");
-    drop.classList.add("sibuk");
-    $("dropTxt").innerHTML = '<b>Membaca ' + daftar.length + ' bukti transaksi…</b><span>Sebentar, isinya sedang diurai jadi baris pengeluaran.</span>';
-
-    var terkumpul = [], gagal = 0, pesanGagal = "";
-
-    // Lampiran disiapkan lebih dulu supaya bukti tetap tersimpan
-    // walau pembacaan otomatisnya gagal dan barisnya diketik manual.
-    Promise.all([buatThumbnail(daftar[0]), keBase64(daftar[0])]).then(function(a){
-      var thumb = a[0];
-      var mentah = "data:" + (daftar[0].type || "application/octet-stream") + ";base64," + a[1];
-      lampiran = {
-        thumb: thumb,
-        // gambar dikirim versi kecilnya, PDF dikirim apa adanya
-        kirim: thumb || (a[1].length < 4400000 ? mentah : ""),
-        nama: daftar[0].name || "bukti.jpg"
-      };
-      return daftar.reduce(function(rantai, file){
-        return rantai.then(function(){
-          return bacaBukti(file).then(function(h){
-            (h.items || []).forEach(function(it){
-              terkumpul.push({
-                item: String(it.item || "Tanpa nama").slice(0,80),
-                qty: Math.max(1, parseInt(it.qty,10) || 1),
-                nominal: Math.max(0, Math.round(Number(it.nominal) || 0)),
-                tanggal: /^\d{4}-\d{2}-\d{2}$/.test(h.tanggal) ? h.tanggal : hariIni(),
-                jenis: KATEGORI[h.jenis] ? h.jenis : "pribadi",
-                pedagang: h.pedagang || ""
-              });
-            });
-          }).catch(function(e){
-            gagal++;
-            pesanGagal = e && e.message ? e.message : String(e);
-            console.error("Gagal membaca bukti:", e);
-          });
-        });
-      }, Promise.resolve());
-    }).then(function(){
-      drop.classList.remove("sibuk");
-      $("berkas").value = "";
-      tampilDrop();
-
-      if (!terkumpul.length){
-        panelGagal(pesanGagal || "Tidak ada item yang terbaca dari bukti ini.");
-        return;
-      }
-      if (gagal) toast(gagal + " berkas gagal dibaca, sisanya berhasil", true);
-      tampilkanReview(terkumpul);
-    });
-  }
-
-  function tampilDrop(){
-    var drop = $("drop"), thumb = $("dropThumb"), hapus = $("dropHapus"), ikon = $("dropIkon");
-    if (lampiran){
-      drop.classList.add("terisi");
-      hapus.hidden = false;
-      if (lampiran.thumb){ thumb.src = lampiran.thumb; thumb.hidden = false; ikon.style.display = "none"; }
-      else { thumb.hidden = true; ikon.style.display = ""; }
-      $("dropTxt").innerHTML = '<b>' + esc(lampiran.nama) + ' terlampir</b>' +
-        '<span>Bukti ini ikut tersimpan pada pengeluaran yang kamu catat berikutnya.</span>';
-    } else {
-      drop.classList.remove("terisi");
-      hapus.hidden = true;
-      thumb.hidden = true; thumb.removeAttribute("src");
-      ikon.style.display = "";
-      $("dropTxt").innerHTML = '<b>Unggah bukti transaksi</b>' +
-        '<span>Foto struk, invoice, atau PDF — datanya diisi otomatis. Bisa beberapa sekaligus.</span>';
+function simpanKeDrive(blob) {
+  let file;
+  try {
+    file = ambilFolder().createFile(blob);
+  } catch (err) {
+    try {
+      file = DriveApp.createFile(blob);
+    } catch (err2) {
+      return { url: "", pesan: "Gagal simpan ke Drive: " + err2 };
     }
   }
 
-  /* ---------- panel kegagalan ---------- */
-  function panelGagal(pesan){
-    $("reviewWrap").innerHTML =
-      '<div class="review gagal">' +
-        '<h3>Bukti transaksi belum terbaca</h3>' +
-        '<p class="sub">' + esc(pesan) + '</p>' +
-        '<details><summary>Kalau pesannya soal koneksi atau izin</summary>' +
-          '<p class="sub">Pembacaan struk berjalan lewat Claude dan hanya aktif saat halaman ini dibuka di dalam Claude. ' +
-          'Kalau berkasnya kamu buka dari komputer sendiri, isikan kunci API Anthropic milikmu di bawah. ' +
-          'Kunci hanya dipakai di browser ini selama halaman terbuka dan tidak ikut tersimpan ke mana pun.</p>' +
-          '<input type="password" id="kunciApi" placeholder="sk-ant-..." autocomplete="off" value="' + esc(kunciAPI) + '">' +
-        '</details>' +
-        '<div class="rv-foot">' +
-          '<span class="rv-total">Kamu tetap bisa mengisi barisnya manual di bawah.</span>' +
-          '<span class="spacer"></span>' +
-          '<button type="button" class="btn-quiet" id="gagalTutup">Tutup</button>' +
-          '<button type="button" class="btn-primary" id="gagalUlang">Coba lagi</button>' +
-        '</div>' +
-      '</div>';
+  try {
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  } catch (err) {
+    // file tetap ada, hanya belum bisa dibuka orang lain
+  }
+  return { url: file.getUrl(), pesan: "" };
+}
 
-    $("gagalTutup").addEventListener("click", tutupReview);
-    $("gagalUlang").addEventListener("click", function(){
-      var k = $("kunciApi");
-      if (k) kunciAPI = k.value.trim();
-      if (!berkasTerakhir){ tutupReview(); return; }
-      tutupReview();
-      prosesBerkas(berkasTerakhir);
-    });
-    $("reviewWrap").scrollIntoView({block:"nearest", behavior:"smooth"});
+// Folder dibuat sekali lalu ID-nya diingat. Mencari folder lewat nama
+// butuh izin baca seluruh Drive, dan itu yang dulu bikin error.
+function ambilFolder() {
+  const props = PropertiesService.getScriptProperties();
+  const id = props.getProperty("ID_FOLDER");
+  if (id) {
+    try { return DriveApp.getFolderById(id); } catch (err) {}
+  }
+  const folder = DriveApp.createFolder(NAMA_FOLDER);
+  props.setProperty("ID_FOLDER", folder.getId());
+  return folder;
+}
+
+// Kolom Ditransfer diisi finance secara manual. Boleh berupa nominal
+// (misal 50000 atau "Rp 50.000"), centang, atau kata seperti "sudah".
+function nilaiTransfer(sel, jumlah) {
+  if (sel === true) return jumlah;
+  if (sel === false) return 0;
+  if (typeof sel === "number") return sel > 0 ? sel : 0;
+
+  const teks = String(sel || "").trim().toLowerCase();
+  if (!teks) return 0;
+  if (["ya","y","sudah","v","ok","x","lunas","done","true","transfer","cair"].indexOf(teks) !== -1) {
+    return jumlah;
   }
 
-  /* ---------- panel review ---------- */
-  function tampilkanReview(rows){
-    var thumb = lampiran ? lampiran.thumb : null;
-    hasilScan = {rows:rows};
-    var w = $("reviewWrap");
-    w.innerHTML =
-      '<div class="review">' +
-        '<div class="rv-top">' +
-          (thumb ? '<img class="rv-thumb" src="' + thumb + '" alt="Pratinjau bukti">' : '') +
-          '<div><h3>Hasil pembacaan bukti</h3>' +
-          '<p class="sub">' + rows.length + ' item terbaca' +
-          (rows[0].pedagang ? ' dari ' + esc(rows[0].pedagang) : '') +
-          '. Periksa dulu, koreksi kalau ada yang meleset.</p></div>' +
-        '</div>' +
-        '<div class="rv-meta">' +
-          '<input type="date" id="rvTanggal" value="' + rows[0].tanggal + '" aria-label="Tanggal">' +
-          '<select id="rvJenis" aria-label="Jenis pengeluaran">' +
-            Object.keys(KATEGORI).map(function(k){
-              return '<option value="'+k+'"'+(k===rows[0].jenis?' selected':'')+'>'+KATEGORI[k].nama+'</option>';
-            }).join("") +
-          '</select>' +
-        '</div>' +
-        '<div class="rv-head"><span>Item</span><span>Qty</span><span>Nominal</span><span></span></div>' +
-        '<div id="rvRows"></div>' +
-        '<div class="rv-foot">' +
-          '<span class="rv-total">Total <strong class="num" id="rvTotal">Rp 0</strong></span>' +
-          '<span class="spacer"></span>' +
-          '<button type="button" class="btn-quiet" id="rvBuang">Buang</button>' +
-          '<button type="button" class="btn-primary" id="rvSimpan">Tambahkan ke laporan</button>' +
-        '</div>' +
-      '</div>';
+  const bersih = teks.replace(/[^0-9,.]/g, "").replace(/\./g, "").replace(",", ".");
+  const angka = Number(bersih);
+  return isNaN(angka) || angka <= 0 ? 0 : angka;
+}
 
-    gambarBarisReview();
-    $("rvBuang").addEventListener("click", tutupReview);
-    $("rvSimpan").addEventListener("click", simpanReview);
-    w.scrollIntoView({block:"nearest", behavior:"smooth"});
-  }
+function teksTanggal(nilai, zona) {
+  if (nilai instanceof Date) return Utilities.formatDate(nilai, zona, "yyyy-MM-dd");
+  return String(nilai || "").slice(0, 10);
+}
 
-  function gambarBarisReview(){
-    var box = $("rvRows");
-    box.innerHTML = hasilScan.rows.map(function(r,i){
-      return '<div class="rv-row">' +
-        '<input type="text" value="' + String(r.item).replace(/"/g,"&quot;") + '" data-i="' + i + '" data-f="item" aria-label="Item">' +
-        '<input type="number" min="1" value="' + r.qty + '" data-i="' + i + '" data-f="qty" aria-label="Qty">' +
-        '<input type="text" inputmode="numeric" value="' + angka(r.nominal) + '" data-i="' + i + '" data-f="nominal" aria-label="Nominal">' +
-        '<button type="button" class="rv-del" data-del="' + i + '" aria-label="Hapus baris">&times;</button>' +
-      '</div>';
-    }).join("");
-    hitungTotalReview();
+function urlDari(rumus) {
+  const cocok = String(rumus || "").match(/HYPERLINK\("([^"]+)"/);
+  return cocok ? cocok[1] : "";
+}
 
-    box.addEventListener("input", function(e){
-      var el = e.target, i = el.dataset.i;
-      if (i === undefined) return;
-      var f = el.dataset.f;
-      if (f === "item") hasilScan.rows[i].item = el.value;
-      else if (f === "qty") hasilScan.rows[i].qty = parseInt(el.value,10) || 0;
-      else { var n = bacaNominal(el.value); hasilScan.rows[i].nominal = n; el.value = n ? angka(n) : ""; }
-      hitungTotalReview();
-    });
-    box.addEventListener("click", function(e){
-      var b = e.target.closest("[data-del]");
-      if (!b) return;
-      hasilScan.rows.splice(parseInt(b.dataset.del,10), 1);
-      if (!hasilScan.rows.length) return tutupReview();
-      gambarBarisReview();
-    });
-  }
-
-  function hitungTotalReview(){
-    var t = hasilScan.rows.reduce(function(s,r){ return s + r.qty * r.nominal; }, 0);
-    $("rvTotal").textContent = rupiah(t);
-  }
-
-  function tutupReview(){ hasilScan = null; $("reviewWrap").innerHTML = ""; }
-
-  function simpanReview(){
-    var tanggal = $("rvTanggal").value || hariIni();
-    var jenis = $("rvJenis").value;
-    var thumb = lampiran ? lampiran.thumb : null;
-    var buktiId = thumb ? "b" + Date.now() + Math.random().toString(36).slice(2,5) : null;
-    var baru = [], pertama = null;
-
-    hasilScan.rows.forEach(function(r,i){
-      if (!r.item.trim() || r.qty <= 0 || r.nominal <= 0) return;
-      var id = "e" + Date.now() + i + Math.random().toString(36).slice(2,5);
-      if (!pertama) pertama = id;
-      var entri = {id:id, tanggal:tanggal, jenis:jenis, item:r.item.trim(),
-                   qty:r.qty, nominal:r.nominal, dibuat:Date.now()+i, buktiId:buktiId};
-      data.push(entri);
-      baru.push(entri);
-    });
-
-    if (!baru.length){ toast("Tidak ada baris yang valid untuk disimpan", true); return; }
-    if (buktiId){ buktiCache[buktiId] = thumb; taruh("bukti:" + buktiId, thumb); }
-
-    var lamp = lampiran;
-    simpanData();
-    resetSemua();
-    render(pertama);
-    kirimKeSheet(baru, lamp);
-    toast(baru.length + " item ditambahkan ke laporan");
-  }
-
-  /* ---------- sinkronisasi spreadsheet ---------- */
-  function kirimKeSheet(entri, lamp){
-    if (!urlSheet) return;
-    var muatan = JSON.stringify({
-      aksi: "tambah",
-      bukti: lamp && lamp.kirim ? lamp.kirim : "",
-      namaBukti: lamp ? lamp.nama : "",
-      rows: entri.map(function(r){
-        return {id:r.id, tanggal:r.tanggal, jenis:KATEGORI[r.jenis].nama,
-                item:r.item, qty:r.qty, nominal:r.nominal};
-      })
-    });
-
-    fetch(urlSheet, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body:muatan})
-      .then(function(r){
-        if (!r.ok) throw new Error("status " + r.status);
-        return r.json().catch(function(){ return {}; });
-      })
-      .then(function(j){
-        if (j && j.urlBukti){
-          entri.forEach(function(e){ e.buktiUrl = j.urlBukti; });
-          simpanData();
-          render();
-        }
-        if (j && j.pesanBukti) toast(j.pesanBukti, true);
-        else if (j && j.catatanBukti) toast(j.catatanBukti);
-        else toast(entri.length + " baris masuk ke spreadsheet");
-      })
-      .catch(function(){
-        return fetch(urlSheet, {method:"POST", mode:"no-cors",
-          headers:{"Content-Type":"text/plain;charset=utf-8"}, body:muatan})
-          .then(function(){ toast("Terkirim ke spreadsheet"); })
-          .catch(function(){ toast("Gagal mengirim ke spreadsheet. Periksa URL Web App.", true); });
-      });
-  }
-
-  function tandaTangan(r){
-    return [r.tanggal, r.jenis, r.item, r.qty, r.nominal].join("|");
-  }
-
-  function bandingkan(lama, baru){
-    var beda = [];
-    if (lama.tanggal !== baru.tanggal)
-      beda.push({nama:"Tanggal", dari:tglPanjang(lama.tanggal), jadi:tglPanjang(baru.tanggal)});
-    if (lama.jenis !== baru.jenis)
-      beda.push({nama:"Jenis", dari:KATEGORI[lama.jenis].nama, jadi:KATEGORI[baru.jenis].nama});
-    if (lama.item !== baru.item)
-      beda.push({nama:"Item", dari:lama.item, jadi:baru.item});
-    if (lama.qty !== baru.qty)
-      beda.push({nama:"Qty", dari:angka(lama.qty), jadi:angka(baru.qty)});
-    if (lama.nominal !== baru.nominal)
-      beda.push({nama:"Nominal", dari:rupiah(lama.nominal), jadi:rupiah(baru.nominal)});
-    if (beda.length && lama.qty * lama.nominal !== baru.qty * baru.nominal)
-      beda.push({nama:"Jumlah", dari:rupiah(lama.qty*lama.nominal), jadi:rupiah(baru.qty*baru.nominal)});
-    return beda;
-  }
-
-  /* ---------- dialog konfirmasi ---------- */
-  var tanyaAksi = null;
-  function tanya(opsi){
-    $("tanyaJudul").textContent = opsi.judul;
-    $("tanyaIsi").innerHTML = opsi.isi;
-    $("tanyaOk").textContent = opsi.tombol || "Lanjutkan";
-    $("tanyaOk").className = opsi.bahaya ? "btn-bahaya" : "btn-primary";
-    tanyaAksi = opsi.onOk;
-    $("dlgTanya").showModal();
-  }
-
-  /* ---------- ubah dan hapus di spreadsheet ---------- */
-  function kirimAksi(muatan, namaAksi){
-    if (!urlSheet) return;
-    fetch(urlSheet, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"},
-                     body:JSON.stringify(muatan)})
-      .then(function(r){
-        if (!r.ok) throw new Error("status " + r.status);
-        return r.json().catch(function(){ return {ok:true}; });
-      })
-      .then(function(j){
-        if (j && j.ok === false) toast(j.pesan || "Spreadsheet menolak perubahan", true);
-        else toast(namaAksi + " juga diterapkan di spreadsheet");
-      })
-      .catch(function(){
-        toast("Perubahan tersimpan di sini, tapi gagal sampai ke spreadsheet", true);
-      });
-  }
-
-  function kirimUbah(entri){
-    kirimAksi({aksi:"ubah", row:{
-      id: entri.id, tanggal: entri.tanggal, jenis: KATEGORI[entri.jenis].nama,
-      item: entri.item, qty: entri.qty, nominal: entri.nominal
-    }}, "Perubahan");
-  }
-
-  function kirimHapus(entri){
-    kirimAksi({aksi:"hapus", id:entri.id}, "Penghapusan");
-  }
-
-  // Mengambil isi spreadsheet lalu menambahkan baris yang belum ada di sini.
-  // Pencocokan pakai jumlah, jadi dua pengeluaran identik di hari yang sama
-  // tetap dihitung dua-duanya.
-  function muatDariSheet(manual){
-    if (!urlSheet){ if (manual) toast("Belum ada URL spreadsheet", true); return; }
-
-    fetch(urlSheet, {method:"GET"})
-      .then(function(r){
-        if (!r.ok) throw new Error("status " + r.status);
-        return r.json();
-      })
-      .then(function(j){
-        if (!j || !Array.isArray(j.rows)) throw new Error("balasan tidak dikenali");
-
-        var namaKeKunci = {};
-        Object.keys(KATEGORI).forEach(function(k){
-          namaKeKunci[KATEGORI[k].nama.toLowerCase()] = k;
-        });
-
-        var perId = {};
-        data.forEach(function(r){ if (r.id) perId[r.id] = r; });
-
-        // baris lokal yang belum punya pasangan ID, dicocokkan lewat isinya
-        var perTanda = {};
-        data.forEach(function(r){
-          var s = tandaTangan(r);
-          (perTanda[s] = perTanda[s] || []).push(r);
-        });
-
-        var tambah = 0, ubah = 0, transfer = 0;
-        j.rows.forEach(function(r, i){
-          var isiBaris = {
-            tanggal: r.tanggal,
-            jenis: namaKeKunci[String(r.jenis).toLowerCase()] || "pribadi",
-            item: String(r.item),
-            qty: Number(r.qty) || 0,
-            nominal: Number(r.nominal) || 0
-          };
-          if (!isiBaris.item || !isiBaris.tanggal) return;
-
-          var lokal = r.id ? perId[r.id] : null;
-          if (lokal){
-            // spreadsheet yang jadi acuan kalau isinya berbeda
-            if (tandaTangan(lokal) !== tandaTangan(isiBaris)){
-              lokal.tanggal = isiBaris.tanggal; lokal.jenis = isiBaris.jenis;
-              lokal.item = isiBaris.item; lokal.qty = isiBaris.qty;
-              lokal.nominal = isiBaris.nominal;
-              ubah++;
-            }
-            if ((Number(lokal.ditransfer) || 0) !== (Number(r.ditransfer) || 0)){
-              lokal.ditransfer = Number(r.ditransfer) || 0;
-              transfer++;
-            }
-            if (r.bukti) lokal.buktiUrl = r.bukti;
-            return;
-          }
-
-          var kembar = perTanda[tandaTangan(isiBaris)];
-          if (kembar && kembar.length){
-            var pasangan = kembar.shift();
-            if (r.id) pasangan.id = r.id; // supaya bisa diubah dan dihapus nanti
-            pasangan.ditransfer = Number(r.ditransfer) || 0;
-            if (r.bukti) pasangan.buktiUrl = r.bukti;
-            return;
-          }
-
-          if (abaikan.indexOf(tandaTangan(isiBaris)) !== -1) return;
-
-          data.push({
-            id: r.id || ("s" + i + "-" + Math.random().toString(36).slice(2,6)),
-            tanggal: isiBaris.tanggal, jenis: isiBaris.jenis, item: isiBaris.item,
-            qty: isiBaris.qty, nominal: isiBaris.nominal,
-            dibuat: i, buktiId: null, buktiUrl: r.bukti || "",
-            ditransfer: Number(r.ditransfer) || 0
-          });
-          tambah++;
-        });
-
-        simpanData();
-        render();
-        if (tambah || ubah || transfer){
-          toast([tambah ? tambah + " baris diambil" : "",
-                 ubah ? ubah + " baris diperbarui" : "",
-                 transfer ? transfer + " status transfer diperbarui" : ""]
-                .filter(Boolean).join(", "));
-        } else if (manual) toast("Semua baris sudah sinkron");
-      })
-      .catch(function(e){
-        console.error("Gagal membaca spreadsheet:", e);
-        if (manual) toast("Gagal membaca spreadsheet. Pastikan deployment sudah versi terbaru.", true);
-      });
-  }
-
-  function perbaruiStatusSync(){
-    $("syncDot").className = "sync-dot" + (urlSheet ? " on" : "");
-    $("syncTeks").textContent = urlSheet ? "Tersambung" : "Spreadsheet";
-  }
-
-  function labelTransfer(r){
-    var jumlah = r.qty * r.nominal;
-    var sudah = Number(r.ditransfer) || 0;
-    if (sudah <= 0) return '<span class="status belum">Belum</span>';
-    if (sudah >= jumlah) return '<span class="status sudah">Sudah</span>';
-    return '<span class="status sebagian">' + rupiah(sudah) + '</span>';
-  }
-
-  /* ---------- data & render ---------- */
-  function terfilter(){
-    return data.filter(function(r){
-      if (filter.kategori !== "all" && r.jenis !== filter.kategori) return false;
-      if (filter.bulan && r.tanggal.slice(0,7) !== filter.bulan) return false;
-      if (filter.belum && (Number(r.ditransfer) || 0) >= r.qty * r.nominal) return false;
-      if (filter.cari && r.item.toLowerCase().indexOf(filter.cari) === -1) return false;
-      return true;
-    }).sort(function(a,b){
-      return a.tanggal === b.tanggal ? b.dibuat - a.dibuat : (a.tanggal < b.tanggal ? 1 : -1);
-    });
-  }
-
-  function render(barisBaru){
-    var rows = terfilter(), tbody = $("tbody");
-    tbody.textContent = "";
-
-    rows.forEach(function(r){
-      var tr = document.createElement("tr");
-      if (r.id === barisBaru) tr.className = "baru";
-      tr.innerHTML =
-        '<td data-label="Tanggal" class="num">' + tglPanjang(r.tanggal) + '</td>' +
-        '<td data-label="Jenis"><span class="tag"><span class="dot" style="background:' + KATEGORI[r.jenis].warna + '"></span>' + KATEGORI[r.jenis].nama + '</span></td>' +
-        '<td data-label="Item"></td>' +
-        '<td data-label="Qty" class="ta-r num">' + angka(r.qty) + '</td>' +
-        '<td data-label="Nominal" class="ta-r num">' + rupiah(r.nominal) + '</td>' +
-        '<td data-label="Jumlah" class="ta-r num jumlah">' + rupiah(r.qty * r.nominal) + '</td>' +
-        '<td data-label="Transfer">' + labelTransfer(r) + '</td>' +
-        '<td data-label="Bukti">' + (
-          r.buktiId ? '<img class="bukti" alt="Bukti transaksi" data-bukti="' + r.buktiId + '">'
-          : r.buktiUrl ? '<a class="bukti-tautan" href="' + esc(r.buktiUrl) + '" target="_blank" rel="noopener">Buka</a>'
-          : '<span class="bukti-none">&ndash;</span>') + '</td>' +
-        '<td class="row-actions">' +
-          '<button type="button" class="btn-quiet" data-ubah="' + r.id + '">Ubah</button>' +
-          '<button type="button" class="btn-quiet" data-hapus="' + r.id + '">Hapus</button>' +
-        '</td>';
-      tr.children[2].appendChild(document.createTextNode(r.item));
-      tbody.appendChild(tr);
-      if (r.buktiId) pasangBukti(r.buktiId, tr.querySelector("[data-bukti]"));
-    });
-
-    var totalTampil = rows.reduce(function(s,r){ return s + r.qty * r.nominal; }, 0);
-    var totalTransfer = rows.reduce(function(s,r){
-      return s + Math.min(Number(r.ditransfer) || 0, r.qty * r.nominal);
-    }, 0);
-
-    $("empty").hidden = rows.length > 0;
-    $("tfoot").hidden = rows.length === 0;
-    $("footTotal").textContent = rupiah(totalTampil);
-    $("footTransfer").textContent = totalTransfer ? rupiah(totalTransfer) : "";
-    $("total").textContent = rupiah(totalTampil);
-    $("count").textContent = rows.length
-      ? rows.length + " catatan" + (rows.length !== data.length ? " dari " + data.length : "")
-      : "Belum ada catatan";
-    $("periode").textContent = filter.bulan
-      ? new Date(filter.bulan + "-01T00:00:00").toLocaleDateString("id-ID",{month:"long",year:"numeric"})
-      : "Semua periode";
-
-    renderRingkasan(rows, totalTampil);
-    renderReimburse(totalTampil, totalTransfer);
-  }
-
-  function renderReimburse(total, sudah){
-    var blok = $("reimburse");
-    blok.hidden = total <= 0;
-    if (total <= 0) return;
-    $("rbSudah").textContent = rupiah(sudah);
-    $("rbBelum").textContent = rupiah(Math.max(0, total - sudah));
-    $("rbIsi").style.width = Math.min(100, total ? (sudah / total * 100) : 0) + "%";
-  }
-
-  function pasangBukti(id, img){
-    if (!img) return;
-    if (buktiCache[id]){ img.src = buktiCache[id]; return; }
-    ambil("bukti:" + id).then(function(v){
-      if (v){ buktiCache[id] = v; img.src = v; }
-      else img.replaceWith(document.createTextNode("–"));
-    });
-  }
-
-  function renderRingkasan(rows, total){
-    var per = {};
-    Object.keys(KATEGORI).forEach(function(k){ per[k] = 0; });
-    rows.forEach(function(r){ per[r.jenis] += r.qty * r.nominal; });
-
-    var bar = $("bar"), legend = $("legend");
-    bar.textContent = ""; legend.textContent = "";
-
-    Object.keys(KATEGORI).forEach(function(k){
-      var nilai = per[k], persen = total ? nilai/total*100 : 0;
-      if (nilai > 0){
-        var seg = document.createElement("span");
-        seg.style.width = persen + "%";
-        seg.style.background = KATEGORI[k].warna;
-        bar.appendChild(seg);
-      }
-      var li = document.createElement("li");
-      li.innerHTML = '<span class="dot" style="background:' + KATEGORI[k].warna + '"></span>' +
-        '<b>' + KATEGORI[k].nama + '</b>' +
-        '<span class="amt num">' + rupiah(nilai) + (total ? " · " + Math.round(persen) + "%" : "") + '</span>';
-      legend.appendChild(li);
-    });
-  }
-
-  /* ---------- form manual ---------- */
-  function hitungPreview(){
-    var qty = parseInt($("qty").value,10) || 0;
-    $("preview").textContent = rupiah(qty * bacaNominal($("nominal").value));
-  }
-  function resetForm(){
-    sedangEdit = null;
-    $("entry-title").textContent = "Tambah pengeluaran";
-    $("simpan").textContent = "Tambah ke laporan";
-    $("batal").hidden = true;
-    $("item").value = ""; $("qty").value = "1"; $("nominal").value = "";
-    hitungPreview();
-  }
-
-  // Dipanggil setiap satu laporan selesai disimpan: form, panel hasil scan,
-  // dan bukti yang terlampir semuanya dikosongkan lagi.
-  function resetSemua(){
-    resetForm();
-    lampiran = null;
-    berkasTerakhir = null;
-    hasilScan = null;
-    $("reviewWrap").innerHTML = "";
-    $("berkas").value = "";
-    $("tanggal").value = hariIni();
-    $("jenis").selectedIndex = 0;
-    tampilDrop();
-  }
-  function simpan(){
-    var item = $("item").value.trim(), nominal = bacaNominal($("nominal").value);
-    var qty = parseInt($("qty").value,10) || 0, tanggal = $("tanggal").value || hariIni();
-
-    if (!item){ $("item").focus(); $("item").placeholder = "Isi nama item dulu"; return; }
-    if (qty <= 0){ $("qty").focus(); return; }
-    if (nominal <= 0){ $("nominal").focus(); return; }
-
-    var id, entri;
-    if (sedangEdit){
-      entri = data.find(function(x){ return x.id === sedangEdit; });
-      if (!entri){ resetForm(); return; }
-      var baru = {tanggal:tanggal, jenis:$("jenis").value, item:item, qty:qty, nominal:nominal};
-      var beda = bandingkan(entri, baru);
-
-      if (!beda.length){ toast("Tidak ada yang berubah"); resetForm(); render(); return; }
-
-      tanya({
-        judul: "Simpan perubahan ini?",
-        isi: '<div class="ringkas"><b>' + esc(entri.item) + '</b>' +
-             '<span class="kecil">' + tglPanjang(entri.tanggal) + ' · ' +
-             KATEGORI[entri.jenis].nama + '</span></div>' +
-             '<ul class="diff">' + beda.map(function(d){
-               return '<li><span class="nama">' + d.nama + '</span>' +
-                      '<span class="dari">' + esc(d.dari) + '</span>' +
-                      '<span>→</span><span class="jadi">' + esc(d.jadi) + '</span></li>';
-             }).join("") + '</ul>' +
-             '<p>Baris di spreadsheet ikut diperbarui.</p>',
-        tombol: "Simpan perubahan",
-        onOk: function(){
-          entri.tanggal = baru.tanggal; entri.jenis = baru.jenis;
-          entri.item = baru.item; entri.qty = baru.qty; entri.nominal = baru.nominal;
-          simpanData();
-          resetForm();
-          render(entri.id);
-          kirimUbah(entri);
-        }
-      });
-    } else {
-      id = "e" + Date.now() + Math.random().toString(36).slice(2,6);
-      var thumb = lampiran ? lampiran.thumb : null;
-      var buktiId = thumb ? "b" + Date.now() + Math.random().toString(36).slice(2,5) : null;
-      entri = {id:id, tanggal:tanggal, jenis:$("jenis").value, item:item,
-               qty:qty, nominal:nominal, dibuat:Date.now(), buktiId:buktiId};
-      if (buktiId){ buktiCache[buktiId] = thumb; taruh("bukti:" + buktiId, thumb); }
-      data.push(entri);
-      var lamp = lampiran;
-      simpanData();
-      resetSemua();
-      render(id);
-      kirimKeSheet([entri], lamp);
-      $("item").focus();
-    }
-  }
-  function mulaiUbah(id){
-    var r = data.find(function(x){ return x.id === id; });
-    if (!r) return;
-    sedangEdit = id;
-    $("tanggal").value = r.tanggal; $("jenis").value = r.jenis;
-    $("item").value = r.item; $("qty").value = r.qty; $("nominal").value = angka(r.nominal);
-    $("entry-title").textContent = "Ubah pengeluaran";
-    $("simpan").textContent = "Simpan perubahan";
-    $("batal").hidden = false;
-    hitungPreview(); $("item").focus();
-    window.scrollTo({top:0, behavior:"smooth"});
-  }
-
-  /* ---------- ekspor ---------- */
-  function unduhCSV(){
-    var rows = terfilter();
-    if (!rows.length) return;
-    var baris = [["Tanggal","Jenis","Item","Qty","Nominal","Jumlah","Ditransfer","Sisa","Bukti"]];
-    rows.forEach(function(r){
-      var jumlah = r.qty * r.nominal;
-      var sudah = Math.min(Number(r.ditransfer) || 0, jumlah);
-      baris.push([r.tanggal, KATEGORI[r.jenis].nama, r.item, r.qty, r.nominal, jumlah,
-                  sudah, jumlah - sudah,
-                  r.buktiUrl || (r.buktiId ? "Tersimpan di aplikasi" : "")]);
-    });
-    var totalCsv = rows.reduce(function(s,r){ return s+r.qty*r.nominal; },0);
-    var transferCsv = rows.reduce(function(s,r){
-      return s + Math.min(Number(r.ditransfer) || 0, r.qty*r.nominal); },0);
-    baris.push(["","","","","Total", totalCsv, transferCsv, totalCsv - transferCsv, ""]);
-    var csv = baris.map(function(b){
-      return b.map(function(c){ return '"' + String(c).replace(/"/g,'""') + '"'; }).join(";");
-    }).join("\n");
-    var url = URL.createObjectURL(new Blob(["\uFEFF"+csv], {type:"text/csv;charset=utf-8"}));
-    var a = document.createElement("a");
-    a.href = url;
-    a.download = "laporan-pengeluaran" + (filter.bulan ? "-" + filter.bulan : "") + ".csv";
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  /* ---------- event ---------- */
-  var drop = $("drop");
-  drop.addEventListener("click", function(e){
-    if (e.target.closest("#dropHapus")) return;
-    $("berkas").click();
-  });
-  $("dropHapus").addEventListener("click", function(e){
-    e.stopPropagation();
-    lampiran = null; berkasTerakhir = null;
-    $("berkas").value = "";
-    tampilDrop();
-    toast("Lampiran bukti dilepas");
-  });
-  drop.addEventListener("keydown", function(e){
-    if (e.key === "Enter" || e.key === " "){ e.preventDefault(); $("berkas").click(); }
-  });
-  $("berkas").addEventListener("change", function(){ if (this.files.length) prosesBerkas(this.files); });
-  ["dragenter","dragover"].forEach(function(ev){
-    drop.addEventListener(ev, function(e){ e.preventDefault(); drop.classList.add("over"); });
-  });
-  ["dragleave","drop"].forEach(function(ev){
-    drop.addEventListener(ev, function(e){ e.preventDefault(); drop.classList.remove("over"); });
-  });
-  drop.addEventListener("drop", function(e){
-    if (e.dataTransfer && e.dataTransfer.files.length) prosesBerkas(e.dataTransfer.files);
-  });
-
-  $("simpan").addEventListener("click", simpan);
-  $("batal").addEventListener("click", resetForm);
-  $("qty").addEventListener("input", hitungPreview);
-  $("nominal").addEventListener("input", function(){
-    var n = bacaNominal(this.value);
-    this.value = n ? angka(n) : "";
-    hitungPreview();
-  });
-  ["item","qty","nominal"].forEach(function(id){
-    $(id).addEventListener("keydown", function(e){ if (e.key === "Enter") simpan(); });
-  });
-
-  $("tbody").addEventListener("click", function(e){
-    var img = e.target.closest("[data-bukti]");
-    if (img && img.src){
-      var pemilik = data.find(function(x){ return x.buktiId === img.dataset.bukti; });
-      $("lightboxImg").src = img.src;
-      var tautanDrive = $("lightboxTautan");
-      if (pemilik && pemilik.buktiUrl){
-        tautanDrive.href = pemilik.buktiUrl;
-        tautanDrive.hidden = false;
-      } else tautanDrive.hidden = true;
-      $("lightbox").showModal();
-      return;
-    }
-    var b = e.target.closest("button");
-    if (!b) return;
-    if (b.dataset.hapus){
-      var korban = data.find(function(x){ return x.id === b.dataset.hapus; });
-      if (!korban) return;
-      tanya({
-        judul: "Hapus pengeluaran ini?",
-        isi: '<div class="ringkas"><b>' + esc(korban.item) + '</b>' +
-             '<span class="kecil">' + tglPanjang(korban.tanggal) + ' · ' +
-             KATEGORI[korban.jenis].nama + ' · ' + angka(korban.qty) + ' × ' +
-             rupiah(korban.nominal) + ' = ' + rupiah(korban.qty * korban.nominal) +
-             '</span></div>' +
-             '<p>Baris ini juga dihapus dari spreadsheet, dan tidak bisa dikembalikan.</p>',
-        tombol: "Hapus",
-        bahaya: true,
-        onOk: function(){ hapusEntri(korban); }
-      });
-    } else if (b.dataset.ubah){ mulaiUbah(b.dataset.ubah); }
-  });
-
-  function hapusEntri(korban){
-    var bid = korban.buktiId;
-    abaikan.push(tandaTangan(korban));
-    if (abaikan.length > 300) abaikan = abaikan.slice(-300);
-    taruh(K_ABAI, JSON.stringify(abaikan));
-
-    data = data.filter(function(x){ return x.id !== korban.id; });
-    // bukti hanya dibuang kalau tidak ada baris lain dari laporan yang sama
-    if (bid && !data.some(function(x){ return x.buktiId === bid; })){
-      delete buktiCache[bid];
-      if (adaStorage() && window.storage.delete) window.storage.delete("bukti:" + bid).catch(function(){});
-    }
-    if (sedangEdit === korban.id) resetForm();
-    simpanData();
-    render();
-    kirimHapus(korban);
-  }
-
-  $("tanyaOk").addEventListener("click", function(){
-    var aksi = tanyaAksi;
-    tanyaAksi = null;
-    $("dlgTanya").close();
-    if (aksi) aksi();
-  });
-  $("tanyaBatal").addEventListener("click", function(){
-    tanyaAksi = null;
-    $("dlgTanya").close();
-  });
-  $("dlgTanya").addEventListener("close", function(){ tanyaAksi = null; });
-
-  $("lightbox").addEventListener("click", function(e){
-    if (!e.target.closest("#lightboxTautan")) this.close();
-  });
-
-  $("chips").addEventListener("click", function(e){
-    var c = e.target.closest(".chip");
-    if (!c) return;
-    filter.kategori = c.dataset.cat;
-    Array.prototype.forEach.call(this.children, function(el){
-      el.setAttribute("aria-pressed", el === c ? "true" : "false");
-    });
-    render();
-  });
-  $("chipBelum").addEventListener("click", function(){
-    filter.belum = this.getAttribute("aria-pressed") !== "true";
-    this.setAttribute("aria-pressed", filter.belum ? "true" : "false");
-    render();
-  });
-  $("filterBulan").addEventListener("change", function(){ filter.bulan = this.value; render(); });
-  $("cari").addEventListener("input", function(){ filter.cari = this.value.trim().toLowerCase(); render(); });
-  $("unduh").addEventListener("click", unduhCSV);
-  $("cetak").addEventListener("click", function(){ window.print(); });
-
-  /* dialog spreadsheet */
-  $("kodeAS").value = KODE_APPS_SCRIPT;
-  $("tombolSync").addEventListener("click", function(){
-    $("urlSheet").value = urlSheet;
-    $("dlgSync").showModal();
-  });
-  $("salinKode").addEventListener("click", function(){
-    var ta = $("kodeAS");
-    ta.select(); ta.setSelectionRange(0, 99999);
-    var salin = navigator.clipboard ? navigator.clipboard.writeText(ta.value) : Promise.reject();
-    salin.then(function(){ toast("Kode disalin"); })
-         .catch(function(){ try{ document.execCommand("copy"); toast("Kode disalin"); }catch(e){ toast("Salin manual dari kotak kode", true); } });
-  });
-  $("muatSync").addEventListener("click", function(){
-    var u = $("urlSheet").value.trim();
-    if (u) urlSheet = u;
-    muatDariSheet(true);
-  });
-  $("simpanSync").addEventListener("click", function(){
-    urlSheet = $("urlSheet").value.trim();
-    taruh(K_SHEET, urlSheet);
-    perbaruiStatusSync();
-    $("dlgSync").close();
-    toast(urlSheet ? "Spreadsheet tersambung" : "Sambungan dilepas");
-    if (urlSheet) muatDariSheet(false);
-  });
-  $("putusSync").addEventListener("click", function(){
-    urlSheet = ""; $("urlSheet").value = "";
-    taruh(K_SHEET, ""); perbaruiStatusSync();
-    $("dlgSync").close(); toast("Sambungan dilepas");
-  });
-  $("ujiSync").addEventListener("click", function(){
-    var u = $("urlSheet").value.trim();
-    if (!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec/.test(u)){
-      toast("URL harus dari Apps Script dan berakhiran /exec", true); return;
-    }
-    var lama = urlSheet; urlSheet = u;
-    kirimKeSheet([{tanggal:hariIni(), jenis:"kantor", item:"Uji koneksi", qty:1, nominal:0}], null);
-    urlSheet = lama;
-    toast("Baris uji dikirim. Cek spreadsheet-mu.");
-  });
-
-  $("contoh").addEventListener("click", function(){
-    var h = hariIni(), kemarin = new Date(Date.now()-86400000).toISOString().slice(0,10);
-    [["transport","Grab ke kantor klien",2,38000,h],
-     ["makan","Makan siang tim",4,35000,h],
-     ["kantor","Kertas A4 rim",3,58000,kemarin],
-     ["pribadi","Pulsa",1,50000,kemarin]
-    ].forEach(function(s,i){
-      data.push({id:"c"+i+Date.now(), tanggal:s[4], jenis:s[0], item:s[1],
-                 qty:s[2], nominal:s[3], dibuat:Date.now()+i, buktiId:null});
-    });
-    simpanData(); render();
-  });
-
-  /* ---------- mulai ---------- */
-  $("tanggal").value = hariIni();
-  hitungPreview();
-  perbaruiStatusSync();
-  tampilDrop();
-  Promise.all([ambil(K_DATA), ambil(K_SHEET), ambil(K_ABAI)]).then(function(h){
-    try{ data = h[0] ? JSON.parse(h[0]) : []; }catch(e){ data = []; }
-    if (!Array.isArray(data)) data = [];
-    // catatan lama menyimpan bukti dengan kunci id barisnya sendiri
-    data.forEach(function(r){ if (r.bukti && !r.buktiId) r.buktiId = r.id; });
-
-    try{ abaikan = h[2] ? JSON.parse(h[2]) : []; }catch(e){ abaikan = []; }
-    if (!Array.isArray(abaikan)) abaikan = [];
-
-    // null berarti belum pernah diatur, string kosong berarti sengaja diputus
-    urlSheet = (h[1] === null || h[1] === undefined) ? URL_BAWAAN : h[1];
-    perbaruiStatusSync();
-    render();
-    muatDariSheet(false);
-  });
-})();
-</script>
-</body>
-</html>
+function balas(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
