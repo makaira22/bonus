@@ -88,6 +88,24 @@
   .btn-ghost:hover{background:var(--line-soft)}
   .btn-quiet{background:none;border:none;color:var(--muted);padding:6px 8px;font-weight:500}
   .btn-quiet:hover{color:var(--ink);text-decoration:underline}
+  .btn-bahaya{background:var(--warn);color:#fff}
+  .btn-bahaya:hover{background:#96370F}
+
+  .ringkas{
+    background:#F7F9FB;border:1px solid var(--line-soft);border-radius:8px;
+    padding:12px 14px;margin-bottom:16px;font-size:14px;
+  }
+  .ringkas b{font-weight:700}
+  .ringkas .kecil{display:block;color:var(--muted);font-size:13px;margin-top:2px}
+  .diff{list-style:none;margin:0 0 16px;padding:0;font-size:14px}
+  .diff li{
+    display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;
+    padding:8px 0;border-bottom:1px solid var(--line-soft);
+  }
+  .diff li:last-child{border-bottom:none}
+  .diff .nama{color:var(--muted);font-size:13px;flex:0 0 92px}
+  .diff .dari{color:var(--muted);text-decoration:line-through}
+  .diff .jadi{font-weight:600}
 
   /* ---------- Panel hasil scan ---------- */
   .review{border:1px solid #BFD9D6;background:#F3F9F8;border-radius:9px;padding:16px;margin-bottom:18px}
@@ -378,6 +396,18 @@
   </div>
 </dialog>
 
+<dialog id="dlgTanya">
+  <div class="dlg">
+    <h2 id="tanyaJudul"></h2>
+    <div id="tanyaIsi"></div>
+    <div class="dlg-foot">
+      <span class="spacer"></span>
+      <button type="button" class="btn-ghost" id="tanyaBatal">Batal</button>
+      <button type="button" class="btn-primary" id="tanyaOk">Lanjutkan</button>
+    </div>
+  </div>
+</dialog>
+
 <dialog id="lightbox">
   <img id="lightboxImg" alt="Bukti transaksi">
   <a id="lightboxTautan" class="lb-tautan" href="#" target="_blank" rel="noopener" hidden>Buka di Google Drive</a>
@@ -414,6 +444,9 @@
   var KODE_APPS_SCRIPT =
 'const NAMA_SHEET = "Pengeluaran";\n' +
 'const NAMA_FOLDER = "Bukti Pengeluaran";\n' +
+'const KOLOM_BUKTI = 7;\n' +
+'const KOLOM_WAKTU = 8;\n' +
+'const KOLOM_ID = 9;\n' +
 '\n' +
 '// Jalankan fungsi ini SEKALI dari editor supaya izin diminta.\n' +
 'function beriIzin() {\n' +
@@ -429,19 +462,57 @@
 '}\n' +
 '\n' +
 'function doPost(e) {\n' +
-'  const ss = SpreadsheetApp.getActiveSpreadsheet();\n' +
-'  let sheet = ss.getSheetByName(NAMA_SHEET) || ss.insertSheet(NAMA_SHEET);\n' +
+'  const sheet = ambilSheet();\n' +
+'  const isi = JSON.parse(e.postData.contents);\n' +
+'  const aksi = isi.aksi || "tambah";\n' +
 '\n' +
-'  if (sheet.getLastRow() === 0) {\n' +
-'    sheet.appendRow(["Tanggal","Jenis","Item","Qty","Nominal","Jumlah","Bukti","Waktu input"]);\n' +
-'    sheet.getRange("A1:H1").setFontWeight("bold");\n' +
-'    sheet.setFrozenRows(1);\n' +
-'  } else if (sheet.getRange(1, 7).getValue() !== "Bukti") {\n' +
-'    sheet.insertColumnBefore(7);\n' +
-'    sheet.getRange(1, 7).setValue("Bukti").setFontWeight("bold");\n' +
+'  if (aksi === "hapus") return balas(hapusBaris(sheet, isi.id));\n' +
+'  if (aksi === "ubah") return balas(ubahBaris(sheet, isi.row));\n' +
+'  return balas(tambahBaris(sheet, isi));\n' +
+'}\n' +
+'\n' +
+'function doGet() {\n' +
+'  const ss = SpreadsheetApp.getActiveSpreadsheet();\n' +
+'  const sheet = ss.getSheetByName(NAMA_SHEET);\n' +
+'  const keluar = { ok: true, rows: [] };\n' +
+'  if (!sheet || sheet.getLastRow() < 2) return balas(keluar);\n' +
+'\n' +
+'  const jumlah = sheet.getLastRow() - 1;\n' +
+'  const nilai = sheet.getRange(2, 1, jumlah, KOLOM_ID).getValues();\n' +
+'  const rumus = sheet.getRange(2, KOLOM_BUKTI, jumlah, 1).getFormulas();\n' +
+'  const zona = ss.getSpreadsheetTimeZone();\n' +
+'  const daftarId = [];\n' +
+'  let adaBaru = false;\n' +
+'\n' +
+'  for (let i = 0; i < jumlah; i++) {\n' +
+'    const b = nilai[i];\n' +
+'    let id = String(b[KOLOM_ID - 1] || "");\n' +
+'    // baris lama belum punya ID, diberi sekarang supaya bisa diubah dan dihapus\n' +
+'    if (b[2] && !id) {\n' +
+'      id = "sheet-" + (i + 2) + "-" + Date.now();\n' +
+'      adaBaru = true;\n' +
+'    }\n' +
+'    daftarId.push([id]);\n' +
+'    if (!b[2]) continue;\n' +
+'\n' +
+'    keluar.rows.push({\n' +
+'      id: id,\n' +
+'      tanggal: teksTanggal(b[0], zona),\n' +
+'      jenis: String(b[1] || ""),\n' +
+'      item: String(b[2]),\n' +
+'      qty: Number(b[3]) || 0,\n' +
+'      nominal: Number(b[4]) || 0,\n' +
+'      bukti: urlDari(rumus[i][0])\n' +
+'    });\n' +
 '  }\n' +
 '\n' +
-'  const isi = JSON.parse(e.postData.contents);\n' +
+'  if (adaBaru) {\n' +
+'    try { sheet.getRange(2, KOLOM_ID, jumlah, 1).setValues(daftarId); } catch (err) {}\n' +
+'  }\n' +
+'  return balas(keluar);\n' +
+'}\n' +
+'\n' +
+'function tambahBaris(sheet, isi) {\n' +
 '  const baris = isi.rows || [isi];\n' +
 '  const blob = isi.bukti ? siapkanBlob(isi.bukti, isi.namaBukti) : null;\n' +
 '  const hasil = blob ? simpanKeDrive(blob) : { url: "", pesan: "" };\n' +
@@ -450,11 +521,12 @@
 '  baris.forEach(function (r, i) {\n' +
 '    const qty = Number(r.qty) || 0;\n' +
 '    const nominal = Number(r.nominal) || 0;\n' +
-'    sheet.appendRow([r.tanggal, r.jenis, r.item, qty, nominal, qty * nominal, "", new Date()]);\n' +
+'    sheet.appendRow([r.tanggal, r.jenis, r.item, qty, nominal, qty * nominal,\n' +
+'                     "", new Date(), r.id || ""]);\n' +
 '    const nomor = sheet.getLastRow();\n' +
 '    if (i === 0) barisPertama = nomor;\n' +
 '    if (hasil.url) {\n' +
-'      const sel = sheet.getRange(nomor, 7);\n' +
+'      const sel = sheet.getRange(nomor, KOLOM_BUKTI);\n' +
 '      try { sel.setFormula(tautan(hasil.url)); } catch (err) { sel.setValue(hasil.url); }\n' +
 '    }\n' +
 '  });\n' +
@@ -466,32 +538,83 @@
 '    catatan = tempelGambar(sheet, blob, barisPertama, baris.length);\n' +
 '  }\n' +
 '\n' +
-'  return ContentService\n' +
-'    .createTextOutput(JSON.stringify({\n' +
-'      ok: true, ditambahkan: baris.length, urlBukti: hasil.url,\n' +
-'      pesanBukti: catatan ? "" : hasil.pesan, catatanBukti: catatan\n' +
-'    }))\n' +
-'    .setMimeType(ContentService.MimeType.JSON);\n' +
+'  return {\n' +
+'    ok: true, ditambahkan: baris.length, urlBukti: hasil.url,\n' +
+'    pesanBukti: catatan ? "" : hasil.pesan, catatanBukti: catatan\n' +
+'  };\n' +
+'}\n' +
+'\n' +
+'function ubahBaris(sheet, r) {\n' +
+'  const baris = cariBaris(sheet, r.id);\n' +
+'  if (!baris) return { ok: false, pesan: "Baris tidak ditemukan di spreadsheet" };\n' +
+'\n' +
+'  const qty = Number(r.qty) || 0;\n' +
+'  const nominal = Number(r.nominal) || 0;\n' +
+'  sheet.getRange(baris, 1, 1, 6)\n' +
+'       .setValues([[r.tanggal, r.jenis, r.item, qty, nominal, qty * nominal]]);\n' +
+'  sheet.getRange(baris, KOLOM_WAKTU).setValue(new Date());\n' +
+'  return { ok: true, diubah: 1, baris: baris };\n' +
+'}\n' +
+'\n' +
+'function hapusBaris(sheet, id) {\n' +
+'  const baris = cariBaris(sheet, id);\n' +
+'  if (!baris) return { ok: false, pesan: "Baris tidak ditemukan di spreadsheet" };\n' +
+'  sheet.deleteRow(baris);\n' +
+'  return { ok: true, dihapus: 1 };\n' +
+'}\n' +
+'\n' +
+'function cariBaris(sheet, id) {\n' +
+'  if (!id || sheet.getLastRow() < 2) return 0;\n' +
+'  const nilai = sheet.getRange(2, KOLOM_ID, sheet.getLastRow() - 1, 1).getValues();\n' +
+'  for (let i = 0; i < nilai.length; i++) {\n' +
+'    if (String(nilai[i][0]) === String(id)) return i + 2;\n' +
+'  }\n' +
+'  return 0;\n' +
+'}\n' +
+'\n' +
+'function ambilSheet() {\n' +
+'  const ss = SpreadsheetApp.getActiveSpreadsheet();\n' +
+'  const sheet = ss.getSheetByName(NAMA_SHEET) || ss.insertSheet(NAMA_SHEET);\n' +
+'\n' +
+'  if (sheet.getMaxColumns() < KOLOM_ID) {\n' +
+'    sheet.insertColumnsAfter(sheet.getMaxColumns(), KOLOM_ID - sheet.getMaxColumns());\n' +
+'  }\n' +
+'\n' +
+'  if (sheet.getLastRow() === 0) {\n' +
+'    sheet.appendRow(["Tanggal","Jenis","Item","Qty","Nominal","Jumlah","Bukti","Waktu input","ID"]);\n' +
+'    sheet.getRange(1, 1, 1, KOLOM_ID).setFontWeight("bold");\n' +
+'    sheet.setFrozenRows(1);\n' +
+'    return sheet;\n' +
+'  }\n' +
+'\n' +
+'  if (sheet.getRange(1, KOLOM_BUKTI).getValue() !== "Bukti") {\n' +
+'    sheet.insertColumnBefore(KOLOM_BUKTI);\n' +
+'    sheet.getRange(1, KOLOM_BUKTI).setValue("Bukti").setFontWeight("bold");\n' +
+'  }\n' +
+'  if (sheet.getRange(1, KOLOM_ID).getValue() !== "ID") {\n' +
+'    sheet.getRange(1, KOLOM_ID).setValue("ID").setFontWeight("bold");\n' +
+'  }\n' +
+'  return sheet;\n' +
 '}\n' +
 '\n' +
 'function tempelGambar(sheet, blob, barisAwal, jumlah) {\n' +
 '  if (String(blob.getContentType()).indexOf("image/") !== 0) {\n' +
-'    sheet.getRange(barisAwal, 7).setValue("Bukti PDF ada di aplikasi");\n' +
+'    sheet.getRange(barisAwal, KOLOM_BUKTI).setValue("Bukti PDF ada di aplikasi");\n' +
 '    return "";\n' +
 '  }\n' +
 '  try {\n' +
-'    const gambar = sheet.insertImage(blob, 7, barisAwal);\n' +
+'    const gambar = sheet.insertImage(blob, KOLOM_BUKTI, barisAwal);\n' +
 '    const rasio = gambar.getWidth() / gambar.getHeight();\n' +
 '    gambar.setHeight(110);\n' +
 '    gambar.setWidth(Math.max(30, Math.round(110 * rasio)));\n' +
 '    sheet.setRowHeight(barisAwal, 118);\n' +
-'    sheet.setColumnWidth(7, Math.max(96, Math.round(110 * rasio) + 16));\n' +
+'    sheet.setColumnWidth(KOLOM_BUKTI, Math.max(96, Math.round(110 * rasio) + 16));\n' +
 '    for (let i = 1; i < jumlah; i++) {\n' +
-'      sheet.getRange(barisAwal + i, 7).setValue("Bukti sama dengan baris di atas");\n' +
+'      sheet.getRange(barisAwal + i, KOLOM_BUKTI).setValue("Bukti sama dengan baris di atas");\n' +
 '    }\n' +
 '    return "Izin Drive ditolak, jadi foto ditempel langsung di sheet";\n' +
 '  } catch (err) {\n' +
-'    sheet.getRange(barisAwal, 7).setValue("Bukti gagal disimpan");\n' +
+'    sheet.getRange(barisAwal, KOLOM_BUKTI).setValue("Bukti gagal disimpan");\n' +
 '    return "";\n' +
 '  }\n' +
 '}\n' +
@@ -545,35 +668,6 @@
 '  return folder;\n' +
 '}\n' +
 '\n' +
-'function doGet() {\n' +
-'  const ss = SpreadsheetApp.getActiveSpreadsheet();\n' +
-'  const sheet = ss.getSheetByName(NAMA_SHEET);\n' +
-'  const keluar = { ok: true, rows: [] };\n' +
-'\n' +
-'  if (sheet && sheet.getLastRow() > 1) {\n' +
-'    const jumlah = sheet.getLastRow() - 1;\n' +
-'    const nilai = sheet.getRange(2, 1, jumlah, 8).getValues();\n' +
-'    const rumus = sheet.getRange(2, 7, jumlah, 1).getFormulas();\n' +
-'    const zona = ss.getSpreadsheetTimeZone();\n' +
-'    for (let i = 0; i < jumlah; i++) {\n' +
-'      const b = nilai[i];\n' +
-'      if (!b[2]) continue;\n' +
-'      keluar.rows.push({\n' +
-'        tanggal: teksTanggal(b[0], zona),\n' +
-'        jenis: String(b[1] || ""),\n' +
-'        item: String(b[2]),\n' +
-'        qty: Number(b[3]) || 0,\n' +
-'        nominal: Number(b[4]) || 0,\n' +
-'        bukti: urlDari(rumus[i][0])\n' +
-'      });\n' +
-'    }\n' +
-'  }\n' +
-'\n' +
-'  return ContentService\n' +
-'    .createTextOutput(JSON.stringify(keluar))\n' +
-'    .setMimeType(ContentService.MimeType.JSON);\n' +
-'}\n' +
-'\n' +
 'function teksTanggal(nilai, zona) {\n' +
 '  if (nilai instanceof Date) return Utilities.formatDate(nilai, zona, "yyyy-MM-dd");\n' +
 '  return String(nilai || "").slice(0, 10);\n' +
@@ -582,6 +676,12 @@
 'function urlDari(rumus) {\n' +
 '  const cocok = String(rumus || "").match(/HYPERLINK\\("([^"]+)"/);\n' +
 '  return cocok ? cocok[1] : "";\n' +
+'}\n' +
+'\n' +
+'function balas(obj) {\n' +
+'  return ContentService\n' +
+'    .createTextOutput(JSON.stringify(obj))\n' +
+'    .setMimeType(ContentService.MimeType.JSON);\n' +
 '}';
 
   /* ---------- format ---------- */
@@ -944,10 +1044,12 @@
   function kirimKeSheet(entri, lamp){
     if (!urlSheet) return;
     var muatan = JSON.stringify({
+      aksi: "tambah",
       bukti: lamp && lamp.kirim ? lamp.kirim : "",
       namaBukti: lamp ? lamp.nama : "",
       rows: entri.map(function(r){
-        return {tanggal:r.tanggal, jenis:KATEGORI[r.jenis].nama, item:r.item, qty:r.qty, nominal:r.nominal};
+        return {id:r.id, tanggal:r.tanggal, jenis:KATEGORI[r.jenis].nama,
+                item:r.item, qty:r.qty, nominal:r.nominal};
       })
     });
 
@@ -978,6 +1080,63 @@
     return [r.tanggal, r.jenis, r.item, r.qty, r.nominal].join("|");
   }
 
+  function bandingkan(lama, baru){
+    var beda = [];
+    if (lama.tanggal !== baru.tanggal)
+      beda.push({nama:"Tanggal", dari:tglPanjang(lama.tanggal), jadi:tglPanjang(baru.tanggal)});
+    if (lama.jenis !== baru.jenis)
+      beda.push({nama:"Jenis", dari:KATEGORI[lama.jenis].nama, jadi:KATEGORI[baru.jenis].nama});
+    if (lama.item !== baru.item)
+      beda.push({nama:"Item", dari:lama.item, jadi:baru.item});
+    if (lama.qty !== baru.qty)
+      beda.push({nama:"Qty", dari:angka(lama.qty), jadi:angka(baru.qty)});
+    if (lama.nominal !== baru.nominal)
+      beda.push({nama:"Nominal", dari:rupiah(lama.nominal), jadi:rupiah(baru.nominal)});
+    if (beda.length && lama.qty * lama.nominal !== baru.qty * baru.nominal)
+      beda.push({nama:"Jumlah", dari:rupiah(lama.qty*lama.nominal), jadi:rupiah(baru.qty*baru.nominal)});
+    return beda;
+  }
+
+  /* ---------- dialog konfirmasi ---------- */
+  var tanyaAksi = null;
+  function tanya(opsi){
+    $("tanyaJudul").textContent = opsi.judul;
+    $("tanyaIsi").innerHTML = opsi.isi;
+    $("tanyaOk").textContent = opsi.tombol || "Lanjutkan";
+    $("tanyaOk").className = opsi.bahaya ? "btn-bahaya" : "btn-primary";
+    tanyaAksi = opsi.onOk;
+    $("dlgTanya").showModal();
+  }
+
+  /* ---------- ubah dan hapus di spreadsheet ---------- */
+  function kirimAksi(muatan, namaAksi){
+    if (!urlSheet) return;
+    fetch(urlSheet, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"},
+                     body:JSON.stringify(muatan)})
+      .then(function(r){
+        if (!r.ok) throw new Error("status " + r.status);
+        return r.json().catch(function(){ return {ok:true}; });
+      })
+      .then(function(j){
+        if (j && j.ok === false) toast(j.pesan || "Spreadsheet menolak perubahan", true);
+        else toast(namaAksi + " juga diterapkan di spreadsheet");
+      })
+      .catch(function(){
+        toast("Perubahan tersimpan di sini, tapi gagal sampai ke spreadsheet", true);
+      });
+  }
+
+  function kirimUbah(entri){
+    kirimAksi({aksi:"ubah", row:{
+      id: entri.id, tanggal: entri.tanggal, jenis: KATEGORI[entri.jenis].nama,
+      item: entri.item, qty: entri.qty, nominal: entri.nominal
+    }}, "Perubahan");
+  }
+
+  function kirimHapus(entri){
+    kirimAksi({aksi:"hapus", id:entri.id}, "Penghapusan");
+  }
+
   // Mengambil isi spreadsheet lalu menambahkan baris yang belum ada di sini.
   // Pencocokan pakai jumlah, jadi dua pengeluaran identik di hari yang sama
   // tetap dihitung dua-duanya.
@@ -997,37 +1156,64 @@
           namaKeKunci[KATEGORI[k].nama.toLowerCase()] = k;
         });
 
-        var sisa = {};
+        var perId = {};
+        data.forEach(function(r){ if (r.id) perId[r.id] = r; });
+
+        // baris lokal yang belum punya pasangan ID, dicocokkan lewat isinya
+        var perTanda = {};
         data.forEach(function(r){
           var s = tandaTangan(r);
-          sisa[s] = (sisa[s] || 0) + 1;
+          (perTanda[s] = perTanda[s] || []).push(r);
         });
 
-        var tambah = 0;
+        var tambah = 0, ubah = 0;
         j.rows.forEach(function(r, i){
-          var entri = {
-            id: "s" + i + "-" + Math.random().toString(36).slice(2,6),
+          var isiBaris = {
             tanggal: r.tanggal,
             jenis: namaKeKunci[String(r.jenis).toLowerCase()] || "pribadi",
             item: String(r.item),
             qty: Number(r.qty) || 0,
-            nominal: Number(r.nominal) || 0,
-            dibuat: i,
-            buktiId: null,
-            buktiUrl: r.bukti || ""
+            nominal: Number(r.nominal) || 0
           };
-          if (!entri.item || !entri.tanggal) return;
-          var s = tandaTangan(entri);
-          if (sisa[s]){ sisa[s]--; return; }
-          if (abaikan.indexOf(s) !== -1) return;
-          data.push(entri);
+          if (!isiBaris.item || !isiBaris.tanggal) return;
+
+          var lokal = r.id ? perId[r.id] : null;
+          if (lokal){
+            // spreadsheet yang jadi acuan kalau isinya berbeda
+            if (tandaTangan(lokal) !== tandaTangan(isiBaris)){
+              lokal.tanggal = isiBaris.tanggal; lokal.jenis = isiBaris.jenis;
+              lokal.item = isiBaris.item; lokal.qty = isiBaris.qty;
+              lokal.nominal = isiBaris.nominal;
+              ubah++;
+            }
+            if (r.bukti) lokal.buktiUrl = r.bukti;
+            return;
+          }
+
+          var kembar = perTanda[tandaTangan(isiBaris)];
+          if (kembar && kembar.length){
+            var pasangan = kembar.shift();
+            if (r.id) pasangan.id = r.id; // supaya bisa diubah dan dihapus nanti
+            if (r.bukti) pasangan.buktiUrl = r.bukti;
+            return;
+          }
+
+          if (abaikan.indexOf(tandaTangan(isiBaris)) !== -1) return;
+
+          data.push({
+            id: r.id || ("s" + i + "-" + Math.random().toString(36).slice(2,6)),
+            tanggal: isiBaris.tanggal, jenis: isiBaris.jenis, item: isiBaris.item,
+            qty: isiBaris.qty, nominal: isiBaris.nominal,
+            dibuat: i, buktiId: null, buktiUrl: r.bukti || ""
+          });
           tambah++;
         });
 
-        if (tambah){
-          simpanData();
-          render();
-          toast(tambah + " baris diambil dari spreadsheet");
+        simpanData();
+        render();
+        if (tambah || ubah){
+          toast([tambah ? tambah + " baris diambil" : "", ubah ? ubah + " baris diperbarui" : ""]
+                .filter(Boolean).join(", ") + " dari spreadsheet");
         } else if (manual) toast("Semua baris sudah sinkron");
       })
       .catch(function(e){
@@ -1166,10 +1352,33 @@
     var id, entri;
     if (sedangEdit){
       entri = data.find(function(x){ return x.id === sedangEdit; });
-      entri.tanggal = tanggal; entri.jenis = $("jenis").value;
-      entri.item = item; entri.qty = qty; entri.nominal = nominal;
-      id = entri.id;
-      simpanData(); resetForm(); render(id); $("item").focus();
+      if (!entri){ resetForm(); return; }
+      var baru = {tanggal:tanggal, jenis:$("jenis").value, item:item, qty:qty, nominal:nominal};
+      var beda = bandingkan(entri, baru);
+
+      if (!beda.length){ toast("Tidak ada yang berubah"); resetForm(); render(); return; }
+
+      tanya({
+        judul: "Simpan perubahan ini?",
+        isi: '<div class="ringkas"><b>' + esc(entri.item) + '</b>' +
+             '<span class="kecil">' + tglPanjang(entri.tanggal) + ' · ' +
+             KATEGORI[entri.jenis].nama + '</span></div>' +
+             '<ul class="diff">' + beda.map(function(d){
+               return '<li><span class="nama">' + d.nama + '</span>' +
+                      '<span class="dari">' + esc(d.dari) + '</span>' +
+                      '<span>→</span><span class="jadi">' + esc(d.jadi) + '</span></li>';
+             }).join("") + '</ul>' +
+             '<p>Baris di spreadsheet ikut diperbarui.</p>',
+        tombol: "Simpan perubahan",
+        onOk: function(){
+          entri.tanggal = baru.tanggal; entri.jenis = baru.jenis;
+          entri.item = baru.item; entri.qty = baru.qty; entri.nominal = baru.nominal;
+          simpanData();
+          resetForm();
+          render(entri.id);
+          kirimUbah(entri);
+        }
+      });
     } else {
       id = "e" + Date.now() + Math.random().toString(36).slice(2,6);
       var thumb = lampiran ? lampiran.thumb : null;
@@ -1275,25 +1484,52 @@
     var b = e.target.closest("button");
     if (!b) return;
     if (b.dataset.hapus){
-      var id = b.dataset.hapus;
-      var korban = data.find(function(x){ return x.id === id; });
-      var bid = korban ? korban.buktiId : null;
-      // ditandai supaya tidak ikut tertarik lagi saat baca spreadsheet
-      if (korban){
-        abaikan.push(tandaTangan(korban));
-        if (abaikan.length > 300) abaikan = abaikan.slice(-300);
-        taruh(K_ABAI, JSON.stringify(abaikan));
-      }
-      data = data.filter(function(x){ return x.id !== id; });
-      // bukti hanya dibuang kalau tidak ada baris lain dari laporan yang sama
-      if (bid && !data.some(function(x){ return x.buktiId === bid; })){
-        delete buktiCache[bid];
-        if (adaStorage() && window.storage.delete) window.storage.delete("bukti:" + bid).catch(function(){});
-      }
-      if (sedangEdit === id) resetForm();
-      simpanData(); render();
+      var korban = data.find(function(x){ return x.id === b.dataset.hapus; });
+      if (!korban) return;
+      tanya({
+        judul: "Hapus pengeluaran ini?",
+        isi: '<div class="ringkas"><b>' + esc(korban.item) + '</b>' +
+             '<span class="kecil">' + tglPanjang(korban.tanggal) + ' · ' +
+             KATEGORI[korban.jenis].nama + ' · ' + angka(korban.qty) + ' × ' +
+             rupiah(korban.nominal) + ' = ' + rupiah(korban.qty * korban.nominal) +
+             '</span></div>' +
+             '<p>Baris ini juga dihapus dari spreadsheet, dan tidak bisa dikembalikan.</p>',
+        tombol: "Hapus",
+        bahaya: true,
+        onOk: function(){ hapusEntri(korban); }
+      });
     } else if (b.dataset.ubah){ mulaiUbah(b.dataset.ubah); }
   });
+
+  function hapusEntri(korban){
+    var bid = korban.buktiId;
+    abaikan.push(tandaTangan(korban));
+    if (abaikan.length > 300) abaikan = abaikan.slice(-300);
+    taruh(K_ABAI, JSON.stringify(abaikan));
+
+    data = data.filter(function(x){ return x.id !== korban.id; });
+    // bukti hanya dibuang kalau tidak ada baris lain dari laporan yang sama
+    if (bid && !data.some(function(x){ return x.buktiId === bid; })){
+      delete buktiCache[bid];
+      if (adaStorage() && window.storage.delete) window.storage.delete("bukti:" + bid).catch(function(){});
+    }
+    if (sedangEdit === korban.id) resetForm();
+    simpanData();
+    render();
+    kirimHapus(korban);
+  }
+
+  $("tanyaOk").addEventListener("click", function(){
+    var aksi = tanyaAksi;
+    tanyaAksi = null;
+    $("dlgTanya").close();
+    if (aksi) aksi();
+  });
+  $("tanyaBatal").addEventListener("click", function(){
+    tanyaAksi = null;
+    $("dlgTanya").close();
+  });
+  $("dlgTanya").addEventListener("close", function(){ tanyaAksi = null; });
 
   $("lightbox").addEventListener("click", function(e){
     if (!e.target.closest("#lightboxTautan")) this.close();
