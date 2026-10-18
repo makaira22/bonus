@@ -3,11 +3,14 @@
  * Tempel seluruh isi file ini di: Spreadsheet > Extensions > Apps Script > Code.gs
  *
  * Kolom sheet:  A No. | B Tanggal | C Keterangan | D Tempat | E Qty | F Harga @ |
- *               G Debit | H Kredit | I Saldo | J–N NOTA (digabung)
+ *               G Debit | H Kredit | I Saldo | J–N NOTA
+ *               NOTA = J–L foto pratinjau, M–N link "Buka nota" yang bisa diklik
+ *
+ * Sudah pernah pakai versi lama (muncul #ERROR!)? Jalankan fungsi perbaikiNota() sekali.
  */
 
 // ⚠️ Harus SAMA PERSIS dengan API_KEY di index.html
-const SECRET = 'ganti-kunci-rahasia-ini';
+const SECRET = 'KUNCITERBATASKLINKLIN2525';
 
 const USERS = ['Panglima', 'Janni'];
 const HEADERS = ['No.', 'Tanggal', 'Keterangan', 'Tempat', 'Qty', 'Harga @', 'Debit', 'Kredit', 'Saldo', 'NOTA'];
@@ -64,12 +67,13 @@ function list_(sh) {
   const n = last - 1;
   const vals = sh.getRange(2, 1, n, 10).getValues();
   const forms = sh.getRange(2, 10, n, 1).getFormulas();
+  const links = sh.getRange(2, 13, n, 1).getRichTextValues();
   const tz = Session.getScriptTimeZone();
 
   const rows = [];
   vals.forEach(function (r, i) {
     if (r[2] === '' && r[6] === '' && r[7] === '') return; // baris kosong
-    const notaUrl = extractUrl_(forms[i][0], r[9]);
+    const notaUrl = (links[i][0] && links[i][0].getLinkUrl()) || extractUrl_(forms[i][0], r[9]);
     rows.push({
       row: i + 2,
       no: Number(r[0]) || i + 1,
@@ -105,26 +109,55 @@ function writeRow_(sh, row, data, user) {
     isMasuk ? '' : total
   ]]);
 
-  // NOTA (kolom J, digabung J–N)
-  const notaCell = sh.getRange(row, 10);
+  // NOTA
   const nota = data.nota || { action: 'keep' };
-  const oldUrl = extractUrl_(notaCell.getFormula(), notaCell.getValue());
-
   if (nota.action === 'replace' || nota.action === 'remove') {
+    const oldUrl = getNotaUrl_(sh, row);
     if (oldUrl) trashFile_(extractId_(oldUrl));
-    notaCell.clearContent();
+    clearNota_(sh, row);
   }
   if (nota.action === 'replace' && nota.base64) {
-    const id = saveImage_(nota.base64, nota.type, user);
-    const url = 'https://drive.google.com/file/d/' + id + '/view';
-    notaCell.setFormula('=HYPERLINK("' + url + '", "Lihat nota")');
+    setNota_(sh, row, saveImage_(nota.base64, nota.type, user));
+  } else if (!getNotaUrl_(sh, row)) {
+    clearNota_(sh, row);
   }
-  try { sh.getRange(row, 10, 1, 5).merge().setHorizontalAlignment('center'); } catch (_) {}
+}
+
+/** Tulis nota: foto pratinjau di J–L, link yang bisa diklik di M–N */
+function setNota_(sh, row, id) {
+  const viewUrl = 'https://drive.google.com/file/d/' + id + '/view';
+  const area = sh.getRange(row, 10, 1, 5);
+  area.breakApart().clearContent();
+  sh.getRange(row, 10, 1, 3).merge();
+  sh.getRange(row, 10).setFormula('=IMAGE("https://lh3.googleusercontent.com/d/' + id + '")');
+  sh.getRange(row, 13, 1, 2).merge();
+  sh.getRange(row, 13).setRichTextValue(
+    SpreadsheetApp.newRichTextValue().setText('Buka nota').setLinkUrl(viewUrl).build()
+  );
+  area.setHorizontalAlignment('center').setVerticalAlignment('middle');
+  sh.setRowHeight(row, 90);
+}
+
+function clearNota_(sh, row) {
+  const area = sh.getRange(row, 10, 1, 5);
+  area.breakApart().clearContent();
+  area.merge();
+  sh.setRowHeight(row, 21);
+}
+
+function getNotaUrl_(sh, row) {
+  const rt = sh.getRange(row, 13).getRichTextValue();
+  const link = rt && rt.getLinkUrl();
+  if (link) return link;
+  const j = sh.getRange(row, 10);
+  const fromJ = extractUrl_(j.getFormula(), j.getValue());
+  if (fromJ) return fromJ;
+  const m = String(j.getFormula()).match(/googleusercontent\.com\/d\/([-\w]{20,})/);
+  return m ? 'https://drive.google.com/file/d/' + m[1] + '/view' : '';
 }
 
 function deleteRow_(sh, row) {
-  const cell = sh.getRange(row, 10);
-  const url = extractUrl_(cell.getFormula(), cell.getValue());
+  const url = getNotaUrl_(sh, row);
   if (url) trashFile_(extractId_(url));
   sh.deleteRow(row);
 }
@@ -231,6 +264,23 @@ function extractId_(url) {
 
 function json_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+/** Perbaiki nota lama yang tampil #ERROR! menjadi foto pratinjau + link. Jalankan sekali. */
+function perbaikiNota() {
+  let total = 0;
+  USERS.forEach(function (u) {
+    const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(u);
+    if (!sh) return;
+    for (let r = 2; r <= lastDataRow_(sh); r++) {
+      const id = extractId_(getNotaUrl_(sh, r));
+      if (id) {
+        try { DriveApp.getFileById(id).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (_) {}
+        setNota_(sh, r, id); total++;
+      }
+    }
+  });
+  Logger.log('Selesai. ' + total + ' nota diperbaiki.');
 }
 
 /** Jalankan SEKALI secara manual dari editor untuk memberi izin & menyiapkan sheet + folder */
