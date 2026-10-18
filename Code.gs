@@ -9,25 +9,25 @@
  * Sudah pernah pakai versi lama (muncul #ERROR!)? Jalankan fungsi perbaikiNota() sekali.
  */
 
-// ⚠️ Harus SAMA PERSIS dengan API_KEY di index.html
+// ⚠️ Harus SAMA PERSIS dengan API_KEY di kas.html
 const SECRET = 'KUNCITERBATASKLINKLIN2525';
 
 const USERS = ['Panglima', 'Janni'];
 const HEADERS = ['No.', 'Tanggal', 'Keterangan', 'Tempat', 'Qty', 'Harga @', 'Debit', 'Kredit', 'Saldo', 'NOTA'];
-const FOLDER_NAME = 'Nota Kas Kita';
+const FOLDER_NAME = 'Nota KAS GIANYAR';
 const RP_FORMAT = '"Rp" #,##0';
 
 /* ============================ ENDPOINT ============================ */
 
 function doGet() {
-  return json_({ ok: true, message: 'API Kas Kita aktif. Gunakan POST dari aplikasi.' });
+  return json_({ ok: true, message: 'API KAS GIANYAR aktif. Gunakan POST dari aplikasi.' });
 }
 
 function doPost(e) {
   const lock = LockService.getScriptLock();
   try {
     const req = JSON.parse(e.postData.contents);
-    if (req.key !== SECRET) throw new Error('Kunci API tidak cocok. Samakan SECRET di Code.gs dengan API_KEY di index.html.');
+    if (req.key !== SECRET) throw new Error('Kunci API tidak cocok. Samakan SECRET di Code.gs dengan API_KEY di kas.html.');
     if (USERS.indexOf(req.user) === -1) throw new Error('Pengguna tidak dikenal.');
 
     const sh = getSheet_(req.user);

@@ -1,6 +1,6 @@
-// Naikkan versi ini setiap kali kamu mengubah index.html agar HP mengambil versi baru
-const CACHE = 'kaskita-v3';
-const SHELL = ['./', './index.html', './manifest.json',
+// Naikkan versi ini setiap kali kamu mengubah kas.html agar HP mengambil versi baru
+const CACHE = 'kasgianyar-v4';
+const SHELL = ['./kas.html', './manifest.json',
   './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
@@ -19,8 +19,8 @@ self.addEventListener('fetch', e => {
 
   // Halaman: ambil versi terbaru dulu, kalau offline pakai cache
   if (req.mode === 'navigate') {
-    e.respondWith(fetch(req).then(r => { const copy = r.clone(); caches.open(CACHE).then(c => c.put('./index.html', copy)); return r; })
-      .catch(() => caches.match('./index.html')));
+    e.respondWith(fetch(req).then(r => { const copy = r.clone(); caches.open(CACHE).then(c => c.put('./kas.html', copy)); return r; })
+      .catch(() => caches.match('./kas.html')));
     return;
   }
   // Aset lain (ikon, font): cache dulu, perbarui di belakang

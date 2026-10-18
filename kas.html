@@ -7,8 +7,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Kas Kita">
-<title>Kas Kita</title>
+<meta name="apple-mobile-web-app-title" content="KAS GIANYAR">
+<title>KAS GIANYAR</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -244,7 +244,7 @@ main{padding-bottom:calc(var(--sab) + 110px)}
 <!-- ================= LOGIN ================= -->
 <section id="login" hidden>
   <div class="wrap">
-    <div class="brand"><span class="logo" data-logo></span><b>Kas Kita</b></div>
+    <div class="brand"><span class="logo" data-logo></span><b>KAS GIANYAR</b></div>
     <h1 class="login-title">Buku kas siapa yang mau dibuka?</h1>
     <p class="login-sub">Setiap orang punya catatan dan saldo sendiri.</p>
     <div class="who">
@@ -259,7 +259,7 @@ main{padding-bottom:calc(var(--sab) + 110px)}
         <svg class="go" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg>
       </button>
     </div>
-    <div id="cfgWarn" class="warn" hidden>Alamat Apps Script belum diisi. Buka index.html lalu isi <b>API_URL</b>.</div>
+    <div id="cfgWarn" class="warn" hidden>Alamat Apps Script belum diisi. Buka kas.html lalu isi <b>API_URL</b>.</div>
     <div class="login-foot">
       <button id="installBtn" class="btn ghost" data-install hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-4-4m4 4 4-4M5 21h14"/></svg>Pasang aplikasi di HP</button>
     </div>
@@ -295,7 +295,7 @@ main{padding-bottom:calc(var(--sab) + 110px)}
     </div>
     <div class="install-card" id="installCard" hidden>
       <span class="logo" data-logo></span>
-      <div class="txt"><b>Pasang Kas Kita di HP</b><small>Buka langsung dari layar utama seperti aplikasi biasa.</small></div>
+      <div class="txt"><b>Pasang KAS GIANYAR di HP</b><small>Buka langsung dari layar utama seperti aplikasi biasa.</small></div>
       <button class="btn-mini" data-install>Pasang</button>
       <button class="x-btn sm" id="installHide" aria-label="Tutup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
     </div>
@@ -377,7 +377,7 @@ main{padding-bottom:calc(var(--sab) + 110px)}
   <div class="backdrop" data-close></div>
   <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="instTitle">
     <div class="sheet-bar"><div class="grab"></div><button class="x-btn" data-close aria-label="Tutup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
-    <div class="inst-hero"><span class="logo" data-logo></span><div><b id="instTitle">Pasang Kas Kita</b><small>Ikon akan muncul di layar utama HP.</small></div></div>
+    <div class="inst-hero"><span class="logo" data-logo></span><div><b id="instTitle">Pasang KAS GIANYAR</b><small>Ikon akan muncul di layar utama HP.</small></div></div>
     <p id="instIntro" style="margin:0 0 6px;color:var(--muted)"></p>
     <ol class="steps" id="instSteps"></ol>
     <button class="btn primary" data-close>Mengerti</button>
@@ -422,7 +422,7 @@ function toast(msg, err){ const t=$('#toast'); t.textContent=msg; t.className='t
 const configured = () => /^https:\/\/script\.google\.com\//.test(API_URL);
 
 async function api(action, extra={}){
-  if (!configured()) throw new Error('API_URL belum diisi di index.html');
+  if (!configured()) throw new Error('API_URL belum diisi di kas.html');
   const res = await fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
     body: JSON.stringify({ action, key:API_KEY, user:state.user, ...extra }) });
   if (!res.ok) throw new Error('Server tidak merespons ('+res.status+')');
@@ -728,7 +728,7 @@ function waitForPrompt(ms){
 
 async function doInstall(e){
   const btn = e && e.currentTarget;
-  if (isStandalone()) return toast('Kas Kita sudah terpasang');
+  if (isStandalone()) return toast('KAS GIANYAR sudah terpasang');
   if (isIOS) return showGuide('ios');
 
   let bip = window.__bip;
@@ -741,7 +741,7 @@ async function doInstall(e){
     window.__bip = null;
     bip.prompt();                   // ⬅️ langsung muncul jendela "Instal" dari Chrome
     const { outcome } = await bip.userChoice;
-    toast(outcome === 'accepted' ? 'Memasang Kas Kita…' : 'Pemasangan dibatalkan');
+    toast(outcome === 'accepted' ? 'Memasang KAS GIANYAR…' : 'Pemasangan dibatalkan');
     updateInstallUI();
     return;
   }
@@ -794,7 +794,7 @@ async function showGuide(kind){
 
 document.querySelectorAll('[data-install]').forEach(b => b.addEventListener('click', doInstall));
 $('#installHide').addEventListener('click', () => { try{ localStorage.setItem(hideKey, Date.now()); }catch(_){} $('#installCard').hidden = true; });
-window.addEventListener('appinstalled', () => { window.__bip = null; updateInstallUI(); toast('Kas Kita terpasang di HP'); });
+window.addEventListener('appinstalled', () => { window.__bip = null; updateInstallUI(); toast('KAS GIANYAR terpasang di HP'); });
 updateInstallUI();
 window.addEventListener('online', () => state.user && load());
 

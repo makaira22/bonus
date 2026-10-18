@@ -1,9 +1,9 @@
 {
-  "name": "Kas Kita — Catatan Uang Masuk & Keluar",
-  "short_name": "Kas Kita",
+  "name": "KAS GIANYAR — Catatan Uang Masuk & Keluar",
+  "short_name": "KAS GIANYAR",
   "description": "Catat uang masuk dan keluar, lengkap dengan foto nota, langsung ke Google Spreadsheet.",
   "lang": "id",
-  "start_url": "./",
+  "start_url": "./kas.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
@@ -29,5 +29,5 @@
       "purpose": "maskable"
     }
   ],
-  "id": "./"
+  "id": "./kas.html"
 }
