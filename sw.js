@@ -1,5 +1,5 @@
 // Naikkan versi ini setiap kali kamu mengubah index.html agar HP mengambil versi baru
-const CACHE = 'kaskita-v2';
+const CACHE = 'kaskita-v3';
 const SHELL = ['./', './index.html', './manifest.json',
   './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
