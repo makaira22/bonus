@@ -12,6 +12,15 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<script>
+  // Ditangkap paling awal supaya tombol "Pasang" bisa langsung memasang
+  window.__bip = null;
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault(); window.__bip = e;
+    document.dispatchEvent(new Event('bip-ready'));
+  });
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -81,6 +90,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:var(--sat);backgrou
 .icon-btn{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:var(--card);border:1px solid var(--line)}
 .icon-btn svg{width:20px;height:20px}
 .spin svg{animation:rot 1s linear infinite}
+.btn-mini.spin{opacity:.6}
 @keyframes rot{to{transform:rotate(360deg)}}
 
 /* Nota-style balance strip */
@@ -368,6 +378,7 @@ main{padding-bottom:calc(var(--sab) + 110px)}
   <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="instTitle">
     <div class="sheet-bar"><div class="grab"></div><button class="x-btn" data-close aria-label="Tutup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
     <div class="inst-hero"><span class="logo" data-logo></span><div><b id="instTitle">Pasang Kas Kita</b><small>Ikon akan muncul di layar utama HP.</small></div></div>
+    <p id="instIntro" style="margin:0 0 6px;color:var(--muted)"></p>
     <ol class="steps" id="instSteps"></ol>
     <button class="btn primary" data-close>Mengerti</button>
   </section>
@@ -691,48 +702,100 @@ function logoSVG(){
 document.querySelectorAll('[data-logo]').forEach(el => el.innerHTML = logoSVG());
 
 /* ---------- install ---------- */
-let deferredPrompt = null;
 const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const inAppBrowser = /FBAN|FBAV|Instagram|Line\/|WhatsApp|; wv\)|TikTok/i.test(navigator.userAgent);
 const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 const hideKey = 'kaskita_install_hide';
 function installDismissed(){ try{ return Date.now() - Number(localStorage.getItem(hideKey)||0) < 3*864e5; }catch(_){ return false; } }
+const canAutoInstall = () => !!window.__bip;
 
 function updateInstallUI(){
-  const can = !isStandalone();
-  $('#installBtn').hidden = !can;
-  $('#hdrInstall').hidden = !can;
-  $('#installCard').hidden = !can || installDismissed();
+  const show = !isStandalone();
+  $('#installBtn').hidden = !show;
+  $('#hdrInstall').hidden = !show;
+  // kartu besar hanya tampil kalau tombolnya PASTI langsung memasang (atau di iPhone)
+  $('#installCard').hidden = !show || installDismissed() || !(canAutoInstall() || isIOS);
 }
-async function doInstall(){
-  if (deferredPrompt) {
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    deferredPrompt = null;
-    if (outcome === 'accepted') toast('Memasang Kas Kita…');
+document.addEventListener('bip-ready', updateInstallUI);
+
+function waitForPrompt(ms){
+  if (window.__bip) return Promise.resolve(window.__bip);
+  return new Promise(res => {
+    const t = setTimeout(() => res(window.__bip), ms);
+    document.addEventListener('bip-ready', () => { clearTimeout(t); res(window.__bip); }, { once:true });
+  });
+}
+
+async function doInstall(e){
+  const btn = e && e.currentTarget;
+  if (isStandalone()) return toast('Kas Kita sudah terpasang');
+  if (isIOS) return showGuide('ios');
+
+  let bip = window.__bip;
+  if (!bip) {                       // tunggu sebentar kalau Chrome belum siap
+    btn && btn.classList.add('spin');
+    bip = await waitForPrompt(2500);
+    btn && btn.classList.remove('spin');
+  }
+  if (bip) {
+    window.__bip = null;
+    bip.prompt();                   // ⬅️ langsung muncul jendela "Instal" dari Chrome
+    const { outcome } = await bip.userChoice;
+    toast(outcome === 'accepted' ? 'Memasang Kas Kita…' : 'Pemasangan dibatalkan');
+    updateInstallUI();
     return;
   }
+  showGuide('android');
+}
+
+/* Kalau Chrome belum mengizinkan pasang otomatis, cari tahu kenapa */
+async function diagnose(){
+  const res = [];
+  if (inAppBrowser) res.push('Halaman dibuka di dalam aplikasi lain (WhatsApp/Instagram/dll). Buka link ini di <b>Google Chrome</b>.');
+  if (!/Chrome|CriOS|SamsungBrowser|Edg/i.test(navigator.userAgent) || /Firefox|FxiOS|OPR|Opera Mini/i.test(navigator.userAgent))
+    res.push('Browser ini tidak mendukung pasang otomatis. Gunakan <b>Google Chrome</b>.');
+  if (!isSecureContext) res.push('Halaman harus dibuka lewat <b>https://</b>.');
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    if (!reg) res.push('File <b>sw.js</b> tidak ditemukan di GitHub. Pastikan ada di folder utama.');
+  } catch(_) {}
+  try {
+    const r = await fetch('manifest.json', { cache:'no-store' });
+    if (!r.ok) throw 0;
+    const m = await r.json();
+    for (const ic of m.icons || []) {
+      const ir = await fetch(ic.src, { cache:'no-store' });
+      if (!ir.ok) res.push(`Ikon <b>${esc(ic.src)}</b> tidak ditemukan di GitHub. Unggah ke folder utama (bukan di dalam folder).`);
+    }
+  } catch(_) { res.push('File <b>manifest.json</b> tidak ditemukan di GitHub. Pastikan ada di folder utama.'); }
+  return res;
+}
+
+async function showGuide(kind){
   const share = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3m0 0L8 7m4-4 4 4M6 11H5v10h14V11h-1"/></svg>';
-  const steps = isIOS ? [
-      'Pastikan halaman ini dibuka di <b>Safari</b>.',
-      `Ketuk tombol <b>Bagikan</b> ${share} di bagian bawah layar.`,
-      'Gulir ke bawah, pilih <b>Tambah ke Layar Utama</b>.',
-      'Ketuk <b>Tambah</b>. Ikon Kas Kita muncul di layar utama.'
-    ] : [
-      'Buka halaman ini di <b>Google Chrome</b>.',
-      'Ketuk menu <b>⋮</b> di pojok kanan atas.',
-      'Pilih <b>Instal aplikasi</b> atau <b>Tambahkan ke layar utama</b>.',
-      'Ketuk <b>Instal</b>. Ikon Kas Kita muncul di layar utama.'
-    ];
+  let intro, steps;
+  if (kind === 'ios') {
+    intro = 'iPhone tidak mengizinkan aplikasi web memasang dirinya otomatis. Ini aturan Apple, jadi caranya lewat Safari:';
+    steps = ['Pastikan halaman ini dibuka di <b>Safari</b>.',
+             `Ketuk tombol <b>Bagikan</b> ${share} di bawah layar.`,
+             'Pilih <b>Tambah ke Layar Utama</b>, lalu ketuk <b>Tambah</b>.'];
+  } else {
+    const issues = await diagnose();
+    intro = issues.length
+      ? 'Chrome belum bisa memasang otomatis karena:'
+      : 'Chrome belum memberi izin pasang otomatis. Biasanya karena aplikasi ini <b>sudah pernah terpasang</b> (cek layar utama / laci aplikasi), atau jendela pasang baru saja ditolak. Coba muat ulang halaman, lalu ketuk Pasang lagi. Bisa juga pasang manual:';
+    steps = issues.length ? issues.concat(['Setelah diperbaiki, muat ulang halaman lalu ketuk <b>Pasang</b> lagi.'])
+      : ['Ketuk menu <b>⋮</b> di pojok kanan atas Chrome.', 'Pilih <b>Instal aplikasi</b> atau <b>Tambahkan ke layar utama</b>.'];
+  }
+  $('#instIntro').innerHTML = intro;
   $('#instSteps').innerHTML = steps.map(t => `<li><span>${t}</span></li>`).join('');
   openLayer('#installSheet');
 }
+
 document.querySelectorAll('[data-install]').forEach(b => b.addEventListener('click', doInstall));
 $('#installHide').addEventListener('click', () => { try{ localStorage.setItem(hideKey, Date.now()); }catch(_){} $('#installCard').hidden = true; });
-window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; updateInstallUI(); });
-window.addEventListener('appinstalled', () => { deferredPrompt = null; updateInstallUI(); toast('Kas Kita terpasang di HP'); });
+window.addEventListener('appinstalled', () => { window.__bip = null; updateInstallUI(); toast('Kas Kita terpasang di HP'); });
 updateInstallUI();
-
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));
 window.addEventListener('online', () => state.user && load());
 
 /* ---------- start ---------- */
