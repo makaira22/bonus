@@ -4,9 +4,9 @@
  *
  * Kolom sheet:  A No. | B Tanggal | C Keterangan | D Tempat | E Qty | F Harga @ |
  *               G Debit | H Kredit | I Saldo | J–N NOTA
- *               NOTA = J–L foto pratinjau, M–N link "Buka nota" yang bisa diklik
+ *               NOTA = link "Buka nota" (arahkan mouse untuk melihat pratinjau)
  *
- * Sudah pernah pakai versi lama (muncul #ERROR!)? Jalankan fungsi perbaikiNota() sekali.
+ * Nota versi lama (#ERROR! atau ada foto di kiri)? Jalankan fungsi perbaikiNota() sekali.
  */
 
 // ⚠️ Harus SAMA PERSIS dengan API_KEY di kas.html
@@ -67,13 +67,15 @@ function list_(sh) {
   const n = last - 1;
   const vals = sh.getRange(2, 1, n, 10).getValues();
   const forms = sh.getRange(2, 10, n, 1).getFormulas();
-  const links = sh.getRange(2, 13, n, 1).getRichTextValues();
+  const linksJ = sh.getRange(2, 10, n, 1).getRichTextValues();
+  const linksM = sh.getRange(2, 13, n, 1).getRichTextValues();
   const tz = Session.getScriptTimeZone();
 
   const rows = [];
   vals.forEach(function (r, i) {
     if (r[2] === '' && r[6] === '' && r[7] === '') return; // baris kosong
-    const notaUrl = (links[i][0] && links[i][0].getLinkUrl()) || extractUrl_(forms[i][0], r[9]);
+    const notaUrl = (linksJ[i][0] && linksJ[i][0].getLinkUrl()) || (linksM[i][0] && linksM[i][0].getLinkUrl())
+      || extractUrl_(forms[i][0], r[9]) || urlFromImage_(forms[i][0]);
     rows.push({
       row: i + 2,
       no: Number(r[0]) || i + 1,
@@ -123,19 +125,17 @@ function writeRow_(sh, row, data, user) {
   }
 }
 
-/** Tulis nota: foto pratinjau di J–L, link yang bisa diklik di M–N */
+/** Tulis nota: satu link "Buka nota" di J–N (digabung) */
 function setNota_(sh, row, id) {
   const viewUrl = 'https://drive.google.com/file/d/' + id + '/view';
   const area = sh.getRange(row, 10, 1, 5);
   area.breakApart().clearContent();
-  sh.getRange(row, 10, 1, 3).merge();
-  sh.getRange(row, 10).setFormula('=IMAGE("https://lh3.googleusercontent.com/d/' + id + '")');
-  sh.getRange(row, 13, 1, 2).merge();
-  sh.getRange(row, 13).setRichTextValue(
+  area.merge();
+  sh.getRange(row, 10).setRichTextValue(
     SpreadsheetApp.newRichTextValue().setText('Buka nota').setLinkUrl(viewUrl).build()
   );
   area.setHorizontalAlignment('center').setVerticalAlignment('middle');
-  sh.setRowHeight(row, 90);
+  sh.setRowHeight(row, 21);
 }
 
 function clearNota_(sh, row) {
@@ -146,13 +146,17 @@ function clearNota_(sh, row) {
 }
 
 function getNotaUrl_(sh, row) {
-  const rt = sh.getRange(row, 13).getRichTextValue();
-  const link = rt && rt.getLinkUrl();
-  if (link) return link;
   const j = sh.getRange(row, 10);
-  const fromJ = extractUrl_(j.getFormula(), j.getValue());
-  if (fromJ) return fromJ;
-  const m = String(j.getFormula()).match(/googleusercontent\.com\/d\/([-\w]{20,})/);
+  const linkJ = j.getRichTextValue() && j.getRichTextValue().getLinkUrl();
+  if (linkJ) return linkJ;
+  const m = sh.getRange(row, 13).getRichTextValue();          // format lama
+  const linkM = m && m.getLinkUrl();
+  if (linkM) return linkM;
+  return extractUrl_(j.getFormula(), j.getValue()) || urlFromImage_(j.getFormula());
+}
+
+function urlFromImage_(formula) {
+  const m = String(formula || '').match(/googleusercontent\.com\/d\/([-\w]{20,})/);
   return m ? 'https://drive.google.com/file/d/' + m[1] + '/view' : '';
 }
 
@@ -266,7 +270,7 @@ function json_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
 
-/** Perbaiki nota lama yang tampil #ERROR! menjadi foto pratinjau + link. Jalankan sekali. */
+/** Ubah semua nota lama (#ERROR! / foto di kiri) menjadi satu link "Buka nota". Jalankan sekali. */
 function perbaikiNota() {
   let total = 0;
   USERS.forEach(function (u) {
