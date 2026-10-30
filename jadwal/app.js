@@ -251,8 +251,6 @@ window.addEventListener('online', () => { if (CABANG && !state.blocked) load(); 
 const VIEWS = [
   ['today','Hari ini',      r => r.tanggal === today()],
   ['tomorrow','Besok',      r => r.tanggal === addDays(today(),1)],
-  ['week','7 hari ke depan',r => r.tanggal >= today() && r.tanggal < addDays(today(),7)],
-  ['upcoming','Mendatang',  r => r.tanggal >= today()],
   ['range','Rentang',       r => r.tanggal >= state.range.from && r.tanggal <= state.range.to],
   ['all','Semua',           () => true]
 ];
