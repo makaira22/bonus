@@ -1,7 +1,7 @@
 // Service worker bersama untuk semua cabang JADWAL (scope: folder /jadwal/)
 // Naikkan versi ini setiap kali kamu mengubah app.js / app.css
 const PREFIX = 'jadwal-';
-const CACHE = PREFIX + 'v4';
+const CACHE = PREFIX + 'v5';
 const BASE = self.registration.scope;                          // .../jadwal/
 const SHARED = ['app.js', 'app.css', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'].map(u => BASE + u);
 
