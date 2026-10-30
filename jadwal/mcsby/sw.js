@@ -1,6 +1,6 @@
 // Service worker MC Surabaya (scope: folder /jadwal/mcsby/)
 const PREFIX = 'mcsby-';
-const CACHE = PREFIX + 'v1';
+const CACHE = PREFIX + 'v2';
 const BASE = self.registration.scope;
 const SHELL = ['index.html', 'manifest.json', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'].map(u => BASE + u);
 

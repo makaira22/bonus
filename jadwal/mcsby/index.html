@@ -230,6 +230,24 @@ input[type="date"].inp,input[type="time"].inp{appearance:none;-webkit-appearance
 .msg{white-space:pre-wrap;font-family:var(--body);font-size:13.5px;line-height:1.5;background:var(--sunk);border-radius:var(--r-md);padding:14px;margin:14px 0 10px;max-height:300px;overflow:auto}
 .share{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .btn.wa{background:#1FA855;color:#fff}
+.job{cursor:pointer}
+.acts2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;margin-top:10px}
+.acts2 .mini{justify-content:center;padding:0 6px;gap:5px;font-size:12.5px;white-space:nowrap;overflow:hidden;min-width:0}
+.acts2 .mini svg{width:15px;height:15px;flex:none}
+.mini{height:36px;padding:0 13px;border-radius:999px;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:6px}
+.mini svg{width:16px;height:16px}
+.mini.wa{background:#1FA855;color:#fff}
+.mini.wcl{background:var(--accent-soft);color:var(--accent)}
+.share3{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.share3 .btn.ghost{grid-column:1/-1;height:44px}
+.cl-row{display:grid;grid-template-columns:1fr 1fr 46px;gap:8px;margin-bottom:8px}
+.cl-row .inp{height:46px;min-width:0}
+.cl-row .x-btn{width:46px;height:46px;border-radius:var(--r-md);background:var(--danger-soft);color:var(--danger)}
+.pick-cl{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.pick-cl .t{flex:1;min-width:0}
+.pick-cl .t b{display:block}
+.pick-cl .t small{color:var(--muted)}
+.pick-cl .tag{margin-left:6px}
 .btn.accent{background:var(--accent);color:var(--accent-ink)}
 .contact{grid-template-columns:repeat(2,1fr)}
 
@@ -244,6 +262,8 @@ input[type="date"].inp,input[type="time"].inp{appearance:none;-webkit-appearance
     <div class="acts">
       <button class="icon-btn" id="hdrInstall" data-install aria-label="Pasang aplikasi" hidden>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-4-4m4 4 4-4M5 21h14"/></svg></button>
+      <button class="icon-btn" id="clBtn" aria-label="Daftar cleaner">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5a6.5 6.5 0 0 1 3.5 5.5"/></svg></button>
       <button class="icon-btn" id="refreshBtn" aria-label="Muat ulang">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg></button>
     </div>
@@ -297,7 +317,7 @@ input[type="date"].inp,input[type="time"].inp{appearance:none;-webkit-appearance
 
     <div class="sec">Customer</div>
     <label class="field"><span>Nama <em class="req">*</em></span><input class="inp" id="fNama" autocomplete="off" placeholder="Contoh: Bu Yoga"></label>
-    <label class="field"><span>No. WhatsApp <small style="font-weight:500">(opsional, untuk kirim pesan langsung)</small></span><input class="inp num" id="fWa" type="tel" inputmode="tel" autocomplete="off" placeholder="08xxxxxxxxxx"></label>
+    <label class="field"><span>No. WhatsApp customer</span><input class="inp num" id="fWa" type="tel" inputmode="tel" autocomplete="off" placeholder="08xxxxxxxxxx"></label>
     <label class="field"><span>Alamat</span><textarea class="inp" id="fAlamat" rows="3" placeholder="Jalan, blok, nomor, kelurahan, kecamatan, kota"></textarea></label>
     <label class="field"><span>Email</span><input class="inp" id="fEmail" type="email" inputmode="email" autocomplete="off" placeholder="opsional"></label>
 
@@ -309,6 +329,9 @@ input[type="date"].inp,input[type="time"].inp{appearance:none;-webkit-appearance
       <label class="field"><span>Daya listrik</span><div class="suffix"><input class="inp num" id="fDaya" inputmode="numeric" placeholder="0" autocomplete="off"><i>Watt</i></div></label>
     </div>
     <datalist id="merkList"></datalist>
+
+    <div class="sec">Cleaner <button type="button" id="fClManage">Atur daftar</button></div>
+    <div class="pick" id="fCleaners"></div>
 
     <div class="sec">Pembayaran</div>
     <div class="seg" id="fBayar"><button type="button" data-v="Transfer">Transfer only</button><button type="button" data-v="Cash">Cash</button></div>
@@ -328,6 +351,34 @@ input[type="date"].inp,input[type="time"].inp{appearance:none;-webkit-appearance
       <button class="btn danger" id="delBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>Hapus</button>
       <button class="btn ghost" id="editBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>Edit</button>
     </div>
+  </section>
+</div>
+
+<!-- DAFTAR CLEANER -->
+<div class="sheet-wrap" id="clSheet" hidden>
+  <div class="backdrop" data-close></div>
+  <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="clTitle">
+    <div class="sheet-bar"><div class="grab"></div><button class="x-btn" data-close aria-label="Tutup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <h2 id="clTitle">Daftar cleaner</h2>
+    <p style="margin:0 0 14px;color:var(--muted)">Nama dan No. WA dipakai untuk tombol <b>WA Cleaner</b>.</p>
+    <div id="clList"></div>
+    <div class="cl-row">
+      <input class="inp" id="clNewNama" placeholder="Nama" autocomplete="off">
+      <input class="inp num" id="clNewWa" type="tel" inputmode="tel" placeholder="08xxxxxxxx" autocomplete="off">
+      <button class="x-btn" id="clAdd" aria-label="Tambah" style="background:var(--accent);color:var(--accent-ink)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+    </div>
+    <button class="btn primary" id="clSave">Simpan daftar</button>
+  </section>
+</div>
+
+<!-- PILIH CLEANER UNTUK DIKIRIMI WA -->
+<div class="sheet-wrap" id="sendSheet" hidden>
+  <div class="backdrop" data-close></div>
+  <section class="sheet" role="dialog" aria-modal="true">
+    <div class="sheet-bar"><div class="grab"></div><button class="x-btn" data-close aria-label="Tutup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <h2>Kirim ke cleaner</h2>
+    <p style="margin:0 0 6px;color:var(--muted)" id="sendInfo"></p>
+    <div id="sendList"></div>
   </section>
 </div>
 
@@ -387,7 +438,7 @@ const $ = s => document.querySelector(s);
 const CACHE_KEY = 'mcsby_cache_v1';
 const HARI = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
 const X_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
-const state = { rows:[], view:'today', range:{from:'',to:''}, q:'', loading:false, editing:null, current:null, bayar:'Transfer' };
+const state = { rows:[], cleaners:[], formCl:[], clDraft:[], view:'today', range:{from:'',to:''}, q:'', loading:false, editing:null, current:null, bayar:'Transfer' };
 
 /* ---------- utils ---------- */
 const pad = n => String(n).padStart(2,'0');
@@ -404,7 +455,7 @@ const shortDate = s => toDate(s).toLocaleDateString('id-ID',{day:'numeric',month
 const monthKey = s => s.slice(0,7);
 const monthName = (k, opt={month:'long',year:'numeric'}) => { const [y,m] = k.split('-').map(Number); return new Date(y,m-1,1).toLocaleDateString('id-ID',opt); };
 function dayLabel(s){ const b = `${HARI[toDate(s).getDay()]}, ${fmtDate(s)}`; return s===today() ? 'Hari ini · '+b : s===addDays(today(),1) ? 'Besok · '+b : b; }
-function waNumber(t){ let d = String(t||'').replace(/\D/g,''); if (d.startsWith('0')) d = '62'+d.slice(1); return d; }
+function waNumber(t){ let d = String(t||'').replace(/\D/g,''); if (d.startsWith('0')) d = '62'+d.slice(1); else if (d.startsWith('8')) d = '62'+d; return d; }
 
 let toastT;
 function toast(msg, err){ const t=$('#toast'); t.textContent=msg; t.className='toast show'+(err?' err':''); clearTimeout(toastT); toastT=setTimeout(()=>t.className='toast'+(err?' err':''),2800); }
@@ -418,7 +469,7 @@ async function api(action, extra={}){
   if (!j.ok) throw new Error(j.error || 'Terjadi kesalahan');
   return j.data;
 }
-function apply(d){ state.rows = d.rows || []; try{ localStorage.setItem(CACHE_KEY, JSON.stringify({rows:state.rows})); }catch(_){} render(); }
+function apply(d){ state.rows = d.rows || []; state.cleaners = d.cleaners || []; try{ localStorage.setItem(CACHE_KEY, JSON.stringify({rows:state.rows, cleaners:state.cleaners})); }catch(_){} render(); }
 
 /* ---------- pesan WhatsApp (format sama dengan template) ---------- */
 function pesan(r){
@@ -436,6 +487,55 @@ function pesan(r){
     `*Total :* ${Math.round(r.total).toLocaleString('id-ID')}`, '',
     ...REKENING
   ].join('\n');
+}
+const mapsLink = r => r.alamat ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(r.alamat) : '';
+/** Pesan untuk cleaner: detail tugas + kontak & lokasi customer */
+function pesanCleaner(r, nama){
+  return [
+    `Halo ${nama}, ada jadwal order mesin cuci:`, '',
+    `*No. Pemesanan :* ${r.no}`, '',
+    `*Nama :* ${r.nama}`,
+    `*No. WA Customer :* ${r.wa || '-'}`,
+    `*Alamat :* ${r.alamat}`,
+    ...(r.alamat ? [`*Lokasi :* ${mapsLink(r)}`] : []),
+    `*Pesanan :* ${r.pesanan}`,
+    `*Merk :* ${r.merk}`,
+    `*Waktu :* ${r.waktu}`,
+    `*Tanggal:* ${fmtDate(r.tanggal)}`,
+    `*Daya Listrik* ${r.daya ? Number(r.daya).toLocaleString('id-ID') : '          '} *Watt*`,
+    `*Cleaner :* ${(r.cleaners||[]).join(', ') || nama}`,
+    `*Pembayaran :* ${TEKS_BAYAR[r.bayar] || TEKS_BAYAR.Transfer}`, '',
+    `*Total :* ${Math.round(r.total).toLocaleString('id-ID')}`, '',
+    ...REKENING
+  ].join('\n');
+}
+function openWA(number, text){
+  const url = 'https://wa.me/' + (number ? waNumber(number) : '') + '?text=' + encodeURIComponent(text);
+  window.open(url, '_blank', 'noopener');
+}
+function waCustomer(r){
+  if (!r.wa) toast('No. WhatsApp customer belum diisi. Pilih kontaknya di WhatsApp, atau isi lewat Edit.', true);
+  openWA(r.wa, pesan(r));
+}
+function waCleaner(r){
+  const assigned = (r.cleaners||[]).map(n => state.cleaners.find(c => c.nama === n) || { nama:n, wa:'' });
+  if (assigned.length === 1 && assigned[0].wa) return openWA(assigned[0].wa, pesanCleaner(r, assigned[0].nama));
+  // lebih dari satu / belum dipilih / belum ada nomor -> tampilkan pilihan
+  const others = state.cleaners.filter(c => !assigned.some(a => a.nama === c.nama));
+  const list = [...assigned.map(c => ({...c, tugas:true})), ...others];
+  $('#sendInfo').textContent = assigned.length
+    ? `Order ${r.no} (${r.nama}). Cleaner yang ditugaskan ada di paling atas.`
+    : `Order ${r.no} (${r.nama}) belum punya cleaner. Pilih cleaner yang akan dikirimi.`;
+  $('#sendList').innerHTML = list.length ? list.map((c,i) => `<div class="pick-cl">
+      <span class="t"><b>${esc(c.nama)}${c.tugas?'<span class="tag cl">Ditugaskan</span>':''}</b><small class="num">${esc(c.wa || 'No. WA belum diisi')}</small></span>
+      <button class="mini wa" data-i="${i}">${'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l1.7-5A8.5 8.5 0 1 1 8 19.3z"/></svg>'}Kirim</button></div>`).join('')
+    : '<div class="hint" style="margin-top:10px">Belum ada daftar cleaner. Ketuk ikon orang di atas untuk menambah nama dan No. WA.</div>';
+  $('#sendList').onclick = e => {
+    const b = e.target.closest('[data-i]'); if (!b) return;
+    const c = list[Number(b.dataset.i)];
+    openWA(c.wa, pesanCleaner(r, c.nama));
+  };
+  openLayer('#sendSheet');
 }
 async function copyText(t){
   try { await navigator.clipboard.writeText(t); return true; }
@@ -512,16 +612,17 @@ function render(skeleton){
       cur = r.tanggal;
       html += `<div class="day"><div class="day-h"><b>${esc(dayLabel(cur))}</b><span>${rows.filter(x=>x.tanggal===cur).length} order</span></div>`;
     }
-    html += `<button class="job" data-id="${esc(r.id)}">
+    html += `<div class="job" role="button" tabindex="0" data-id="${esc(r.id)}">
       <span class="time"><b class="num">${esc(r.waktu||'--.--')}</b><small class="no num">${esc(r.no)}</small></span>
       <span class="mid">
         <span class="cust" style="display:block">${esc(r.nama)}</span>
         ${r.pesanan?`<span class="ord" style="display:block">${esc(r.pesanan)}</span>`:''}
         ${r.alamat?`<span class="addr" style="display:block">${esc(r.alamat)}</span>`:''}
         <span class="paytxt num" style="display:block">${rp(r.total)} <small>${r.bayar==='Cash'?'Cash':'Transfer'}</small></span>
-        <span class="tags">${r.merk?`<span class="tag cl">${esc(r.merk)}</span>`:''}${r.daya?`<span class="tag">${Number(r.daya).toLocaleString('id-ID')} Watt</span>`:''}</span>
+        <span class="tags">${(r.cleaners||[]).map(c=>`<span class="tag cl">${esc(c)}</span>`).join('') || '<span class="tag none">Belum ada cleaner</span>'}${r.merk?`<span class="tag">${esc(r.merk)}</span>`:''}${r.daya?`<span class="tag">${Number(r.daya).toLocaleString('id-ID')} Watt</span>`:''}</span>
+        <span class="acts2"><button class="mini wa" data-act="wac"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l1.7-5A8.5 8.5 0 1 1 8 19.3z"/></svg>WA Customer</button><button class="mini wcl" data-act="wcl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l1.7-5A8.5 8.5 0 1 1 8 19.3z"/></svg>WA Cleaner</button></span>
       </span>
-    </button>`;
+    </div>`;
   }
   list.innerHTML = html + '</div>';
 }
@@ -529,7 +630,14 @@ function pickView(e){ const b = e.target.closest('.chip'); if (!b) return; if (b
 $('#chips').addEventListener('click', pickView);
 $('#months').addEventListener('click', pickView);
 $('#q').addEventListener('input', e => { state.q = e.target.value; render(); });
-$('#list').addEventListener('click', e => { const b=e.target.closest('.job'); if(b) openDetail(b.dataset.id); });
+$('#list').addEventListener('click', e => {
+  const card = e.target.closest('.job'); if (!card) return;
+  const r = state.rows.find(x => x.id === card.dataset.id); if (!r) return;
+  const act = e.target.closest('[data-act]');
+  if (act) { e.stopPropagation(); return act.dataset.act === 'wac' ? waCustomer(r) : waCleaner(r); }
+  openDetail(r.id);
+});
+$('#list').addEventListener('keydown', e => { const c = e.target.closest('.job'); if (c && (e.key==='Enter'||e.key===' ') && !e.target.closest('[data-act]')) { e.preventDefault(); openDetail(c.dataset.id); } });
 
 /* ---------- sheets ---------- */
 const stack = [];
@@ -578,14 +686,21 @@ function openDetail(id, fromForm){
     <h2 style="margin:6px 0 2px"><span class="d-time num">${esc(r.waktu||'--.--')}</span> ${esc(r.nama)}</h2>
     <div style="color:var(--muted);font-size:13.5px">${esc(HARI[toDate(r.tanggal).getDay()])}, ${esc(fmtDate(r.tanggal))}</div>
     <div class="msg" id="msgBox">${esc(pesan(r))}</div>
-    <div class="share">
-      <button class="btn accent" id="copyBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>Salin pesan</button>
-      <a class="btn wa" style="text-decoration:none" href="https://wa.me/${r.wa?waNumber(r.wa):''}?text=${encodeURIComponent(pesan(r))}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l1.7-5A8.5 8.5 0 1 1 8 19.3z"/></svg>Kirim WA</a>
+    <div class="share3">
+      <button class="btn wa" id="dWaC"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l1.7-5A8.5 8.5 0 1 1 8 19.3z"/></svg>WA Customer</button>
+      <button class="btn accent" id="dWaCl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l1.7-5A8.5 8.5 0 1 1 8 19.3z"/></svg>WA Cleaner</button>
+      <button class="btn ghost" id="copyBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>Salin pesan customer</button>
     </div>
+    <dl class="dl">
+      <div><dt>Cleaner</dt><dd>${(r.cleaners||[]).length ? esc(r.cleaners.join(', ')) : '—'}</dd></div>
+      <div><dt>No. WA customer</dt><dd class="num">${esc(r.wa||'—')}</dd></div>
+    </dl>
     <div class="contact">
       <a class="${r.wa?'':'off'}" href="tel:${esc(String(r.wa).replace(/[^\d+]/g,''))}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>Telepon</a>
       <a class="${maps?'':'off'}" href="${maps}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>Peta</a>
     </div>`;
+  $('#dWaC').addEventListener('click', () => waCustomer(r));
+  $('#dWaCl').addEventListener('click', () => waCleaner(r));
   $('#copyBtn').addEventListener('click', async () => toast(await copyText(pesan(r)) ? 'Pesan disalin. Tinggal tempel di WhatsApp.' : 'Gagal menyalin. Tekan lama teks pesan untuk menyalin.', false));
   fromForm ? swapLayer('#detailSheet') : openLayer('#detailSheet');
 }
@@ -603,8 +718,24 @@ function setBayar(v){ state.bayar = v; document.querySelectorAll('#fBayar button
 $('#fBayar').addEventListener('click', e => { const b=e.target.closest('button'); if(b) setBayar(b.dataset.v); });
 $('#fTotal').addEventListener('input', e => { const d=e.target.value.replace(/\D/g,''); e.target.value = d ? Number(d).toLocaleString('id-ID') : ''; });
 $('#fDaya').addEventListener('input', e => { const d=e.target.value.replace(/\D/g,''); e.target.value = d ? Number(d).toLocaleString('id-ID') : ''; });
+const CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg>';
+function renderPick(){
+  const names = [...new Set([...state.cleaners.map(c=>c.nama), ...state.formCl])];
+  $('#fCleaners').innerHTML = names.map(n => `<button type="button" data-n="${esc(n)}" aria-pressed="${state.formCl.includes(n)}">${CHECK}${esc(n)}</button>`).join('')
+    + `<button type="button" class="add" id="fClAdd">+ Tambah cleaner</button>`;
+}
+$('#fCleaners').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.id === 'fClAdd') return openCleaners();
+  const n = b.dataset.n;
+  state.formCl = state.formCl.includes(n) ? state.formCl.filter(x=>x!==n) : [...state.formCl, n];
+  b.setAttribute('aria-pressed', state.formCl.includes(n));
+});
+$('#fClManage').addEventListener('click', () => openCleaners());
 function openForm(r, fromDetail){
   state.editing = r || null;
+  state.formCl = r ? [...(r.cleaners||[])] : [];
+  renderPick();
   $('#formTitle').textContent = r ? 'Edit order' : 'Order baru';
   $('#formNo').textContent = r ? 'No. Pemesanan ' + r.no : 'No. Pemesanan dibuat otomatis dari tanggal';
   $('#fTanggal').value = r ? r.tanggal : today();
@@ -630,7 +761,7 @@ $('#saveBtn').addEventListener('click', async () => {
     tanggal: $('#fTanggal').value, waktu: $('#fWaktu').value.replace(':','.'),
     nama: $('#fNama').value.trim(), wa: $('#fWa').value.trim(), alamat: $('#fAlamat').value.trim(), email: $('#fEmail').value.trim(),
     pesanan: $('#fPesanan').value.trim(), merk: $('#fMerk').value.trim(), daya: parseNum($('#fDaya').value),
-    bayar: state.bayar, total: parseNum($('#fTotal').value)
+    bayar: state.bayar, total: parseNum($('#fTotal').value), cleaners: state.formCl
   };
   const btn = $('#saveBtn'), label = btn.textContent; btn.disabled = true; btn.textContent = 'Menyimpan…';
   try {
@@ -642,6 +773,32 @@ $('#saveBtn').addEventListener('click', async () => {
   } catch(err){ toast(navigator.onLine ? err.message : 'Tidak ada internet. Coba lagi saat online.', true); }
   finally { btn.disabled = false; btn.textContent = label; }
 });
+
+/* ---------- daftar cleaner ---------- */
+function openCleaners(){ state.clDraft = state.cleaners.map(c => ({...c})); renderClList(); $('#clNewNama').value=''; $('#clNewWa').value=''; openLayer('#clSheet'); }
+function renderClList(){
+  $('#clList').innerHTML = state.clDraft.length
+    ? state.clDraft.map((c,i) => `<div class="cl-row"><input class="inp" data-i="${i}" data-f="nama" value="${esc(c.nama)}" placeholder="Nama" autocomplete="off"><input class="inp num" data-i="${i}" data-f="wa" type="tel" inputmode="tel" value="${esc(c.wa)}" placeholder="08xxxxxxxx" autocomplete="off"><button class="x-btn" data-del="${i}" aria-label="Hapus ${esc(c.nama)}">${X_SVG}</button></div>`).join('')
+    : '<div class="hint" style="margin-bottom:10px">Belum ada cleaner. Tambahkan nama dan No. WA di bawah.</div>';
+}
+$('#clList').addEventListener('input', e => { const i = e.target.dataset.i; if (i != null) state.clDraft[i][e.target.dataset.f] = e.target.value; });
+$('#clList').addEventListener('click', e => { const b = e.target.closest('[data-del]'); if (!b) return; state.clDraft.splice(Number(b.dataset.del),1); renderClList(); });
+function addCl(){ const n = $('#clNewNama').value.trim(); if (!n) return $('#clNewNama').focus(); state.clDraft.push({ nama:n, wa:$('#clNewWa').value.trim() }); $('#clNewNama').value=''; $('#clNewWa').value=''; renderClList(); $('#clNewNama').focus(); }
+$('#clAdd').addEventListener('click', addCl);
+$('#clNewWa').addEventListener('keydown', e => { if (e.key==='Enter') { e.preventDefault(); addCl(); } });
+$('#clSave').addEventListener('click', async () => {
+  if ($('#clNewNama').value.trim()) addCl();
+  const old = state.cleaners.map(c=>c.nama);
+  const list = state.clDraft.map(c => ({ nama:String(c.nama||'').trim(), wa:String(c.wa||'').trim() })).filter(c => c.nama);
+  const btn = $('#clSave'); btn.disabled = true; btn.textContent = 'Menyimpan…';
+  try {
+    apply(await api('setCleaners', { list }));
+    const names = list.map(c=>c.nama);   // ikut ganti nama yang sedang dipilih di form kalau namanya diubah
+    state.formCl = state.formCl.map(n => { const i = old.indexOf(n); return i>-1 && names[i] && !names.includes(n) ? names[i] : n; });
+    renderPick(); closeLayer(); toast('Daftar cleaner disimpan');
+  } catch(e){ toast(e.message, true); } finally { btn.disabled = false; btn.textContent = 'Simpan daftar'; }
+});
+$('#clBtn').addEventListener('click', openCleaners);
 
 /* ---------- logo ---------- */
 let logoN = 0;
@@ -694,7 +851,7 @@ window.addEventListener('appinstalled', () => { window.__bip = null; updateInsta
 $('#cfgWarn').hidden = configured();
 updateInstallUI();
 (() => { let c = null; try { c = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); } catch(_) {}
-  if (c) { state.rows = c.rows || []; render(); } else render(true); load(); })();
+  if (c) { state.rows = c.rows || []; state.cleaners = c.cleaners || []; render(); } else render(true); load(); })();
 </script>
 </body>
 </html>
