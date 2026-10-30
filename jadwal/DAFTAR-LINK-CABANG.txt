@@ -1,0 +1,21 @@
+DAFTAR LINK JADWAL PER CABANG
+Ganti "namakamu.github.io/namarepo" dengan alamat GitHub Pages kamu.
+
+Gianyar    : https://namakamu.github.io/namarepo/jadwal/jadwal.html
+Surabaya   : https://namakamu.github.io/namarepo/jadwal/sbyw33/
+Malang     : https://namakamu.github.io/namarepo/jadwal/mlghxa/
+Bojonegoro : https://namakamu.github.io/namarepo/jadwal/bjnggj/
+Gresik     : https://namakamu.github.io/namarepo/jadwal/grsv6y/
+Makassar   : https://namakamu.github.io/namarepo/jadwal/mksxkc/
+Denpasar   : https://namakamu.github.io/namarepo/jadwal/dpscb3/
+Tabanan    : https://namakamu.github.io/namarepo/jadwal/tbnxsr/
+Samarinda  : https://namakamu.github.io/namarepo/jadwal/smdavh/
+Balikpapan : https://namakamu.github.io/namarepo/jadwal/bpp5nf/
+Kediri     : https://namakamu.github.io/namarepo/jadwal/kdr3ca/
+
+MENAMBAH CABANG BARU
+1. Di GitHub: salin salah satu folder cabang (isinya index.html + manifest.json), beri nama folder = kode baru.
+2. Di sheet CABANG spreadsheet utama: tambah baris KODE | NAMA CABANG | (kosongkan) | EMAIL CABANG.
+
+MENCABUT AKSES CABANG
+Hapus barisnya di sheet CABANG (atau ganti kodenya). Link lama langsung terkunci.

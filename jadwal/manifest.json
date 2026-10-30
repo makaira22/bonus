@@ -1,18 +1,33 @@
 {
   "id": "./jadwal.html",
-  "name": "JADWAL — Jadwal Cleaner",
+  "name": "JADWAL Gianyar",
   "short_name": "JADWAL",
-  "description": "Atur jadwal cleaner, customer, dan pembayaran langsung ke Google Spreadsheet.",
+  "description": "Jadwal cleaner cabang Gianyar.",
   "lang": "id",
   "start_url": "./jadwal.html",
-  "scope": "./",
+  "scope": "./jadwal.html",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#F4F6F3",
   "theme_color": "#13894A",
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }

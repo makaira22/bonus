@@ -1,7 +1,16 @@
 /**
- * JADWAL — Backend Google Apps Script
- * Tempel di: Spreadsheet jadwal > Extensions > Apps Script > Code.gs
+ * JADWAL — Backend Google Apps Script (MULTI CABANG)
+ * Tempel di: Spreadsheet JADWAL utama > Extensions > Apps Script > Code.gs
  *
+ * Satu script ini melayani SEMUA cabang. Daftar cabang ada di sheet "CABANG" (di spreadsheet utama ini):
+ *   A KODE (= nama folder di GitHub, mis. sbyw33) | B NAMA CABANG | C SPREADSHEET | D EMAIL CABANG
+ *   Kolom C:  "ini"  = pakai spreadsheet utama ini
+ *             kosong = otomatis dibuatkan spreadsheet baru saat cabang pertama kali membuka aplikasi
+ *             atau tempel link / ID spreadsheet cabang yang sudah ada
+ *   Kolom D:  email cabang (opsional). Spreadsheet yang dibuat otomatis langsung dibagikan ke email ini
+ *             sebagai Editor. Isi belakangan? Jalankan bagikanSpreadsheetCabang().
+ *
+ * Di spreadsheet tiap cabang:
  * Sheet "JADWAL"  : A Nomor | B DATE | C JAM | D NAMA CLEANER | E NO. TELP | F LEMBUR | G PESANAN |
  *                   H ADS | I NAMA CUSTOMER | J ALAMAT | K KM | L PEM. CASH | M PEM. TRANSFER |
  *                   N JENIS PAYMENT | O ID (disembunyikan, jangan dihapus)
@@ -11,10 +20,26 @@
  * dan Nomor dihitung ulang per hari.
  */
 
-// ⚠️ Harus SAMA PERSIS dengan API_KEY di jadwal.html
+// ⚠️ Harus SAMA PERSIS dengan API_KEY di app.js
 const SECRET = 'KUNCITERBATASKLINKLIN2525';
 
 const SHEET = 'JADWAL';
+const CABANG_SHEET = 'CABANG';
+// Daftar cabang. Dipakai saat sheet CABANG dibuat / diatur ulang (fungsi aturUlangCabang).
+// [KODE di link, NAMA CABANG, SPREADSHEET ('ini' / kosong = otomatis dibuat / link), EMAIL CABANG (opsional)]
+const DEFAULT_CABANG = [
+  ['jadwal', 'Gianyar',    'ini', ''],      // link lama: .../jadwal/jadwal.html
+  ['sbyw33', 'Surabaya',   'https://docs.google.com/spreadsheets/d/1aHM97cF7qPyXSPAZospf2AJp1viLRz3Ppm4dqUUD7Gc/edit', 'klinklin.surabaya@gmail.com'],
+  ['mlghxa', 'Malang',     'https://docs.google.com/spreadsheets/d/1dueVfO7XUkq-vqal-J7qBh7z73jHGK7n3pEd7VggXFA/edit', 'klinklin.malang@gmail.com'],
+  ['bjnggj', 'Bojonegoro', 'https://docs.google.com/spreadsheets/d/1waDfSuG05Q7WHpDdJiLyWQBjnhtJ1FXmNGacKnbLG98/edit', 'klinklin.bojonegoro@gmail.com'],
+  ['grsv6y', 'Gresik',     'https://docs.google.com/spreadsheets/d/1OhA3rITaKBVXtMwDUARNnYBAMkJ7aoAaWVJA-NQApvQ/edit', 'klinklin.gresik@gmail.com'],
+  ['mksxkc', 'Makassar',   'https://docs.google.com/spreadsheets/d/1RKltEVOMWQqIzcdshpNSqJSE0BfK-mPw91OIsAhYCeA/edit', 'klinklin.makassar@gmail.com'],
+  ['dpscb3', 'Denpasar',   'https://docs.google.com/spreadsheets/d/1XVg0QCYnNxx1ZUAVrJwLWLqwVvq9QYedlaswP_dIWtg/edit', 'klinklin.bali@gmail.com'],
+  ['tbnxsr', 'Tabanan',    'https://docs.google.com/spreadsheets/d/1XzFXZNM23vq8y2jfYb5ZLhmh8vZ8Zp4D5n_5IoK1LNM/edit', 'klinklin.tabanan@gmail.com'],
+  ['smdavh', 'Samarinda',  'https://docs.google.com/spreadsheets/d/1GbBhFhhCseK0cuAtHnqpoxnOceyt7cUd9kp7tWXK7bA/edit', 'klinklin.samarinda@gmail.com'],
+  ['bpp5nf', 'Balikpapan', 'https://docs.google.com/spreadsheets/d/1vufpOAUNTduaTI3TZbJJHGQSRjOFkSj1kZhMI4u_FjQ/edit', 'klinklin.balikpapan@gmail.com'],
+  ['kdr3ca', 'Kediri',     'https://docs.google.com/spreadsheets/d/1cneC_ipiBmMe1pPJNnV3qAU7xjki_NcaGncrIdV3Bio/edit', 'klinklin.kediri@gmail.com']
+];
 const CLEANER_SHEET = 'CLEANER';
 const HEADERS = ['Nomor', 'DATE', 'JAM', 'NAMA CLEANER', 'NO. TELP', 'LEMBUR', 'PESANAN', 'ADS',
   'NAMA CUSTOMER', 'ALAMAT', 'KM', 'PEM. CASH', 'PEM. TRANSFER', 'JENIS PAYMENT', 'ID'];
@@ -33,8 +58,10 @@ function doPost(e) {
   const lock = LockService.getScriptLock();
   try {
     const req = JSON.parse(e.postData.contents);
-    if (req.key !== SECRET) throw new Error('Kunci API tidak cocok. Samakan SECRET di Code.gs dengan API_KEY di jadwal.html.');
-    const sh = getSheet_();
+    if (req.key !== SECRET) throw new Error('Kunci API tidak cocok. Samakan SECRET di Code.gs dengan API_KEY di app.js.');
+    const cab = getCabang_(req.cabang);
+    const ss = cab.ss;
+    const sh = getSheet_(ss);
     if (req.action !== 'list') lock.waitLock(25000);
 
     let rows;
@@ -60,14 +87,15 @@ function doPost(e) {
         writeAll_(sh, rows.filter(function (r) { return r.id !== req.id; }));
         break;
       case 'setCleaners':
-        setCleaners_(req.names || []);
+        setCleaners_(ss, req.names || []);
         break;
       default:
         throw new Error('Aksi tidak dikenal: ' + req.action);
     }
-    return json_({ ok: true, data: { rows: readAll_(sh), cleaners: getCleaners_() } });
+    return json_({ ok: true, data: { rows: readAll_(sh), cleaners: getCleaners_(ss), cabang: cab.nama } });
   } catch (err) {
-    return json_({ ok: false, error: String(err && err.message ? err.message : err) });
+    const msg = String(err && err.message ? err.message : err);
+    return json_({ ok: false, error: msg, code: /^CABANG:/.test(msg) ? 'cabang' : '' });
   } finally {
     try { lock.releaseLock(); } catch (_) {}
   }
@@ -104,7 +132,9 @@ function readAll_(sh) {
 }
 
 function clean_(d, id) {
-  if (!d || !d.tanggal) throw new Error('Tanggal wajib diisi.');
+  if (!d || !d.tanggal) throw new Error('Tanggal pengerjaan wajib diisi.');
+  if (!String(d.customer || '').trim()) throw new Error('Nama customer wajib diisi.');
+  if (!(Number(d.nominal) > 0)) throw new Error('Nominal pembayaran wajib diisi.');
   const bayar = d.bayar === 'transfer' ? 'transfer' : 'cash';
   const nominal = Math.round(Number(d.nominal) || 0);
   return {
@@ -174,28 +204,130 @@ function writeAll_(sh, rows) {
 
 /* ============================ CLEANER ============================ */
 
-function getCleaners_() {
-  const sh = getCleanerSheet_();
+function getCleaners_(ss) {
+  const sh = getCleanerSheet_(ss);
   const last = sh.getLastRow();
   if (last < 2) return [];
   return sh.getRange(2, 1, last - 1, 1).getValues()
     .map(function (r) { return String(r[0]).trim(); }).filter(String);
 }
 
-function setCleaners_(names) {
+function setCleaners_(ss, names) {
   const seen = {};
   const list = names.map(function (s) { return String(s).trim(); })
     .filter(function (s) { if (!s || seen[s.toLowerCase()]) return false; seen[s.toLowerCase()] = 1; return true; });
-  const sh = getCleanerSheet_();
+  const sh = getCleanerSheet_(ss);
   const last = sh.getLastRow();
   if (last >= 2) sh.getRange(2, 1, last - 1, 1).clearContent();
   if (list.length) sh.getRange(2, 1, list.length, 1).setValues(list.map(function (s) { return [s]; }));
 }
 
+/* ============================ CABANG ============================ */
+
+function getCabangSheet_() {
+  const master = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = master.getSheetByName(CABANG_SHEET);
+  if (sh) return sh;
+  sh = master.insertSheet(CABANG_SHEET);
+  writeCabang_(sh, DEFAULT_CABANG);
+  return sh;
+}
+
+function writeCabang_(sh, rows) {
+  sh.clear();
+  sh.getRange(1, 1, 1, 4).setValues([['KODE', 'NAMA CABANG', 'SPREADSHEET', 'EMAIL CABANG']])
+    .setFontWeight('bold').setBackground('#ffff00');
+  sh.getRange(2, 1, rows.length, 4).setNumberFormat('@').setValues(rows);
+  sh.setColumnWidth(1, 110); sh.setColumnWidth(2, 140); sh.setColumnWidth(3, 420); sh.setColumnWidth(4, 220);
+  sh.setFrozenRows(1);
+}
+
+/** Jalankan SEKALI: menulis ulang sheet CABANG sesuai DEFAULT_CABANG di atas,
+ *  lalu menyiapkan sheet JADWAL & CLEANER di setiap spreadsheet cabang dan membagikannya ke email cabang. */
+function aturUlangCabang() {
+  const master = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = master.getSheetByName(CABANG_SHEET);
+  const lama = {};
+  if (sh && sh.getLastRow() >= 2) {
+    sh.getRange(2, 1, sh.getLastRow() - 1, 4).getValues().forEach(function (r) {
+      lama[String(r[0]).trim().toLowerCase()] = { ss: String(r[2] || '').trim(), email: String(r[3] || '').trim() };
+    });
+  }
+  if (!sh) sh = master.insertSheet(CABANG_SHEET);
+  const rows = DEFAULT_CABANG.map(function (r) {
+    const o = lama[r[0]] || {};
+    return [r[0], r[1], r[2] || o.ss || '', r[3] || o.email || ''];
+  });
+  writeCabang_(sh, rows);
+  const gagal = [];
+  rows.forEach(function (r) {
+    try {
+      const cab = getCabang_(r[0]);
+      getSheet_(cab.ss); getCleanerSheet_(cab.ss);
+      if (String(r[2]).toLowerCase() !== 'ini') shareTo_(cab.ss, r[3], cab.nama);
+    } catch (e) { gagal.push(r[1] + ': ' + e.message); }
+  });
+  Logger.log('Sheet CABANG berisi ' + rows.length + ' cabang.' + (gagal.length ? '\nBELUM BISA DIBUKA:\n' + gagal.join('\n') : '\nSemua spreadsheet cabang siap.'));
+}
+
+/** Bagikan setiap spreadsheet cabang ke email di kolom D (sebagai Editor). Aman dijalankan berulang. */
+function bagikanSpreadsheetCabang() {
+  const sh = getCabangSheet_();
+  sh.getRange(2, 1, sh.getLastRow() - 1, 4).getValues().forEach(function (r) {
+    if (!r[0] || !String(r[3]).trim() || String(r[2]).trim().toLowerCase() === 'ini') return;
+    const cab = getCabang_(r[0]);
+    shareTo_(cab.ss, r[3], cab.nama);
+  });
+}
+
+function shareTo_(ss, emails, nama) {
+  String(emails || '').split(/[,;\s]+/).filter(String).forEach(function (em) {
+    try { ss.addEditor(em); } catch (e) { Logger.log('Gagal membagikan ' + nama + ' ke ' + em + ': ' + e.message); }
+  });
+}
+
+/** Cari cabang dari kode di link. Kode salah = ditolak. */
+function getCabang_(kode) {
+  kode = String(kode || '').trim().toLowerCase();
+  if (!kode) throw new Error('CABANG: Buka aplikasi lewat link cabang.');
+  const sh = getCabangSheet_();
+  const last = sh.getLastRow();
+  const vals = last >= 2 ? sh.getRange(2, 1, last - 1, 4).getValues() : [];
+  for (let i = 0; i < vals.length; i++) {
+    if (String(vals[i][0]).trim().toLowerCase() !== kode) continue;
+    const nama = String(vals[i][1] || kode).trim();
+    let ref = String(vals[i][2] || '').trim();
+    let ss;
+    if (ref.toLowerCase() === 'ini') {
+      ss = SpreadsheetApp.getActiveSpreadsheet();
+    } else if (ref) {
+      const m = ref.match(/\/d\/([-\w]{25,})/);
+      try { ss = SpreadsheetApp.openById(m ? m[1] : ref); }
+      catch (e) { throw new Error('Spreadsheet cabang ' + nama + ' tidak bisa dibuka. Cek link/ID di sheet CABANG.'); }
+    } else {
+      ss = SpreadsheetApp.create('JADWAL - ' + nama);          // otomatis buat spreadsheet baru
+      getSheet_(ss); getCleanerSheet_(ss);
+      const def = ss.getSheetByName('Sheet1') || ss.getSheetByName('Lembar1');
+      if (def && ss.getSheets().length > 1) ss.deleteSheet(def);
+      sh.getRange(i + 2, 3).setValue(ss.getUrl());
+      shareTo_(ss, vals[i][3], nama);                          // bagikan ke email cabang (kalau diisi)
+    }
+    return { ss: ss, nama: nama };
+  }
+  throw new Error('CABANG: Link cabang tidak dikenal. Minta link yang benar ke admin.');
+}
+
+/** Jalankan dari editor kalau ingin langsung membuat semua spreadsheet cabang yang kolom C-nya masih kosong */
+function buatSemuaSpreadsheetCabang() {
+  const sh = getCabangSheet_();
+  const vals = sh.getRange(2, 1, Math.max(sh.getLastRow() - 1, 1), 4).getValues();
+  vals.forEach(function (r) { if (r[0] && !String(r[2]).trim()) getCabang_(r[0]); });
+  Logger.log('Selesai. Link spreadsheet tiap cabang ada di sheet CABANG kolom C.');
+}
+
 /* ============================ HELPERS ============================ */
 
-function getSheet_() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+function getSheet_(ss) {
   let sh = ss.getSheetByName(SHEET);
   if (sh) return sh;
   sh = ss.insertSheet(SHEET);
@@ -211,8 +343,7 @@ function getSheet_() {
   return sh;
 }
 
-function getCleanerSheet_() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+function getCleanerSheet_(ss) {
   let sh = ss.getSheetByName(CLEANER_SHEET);
   if (sh) return sh;
   sh = ss.insertSheet(CLEANER_SHEET);
@@ -236,9 +367,11 @@ function pad_(n) { return (n < 10 ? '0' : '') + n; }
 function parseDate_(s) { const p = String(s).split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); }
 function json_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 
-/** Jalankan SEKALI dari editor untuk memberi izin & membuat sheet JADWAL + CLEANER */
+/** Jalankan SEKALI dari editor untuk memberi izin & membuat sheet CABANG, JADWAL, CLEANER */
 function setup() {
-  getSheet_();
-  getCleanerSheet_();
-  Logger.log('Siap! Sheet JADWAL dan CLEANER sudah dibuat.');
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  getCabangSheet_();
+  getSheet_(ss);
+  getCleanerSheet_(ss);
+  Logger.log('Siap! Cek sheet CABANG untuk daftar kode & cabang.');
 }
